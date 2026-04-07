@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Script from "next/script";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getService, services } from "@/lib/content";
+import { getService, visibleServices as services } from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
 
 export function generateStaticParams() {
@@ -16,9 +17,17 @@ export async function generateMetadata({
   const { category } = await params;
   const s = getService(category);
   if (!s) return {};
+  const url = `https://julianperezphotography.com/services/${s.slug}`;
   return {
     title: `${s.title} · Pricing`,
     description: s.description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${s.title} · Pricing`,
+      description: s.description,
+      url,
+      type: "website",
+    },
   };
 }
 
@@ -31,8 +40,43 @@ export default async function ServiceCategoryPage({
   const s = getService(category);
   if (!s) notFound();
 
+  const serviceJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: `${s.title} Photography`,
+    serviceType: `${s.title} Photography`,
+    description: s.description,
+    url: `https://julianperezphotography.com/services/${s.slug}`,
+    provider: {
+      "@type": "LocalBusiness",
+      "@id": "https://julianperezphotography.com#business",
+    },
+    areaServed: [
+      { "@type": "AdministrativeArea", name: "Northern Virginia" },
+      { "@type": "AdministrativeArea", name: "Washington, DC" },
+      { "@type": "AdministrativeArea", name: "Maryland" },
+    ],
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: `${s.title} Packages`,
+      itemListElement: s.packages.map((p) => ({
+        "@type": "Offer",
+        name: p.name,
+        price: p.price.replace(/[^0-9.]/g, "") || undefined,
+        priceCurrency: "USD",
+        description: p.tagline,
+      })),
+    },
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+      <Script
+        id={`ld-service-${s.slug}`}
+        type="application/ld+json"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
+      />
       <Link
         href="/services"
         className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"

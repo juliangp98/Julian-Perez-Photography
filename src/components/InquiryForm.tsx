@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { services } from "@/lib/content";
+import { visibleServices as services } from "@/lib/content";
 
 type Status = "idle" | "submitting" | "success" | "error";
 

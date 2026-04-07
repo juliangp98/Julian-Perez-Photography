@@ -18,37 +18,132 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
+const SITE_URL = "https://julianperezphotography.com";
+const DEFAULT_DESCRIPTION =
+  "Julian Perez Photography — DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://julianperezphotography.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: `${siteSettings.siteName} · DMV Wedding & Portrait Photographer`,
+    default: `${siteSettings.siteName} · DMV Wedding, Portrait & Event Photographer`,
     template: `%s · ${siteSettings.siteName}`,
   },
-  description: siteSettings.tagline,
+  description: DEFAULT_DESCRIPTION,
+  applicationName: siteSettings.siteName,
+  authors: [{ name: "Julian Perez" }],
+  creator: "Julian Perez",
+  publisher: "Julian Perez Photography",
+  keywords: [
+    "DMV wedding photographer",
+    "Northern Virginia wedding photographer",
+    "DC wedding photographer",
+    "Maryland wedding photographer",
+    "Arlington photographer",
+    "engagement photographer DMV",
+    "graduation photographer DC",
+    "National Mall graduation photos",
+    "family photographer Northern Virginia",
+    "maternity photographer DMV",
+    "corporate headshots Arlington",
+    "corporate event photographer DC",
+    "Julian Perez Photography",
+  ],
+  alternates: { canonical: SITE_URL },
   openGraph: {
-    title: siteSettings.siteName,
-    description: siteSettings.tagline,
-    url: "https://julianperezphotography.com",
+    title: `${siteSettings.siteName} · DMV Wedding, Portrait & Event Photographer`,
+    description: DEFAULT_DESCRIPTION,
+    url: SITE_URL,
     siteName: siteSettings.siteName,
+    locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: siteSettings.siteName,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: siteSettings.siteName,
-    description: siteSettings.tagline,
+    title: `${siteSettings.siteName} · DMV Photographer`,
+    description: DEFAULT_DESCRIPTION,
+    images: ["/og.jpg"],
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  category: "Photography",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const ga4 = siteSettings.analytics.ga4Id;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `${SITE_URL}#business`,
+    name: siteSettings.siteName,
+    image: `${SITE_URL}/og.jpg`,
+    url: SITE_URL,
+    email: siteSettings.contactEmail,
+    description: DEFAULT_DESCRIPTION,
+    priceRange: "$$",
+    address: {
+      "@type": "PostalAddress",
+      addressRegion: "VA",
+      addressCountry: "US",
+      addressLocality: "Arlington",
+    },
+    areaServed: [
+      { "@type": "City", name: "Arlington" },
+      { "@type": "City", name: "Washington" },
+      { "@type": "AdministrativeArea", name: "Northern Virginia" },
+      { "@type": "AdministrativeArea", name: "Maryland" },
+      { "@type": "AdministrativeArea", name: "Washington, DC" },
+    ],
+    sameAs: [
+      siteSettings.social.instagram,
+      siteSettings.social.facebook,
+      siteSettings.social.youtube,
+    ].filter(Boolean),
+    makesOffer: [
+      "Wedding Photography",
+      "Engagement Photography",
+      "Graduation Photography",
+      "Portrait Photography",
+      "Family Event Photography",
+      "Maternity Photography",
+      "Corporate Headshots",
+      "Corporate Event Photography",
+      "Brand & Promotional Photography",
+    ].map((name) => ({
+      "@type": "Offer",
+      itemOffered: { "@type": "Service", name },
+    })),
+  };
   return (
     <html
       lang="en"
       className={`${inter.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Script
+          id="ld-localbusiness"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <Nav />
         <main className="flex-1">{children}</main>
         <Footer />

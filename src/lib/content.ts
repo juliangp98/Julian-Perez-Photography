@@ -11,8 +11,8 @@ export const siteSettings: SiteSettings = {
   contactEmail: "juliangperez98@gmail.com",
   coverageArea: "Based in NOVA · Serving the DMV",
   bookingStatus: "Booking 2026–2027",
-  // TODO: replace with Julian's actual Square Appointments booking URL
-  bookingUrl: "https://squareup.com/appointments/book",
+  bookingUrl:
+    "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services",
   // Pic-Time client delivery portal — where booked clients view/download their galleries.
   clientGalleryUrl: "https://julianperezphotography.pic-time.com/client",
   paymentPreferences:
@@ -333,6 +333,7 @@ export const services: ServiceCategory[] = [
   {
     slug: "modeling",
     title: "Modeling",
+    hidden: true,
     tagline: "Test shoots, digitals, and portfolio-builders.",
     description:
       "Digitals, test shoots, and editorial work for working and aspiring models.",
@@ -407,8 +408,8 @@ export const services: ServiceCategory[] = [
       {
         name: "Milestone",
         tagline: "The full day — for groups you rarely get in one place",
-        price: "$975",
-        duration: "3 hours",
+        price: "$950",
+        duration: "4 hours",
         inclusions: [
           "Any group size",
           "Multiple locations",
@@ -421,8 +422,8 @@ export const services: ServiceCategory[] = [
       {
         name: "Celebration",
         tagline: "Full event coverage for birthdays, reunions, and parties",
-        price: "$675",
-        duration: "2 hours",
+        price: "$650",
+        duration: "3 hours",
         featured: true,
         inclusions: [
           "Up to 20 people",
@@ -436,7 +437,7 @@ export const services: ServiceCategory[] = [
         name: "Gathering",
         tagline: "Shorter sessions for intimate family moments",
         price: "$450",
-        duration: "90 minutes",
+        duration: "2 hours",
         inclusions: [
           "Up to 10 people",
           "1–2 locations",
@@ -646,7 +647,89 @@ export const services: ServiceCategory[] = [
     pricingNote:
       "Need video alongside stills? I've started taking on select video projects — ask about combined coverage.",
   },
+  {
+    slug: "promotional",
+    title: "Brand & Promotional",
+    tagline: "Photography for studios, small businesses, and apartment communities.",
+    description:
+      "Promo content for fitness and yoga studios, apartment-community events, and small businesses across the DMV.",
+    intro: [
+      "If your business needs a steady stream of photos that actually look like your space, your people, and your vibe — that's what this category is for. I've shot fitness and yoga classes for promo, instructor portraits, and community events at apartment buildings (outdoor happy hours, holiday parties, flea markets) that double as marketing content for the property.",
+      "Every shoot is built around how you'll actually use the photos: social posts, web hero images, flyers, leasing decks, instructor headshots, recap reels — whatever the channel calls for. I'll plan a shot list with you ahead of time so we get the social-ready selects fast and the full gallery shortly after.",
+      "Pick the package below that fits the scope of your event or campaign — and reach out if you're running an ongoing series, since recurring schedules get a discounted rate.",
+    ],
+    packages: [
+      {
+        name: "Promo Half-Day",
+        tagline: "Multi-class days, full apartment events, or full-vendor flea markets",
+        price: "$1,200",
+        duration: "4 hours",
+        inclusions: [
+          "Full event or studio coverage",
+          "150+ edited photos",
+          "Same-day social selects (up to 15)",
+          "1-week full gallery delivery",
+          "Commercial usage rights",
+        ],
+      },
+      {
+        name: "Community Event",
+        tagline: "Apartment happy hours, holiday parties, and resident events",
+        price: "$750",
+        duration: "3 hours",
+        featured: true,
+        inclusions: [
+          "Full event documentation",
+          "Resident candids + atmosphere shots",
+          "Vendor and decor coverage",
+          "100+ edited photos",
+          "Same-day social selects (up to 10)",
+          "Commercial usage rights",
+        ],
+      },
+      {
+        name: "Class / Workshop Shoot",
+        tagline: "Single fitness or yoga class with action + portraits of the instructor",
+        price: "$450",
+        duration: "90 minutes",
+        inclusions: [
+          "In-class action coverage",
+          "Instructor portraits",
+          "Studio interior + branded detail shots",
+          "40+ edited photos",
+          "Commercial usage rights",
+        ],
+      },
+      {
+        name: "Brand Mini",
+        tagline: "Quick instructor or storefront promo session",
+        price: "$300",
+        duration: "45 minutes",
+        inclusions: [
+          "1 location",
+          "20+ edited photos",
+          "Headshot + lifestyle frames",
+          "48-hour turnaround",
+          "Commercial usage rights",
+        ],
+      },
+    ],
+    addOns: [
+      { name: "Same-day edited social selects", price: "$150" },
+      { name: "Vertical reels / BTS clips", price: "$200" },
+      { name: "Branded photo-booth corner (logo backdrop)", price: "$300" },
+      { name: "Extra hour of coverage", price: "$200" },
+      { name: "Rush gallery delivery (24 hours)", price: "$150" },
+    ],
+    pricingNote:
+      "Recurring schedules — monthly classes, quarterly resident events — get a discounted rate. Ask about a retainer.",
+  },
 ];
+
+// Visible-only helpers — used by nav, listings, sitemap, generateStaticParams.
+// Hidden categories stay in the source array so we don't lose the content,
+// but they get excluded from anything indexable or user-facing.
+export const visibleServices = services.filter((s) => !s.hidden);
 
 // Portfolio galleries. Placeholder images until Julian exports originals from
 // Adobe Portfolio and drops them into /public/portfolio/<slug>/.
@@ -685,6 +768,7 @@ export const portfolios: PortfolioCategory[] = [
     description: "Test shoots, portfolios, and editorial work.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
+    hidden: true,
   },
   {
     slug: "family",
@@ -714,12 +798,24 @@ export const portfolios: PortfolioCategory[] = [
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
+  {
+    slug: "promotional",
+    title: "Brand & Promotional",
+    description:
+      "Studios, instructor portraits, apartment community events, and small-business promo.",
+    coverImage: "/portfolio/placeholder.svg",
+    images: [],
+  },
 ];
 
+export const visiblePortfolios = portfolios.filter((p) => !p.hidden);
+
 export function getService(slug: string) {
-  return services.find((s) => s.slug === slug);
+  const s = services.find((s) => s.slug === slug);
+  return s && !s.hidden ? s : undefined;
 }
 
 export function getPortfolio(slug: string) {
-  return portfolios.find((p) => p.slug === slug);
+  const p = portfolios.find((p) => p.slug === slug);
+  return p && !p.hidden ? p : undefined;
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPortfolio, portfolios } from "@/lib/content";
+import { getPortfolio, visiblePortfolios as portfolios } from "@/lib/content";
 
 export function generateStaticParams() {
   return portfolios.map((p) => ({ category: p.slug }));

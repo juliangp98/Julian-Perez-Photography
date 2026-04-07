@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { portfolios, services, siteSettings } from "@/lib/content";
+import type { Metadata } from "next";
+import {
+  visiblePortfolios as portfolios,
+  visibleServices as services,
+  siteSettings,
+} from "@/lib/content";
+
+export const metadata: Metadata = {
+  title: `${siteSettings.siteName} · DMV Wedding, Portrait & Event Photographer`,
+  description:
+    "DMV-based photographer covering weddings, engagements, graduations, portraits, family events, maternity, headshots, and corporate events across Northern Virginia, Washington DC, and Maryland.",
+  alternates: { canonical: "https://julianperezphotography.com" },
+};
 
 export default function HomePage() {
   return (

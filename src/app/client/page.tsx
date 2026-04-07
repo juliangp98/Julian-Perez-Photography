@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Client Galleries",
   description:
     "Access your Pic-Time client gallery to view, download, and order prints.",
+  robots: { index: false, follow: false },
 };
 
 export default function ClientGalleriesPage() {

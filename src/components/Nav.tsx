@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { services, portfolios, siteSettings } from "@/lib/content";
+import {
+  visibleServices as services,
+  visiblePortfolios as portfolios,
+  siteSettings,
+} from "@/lib/content";
 
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);

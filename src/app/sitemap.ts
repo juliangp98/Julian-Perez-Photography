@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
-import { services, portfolios } from "@/lib/content";
+import {
+  visibleServices as services,
+  visiblePortfolios as portfolios,
+} from "@/lib/content";
 
 const BASE = "https://julianperezphotography.com";
 

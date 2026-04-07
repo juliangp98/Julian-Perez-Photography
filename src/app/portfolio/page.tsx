@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { portfolios } from "@/lib/content";
+import { visiblePortfolios as portfolios } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Portfolio",

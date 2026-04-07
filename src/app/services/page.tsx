@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { services } from "@/lib/content";
+import { visibleServices as services } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Services & Pricing",

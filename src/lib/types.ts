@@ -7,7 +7,8 @@ export type ServiceSlug =
   | "family"
   | "maternity"
   | "corporate-headshots"
-  | "corporate-events";
+  | "corporate-events"
+  | "promotional";
 
 export type PortfolioSlug = ServiceSlug;
 
@@ -39,6 +40,7 @@ export type ServiceCategory = {
   packages: Package[];
   addOns?: AddOn[];
   pricingNote?: string;
+  hidden?: boolean; // If true, excluded from nav/listings/sitemap/static params.
 };
 
 export type PortfolioCategory = {
@@ -47,6 +49,7 @@ export type PortfolioCategory = {
   description: string;
   coverImage: string;
   images: { src: string; alt: string }[];
+  hidden?: boolean;
 };
 
 export type SiteSettings = {
