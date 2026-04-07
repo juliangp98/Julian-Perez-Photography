@@ -1,65 +1,128 @@
-import Image from "next/image";
+import Link from "next/link";
+import { portfolios, services, siteSettings } from "@/lib/content";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      {/* Hero */}
+      <section className="border-b border-[var(--border)]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
+          <div className="max-w-3xl">
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              {siteSettings.coverageArea} · {siteSettings.bookingStatus}
+            </div>
+            <h1 className="mt-6 font-serif text-5xl lg:text-7xl leading-[1.05]">
+              {siteSettings.tagline}
+            </h1>
+            <p className="mt-6 text-lg text-[var(--muted)] max-w-xl">
+              Wedding, engagement, graduation, portrait, and event photography
+              across the DMV — built around who you are, not a shot list.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Link
+                href="/portfolio"
+                className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+              >
+                View portfolio
+              </Link>
+              <Link
+                href="/inquire"
+                className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
+              >
+                Inquire
+              </Link>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </section>
+
+      {/* Services teaser */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+        <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              Services
+            </div>
+            <h2 className="mt-2 font-serif text-4xl">What I photograph</h2>
+          </div>
+          <Link
+            href="/services"
+            className="text-sm underline underline-offset-4"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            See all services &amp; pricing →
+          </Link>
         </div>
-      </main>
-    </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {services.slice(0, 6).map((s) => (
+            <Link
+              key={s.slug}
+              href={`/services/${s.slug}`}
+              className="group border border-[var(--border)] rounded-lg p-6 bg-white hover:border-[var(--foreground)] transition"
+            >
+              <h3 className="font-serif text-2xl">{s.title}</h3>
+              <p className="mt-2 text-sm text-[var(--muted)]">{s.tagline}</p>
+              <div className="mt-6 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                Explore →
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Portfolio teaser */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20 border-t border-[var(--border)]">
+        <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              Portfolio
+            </div>
+            <h2 className="mt-2 font-serif text-4xl">Recent work</h2>
+          </div>
+          <Link
+            href="/portfolio"
+            className="text-sm underline underline-offset-4"
+          >
+            View all portfolios →
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {portfolios.slice(0, 6).map((p) => (
+            <Link
+              key={p.slug}
+              href={`/portfolio/${p.slug}`}
+              className="aspect-[4/5] bg-[var(--border)]/40 rounded-lg flex items-end p-5 relative overflow-hidden group"
+            >
+              <span className="font-serif text-xl text-[var(--foreground)]">
+                {p.title}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="border-t border-[var(--border)]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
+          <h2 className="font-serif text-4xl max-w-2xl mx-auto">
+            Let&rsquo;s make something you&rsquo;ll actually want to hang on the
+            wall.
+          </h2>
+          <div className="mt-8 flex justify-center gap-4">
+            <Link
+              href="/inquire"
+              className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
+            >
+              Start an inquiry
+            </Link>
+            <Link
+              href="/book"
+              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+            >
+              Book a session
+            </Link>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

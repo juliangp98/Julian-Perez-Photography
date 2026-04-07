@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    container_name: julian-perez-photography
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Inquiry form email delivery (leave blank to log inquiries instead)
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-Julian Perez Photography <onboarding@resend.dev>}
+      - INQUIRY_TO=${INQUIRY_TO:-juliangperez98@gmail.com}

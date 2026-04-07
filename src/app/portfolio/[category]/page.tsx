@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { getPortfolio, portfolios } from "@/lib/content";
+
+export function generateStaticParams() {
+  return portfolios.map((p) => ({ category: p.slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}): Promise<Metadata> {
+  const { category } = await params;
+  const p = getPortfolio(category);
+  if (!p) return {};
+  return { title: p.title, description: p.description };
+}
+
+export default async function PortfolioCategoryPage({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}) {
+  const { category } = await params;
+  const p = getPortfolio(category);
+  if (!p) notFound();
+
+  return (
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+      <Link
+        href="/portfolio"
+        className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+      >
+        ← All portfolios
+      </Link>
+      <h1 className="mt-4 font-serif text-5xl">{p.title}</h1>
+      <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
+
+      {p.images.length === 0 ? (
+        <div className="mt-16 p-10 border border-dashed border-[var(--border)] rounded-lg text-center">
+          <p className="text-[var(--muted)]">
+            Gallery coming soon — images will be added once exported from the
+            previous site.
+          </p>
+          <Link
+            href={`/services/${p.slug}`}
+            className="inline-block mt-6 px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
+          >
+            View {p.title.toLowerCase()} pricing
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-12 columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]">
+          {p.images.map((img, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={img.src}
+              alt={img.alt}
+              className="mb-4 w-full rounded break-inside-avoid"
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}

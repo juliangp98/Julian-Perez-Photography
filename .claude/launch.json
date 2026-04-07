@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Next.js dev",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "PATH=/Users/julianperez/.nvm/versions/node/v22.22.2/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "/Users/julianperez/.nvm/versions/node/v22.22.2/bin/node",
+        "./node_modules/next/dist/bin/next",
+        "dev"
+      ],
+      "port": 3000
+    }
+  ]
+}
