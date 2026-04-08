@@ -117,7 +117,7 @@ export const services: ServiceCategory[] = [
       "Every package below includes a private online gallery, full print release, and a 72-hour sneak peek so you can start sharing before the last dance.",
     ],
     comboNote:
-      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Celebrating an anniversary or planning a vow renewal? Those live on the [Family Celebrations](/services/family-celebrations) page. Let's create some magic together.",
+      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Celebrating an anniversary or planning a vow renewal? See the dedicated package below — same documentary approach, scaled to the day you're planning.",
     packages: [
       {
         name: "Platinum",
@@ -171,10 +171,24 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Mini",
-        tagline: "Give your elopement or civil ceremony the full treatment",
+        tagline: "Elopements, civil ceremonies, and intimate ceremonies",
         price: "$800",
         duration: "Ceremony + portraits + newlywed shots",
         inclusions: ["100+ edited photos", "Solo photographer"],
+      },
+      {
+        name: "Vow Renewal & Anniversary",
+        tagline: "A second 'I do' or a milestone anniversary, fully covered",
+        price: "$1,400",
+        duration: "Ceremony + portraits + reception (up to 4 hours)",
+        inclusions: [
+          "Ceremony or vow-renewal coverage",
+          "Couple + family portraits",
+          "Reception or celebration dinner",
+          "150+ edited photos",
+          "10-photo sneak peek within 72 hours",
+          "Online gallery with print release",
+        ],
       },
     ],
     addOns: [
@@ -452,9 +466,9 @@ export const services: ServiceCategory[] = [
     title: "Family Celebrations",
     tagline: "Birthdays, reunions, and the ones you'll want to remember.",
     description:
-      "Documentary coverage for 1st birthdays, baby showers, gender reveals, anniversaries, reunions, and milestone family parties.",
+      "Documentary coverage for 1st birthdays, baby showers, gender reveals, reunions, and milestone family parties.",
     intro: [
-      "Family celebrations deserve the same documentary eye as a wedding. Whether it's a 1st birthday, a baby shower, a gender reveal, a 25th wedding anniversary, a backyard reunion, or a milestone you've been waiting years to celebrate together — I treat every family event like a mini wedding. Full coverage, gentle direction for the group shots, and the kind of candids that get sent around the family group chat for years.",
+      "Family celebrations deserve the same documentary eye as a wedding. Whether it's a 1st birthday, a baby shower, a gender reveal, a backyard reunion, or a milestone you've been waiting years to celebrate together — I treat every family event like a mini wedding. Full coverage, gentle direction for the group shots, and the kind of candids that get sent around the family group chat for years.",
       "I'll arrive early enough to get the setup details (cake, decor, table settings) before guests show up, then shift into documentary mode as the party fills out. You get the stress-free version of the event: be present with your people, and I'll handle the rest.",
       "Pick the length of coverage below that fits the gathering — from a focused two-hour celebration to a full day-of milestone.",
     ],
@@ -884,12 +898,12 @@ export const services: ServiceCategory[] = [
     slug: "corporate-community-events",
     umbrella: "brand-events",
     title: "Corporate & Community Events",
-    tagline: "Conferences, galas, festivals, concerts — covered.",
+    tagline: "Conferences, galas, receptions — covered.",
     description:
-      "Conferences, galas, festivals, concerts, receptions, and community events across the DMV.",
+      "Conferences, galas, receptions, and community events across the DMV.",
     intro: [
-      "Corporate and community events deserve the same documentary eye as weddings. I cover the keynote and the grip-and-grins, but I also hunt down the unscripted moments — the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, the artist soundchecking before doors, residents catching up over a beer at the apartment happy hour.",
-      "From multi-day conferences, speaker panels, and nonprofit galas to outdoor festivals, live concerts, balls, corporate receptions, social-club anniversary dinners, federal and advocacy receptions, apartment-community happy hours, holiday parties, product launches, and resident flea markets — if it's a live event with people in a room, this is the right page. Same-day social-media selects are available on request so your marketing team can post while the event is still live, with full gallery delivery within a week.",
+      "Corporate and community events deserve the same documentary eye as weddings. I cover the keynote and the grip-and-grins, but I also seek out the unscripted moments — the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, residents catching up over a beer at the apartment happy hour.",
+      "From multi-day conferences, speaker panels, and nonprofit galas to balls, corporate receptions, social-club anniversary dinners, and Hill receptions, all the way to apartment-community happy hours, holiday parties, and pop-up markets — if it's a live event with people in a room, this is the right page. Same-day social-media selects are available on request so your marketing team can post while the event is just winding down, with full gallery delivery within a week.",
       "Pick the length of coverage below that fits your program — from a focused half-day to multi-day conference runs.",
     ],
     packages: [
@@ -951,8 +965,87 @@ export const services: ServiceCategory[] = [
       { name: "Same-day edited social selects", price: "$150" },
       { name: "Branded photo-booth corner (logo backdrop)", price: "$400" },
     ],
+    comboNote:
+      "Booking a live music show, a band's set, or a stage performance instead? That coverage lives on the [Concerts & Performances page](/services/concerts-performances).",
     pricingNote:
       "Recurring schedules — monthly community events, quarterly conferences — get a discounted rate. Need video alongside stills? I've started taking on select video projects — ask about combined coverage.",
+  },
+  {
+    slug: "concerts-performances",
+    umbrella: "brand-events",
+    title: "Concerts & Performances",
+    tagline: "Stage lights, sweat, and the song you didn't want to end.",
+    description:
+      "Live concerts, band sets, recitals, and stage performances across the DMV.",
+    intro: [
+      "Concert and performance photography is its own discipline — fast-changing light, unpredictable movement, and a single chance to catch the moment the crowd loses it. I shoot the headliner and the openers, the soundcheck and the load-out, the front-row faces and the bassist's grin three songs in.",
+      "Whether you're a touring artist passing through DC, a local band playing your album release, a venue building a year-end recap, or an organizer documenting a recital, showcase, or stage performance — I'll work with your stage manager and lighting crew so I'm never in the way of the show. Same-day social selects are available so your team can post while people are still talking about the set.",
+      "Pick the package below that fits the run of the show — single set, full bill, or multi-night residency.",
+    ],
+    comboNote:
+      "Coverage for the brand or venue side of the night (sponsor activations, lobby photo wall, VIP meet-and-greet posed shots) lives on the [Brand & Commercial Content](/services/brand-commercial) page. If your event is more reception or gala than concert, [Corporate & Community Events](/services/corporate-community-events) is the right fit.",
+    packages: [
+      {
+        name: "Multi-Night Residency",
+        tagline: "Multi-night runs, festivals, and full tours stops",
+        price: "Custom quote",
+        inclusions: [
+          "Dedicated photographer across the run",
+          "Daily social selects delivered overnight",
+          "Crowd, stage, and backstage coverage",
+          "Full gallery + tour-ready exports",
+        ],
+      },
+      {
+        name: "Full Bill",
+        tagline: "All openers + headliner, doors to load-out",
+        price: "$950",
+        duration: "Up to 6 hours",
+        featured: true,
+        inclusions: [
+          "Full event documentation",
+          "All performing acts covered",
+          "Crowd + atmosphere shots",
+          "200+ edited photos",
+          "Same-day social selects (up to 15)",
+          "1-week full gallery delivery",
+        ],
+      },
+      {
+        name: "Headliner Set",
+        tagline: "A focused set on the main performance",
+        price: "$550",
+        duration: "Up to 3 hours (3-song rule respected)",
+        inclusions: [
+          "Headliner set coverage",
+          "Crowd + lighting frames",
+          "100+ edited photos",
+          "Same-day social selects (up to 10)",
+          "1-week full gallery delivery",
+        ],
+      },
+      {
+        name: "Recital / Showcase",
+        tagline: "School recitals, dance showcases, and stage performances",
+        price: "$425",
+        duration: "Up to 2 hours",
+        inclusions: [
+          "Full performance coverage",
+          "Posed group + cast shots",
+          "60+ edited photos",
+          "Online gallery with print release",
+        ],
+      },
+    ],
+    addOns: [
+      { name: "Backstage / green-room coverage", price: "$200" },
+      { name: "Soundcheck coverage", price: "$150" },
+      { name: "Extra hour of coverage", price: "$200" },
+      { name: "Rush gallery delivery (24 hours)", price: "$250" },
+      { name: "Vertical reels / BTS clips", price: "$200" },
+    ],
+    pricingNote:
+      "Press credentials and venue clearance are the artist's or venue's responsibility — I'm happy to coordinate directly with your tour manager or venue contact ahead of the show.",
   },
   {
     slug: "brand-commercial",
@@ -1237,7 +1330,7 @@ export const portfolios: PortfolioCategory[] = [
     umbrella: "family-life",
     title: "Family Celebrations",
     description:
-      "1st birthdays, baby showers, gender reveals, anniversaries, reunions, and milestone parties.",
+      "1st birthdays, baby showers, gender reveals, reunions, and milestone parties.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
@@ -1288,7 +1381,16 @@ export const portfolios: PortfolioCategory[] = [
     umbrella: "brand-events",
     title: "Corporate & Community Events",
     description:
-      "Conferences, galas, festivals, concerts, receptions, and community events.",
+      "Conferences, galas, receptions, and community events.",
+    coverImage: "/portfolio/placeholder.svg",
+    images: [],
+  },
+  {
+    slug: "concerts-performances",
+    umbrella: "brand-events",
+    title: "Concerts & Performances",
+    description:
+      "Live concerts, band sets, recitals, and stage performances.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },

@@ -21,7 +21,7 @@ const playfair = Playfair_Display({
 
 const SITE_URL = "https://julianperezphotography.com";
 const DEFAULT_DESCRIPTION =
-  "Julian Perez Photography — DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
+  "Julian Perez Photography — DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, concert, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -52,6 +52,17 @@ export const metadata: Metadata = {
     "Sweet 16 photographer DC",
     "corporate headshots Arlington",
     "corporate event photographer DC",
+    "corporate reception photographer DC",
+    "social club reception photographer DC",
+    "Hill reception photographer DC",
+    "gala photographer Washington DC",
+    "vow renewal photographer DMV",
+    "anniversary photographer Northern Virginia",
+    "concert photographer DC",
+    "live music photographer DMV",
+    "band photographer Washington DC",
+    "recital photographer Northern Virginia",
+    "stage performance photographer DC",
     "brand content photographer DMV",
     "real estate photographer Northern Virginia",
     "Airbnb listing photographer DC",
@@ -139,6 +150,7 @@ export default function RootLayout({
       "Graduation Photography",
       "Corporate Headshots",
       "Corporate & Community Event Photography",
+      "Concert & Live Performance Photography",
       "Brand & Commercial Content Photography",
       "Real Estate & Airbnb Listing Photography",
     ].map((name) => ({

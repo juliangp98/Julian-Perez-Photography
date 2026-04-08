@@ -72,6 +72,7 @@ const KNOWN_SLUGS = [
   "maternity",
   "corporate-headshots",
   "corporate-community-events",
+  "concerts-performances",
   "brand-commercial",
   "real-estate",
 ];
