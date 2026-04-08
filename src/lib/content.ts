@@ -4,6 +4,7 @@ import {
   type ServiceCategory,
   type SiteSettings,
 } from "./types";
+import { portfolioManifest } from "./portfolio-manifest";
 
 // Site-wide settings. Edit here (or migrate to Sanity later).
 export const siteSettings: SiteSettings = {
@@ -1317,6 +1318,19 @@ export const portfolios: PortfolioCategory[] = [
     hidden: true,
   },
 ];
+
+// Splice in any imported gallery images from the auto-generated manifest.
+// The manifest takes precedence over the placeholder values defined above
+// so re-running `npm run import-photos` picks up new or removed images
+// without touching this file. If a slug isn't in the manifest yet, it
+// keeps the placeholder hero + empty gallery defined inline.
+for (const p of portfolios) {
+  const m = portfolioManifest[p.slug];
+  if (m) {
+    p.coverImage = m.coverImage;
+    p.images = m.images;
+  }
+}
 
 export const visiblePortfolios = portfolios.filter((p) => !p.hidden);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   servicesByUmbrella,
   portfoliosByUmbrella,
@@ -16,6 +16,18 @@ export default function Nav() {
   const [openSubmenu, setOpenSubmenu] = useState<
     "portfolio" | "services" | null
   >(null);
+
+  // Lock background scroll while the mobile drawer is open so the page
+  // doesn't move behind the menu and the drawer's own internal scroll is
+  // the only thing that responds to touch. Restored on close + unmount.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--background)]/85 backdrop-blur-md border-b border-[var(--border)]">
@@ -147,10 +159,16 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer.
+          The drawer is height-capped to the viewport minus the 4rem header
+          (using 100dvh so iOS Safari URL bar collapse doesn't break it) and
+          scrolls internally with overscroll-contain so the locked body
+          underneath stays put. This handles both portrait and landscape on
+          phones where the umbrella-grouped menus would otherwise overflow
+          well below the fold. */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-[var(--border)] bg-[var(--background)]">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-4 text-sm">
+        <div className="lg:hidden border-t border-[var(--border)] bg-[var(--background)] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+          <div className="max-w-7xl mx-auto px-6 py-4 pb-10 flex flex-col gap-4 text-sm">
             <details>
               <summary className="cursor-pointer py-2">Portfolio</summary>
               <div className="flex flex-col pl-4 gap-3 mt-2">
