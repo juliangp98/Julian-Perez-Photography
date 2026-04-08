@@ -43,6 +43,7 @@ export type ServiceSlug =
   | "maternity"
   | "corporate-headshots"
   | "corporate-community-events"
+  | "concerts-performances"
   | "brand-commercial"
   | "real-estate";
 
