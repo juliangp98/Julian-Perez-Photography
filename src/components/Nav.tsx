@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  visibleServices as services,
-  visiblePortfolios as portfolios,
+  servicesByUmbrella,
+  portfoliosByUmbrella,
   siteSettings,
 } from "@/lib/content";
+
+const serviceGroups = servicesByUmbrella();
+const portfolioGroups = portfoliosByUmbrella();
 
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,6 +30,7 @@ export default function Nav() {
 
         {/* Desktop nav */}
         <nav className="hidden lg:flex items-center gap-8 text-sm">
+          {/* Portfolio megamenu */}
           <div
             className="relative"
             onMouseEnter={() => setOpenSubmenu("portfolio")}
@@ -36,22 +40,42 @@ export default function Nav() {
               Portfolio ▾
             </Link>
             {openSubmenu === "portfolio" && (
-              <div className="absolute left-0 top-full pt-3 w-60">
-                <div className="bg-[var(--background)] border border-[var(--border)] shadow-lg rounded-md py-2">
-                  {portfolios.map((p) => (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-[760px]">
+                <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+                  {portfolioGroups
+                    .filter((g) => g.items.length > 0)
+                    .map((g) => (
+                      <div key={g.id}>
+                        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)] mb-2">
+                          {g.title}
+                        </div>
+                        <div className="flex flex-col">
+                          {g.items.map((p) => (
+                            <Link
+                              key={p.slug}
+                              href={`/portfolio/${p.slug}`}
+                              className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                            >
+                              {p.title}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  <div className="col-span-2 pt-3 border-t border-[var(--border)] text-xs">
                     <Link
-                      key={p.slug}
-                      href={`/portfolio/${p.slug}`}
-                      className="block px-4 py-2 hover:bg-[var(--border)]/40 transition"
+                      href="/portfolio"
+                      className="text-[var(--muted)] hover:text-[var(--foreground)]"
                     >
-                      {p.title}
+                      View all portfolios →
                     </Link>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Services megamenu */}
           <div
             className="relative"
             onMouseEnter={() => setOpenSubmenu("services")}
@@ -61,17 +85,36 @@ export default function Nav() {
               Services &amp; Pricing ▾
             </Link>
             {openSubmenu === "services" && (
-              <div className="absolute left-0 top-full pt-3 w-60">
-                <div className="bg-[var(--background)] border border-[var(--border)] shadow-lg rounded-md py-2">
-                  {services.map((s) => (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-[760px]">
+                <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+                  {serviceGroups
+                    .filter((g) => g.items.length > 0)
+                    .map((g) => (
+                      <div key={g.id}>
+                        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)] mb-2">
+                          {g.title}
+                        </div>
+                        <div className="flex flex-col">
+                          {g.items.map((s) => (
+                            <Link
+                              key={s.slug}
+                              href={`/services/${s.slug}`}
+                              className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                            >
+                              {s.title}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  <div className="col-span-2 pt-3 border-t border-[var(--border)] text-xs">
                     <Link
-                      key={s.slug}
-                      href={`/services/${s.slug}`}
-                      className="block px-4 py-2 hover:bg-[var(--border)]/40 transition"
+                      href="/services"
+                      className="text-[var(--muted)] hover:text-[var(--foreground)]"
                     >
-                      {s.title}
+                      View all services &amp; pricing →
                     </Link>
-                  ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -110,7 +153,7 @@ export default function Nav() {
           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-4 text-sm">
             <details>
               <summary className="cursor-pointer py-2">Portfolio</summary>
-              <div className="flex flex-col pl-4 gap-1">
+              <div className="flex flex-col pl-4 gap-3 mt-2">
                 <Link
                   href="/portfolio"
                   onClick={() => setMobileOpen(false)}
@@ -118,23 +161,32 @@ export default function Nav() {
                 >
                   All portfolios
                 </Link>
-                {portfolios.map((p) => (
-                  <Link
-                    key={p.slug}
-                    href={`/portfolio/${p.slug}`}
-                    onClick={() => setMobileOpen(false)}
-                    className="py-1"
-                  >
-                    {p.title}
-                  </Link>
-                ))}
+                {portfolioGroups
+                  .filter((g) => g.items.length > 0)
+                  .map((g) => (
+                    <div key={g.id}>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)] mb-1">
+                        {g.title}
+                      </div>
+                      {g.items.map((p) => (
+                        <Link
+                          key={p.slug}
+                          href={`/portfolio/${p.slug}`}
+                          onClick={() => setMobileOpen(false)}
+                          className="block py-1"
+                        >
+                          {p.title}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
               </div>
             </details>
             <details>
               <summary className="cursor-pointer py-2">
                 Services &amp; Pricing
               </summary>
-              <div className="flex flex-col pl-4 gap-1">
+              <div className="flex flex-col pl-4 gap-3 mt-2">
                 <Link
                   href="/services"
                   onClick={() => setMobileOpen(false)}
@@ -142,16 +194,25 @@ export default function Nav() {
                 >
                   All services
                 </Link>
-                {services.map((s) => (
-                  <Link
-                    key={s.slug}
-                    href={`/services/${s.slug}`}
-                    onClick={() => setMobileOpen(false)}
-                    className="py-1"
-                  >
-                    {s.title}
-                  </Link>
-                ))}
+                {serviceGroups
+                  .filter((g) => g.items.length > 0)
+                  .map((g) => (
+                    <div key={g.id}>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)] mb-1">
+                        {g.title}
+                      </div>
+                      {g.items.map((s) => (
+                        <Link
+                          key={s.slug}
+                          href={`/services/${s.slug}`}
+                          onClick={() => setMobileOpen(false)}
+                          className="block py-1"
+                        >
+                          {s.title}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
               </div>
             </details>
             <Link href="/about" onClick={() => setMobileOpen(false)}>

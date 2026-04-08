@@ -1,14 +1,50 @@
+// Top-level umbrella categories that group related services in the nav and on
+// the index pages. Order matters — this is the order they render in.
+export type Umbrella =
+  | "weddings-couples"
+  | "family-life"
+  | "portraits-pro"
+  | "brand-events";
+
+export const UMBRELLAS: { id: Umbrella; title: string; tagline: string }[] = [
+  {
+    id: "weddings-couples",
+    title: "Weddings & Couples",
+    tagline: "Your story, from the yes to the I do.",
+  },
+  {
+    id: "family-life",
+    title: "Family & Life Events",
+    tagline: "The people, milestones, and gatherings that make your story.",
+  },
+  {
+    id: "portraits-pro",
+    title: "Personal & Pro Portraits",
+    tagline: "Portraits that look like you on a really good day.",
+  },
+  {
+    id: "brand-events",
+    title: "Brand & Events",
+    tagline: "Photography for businesses, properties, and live events.",
+  },
+];
+
 export type ServiceSlug =
   | "weddings"
-  | "engagements"
+  | "engagements-couples"
   | "graduation"
   | "portraiture"
   | "modeling"
-  | "family"
+  | "newborn"
+  | "family-portraits"
+  | "family-celebrations"
+  | "pet"
+  | "quinceanera"
   | "maternity"
   | "corporate-headshots"
-  | "corporate-events"
-  | "promotional";
+  | "corporate-community-events"
+  | "brand-commercial"
+  | "real-estate";
 
 export type PortfolioSlug = ServiceSlug;
 
@@ -31,6 +67,7 @@ export type AddOn = {
 
 export type ServiceCategory = {
   slug: ServiceSlug;
+  umbrella: Umbrella;
   title: string;
   tagline: string;
   description: string;
@@ -45,6 +82,7 @@ export type ServiceCategory = {
 
 export type PortfolioCategory = {
   slug: PortfolioSlug;
+  umbrella: Umbrella;
   title: string;
   description: string;
   coverImage: string;
