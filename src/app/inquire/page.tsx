@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import InquiryForm from "@/components/InquiryForm";
+import GoogleReviews from "@/components/GoogleReviews";
 import { siteSettings } from "@/lib/content";
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export default async function InquirePage({
 }) {
   const sp = await searchParams;
   return (
-    <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
+    <section className="max-w-5xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         Inquire
       </div>
@@ -30,7 +31,10 @@ export default async function InquirePage({
         </a>
         .
       </p>
-      <div className="mt-10">
+      <div className="mt-12">
+        <GoogleReviews heading="Recent reviews" limit={2} />
+      </div>
+      <div className="mt-12 max-w-3xl">
         <InquiryForm defaultService={sp.service} />
       </div>
     </section>

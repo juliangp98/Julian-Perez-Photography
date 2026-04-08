@@ -2,8 +2,13 @@ import Link from "next/link";
 import Script from "next/script";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getService, visibleServices as services } from "@/lib/content";
+import {
+  getPortfolio,
+  getService,
+  visibleServices as services,
+} from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
+import { renderInline } from "@/lib/inline";
 
 export function generateStaticParams() {
   return services.map((s) => ({ category: s.slug }));
@@ -39,6 +44,7 @@ export default async function ServiceCategoryPage({
   const { category } = await params;
   const s = getService(category);
   if (!s) notFound();
+  const portfolio = getPortfolio(s.slug);
 
   const serviceJsonLd = {
     "@context": "https://schema.org",
@@ -77,12 +83,22 @@ export default async function ServiceCategoryPage({
         strategy="beforeInteractive"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
       />
-      <Link
-        href="/services"
-        className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-      >
-        ← All services
-      </Link>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <Link
+          href="/services"
+          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          ← All services
+        </Link>
+        {portfolio && (
+          <Link
+            href={`/portfolio/${s.slug}`}
+            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            View {s.title.toLowerCase()} portfolio →
+          </Link>
+        )}
+      </div>
       <div className="mt-4 max-w-3xl">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
           {s.tagline}
@@ -94,14 +110,14 @@ export default async function ServiceCategoryPage({
       {s.intro && s.intro.length > 0 && (
         <div className="mt-12 max-w-3xl space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
           {s.intro.map((p, i) => (
-            <p key={i}>{p}</p>
+            <p key={i}>{renderInline(p)}</p>
           ))}
         </div>
       )}
 
       {s.comboNote && (
         <div className="mt-10 max-w-3xl p-5 border-l-2 border-[var(--accent)] bg-white rounded-r text-[var(--foreground)]/90 italic">
-          {s.comboNote}
+          {renderInline(s.comboNote)}
         </div>
       )}
 
@@ -171,7 +187,7 @@ export default async function ServiceCategoryPage({
 
       {s.pricingNote && (
         <p className="mt-10 text-sm text-[var(--muted)] italic max-w-2xl">
-          {s.pricingNote}
+          {renderInline(s.pricingNote)}
         </p>
       )}
 
@@ -194,6 +210,14 @@ export default async function ServiceCategoryPage({
           >
             Book a session
           </Link>
+          {portfolio && (
+            <Link
+              href={`/portfolio/${s.slug}`}
+              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+            >
+              View {s.title.toLowerCase()} portfolio
+            </Link>
+          )}
         </div>
       </div>
     </section>

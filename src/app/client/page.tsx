@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { siteSettings } from "@/lib/content";
+import GoogleReviews from "@/components/GoogleReviews";
 
 export const metadata: Metadata = {
   title: "Client Galleries",
@@ -8,10 +9,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function ClientGalleriesPage() {
+export default async function ClientGalleriesPage() {
   const url = siteSettings.clientGalleryUrl;
   return (
-    <section className="max-w-5xl mx-auto px-6 lg:px-10 py-20">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         Clients
       </div>
@@ -38,6 +39,10 @@ export default function ClientGalleriesPage() {
         >
           Open Pic-Time →
         </a>
+      </div>
+
+      <div className="mt-14">
+        <GoogleReviews heading="What past clients have said" limit={2} />
       </div>
 
       {/* Embedded Pic-Time portal. Pic-Time sets X-Frame-Options on some

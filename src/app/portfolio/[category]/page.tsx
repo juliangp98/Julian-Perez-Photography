@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPortfolio, visiblePortfolios as portfolios } from "@/lib/content";
+import {
+  getPortfolio,
+  getService,
+  visiblePortfolios as portfolios,
+} from "@/lib/content";
 
 export function generateStaticParams() {
   return portfolios.map((p) => ({ category: p.slug }));
@@ -26,15 +30,26 @@ export default async function PortfolioCategoryPage({
   const { category } = await params;
   const p = getPortfolio(category);
   if (!p) notFound();
+  const service = getService(p.slug);
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <Link
-        href="/portfolio"
-        className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-      >
-        ← All portfolios
-      </Link>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <Link
+          href="/portfolio"
+          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          ← All portfolios
+        </Link>
+        {service && (
+          <Link
+            href={`/services/${p.slug}`}
+            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            View {p.title.toLowerCase()} pricing →
+          </Link>
+        )}
+      </div>
       <h1 className="mt-4 font-serif text-5xl">{p.title}</h1>
       <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
 

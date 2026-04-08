@@ -5,6 +5,7 @@ import {
   visibleServices as services,
   siteSettings,
 } from "@/lib/content";
+import GoogleReviews from "@/components/GoogleReviews";
 
 export const metadata: Metadata = {
   title: `${siteSettings.siteName} · DMV Wedding, Portrait & Event Photographer`,
@@ -109,6 +110,13 @@ export default function HomePage() {
               </span>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* Google Reviews */}
+      <section className="border-t border-[var(--border)]">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+          <GoogleReviews heading="What clients say" limit={3} />
         </div>
       </section>
 

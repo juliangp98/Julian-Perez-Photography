@@ -58,7 +58,7 @@ export const services: ServiceCategory[] = [
       "Every package below includes a private online gallery, full print release, and a 72-hour sneak peek so you can start sharing before the last dance.",
     ],
     comboNote:
-      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the Engagements & Couples page for session details. Let's create some magic together.",
+      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Let's create some magic together.",
     packages: [
       {
         name: "Platinum",
@@ -142,7 +142,7 @@ export const services: ServiceCategory[] = [
       "Whether you're warming up for the wedding, marking a milestone, or surprising someone with a proposal — pick the pace below that fits your story.",
     ],
     comboNote:
-      "Booking a wedding? Engagement sessions are included with the Silver, Premium, and Platinum wedding packages.",
+      "Booking a wedding? Engagement sessions are included with the Silver, Premium, and Platinum [wedding packages](/services/weddings).",
     packages: [
       {
         name: "Premium",
@@ -201,7 +201,7 @@ export const services: ServiceCategory[] = [
       "The tiers below range from a gentle portrait session to a full styled experience — choose whichever matches how much of the story you want told.",
     ],
     comboNote:
-      "Planning ahead? Bundle your maternity session with a Newborn & First Year package for a discounted rate — see the Newborn page for details.",
+      "Planning ahead? Bundle your maternity session with a [Newborn & First Year package](/services/newborn) for a discounted rate.",
     packages: [
       {
         name: "Premium",
@@ -267,7 +267,7 @@ export const services: ServiceCategory[] = [
       "Sibling and parent shots are always welcome — pick the package that fits the chapter you're in.",
     ],
     comboNote:
-      "Booked a maternity session with me? You'll get a discounted rate on any newborn or first-year package — ask when you book.",
+      "Booked a [maternity session](/services/maternity) with me? You'll get a discounted rate on any newborn or first-year package — ask when you book.",
     packages: [
       {
         name: "First Year Bundle",
@@ -334,7 +334,7 @@ export const services: ServiceCategory[] = [
       "Pick the size and style of session below that fits how your family actually shows up.",
     ],
     comboNote:
-      "Throwing a birthday, reunion, or milestone party instead? Check out Family Celebrations for documentary-style event coverage.",
+      "Throwing a birthday, reunion, or milestone party instead? Check out [Family Celebrations](/services/family-celebrations) for documentary-style event coverage.",
     packages: [
       {
         name: "Premium",
@@ -399,6 +399,8 @@ export const services: ServiceCategory[] = [
       "I'll arrive early enough to get the setup details (cake, decor, table settings) before guests show up, then shift into documentary mode as the party fills out. You get the stress-free version of the event: be present with your people, and I'll handle the rest.",
       "Pick the length of coverage below that fits the gathering — from a focused two-hour celebration to a full day-of milestone.",
     ],
+    comboNote:
+      "Just want a posed family session instead of full event coverage? Head over to [Family Portraits](/services/family-portraits).",
     packages: [
       {
         name: "Milestone",
@@ -906,7 +908,7 @@ export const services: ServiceCategory[] = [
       "Pick the package below that fits the scope of your campaign — and reach out if you're running an ongoing series, since recurring schedules get a discounted rate.",
     ],
     comboNote:
-      "Hosting a live event for the brand (class showcase, launch party, resident happy hour)? Those live on the Corporate & Community Events page.",
+      "Hosting a live event for the brand (class showcase, launch party, resident happy hour)? Those live on the [Corporate & Community Events page](/services/corporate-community-events).",
     packages: [
       {
         name: "Brand Half-Day",
