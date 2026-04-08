@@ -90,6 +90,19 @@ export type PortfolioCategory = {
   hidden?: boolean;
 };
 
+// A single client testimonial. Used as the manual fallback for the
+// GoogleReviews component when the Google Places API can't reach the
+// business (e.g. service-area profiles without a published address).
+// Reviews are sourced directly from the Google Business Profile dashboard
+// and pasted in here verbatim with consent.
+export type Testimonial = {
+  author: string;
+  rating: number; // 1–5
+  relativeTime: string; // free-form, e.g. "a month ago" or "2024"
+  text: string;
+  source?: string; // defaults to "Google"
+};
+
 export type SiteSettings = {
   siteName: string;
   tagline: string;
@@ -107,4 +120,6 @@ export type SiteSettings = {
   analytics: {
     ga4Id?: string;
   };
+  testimonials: Testimonial[];
+  googleProfileUrl?: string; // public link to the GBP for "see all reviews"
 };

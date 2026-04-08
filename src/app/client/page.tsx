@@ -41,10 +41,6 @@ export default async function ClientGalleriesPage() {
         </a>
       </div>
 
-      <div className="mt-14">
-        <GoogleReviews heading="What past clients have said" limit={2} />
-      </div>
-
       {/* Embedded Pic-Time portal. Pic-Time sets X-Frame-Options on some
           pages, so we give the iframe a reasonable height and fall back to
           the link above if the embed can't render. */}
@@ -62,6 +58,13 @@ export default async function ClientGalleriesPage() {
         Embed not loading? Use the &ldquo;Open Pic-Time&rdquo; button above —
         some browsers block cross-site iframes by default.
       </p>
+
+      <div className="mt-20 pt-12 border-t border-[var(--border)]">
+        <GoogleReviews
+          heading="What past clients have said"
+          variant="carousel"
+        />
+      </div>
     </section>
   );
 }

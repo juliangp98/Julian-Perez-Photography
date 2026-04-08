@@ -31,11 +31,11 @@ export default async function InquirePage({
         </a>
         .
       </p>
-      <div className="mt-12">
-        <GoogleReviews heading="Recent reviews" limit={2} />
-      </div>
       <div className="mt-12 max-w-3xl">
         <InquiryForm defaultService={sp.service} />
+      </div>
+      <div className="mt-20 pt-12 border-t border-[var(--border)]">
+        <GoogleReviews heading="What clients say" variant="carousel" />
       </div>
     </section>
   );
