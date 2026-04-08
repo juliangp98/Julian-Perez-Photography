@@ -60,9 +60,19 @@ export default function BookPage() {
           X-Frame-Options or a CSP frame-ancestors directive on the
           public booking page, so framing is allowed. We give it a tall
           min-height because the Square layout is scroll-heavy and a
-          short iframe forces double scrollbars. The "Open in new tab"
+          short iframe forces double scrollbars.
+
+          The sandbox attribute is deliberately omitting `allow-popups`
+          and `allow-top-navigation`. By default Square's service-detail
+          links escape the iframe (either via target="_blank" or
+          window.top.location framebust) so users can verify they're on
+          real squareup.com before entering payment info. Removing those
+          two grants forces navigation to stay inside the embed. We
+          still allow scripts, same-origin, forms, and popups-to-escape
+          so the actual payment flow (which legitimately needs to open
+          a 3DS / Apple Pay popup) keeps working. The "Open in new tab"
           button below is a fallback for any browser that blocks the
-          embed (uncommon, but cheap insurance). */}
+          embed entirely. */}
       <div className="mt-12 rounded-lg overflow-hidden border border-[var(--border)] bg-white">
         <iframe
           src={siteSettings.bookingUrl}
@@ -70,6 +80,7 @@ export default function BookPage() {
           className="w-full h-[85vh] min-h-[800px]"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups-to-escape-sandbox"
         />
       </div>
 

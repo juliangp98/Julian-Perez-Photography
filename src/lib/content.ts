@@ -117,7 +117,7 @@ export const services: ServiceCategory[] = [
       "Every package below includes a private online gallery, full print release, and a 72-hour sneak peek so you can start sharing before the last dance.",
     ],
     comboNote:
-      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Let's create some magic together.",
+      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Celebrating an anniversary or planning a vow renewal? Those live on the [Family Celebrations](/services/family-celebrations) page. Let's create some magic together.",
     packages: [
       {
         name: "Platinum",
@@ -260,7 +260,7 @@ export const services: ServiceCategory[] = [
       "The tiers below range from a gentle portrait session to a full styled experience — choose whichever matches how much of the story you want told.",
     ],
     comboNote:
-      "Planning ahead? Bundle your maternity session with a [Newborn & First Year package](/services/newborn) for a discounted rate.",
+      "Planning ahead? Bundle your maternity session with a [Newborn & First Year package](/services/newborn) for a discounted rate. Throwing a baby shower or gender reveal too? Those live on the [Family Celebrations](/services/family-celebrations) page.",
     packages: [
       {
         name: "Premium",
@@ -326,7 +326,7 @@ export const services: ServiceCategory[] = [
       "Sibling and parent shots are always welcome — pick the package that fits the chapter you're in.",
     ],
     comboNote:
-      "Booked a [maternity session](/services/maternity) with me? You'll get a discounted rate on any newborn or first-year package — ask when you book.",
+      "Booked a [maternity session](/services/maternity) with me? You'll get a discounted rate on any newborn or first-year package — ask when you book. If you'd rather mark the 1st birthday with a full party instead of the cake-smash mini, [Family Celebrations](/services/family-celebrations) has documentary event coverage built for it.",
     packages: [
       {
         name: "First Year Bundle",
@@ -452,9 +452,9 @@ export const services: ServiceCategory[] = [
     title: "Family Celebrations",
     tagline: "Birthdays, reunions, and the ones you'll want to remember.",
     description:
-      "Documentary coverage for birthdays, reunions, and milestone family parties.",
+      "Documentary coverage for 1st birthdays, baby showers, gender reveals, anniversaries, reunions, and milestone family parties.",
     intro: [
-      "Family celebrations deserve the same documentary eye as a wedding. Whether it's a backyard birthday, a reunion at a rental house, or a milestone you've been waiting years to celebrate together — I treat every family event like a mini wedding. Full coverage, gentle direction for the group shots, and the kind of candids that get sent around the family group chat for years.",
+      "Family celebrations deserve the same documentary eye as a wedding. Whether it's a 1st birthday, a baby shower, a gender reveal, a 25th wedding anniversary, a backyard reunion, or a milestone you've been waiting years to celebrate together — I treat every family event like a mini wedding. Full coverage, gentle direction for the group shots, and the kind of candids that get sent around the family group chat for years.",
       "I'll arrive early enough to get the setup details (cake, decor, table settings) before guests show up, then shift into documentary mode as the party fills out. You get the stress-free version of the event: be present with your people, and I'll handle the rest.",
       "Pick the length of coverage below that fits the gathering — from a focused two-hour celebration to a full day-of milestone.",
     ],
@@ -884,12 +884,12 @@ export const services: ServiceCategory[] = [
     slug: "corporate-community-events",
     umbrella: "brand-events",
     title: "Corporate & Community Events",
-    tagline: "Conferences, galas, apartment events — covered.",
+    tagline: "Conferences, galas, festivals, concerts — covered.",
     description:
-      "Conferences, product launches, galas, and community events across the DMV.",
+      "Conferences, galas, festivals, concerts, receptions, and community events across the DMV.",
     intro: [
-      "Corporate and community events deserve the same documentary eye as weddings. I cover the keynote and the grip-and-grins, but I also hunt down the unscripted moments — the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, residents catching up over a beer at the apartment happy hour.",
-      "From multi-day conferences and nonprofit galas to apartment-community happy hours, holiday parties, and resident flea markets — if it's a live event with people in a room, this is the right page. Same-day social-media selects are available on request so your marketing team can post while the event is still live, with full gallery delivery within a week.",
+      "Corporate and community events deserve the same documentary eye as weddings. I cover the keynote and the grip-and-grins, but I also hunt down the unscripted moments — the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, the artist soundchecking before doors, residents catching up over a beer at the apartment happy hour.",
+      "From multi-day conferences, speaker panels, and nonprofit galas to outdoor festivals, live concerts, balls, corporate receptions, social-club anniversary dinners, federal and advocacy receptions, apartment-community happy hours, holiday parties, product launches, and resident flea markets — if it's a live event with people in a room, this is the right page. Same-day social-media selects are available on request so your marketing team can post while the event is still live, with full gallery delivery within a week.",
       "Pick the length of coverage below that fits your program — from a focused half-day to multi-day conference runs.",
     ],
     packages: [
@@ -1236,7 +1236,8 @@ export const portfolios: PortfolioCategory[] = [
     slug: "family-celebrations",
     umbrella: "family-life",
     title: "Family Celebrations",
-    description: "Birthdays, reunions, and milestone parties.",
+    description:
+      "1st birthdays, baby showers, gender reveals, anniversaries, reunions, and milestone parties.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
@@ -1286,7 +1287,8 @@ export const portfolios: PortfolioCategory[] = [
     slug: "corporate-community-events",
     umbrella: "brand-events",
     title: "Corporate & Community Events",
-    description: "Conferences, launches, galas, and community events.",
+    description:
+      "Conferences, galas, festivals, concerts, receptions, and community events.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
