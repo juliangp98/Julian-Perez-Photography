@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
@@ -174,6 +175,7 @@ gtag('config', '${ga4}');`}
             </Script>
           </>
         )}
+        <Analytics />
       </body>
     </html>
   );
