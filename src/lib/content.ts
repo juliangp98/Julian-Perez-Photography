@@ -527,69 +527,6 @@ export const services: ServiceCategory[] = [
     ],
   },
   {
-    slug: "pet",
-    umbrella: "family-life",
-    title: "Pet Photography",
-    tagline: "The four-legged member of the family deserves wall art too.",
-    description:
-      "In-home and outdoor pet portrait sessions across the DMV.",
-    intro: [
-      "Pets are family — and pet sessions are some of my favorite shoots. I work at the pace of the animal, not the other way around: lots of treats, plenty of breaks, and a relaxed approach that gets you photos that actually look like your pet's personality, not a stiff studio pose.",
-      "Sessions work for in-home portraits (ideal for older dogs, cats, or shy pups), outdoor adventures (great for high-energy dogs), or as a family-with-pet add-on. I'll bring squeakers, treats, and patience.",
-      "Pick the version below that fits where your pet is most themselves.",
-    ],
-    packages: [
-      {
-        name: "Pet + Family",
-        tagline: "A full session that includes the humans too",
-        price: "$525",
-        duration: "75 minutes",
-        inclusions: [
-          "1 pet + immediate family",
-          "1–2 locations (in-home or outdoor)",
-          "50+ edited photos",
-          "Solo pet portraits + group shots",
-          "Online gallery with print release",
-        ],
-      },
-      {
-        name: "Outdoor Adventure",
-        tagline: "A relaxed walk-and-shoot at your favorite trail or park",
-        price: "$375",
-        duration: "60 minutes",
-        featured: true,
-        inclusions: [
-          "1 outdoor location",
-          "1 pet (additional pets +$50)",
-          "40+ edited photos",
-          "Action and portrait frames",
-          "Online gallery with print release",
-        ],
-      },
-      {
-        name: "In-Home",
-        tagline: "A quiet session at your pet's most comfortable spot",
-        price: "$275",
-        duration: "45 minutes",
-        inclusions: [
-          "Your home — no travel for your pet",
-          "1 pet (additional pets +$50)",
-          "30+ edited photos",
-          "Online gallery with print release",
-        ],
-      },
-    ],
-    addOns: [
-      { name: "Additional pet", price: "$50" },
-      { name: "Extra 30 minutes", price: "$100" },
-      { name: "Memorial session (older pet, gentle pacing)", price: "Included — just ask" },
-      { name: "Print package (5 × 8×10)", price: "$85" },
-      { name: "Custom framed canvas (16×20)", price: "$120" },
-    ],
-    pricingNote:
-      "Memorial sessions for senior pets are handled with extra care — reach out and we'll find a pace that works.",
-  },
-  {
     slug: "cultural-milestones",
     umbrella: "family-life",
     title: "Cultural Milestones",
@@ -656,6 +593,69 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Bilingual coordination available (English / Spanish). Reach out if your celebration includes traditions I should plan for.",
+  },
+  {
+    slug: "pet",
+    umbrella: "family-life",
+    title: "Pet Photography",
+    tagline: "The four-legged member of the family deserves wall art too.",
+    description:
+      "In-home and outdoor pet portrait sessions across the DMV.",
+    intro: [
+      "Pets are family — and pet sessions are some of my favorite shoots. I work at the pace of the animal, not the other way around: lots of treats, plenty of breaks, and a relaxed approach that gets you photos that actually look like your pet's personality, not a stiff studio pose.",
+      "Sessions work for in-home portraits (ideal for older dogs, cats, or shy pups), outdoor adventures (great for high-energy dogs), or as a family-with-pet add-on. I'll bring squeakers, treats, and patience.",
+      "Pick the version below that fits where your pet is most themselves.",
+    ],
+    packages: [
+      {
+        name: "Pet + Family",
+        tagline: "A full session that includes the humans too",
+        price: "$525",
+        duration: "75 minutes",
+        inclusions: [
+          "1 pet + immediate family",
+          "1–2 locations (in-home or outdoor)",
+          "50+ edited photos",
+          "Solo pet portraits + group shots",
+          "Online gallery with print release",
+        ],
+      },
+      {
+        name: "Outdoor Adventure",
+        tagline: "A relaxed walk-and-shoot at your favorite trail or park",
+        price: "$375",
+        duration: "60 minutes",
+        featured: true,
+        inclusions: [
+          "1 outdoor location",
+          "1 pet (additional pets +$50)",
+          "40+ edited photos",
+          "Action and portrait frames",
+          "Online gallery with print release",
+        ],
+      },
+      {
+        name: "In-Home",
+        tagline: "A quiet session at your pet's most comfortable spot",
+        price: "$275",
+        duration: "45 minutes",
+        inclusions: [
+          "Your home — no travel for your pet",
+          "1 pet (additional pets +$50)",
+          "30+ edited photos",
+          "Online gallery with print release",
+        ],
+      },
+    ],
+    addOns: [
+      { name: "Additional pet", price: "$50" },
+      { name: "Extra 30 minutes", price: "$100" },
+      { name: "Memorial session (older pet, gentle pacing)", price: "Included — just ask" },
+      { name: "Print package (5 × 8×10)", price: "$85" },
+      { name: "Custom framed canvas (16×20)", price: "$120" },
+    ],
+    pricingNote:
+      "Memorial sessions for senior pets are handled with extra care — reach out and we'll find a pace that works.",
   },
 
   // ==========================================================================
@@ -1335,18 +1335,18 @@ export const portfolios: PortfolioCategory[] = [
     images: [],
   },
   {
-    slug: "pet",
-    umbrella: "family-life",
-    title: "Pet Photography",
-    description: "In-home and outdoor portraits of the four-legged family.",
-    coverImage: "/portfolio/placeholder.svg",
-    images: [],
-  },
-  {
     slug: "cultural-milestones",
     umbrella: "family-life",
     title: "Cultural Milestones",
     description: "Quinceañeras, Sweet 16s, Bar/Bat Mitzvahs, and more.",
+    coverImage: "/portfolio/placeholder.svg",
+    images: [],
+  },
+  {
+    slug: "pet",
+    umbrella: "family-life",
+    title: "Pet Photography",
+    description: "In-home and outdoor portraits of the four-legged family.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
