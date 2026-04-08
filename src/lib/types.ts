@@ -39,7 +39,7 @@ export type ServiceSlug =
   | "family-portraits"
   | "family-celebrations"
   | "pet"
-  | "quinceanera"
+  | "cultural-milestones"
   | "maternity"
   | "corporate-headshots"
   | "corporate-community-events"

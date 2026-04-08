@@ -95,7 +95,7 @@ export default async function ServiceCategoryPage({
             href={`/portfolio/${s.slug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            View {s.title.toLowerCase()} portfolio →
+            View <span className="hidden sm:inline">{s.title.toLowerCase()} </span>portfolio →
           </Link>
         )}
       </div>

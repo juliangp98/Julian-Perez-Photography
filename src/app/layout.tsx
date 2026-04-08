@@ -145,7 +145,7 @@ export default function RootLayout({
       "Family Portrait Photography",
       "Family Celebration & Party Photography",
       "Pet Photography",
-      "Quinceañera & Cultural Milestone Photography",
+      "Cultural Milestone Photography",
       "Personal Branding & Creative Portraiture",
       "Graduation Photography",
       "Corporate Headshots",

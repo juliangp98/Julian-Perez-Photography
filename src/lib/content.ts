@@ -590,9 +590,9 @@ export const services: ServiceCategory[] = [
       "Memorial sessions for senior pets are handled with extra care — reach out and we'll find a pace that works.",
   },
   {
-    slug: "quinceanera",
+    slug: "cultural-milestones",
     umbrella: "family-life",
-    title: "Quinceañera & Cultural Milestones",
+    title: "Cultural Milestones",
     tagline: "The day everyone's been waiting for.",
     description:
       "Quinceañeras, Sweet 16s, Bar/Bat Mitzvahs, and cultural milestone celebrations across the DMV.",
@@ -1343,10 +1343,10 @@ export const portfolios: PortfolioCategory[] = [
     images: [],
   },
   {
-    slug: "quinceanera",
+    slug: "cultural-milestones",
     umbrella: "family-life",
-    title: "Quinceañera & Cultural Milestones",
-    description: "Quinces, Sweet 16s, Bar/Bat Mitzvahs, and more.",
+    title: "Cultural Milestones",
+    description: "Quinceañeras, Sweet 16s, Bar/Bat Mitzvahs, and more.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },

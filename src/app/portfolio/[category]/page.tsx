@@ -46,7 +46,7 @@ export default async function PortfolioCategoryPage({
             href={`/services/${p.slug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
-            View {p.title.toLowerCase()} pricing →
+            View <span className="hidden sm:inline">{p.title.toLowerCase()} </span>pricing →
           </Link>
         )}
       </div>
