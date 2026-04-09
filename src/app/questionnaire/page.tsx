@@ -28,9 +28,17 @@ export default function QuestionnaireIndexPage() {
       </div>
       <h1 className="mt-2 font-serif text-5xl">Planning questionnaires</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
-        Once you&rsquo;re booked (or seriously considering), the next step is
-        telling me about your day so I can show up prepared. Each questionnaire
-        is tailored to the service — pick yours below.
+        These are for prospects and booked clients who already know which
+        service they&rsquo;re interested in. Pick yours below and I&rsquo;ll
+        get every detail I need to show up prepared. Just have questions
+        instead?{" "}
+        <Link
+          href="/inquire"
+          className="underline underline-offset-4 hover:text-[var(--foreground)]"
+        >
+          Start with a general inquiry
+        </Link>
+        .
       </p>
       <p className="mt-3 text-[var(--muted)] max-w-2xl text-sm">
         Your answers autosave in your browser, so you can step away and come

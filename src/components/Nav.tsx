@@ -141,6 +141,9 @@ export default function Nav() {
           <Link href="/inquire" className="nav-link">
             Inquire
           </Link>
+          <Link href="/questionnaire" className="nav-link">
+            Plan
+          </Link>
           <Link
             href="/book"
             className="ml-2 px-4 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
@@ -241,6 +244,9 @@ export default function Nav() {
             </Link>
             <Link href="/inquire" onClick={() => setMobileOpen(false)}>
               Inquire
+            </Link>
+            <Link href="/questionnaire" onClick={() => setMobileOpen(false)}>
+              Plan
             </Link>
             <Link
               href="/book"

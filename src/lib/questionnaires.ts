@@ -1899,14 +1899,842 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
 };
 
 // ----------------------------------------------------------------------------
+// Engagements & Couples — branches on session purpose (Surprise vs everything else)
+// ----------------------------------------------------------------------------
+
+const engagementsCouplesQuestionnaire: Questionnaire = {
+  slug: "engagements-couples",
+  title: "Engagement & couples session questionnaire",
+  intro:
+    "A few questions so I can plan a session that feels like the two of you. Whether it's an engagement, an anniversary, a surprise proposal, or just because — your answers help me show up with the right plan.",
+  audience: "Booked engagement / couples clients (and serious prospects)",
+  estimatedMinutes: 8,
+  sections: [
+    yourDetailsSection,
+    bookingStatusSection("engagements-couples"),
+    {
+      title: "About the two of you",
+      fields: [
+        {
+          id: "partnerName",
+          label: "Your partner's name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "relationshipLength",
+          label: "How long have you been together?",
+          type: "text",
+          required: true,
+          placeholder: "e.g. 3 years, 8 months",
+        },
+        {
+          id: "howYouMet",
+          label: "How did you two meet? (one or two lines)",
+          type: "textarea",
+        },
+        {
+          id: "vibe",
+          label: "How would you describe your dynamic together?",
+          type: "radio",
+          required: true,
+          options: [
+            "Quiet & cinematic",
+            "Playful & goofy",
+            "Glam & editorial",
+            "Warm documentary",
+            "Other / not sure",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Surprise proposal logistics",
+      description:
+        "Everything I need to stay invisible until the moment, then pivot into a portrait session right after.",
+      showIf: { id: "package", equals: "Surprise Proposal" },
+      fields: [
+        {
+          id: "proposalDate",
+          label: "Proposal date",
+          type: "date",
+          required: true,
+        },
+        {
+          id: "proposalTimeOfDay",
+          label: "Approximate time of day",
+          type: "time",
+          required: true,
+        },
+        {
+          id: "proposalLocation",
+          label: "Proposed location (the spot itself)",
+          type: "textarea",
+          required: true,
+          help: "Be as specific as possible — the bench by the south fountain, the second overlook on the trail, etc.",
+        },
+        {
+          id: "proposalArrival",
+          label: "How will you arrive at the spot?",
+          type: "radio",
+          required: true,
+          options: [
+            "Walking (we'll just show up)",
+            "Driving / parking nearby",
+            "Surprise outing they don't know about",
+            "Other",
+          ],
+        },
+        {
+          id: "proposalHidingPlan",
+          label: "Where should I hide / position myself to stay invisible?",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "proposalSignal",
+          label: "Signal you'll give that the moment is about to happen",
+          type: "textarea",
+          required: true,
+          placeholder: "e.g. take off my hat, turn to face them, drop to one knee…",
+        },
+        {
+          id: "proposalAccomplices",
+          label: "Anyone else in on it?",
+          type: "textarea",
+          placeholder: "Witnesses, family hiding nearby, restaurant staff, etc.",
+        },
+        {
+          id: "proposalAfterPlan",
+          label:
+            "Plan for the portrait session right after — same spot, or move somewhere?",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "proposalRingDetails",
+          label: "Ring details / heirloom story to capture (optional)",
+          type: "textarea",
+        },
+        {
+          id: "proposalBackupPlan",
+          label: "Backup plan if weather doesn't cooperate",
+          type: "textarea",
+          required: true,
+        },
+      ],
+    },
+    {
+      title: "Session planning",
+      description:
+        "The basics for an engagement, anniversary, or non-proposal couples session.",
+      showIf: { id: "package", notEquals: "Surprise Proposal" },
+      fields: [
+        {
+          id: "sessionPurpose",
+          label: "What's the session for?",
+          type: "radio",
+          required: true,
+          options: [
+            "Engagement",
+            "Anniversary",
+            "Just because",
+            "Save-the-date",
+            "Dating-app refresh",
+            "Other",
+          ],
+        },
+        {
+          id: "preferredDateWindow",
+          label: "Preferred date window",
+          type: "text",
+          required: true,
+          placeholder: "e.g. mid-October, any weekend in May",
+        },
+        {
+          id: "timeOfDayPref",
+          label: "Time of day preference",
+          type: "radio",
+          required: true,
+          options: [
+            "Golden hour (sunset)",
+            "Blue hour (just after sunset)",
+            "Daytime",
+            "No preference",
+          ],
+        },
+        {
+          id: "locationIdeas",
+          label: "Locations you've been thinking about",
+          type: "textarea",
+          help: "DC monuments, Rock Creek, Annapolis, Old Town, Brookside Gardens, your favorite coffee shop — anything goes.",
+        },
+        {
+          id: "outfitCount",
+          label: "How many outfits are you planning?",
+          type: "radio",
+          options: ["1 outfit", "2 outfits", "Not sure yet"],
+          showIf: { id: "package", notEquals: "Essentials" },
+          help: "Essentials is a single-look session — for multiple outfits, take a look at Premium.",
+        },
+        {
+          id: "outfitIdeas",
+          label: "Outfit ideas / colors you're considering",
+          type: "textarea",
+        },
+        {
+          id: "propsPetsDetails",
+          label: "Props, pets, or details you'd like included",
+          type: "textarea",
+          placeholder: "Dog, vintage car, picnic, ring box, save-the-date sign…",
+        },
+        {
+          id: "vibeReferences",
+          label: "Vibe references (Instagram links, Pinterest board, etc.)",
+          type: "textarea",
+        },
+        {
+          id: "nervousAbout",
+          label:
+            "Anything off-limits or making you nervous about being photographed?",
+          type: "textarea",
+          help: "The more honest you are here, the better I can pace the session.",
+        },
+      ],
+    },
+    {
+      title: "Wedding context",
+      description:
+        "If this session is part of a wedding booking, a few details help me line everything up.",
+      showIf: { id: "package", equals: "Premium" },
+      fields: [
+        {
+          id: "partOfWeddingBooking",
+          label: "Are you booking this as part of a wedding package?",
+          type: "radio",
+          options: ["Yes", "No", "Considering"],
+        },
+        {
+          id: "weddingDate",
+          label: "Wedding date (if known)",
+          type: "date",
+        },
+        {
+          id: "weddingVenueCity",
+          label: "Wedding city / venue (if known)",
+          type: "text",
+        },
+        {
+          id: "saveTheDateDeadline",
+          label:
+            "Any save-the-date or invitation deadlines this session needs to feed?",
+          type: "textarea",
+        },
+      ],
+    },
+    {
+      title: "Anything else",
+      fields: [
+        {
+          id: "anythingElse",
+          label: "Anything else I should know?",
+          type: "textarea",
+        },
+      ],
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------------
+// Family Portraits — branches on package size (Premium gets the extras)
+// ----------------------------------------------------------------------------
+
+const familyPortraitsQuestionnaire: Questionnaire = {
+  slug: "family-portraits",
+  title: "Family portrait questionnaire",
+  intro:
+    "A few questions so the session feels like your family — not a stiff formal portrait. Tell me who's coming, how they show up, and what you'd actually want printed afterward.",
+  audience: "Booked family portrait clients (and serious prospects)",
+  estimatedMinutes: 7,
+  sections: [
+    yourDetailsSection,
+    bookingStatusSection("family-portraits"),
+    {
+      title: "Your family",
+      fields: [
+        {
+          id: "adultCount",
+          label: "Number of adults",
+          type: "number",
+          required: true,
+        },
+        {
+          id: "kidCount",
+          label: "Number of kids",
+          type: "number",
+          required: true,
+        },
+        {
+          id: "youngKidAges",
+          label: "Ages of any kids under 10",
+          type: "text",
+          placeholder: "e.g. 2, 4, 7",
+          help: "Helps me plan the pacing and the bribes (snacks).",
+        },
+        {
+          id: "accessibilityNotes",
+          label:
+            "Anyone with mobility, sensory, or pacing considerations I should plan around?",
+          type: "textarea",
+        },
+        {
+          id: "petsJoining",
+          label: "Will any pets be joining?",
+          type: "radio",
+          options: ["Yes", "No", "Maybe"],
+        },
+        {
+          id: "petDetails",
+          label: "Pet details (name, size, temperament around strangers)",
+          type: "textarea",
+          showIf: { id: "petsJoining", equalsAny: ["Yes", "Maybe"] },
+        },
+      ],
+    },
+    {
+      title: "Extended family heads-up",
+      description:
+        "Premium covers larger groups (up to 15) across multiple looks and locations — these questions help me prep for that scale.",
+      showIf: { id: "package", equals: "Premium" },
+      fields: [
+        {
+          id: "totalHeadcount",
+          label: "Total headcount expected",
+          type: "number",
+          required: true,
+        },
+        {
+          id: "travelingFamily",
+          label: "Are any family members traveling in for this?",
+          type: "radio",
+          options: YES_NO,
+        },
+        {
+          id: "lastMinuteAdditions",
+          label: "Last-minute additions likely?",
+          type: "radio",
+          options: YES_NO,
+        },
+        {
+          id: "groupCombos",
+          label: "Group combos you definitely want",
+          type: "textarea",
+          required: true,
+          placeholder:
+            "e.g. all four grandkids with grandma, just the cousins, original five siblings…",
+          help: "List the specific combinations you want me to prioritize so we don't miss them.",
+        },
+      ],
+    },
+    {
+      title: "Wardrobe & looks",
+      fields: [
+        {
+          id: "outfitPalette",
+          label: "Outfit color palette / coordination plan",
+          type: "textarea",
+          placeholder:
+            "e.g. earth tones, white and denim, holiday reds — or 'still figuring it out'.",
+        },
+        {
+          id: "outfitChanges",
+          label: "Number of outfit changes",
+          type: "radio",
+          options: ["1 outfit", "2 outfits"],
+          showIf: { id: "package", equals: "Premium" },
+          help: "Premium is the only tier with two looks built in. Signature and Mini are single-outfit sessions.",
+        },
+        {
+          id: "wardrobeConsult",
+          label: "Want a wardrobe consult ahead of the session?",
+          type: "radio",
+          options: ["Yes please", "I've got it handled"],
+          showIf: { id: "package", equals: "Premium" },
+          help: "Included in Premium — I can review outfit photos and suggest tweaks before the day.",
+        },
+        {
+          id: "wardrobeNervousAbout",
+          label: "Anything you're nervous about wearing?",
+          type: "textarea",
+        },
+      ],
+    },
+    {
+      title: "Location & vibe",
+      fields: [
+        {
+          id: "vibe",
+          label: "Vibe",
+          type: "radio",
+          required: true,
+          options: [
+            "Documentary candid",
+            "Posed and polished",
+            "Mostly candid with a few group shots",
+            "Bring on the chaos",
+            "Not sure — open to ideas",
+          ],
+        },
+        {
+          id: "indoorOutdoor",
+          label: "Indoor or outdoor preference",
+          type: "radio",
+          options: ["Outdoor", "Indoor", "Mix of both", "No preference"],
+        },
+        {
+          id: "locationIdeas",
+          label: "Locations you've been considering",
+          type: "textarea",
+          placeholder:
+            "Park, monument, your home, grandma's backyard, your favorite trail…",
+        },
+        {
+          id: "secondLocation",
+          label: "Second location (Premium only)",
+          type: "textarea",
+          showIf: { id: "package", equals: "Premium" },
+          help: "Premium covers 1–2 locations. Tell me about the second one if you have one in mind.",
+        },
+        {
+          id: "timeOfDay",
+          label: "Time of day preference",
+          type: "radio",
+          options: ["Golden hour (sunset)", "Daytime", "Morning light", "No preference"],
+        },
+      ],
+    },
+    {
+      title: "Logistics",
+      fields: [
+        {
+          id: "preferredDateWindow",
+          label: "Preferred date window",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "backupPlan",
+          label: "Backup date / weather plan",
+          type: "textarea",
+        },
+        {
+          id: "offLimits",
+          label: "Anything off-limits?",
+          type: "textarea",
+          placeholder:
+            "Faces I shouldn't post on social, family members who don't want to be in photos, etc.",
+        },
+        {
+          id: "endUse",
+          label: "What will you use the photos for?",
+          type: "checkbox",
+          options: [
+            "Holiday cards",
+            "Wall art / prints",
+            "Annual update",
+            "Social media",
+            "Other",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Anything else",
+      fields: [
+        {
+          id: "anythingElse",
+          label: "Anything else I should know?",
+          type: "textarea",
+        },
+      ],
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------------
+// Brand & Commercial — branches wildly different scopes per package
+// ----------------------------------------------------------------------------
+
+const brandCommercialQuestionnaire: Questionnaire = {
+  slug: "brand-commercial",
+  title: "Brand & commercial shoot questionnaire",
+  intro:
+    "A planning brief so we hit the ground running. Tell me about your brand, where the photos will live, and the specific scope of this shoot — I'll build the shot list around your answers.",
+  audience: "Booked brand / commercial clients (and serious prospects)",
+  estimatedMinutes: 9,
+  sections: [
+    yourDetailsSection,
+    bookingStatusSection("brand-commercial"),
+    {
+      title: "About the brand",
+      fields: [
+        {
+          id: "brandName",
+          label: "Business / brand name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "brandWebsite",
+          label: "Website",
+          type: "text",
+          placeholder: "https://",
+        },
+        {
+          id: "brandInstagram",
+          label: "Instagram handle",
+          type: "text",
+          placeholder: "@yourbrand",
+        },
+        {
+          id: "brandOneLiner",
+          label: "One-line description of what you do",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "brandAge",
+          label: "How long have you been operating?",
+          type: "text",
+        },
+        {
+          id: "workedTogetherBefore",
+          label: "Have we worked together before?",
+          type: "radio",
+          options: YES_NO,
+        },
+      ],
+    },
+    {
+      title: "Where the photos will live",
+      description: "Pick everything that applies — it shapes the aspect ratios and edit style.",
+      fields: [
+        {
+          id: "endUse",
+          label: "End use",
+          type: "checkbox",
+          required: true,
+          options: [
+            "Instagram feed",
+            "Instagram stories / reels",
+            "Website hero / banners",
+            "Product listings (your site / Etsy / Amazon)",
+            "Email marketing",
+            "Print collateral (flyers, leasing decks, menus)",
+            "Press / media kit",
+            "Internal use only",
+            "Other",
+          ],
+        },
+        {
+          id: "endUseOther",
+          label: "Tell me more about the 'other' use",
+          type: "text",
+          showIf: { id: "endUse", equalsAny: ["Other"] },
+        },
+      ],
+    },
+    {
+      title: "Class / workshop details",
+      description:
+        "Coverage of a fitness, yoga, or workshop session — instructor, participants, branded space.",
+      showIf: {
+        id: "package",
+        equalsAny: ["Class / Workshop Shoot", "Brand Half-Day"],
+      },
+      fields: [
+        {
+          id: "classType",
+          label: "Class type",
+          type: "radio",
+          required: true,
+          options: [
+            "Yoga",
+            "Pilates",
+            "HIIT / strength",
+            "Dance",
+            "Cooking",
+            "Workshop",
+            "Other",
+          ],
+        },
+        {
+          id: "classVenue",
+          label: "Studio / venue address",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "classInstructors",
+          label: "Instructor name(s)",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "classCount",
+          label: "Number of classes to cover",
+          type: "number",
+          help: "Relevant for Brand Half-Day. Class / Workshop is a single session.",
+        },
+        {
+          id: "classSize",
+          label: "Expected class size per session",
+          type: "number",
+        },
+        {
+          id: "participantsBriefed",
+          label: "Are participants briefed about being photographed?",
+          type: "radio",
+          required: true,
+          options: ["Yes", "No", "I'll handle it before the shoot"],
+        },
+        {
+          id: "modelReleases",
+          label: "Model releases needed for participants?",
+          type: "radio",
+          options: ["Yes", "No", "I'll provide my own"],
+        },
+        {
+          id: "classMoments",
+          label: "Specific moments / poses to capture",
+          type: "textarea",
+          placeholder:
+            "e.g. the partner stretch, savasana wide shot, instructor hands-on adjustment…",
+        },
+        {
+          id: "instructorPortraits",
+          label:
+            "Should I include instructor portrait coverage in the same block?",
+          type: "radio",
+          options: YES_NO,
+        },
+      ],
+    },
+    {
+      title: "Product / lifestyle details",
+      description:
+        "Flatlay or in-context product photography — for catalog, marketing, or content series.",
+      showIf: {
+        id: "package",
+        equalsAny: ["Product / Lifestyle", "Brand Half-Day"],
+      },
+      fields: [
+        {
+          id: "skuCount",
+          label: "Number of SKUs to shoot",
+          type: "number",
+          required: true,
+          help: "Product / Lifestyle covers up to 15 SKUs. Additional SKUs are $75 per 5.",
+        },
+        {
+          id: "styleMix",
+          label: "Style mix",
+          type: "radio",
+          required: true,
+          options: [
+            "All flatlay",
+            "All in-context lifestyle",
+            "Mix of both",
+          ],
+        },
+        {
+          id: "artDirection",
+          label: "Will you be on set to art-direct?",
+          type: "radio",
+          options: ["Yes", "No", "Sending a stylist"],
+        },
+        {
+          id: "stylingMaterials",
+          label: "Props / styling materials — who's bringing what?",
+          type: "textarea",
+        },
+        {
+          id: "backgroundPref",
+          label: "Background preferences",
+          type: "checkbox",
+          options: [
+            "White seamless",
+            "Wood",
+            "Linen",
+            "Colored seamless",
+            "On-location",
+            "Multiple backgrounds",
+          ],
+        },
+        {
+          id: "colorPalette",
+          label: "Color palette / mood references",
+          type: "textarea",
+        },
+        {
+          id: "modelsInFrame",
+          label: "Models or hands needed in frame?",
+          type: "radio",
+          options: YES_NO,
+        },
+        {
+          id: "aspectRatios",
+          label: "Final aspect ratios needed",
+          type: "checkbox",
+          options: [
+            "1:1 square",
+            "4:5 portrait",
+            "9:16 vertical",
+            "16:9 landscape",
+            "3:2 standard",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Storefront / instructor mini",
+      description:
+        "Brand Mini is a focused 45-minute session — one location, one deliverable.",
+      showIf: { id: "package", equals: "Brand Mini" },
+      fields: [
+        {
+          id: "miniWhat",
+          label: "What are we shooting?",
+          type: "radio",
+          required: true,
+          options: [
+            "Instructor portrait",
+            "Storefront promo",
+            "Single-product feature",
+            "New menu item",
+            "Other",
+          ],
+        },
+        {
+          id: "miniLocation",
+          label: "Location address",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "miniWardrobe",
+          label: "Wardrobe / styling plan",
+          type: "textarea",
+        },
+        {
+          id: "miniHeroDeliverable",
+          label: "The single deliverable you most need",
+          type: "text",
+          required: true,
+          help: "If we only nail one shot, what is it?",
+        },
+      ],
+    },
+    {
+      title: "Brand half-day planning",
+      description:
+        "The 4-hour scope deserves a real run of show — let's plan it.",
+      showIf: { id: "package", equals: "Brand Half-Day" },
+      fields: [
+        {
+          id: "runOfShow",
+          label: "Rough hour-by-hour plan",
+          type: "textarea",
+          required: true,
+          placeholder:
+            "9-10am: studio hero shots\n10-11am: instructor portraits\n11-12pm: class action\n12-1pm: detail / product flatlays",
+        },
+        {
+          id: "halfDayLocations",
+          label: "Locations you'll need me at",
+          type: "textarea",
+          placeholder: "Single studio, or multiple stops? List addresses.",
+        },
+        {
+          id: "sameDaySocialSelects",
+          label: "Same-day social selects needed?",
+          type: "radio",
+          options: YES_NO,
+          help: "Brand Half-Day includes up to 15 same-day selects.",
+        },
+        {
+          id: "verticalReelsAddon",
+          label: "Interested in the vertical reels / BTS clips add-on?",
+          type: "radio",
+          options: ["Yes", "No", "Maybe"],
+        },
+      ],
+    },
+    {
+      title: "Deadline & deliverables",
+      fields: [
+        {
+          id: "finalDeadline",
+          label: "When do you need final photos by?",
+          type: "date",
+          required: true,
+        },
+        {
+          id: "rushGallery",
+          label: "Interested in the 24-hour rush gallery add-on?",
+          type: "radio",
+          options: ["Yes", "No", "Maybe"],
+        },
+        {
+          id: "fileFormats",
+          label: "File formats needed",
+          type: "radio",
+          options: ["Web only", "Print only", "Both web and print"],
+        },
+        {
+          id: "recurringPotential",
+          label: "Recurring schedule potential",
+          type: "radio",
+          options: [
+            "One-off",
+            "Monthly",
+            "Quarterly",
+            "Ongoing",
+          ],
+          help: "Recurring schedules qualify for a discounted retainer rate.",
+        },
+      ],
+    },
+    {
+      title: "Anything else",
+      fields: [
+        {
+          id: "brandGuidelines",
+          label: "Brand guidelines URL (optional)",
+          type: "text",
+        },
+        {
+          id: "anythingElse",
+          label: "Anything else I should know?",
+          type: "textarea",
+        },
+      ],
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------------
 // Registry
 // ----------------------------------------------------------------------------
 
 export const QUESTIONNAIRES: Partial<Record<ServiceSlug, Questionnaire>> = {
   weddings: weddingQuestionnaire,
+  "engagements-couples": engagementsCouplesQuestionnaire,
   "cultural-milestones": culturalMilestonesQuestionnaire,
+  "family-portraits": familyPortraitsQuestionnaire,
   "family-celebrations": familyCelebrationsQuestionnaire,
   "corporate-community-events": corporateEventsQuestionnaire,
+  "brand-commercial": brandCommercialQuestionnaire,
   "concerts-performances": concertsPerformancesQuestionnaire,
   maternity: maternityQuestionnaire,
   newborn: newbornQuestionnaire,

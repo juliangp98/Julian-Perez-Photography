@@ -111,13 +111,20 @@ export default function BookPage() {
         </a>
       </div>
 
-      <div className="mt-4 text-sm text-[var(--muted)]">
-        Already booked?{" "}
+      <div className="mt-8 max-w-3xl border border-[var(--border)] rounded-lg p-5 bg-white">
+        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+          Already booked or seriously considering?
+        </div>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          Start your service-specific planning questionnaire so I can show up
+          with everything I need on the day. It autosaves in your browser, so
+          you can fill it out in pieces.
+        </p>
         <Link
           href="/questionnaire"
-          className="underline underline-offset-4 hover:text-[var(--foreground)]"
+          className="mt-3 inline-block text-sm underline underline-offset-4 hover:text-[var(--foreground)]"
         >
-          Fill out your planning questionnaire →
+          Plan your session →
         </Link>
       </div>
     </section>

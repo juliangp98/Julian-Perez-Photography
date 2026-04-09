@@ -27,21 +27,20 @@ export default function AboutPage() {
           became the designated photographer for family events.
         </p>
         <p>
-          With my upgrade to a more professional and reliable Sony mirrorless
-          system as I took on more work, I have continued expanding my horizons
-          and exploring the human connection as a photographer for weddings
-          and engagements, events, portraits and headshots, and photojournalism.
-          I&rsquo;ve also started delving into video work! As I continue to
-          expand my capabilities, I have consistently challenged myself to
-          change my mindset and use new tools to accomplish something unique
-          for each project — something I feel is a crucial skill to be able to
-          satisfy every client&rsquo;s unique needs while retaining the
+          As I took on more work and upgraded to professional equipment, I have 
+          continued expanding my horizons and exploring the human connection as 
+          a photographer for weddings and engagements, events, portraits and 
+          headshots, and photojournalism. I&rsquo;ve also started delving into 
+          video work! As I continue to expand my capabilities, I have consistently 
+          challenged myself to change my mindset and use new tools to accomplish 
+          something unique for each project — something I feel is a crucial skill 
+          to be able to satisfy every client&rsquo;s unique needs while retaining the 
           signature style I have developed over the years.
         </p>
         <p>
           For details about my services and pricing, please feel free to reach
           me using the contact page. I mainly work in the Arlington, VA /
-          Washington, DC area but can travel as needed.
+          Washington, DC / Maryland area but can travel as needed.
         </p>
       </div>
 

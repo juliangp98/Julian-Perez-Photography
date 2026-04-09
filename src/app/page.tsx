@@ -127,12 +127,22 @@ export default function HomePage() {
             Let&rsquo;s make something you&rsquo;ll actually want to hang on the
             wall.
           </h2>
-          <div className="mt-8 flex justify-center gap-4">
+          <p className="mt-4 text-[var(--muted)] max-w-xl mx-auto">
+            Have questions? Start with an inquiry. Already know which service
+            you want? Jump straight into the planning questionnaire.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Link
               href="/inquire"
-              className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
+              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
             >
               Start an inquiry
+            </Link>
+            <Link
+              href="/questionnaire"
+              className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
+            >
+              Plan your session
             </Link>
             <Link
               href="/book"

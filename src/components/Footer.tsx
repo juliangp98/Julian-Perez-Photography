@@ -104,7 +104,7 @@ export default function Footer() {
                 href="/questionnaire"
                 className="hover:text-[var(--foreground)]"
               >
-                Planning questionnaires
+                Plan your session
               </Link>
             </li>
             <li>
