@@ -123,26 +123,6 @@ export default async function ServiceCategoryPage({
         </div>
       )}
 
-      {questionnaire && (
-        <div className="mt-6 max-w-3xl p-5 border border-[var(--accent)] rounded-lg bg-white">
-          <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
-            Booked or seriously considering?
-          </div>
-          <h3 className="mt-2 font-serif text-2xl">
-            {questionnaire.title}
-          </h3>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            ~{questionnaire.estimatedMinutes} min · autosaves in your browser
-          </p>
-          <Link
-            href={`/questionnaire/${s.slug}`}
-            className="mt-4 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
-          >
-            Start the questionnaire →
-          </Link>
-        </div>
-      )}
-
       {(() => {
         const hasGroups = s.packages.some((p) => p.group);
         if (!hasGroups) {
@@ -213,33 +193,54 @@ export default async function ServiceCategoryPage({
         </p>
       )}
 
-      <div className="mt-16 p-10 border border-[var(--border)] rounded-lg bg-white text-center">
-        <h2 className="font-serif text-3xl">Ready to chat?</h2>
-        <p className="mt-3 text-[var(--muted)] max-w-xl mx-auto">
-          Every booking starts with a quick inquiry. Tell me about your vision
-          and I&rsquo;ll get back to you within 48 hours.
-        </p>
-        <div className="mt-6 flex justify-center gap-3 flex-wrap">
-          <Link
-            href={`/inquire?service=${s.slug}`}
-            className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-          >
-            Inquire about {s.title.toLowerCase()}
-          </Link>
-          <Link
-            href="/book"
-            className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
-            Book a session
-          </Link>
+      <div className="mt-16 max-w-3xl p-8 border border-[var(--accent)] rounded-lg bg-white">
+        {questionnaire ? (
+          <>
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+              Booked or seriously considering?
+            </div>
+            <h2 className="mt-2 font-serif text-2xl">{questionnaire.title}</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              ~{questionnaire.estimatedMinutes} min · autosaves in your browser
+            </p>
+            <Link
+              href={`/questionnaire/${s.slug}`}
+              className="mt-4 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
+            >
+              Start the questionnaire →
+            </Link>
+            <div className="mt-8 pt-8 border-t border-[var(--border)]">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                Or explore another way
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            Next steps
+          </div>
+        )}
+        <div className="mt-4 flex gap-3 flex-wrap">
           {portfolio && (
             <Link
               href={`/portfolio/${s.slug}`}
-              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+              className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
             >
-              View {s.title.toLowerCase()} portfolio
+              View portfolio
             </Link>
           )}
+          <Link
+            href={`/inquire?service=${s.slug}`}
+            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+          >
+            Inquire
+          </Link>
+          <Link
+            href="/book"
+            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+          >
+            Book a session
+          </Link>
         </div>
       </div>
     </section>

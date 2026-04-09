@@ -23,7 +23,8 @@ export type FieldType =
   | "select"
   | "radio"
   | "checkbox"
-  | "package"; // auto-populated from the service's packages
+  | "package" // auto-populated from the service's packages
+  | "file"; // uploads to Vercel Blob; value is a JSON-encoded { url, name, size }[]
 
 // Conditional visibility clause used by both fields and sections. Lets a
 // question or an entire section appear/disappear based on the value of another
@@ -56,6 +57,10 @@ export type Field = {
   help?: string;
   options?: string[]; // for select / radio / checkbox
   showIf?: ShowIfClause;
+  // File-field-only options:
+  accept?: string; // passed to <input accept="…">, defaults to images + PDFs
+  maxFiles?: number; // defaults to 10
+  maxFileSizeMb?: number; // defaults to 10
 };
 
 export type Section = {
@@ -111,7 +116,7 @@ const yourDetailsSection: Section = {
       label: "Instagram handle (optional)",
       type: "text",
       placeholder: "@yourhandle",
-      help: "I love connecting with my clients — totally optional.",
+      help: "I love connecting with my clients — totally optional!",
     },
   ],
 };
@@ -162,7 +167,7 @@ const weddingQuestionnaire: Questionnaire = {
   title: "Wedding planning questionnaire",
   intro:
     "Welcome! This is the questionnaire I send to every booked wedding couple — it's how I learn your day inside and out so I can show up prepared and stress-free. Take your time. You can save your answers and come back later.",
-  audience: "Booked wedding couples (and serious prospects)",
+  audience: "Booked and prospective wedding couples",
   estimatedMinutes: 20,
   sections: [
     yourDetailsSection,
@@ -467,6 +472,12 @@ const weddingQuestionnaire: Questionnaire = {
           placeholder: "Instagram, a friend, Google, vendor referral, etc.",
         },
         {
+          id: "inspirationFiles",
+          label: "Upload inspiration photos (optional)",
+          type: "file",
+          help: "Mood-board images, Pinterest saves you've downloaded, or references for the vibe, outfits, or specific shots you love. Images and PDFs, up to 10 files.",
+        },
+        {
           id: "anythingElse",
           label: "Anything else I should know?",
           type: "textarea",
@@ -487,7 +498,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
   title: "Cultural milestone planning questionnaire",
   intro:
     "Quinceañeras, Sweet 16s, Bar and Bat Mitzvahs, and debuts are once-in-a-lifetime celebrations. This questionnaire helps me show up ready for every tradition, every family combination, and every emotional moment.",
-  audience: "Booked cultural-milestone clients",
+  audience: "Booked and prospective cultural-milestone clients",
   estimatedMinutes: 15,
   sections: [
     yourDetailsSection,
@@ -639,6 +650,12 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
           type: "textarea",
         },
         {
+          id: "inspirationFiles",
+          label: "Upload reference photos for cultural details or outfits (optional)",
+          type: "file",
+          help: "Traditional dress details, family heirlooms, specific poses or shots you want to capture. Images and PDFs, up to 10 files.",
+        },
+        {
           id: "referral",
           label: "How did you find me?",
           type: "text",
@@ -662,7 +679,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
   title: "Family celebration planning questionnaire",
   intro:
     "Family events deserve the same documentary eye as a wedding. This questionnaire helps me arrive prepared for the moments that matter most to your family.",
-  audience: "Booked family-celebration clients",
+  audience: "Booked and prospective family-celebration clients",
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
@@ -797,7 +814,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
   title: "Corporate / community event planning questionnaire",
   intro:
     "This brief helps me show up dialed in to your program — who matters, what to capture, and how the photos will be used.",
-  audience: "Booked corporate / community event clients",
+  audience: "Booked and prospective corporate / community event clients",
   estimatedMinutes: 10,
   sections: [
     yourDetailsSection,
@@ -994,7 +1011,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
   title: "Concert / performance planning questionnaire",
   intro:
     "Concert and stage photography is its own discipline — fast light, no second chances. This brief helps me work with your stage manager and lighting crew so I'm never in the way of the show.",
-  audience: "Booked artists, venues, and event organizers",
+  audience: "Booked and prospective artists, venues, and event organizers",
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
@@ -1185,7 +1202,7 @@ const maternityQuestionnaire: Questionnaire = {
   title: "Maternity session planning questionnaire",
   intro:
     "Maternity sessions are paced around your comfort. This questionnaire helps me plan a session that feels easy and looks like the version of this chapter you'll want to remember.",
-  audience: "Booked maternity clients",
+  audience: "Booked and prospective maternity clients",
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
@@ -1276,6 +1293,12 @@ const maternityQuestionnaire: Questionnaire = {
           placeholder: "Pinterest, Instagram saves, anything you've been gathering.",
         },
         {
+          id: "inspirationFiles",
+          label: "Upload wardrobe or pose inspiration (optional)",
+          type: "file",
+          help: "Mood-board images, wardrobe shots, or specific poses you've been saving. Images and PDFs, up to 10 files.",
+        },
+        {
           id: "anythingElse",
           label: "Anything else?",
           type: "textarea",
@@ -1294,7 +1317,7 @@ const newbornQuestionnaire: Questionnaire = {
   title: "Newborn & first-year planning questionnaire",
   intro:
     "Newborn sessions are slow, quiet, and built around the baby's pace. This questionnaire helps me plan around your home, your family, and the chapter you're in.",
-  audience: "Booked newborn / first-year clients",
+  audience: "Booked and prospective newborn / first-year clients",
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
@@ -1379,6 +1402,12 @@ const newbornQuestionnaire: Questionnaire = {
             "Best feeding window, nap schedule, anything that affects timing.",
         },
         {
+          id: "inspirationFiles",
+          label: "Upload heirloom items or reference photos (optional)",
+          type: "file",
+          help: "Family heirlooms (blankets, outfits), nursery details, or reference photos of the look you'd like to capture. Images and PDFs, up to 10 files.",
+        },
+        {
           id: "anythingElse",
           label: "Anything else?",
           type: "textarea",
@@ -1397,7 +1426,7 @@ const portraitureQuestionnaire: Questionnaire = {
   title: "Portrait session planning questionnaire",
   intro:
     "Portrait sessions feel best when we've talked through wardrobe, location, and what you want the photos to do for you before we shoot. This brief helps me plan a session you'll actually enjoy and walk away with a set of photos you love.",
-  audience: "Booked portraiture clients",
+  audience: "Booked and prospective portraiture clients",
   estimatedMinutes: 7,
   sections: [
     yourDetailsSection,
@@ -1516,6 +1545,12 @@ const portraitureQuestionnaire: Questionnaire = {
             "Pinterest, Instagram saves, photos you love — drop links or describe.",
         },
         {
+          id: "inspirationFiles",
+          label: "Upload mood-board or wardrobe photos (optional)",
+          type: "file",
+          help: "Mood-board images, wardrobe shots, or reference portraits you've been saving. Images and PDFs, up to 10 files.",
+        },
+        {
           id: "pacingNotes",
           label: "Anything I should plan around (pacing, accessibility, anxiety with cameras, etc.)?",
           type: "textarea",
@@ -1545,7 +1580,7 @@ const graduationQuestionnaire: Questionnaire = {
   title: "Graduation session planning questionnaire",
   intro:
     "Graduation day is once in a lifetime. This brief helps me plan around your school, your locations, and the people who got you here — plus handle any National Mall permits ahead of time.",
-  audience: "Booked graduation clients",
+  audience: "Booked and prospective graduation clients",
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
@@ -1726,7 +1761,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
   title: "Headshots planning questionnaire",
   intro:
     "Headshot sessions are quick on the day of, but the more I know about your branding, end use, and team logistics ahead of time, the more polished the result.",
-  audience: "Booked headshot clients (individuals and teams)",
+  audience: "Booked and prospective headshot clients (individuals and teams)",
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
@@ -1907,7 +1942,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
   title: "Engagement & couples session questionnaire",
   intro:
     "A few questions so I can plan a session that feels like the two of you. Whether it's an engagement, an anniversary, a surprise proposal, or just because — your answers help me show up with the right plan.",
-  audience: "Booked engagement / couples clients (and serious prospects)",
+  audience: "Booked and prospective engagement / couples clients",
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
@@ -2040,7 +2075,6 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
             "Anniversary",
             "Just because",
             "Save-the-date",
-            "Dating-app refresh",
             "Other",
           ],
         },
@@ -2060,6 +2094,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
             "Golden hour (sunset)",
             "Blue hour (just after sunset)",
             "Daytime",
+            "Soft morning light (6–9am)",
             "No preference",
           ],
         },
@@ -2081,6 +2116,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           id: "outfitIdeas",
           label: "Outfit ideas / colors you're considering",
           type: "textarea",
+          placeholder: "Neutral colors, pastels, earth tones, etc.",
         },
         {
           id: "propsPetsDetails",
@@ -2092,6 +2128,12 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           id: "vibeReferences",
           label: "Vibe references (Instagram links, Pinterest board, etc.)",
           type: "textarea",
+        },
+        {
+          id: "inspirationFiles",
+          label: "Upload inspiration photos (optional)",
+          type: "file",
+          help: "Mood-board images, outfit shots, or specific poses you've been saving. Images and PDFs, up to 10 files.",
         },
         {
           id: "nervousAbout",
@@ -2154,7 +2196,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
   title: "Family portrait questionnaire",
   intro:
     "A few questions so the session feels like your family — not a stiff formal portrait. Tell me who's coming, how they show up, and what you'd actually want printed afterward.",
-  audience: "Booked family portrait clients (and serious prospects)",
+  audience: "Booked and prospective family portrait clients",
   estimatedMinutes: 7,
   sections: [
     yourDetailsSection,
@@ -2261,6 +2303,13 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           options: ["Yes please", "I've got it handled"],
           showIf: { id: "package", equals: "Premium" },
           help: "Included in Premium — I can review outfit photos and suggest tweaks before the day.",
+        },
+        {
+          id: "inspirationFiles",
+          label: "Upload outfit inspiration (optional)",
+          type: "file",
+          showIf: { id: "package", equals: "Premium" },
+          help: "Outfit photos, color palettes, or family-portrait references you love. Part of the Premium wardrobe consult. Images and PDFs, up to 10 files.",
         },
         {
           id: "wardrobeNervousAbout",
@@ -2370,7 +2419,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
   title: "Brand & commercial shoot questionnaire",
   intro:
     "A planning brief so we hit the ground running. Tell me about your brand, where the photos will live, and the specific scope of this shoot — I'll build the shot list around your answers.",
-  audience: "Booked brand / commercial clients (and serious prospects)",
+  audience: "Booked and prospective brand / commercial clients",
   estimatedMinutes: 9,
   sections: [
     yourDetailsSection,
@@ -2412,6 +2461,12 @@ const brandCommercialQuestionnaire: Questionnaire = {
           label: "Have we worked together before?",
           type: "radio",
           options: YES_NO,
+        },
+        {
+          id: "inspirationFiles",
+          label: "Upload brand references, logos, or product shots (optional)",
+          type: "file",
+          help: "Logo files, existing brand imagery, competitor references, mood boards, or product shots I should study before the shoot. Images and PDFs, up to 10 files.",
         },
       ],
     },
@@ -2728,7 +2783,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
 // ----------------------------------------------------------------------------
 
 export const QUESTIONNAIRES: Partial<Record<ServiceSlug, Questionnaire>> = {
-  weddings: weddingQuestionnaire,
+  "weddings": weddingQuestionnaire,
   "engagements-couples": engagementsCouplesQuestionnaire,
   "cultural-milestones": culturalMilestonesQuestionnaire,
   "family-portraits": familyPortraitsQuestionnaire,
@@ -2736,10 +2791,10 @@ export const QUESTIONNAIRES: Partial<Record<ServiceSlug, Questionnaire>> = {
   "corporate-community-events": corporateEventsQuestionnaire,
   "brand-commercial": brandCommercialQuestionnaire,
   "concerts-performances": concertsPerformancesQuestionnaire,
-  maternity: maternityQuestionnaire,
-  newborn: newbornQuestionnaire,
-  portraiture: portraitureQuestionnaire,
-  graduation: graduationQuestionnaire,
+  "maternity": maternityQuestionnaire,
+  "newborn": newbornQuestionnaire,
+  "portraiture": portraitureQuestionnaire,
+  "graduation": graduationQuestionnaire,
   "corporate-headshots": corporateHeadshotsQuestionnaire,
 };
 

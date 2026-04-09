@@ -9,6 +9,33 @@ import {
 
 type Answers = Record<string, string | string[]>;
 
+type UploadedFile = { url: string; name: string; size?: number };
+
+// Parse a file-field value. The client stores `{ url, name, size }[]` as a
+// JSON-encoded string so it fits the existing string|string[] value type.
+function parseFiles(v: unknown): UploadedFile[] {
+  if (typeof v !== "string" || !v) return [];
+  try {
+    const parsed = JSON.parse(v);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (f): f is UploadedFile =>
+        f && typeof f.url === "string" && typeof f.name === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+// Emptiness check that understands file fields (an empty JSON array `"[]"` is
+// empty). Mirrors the client's `isFieldEmpty` in QuestionnaireForm.tsx.
+function isAnswerEmpty(type: string, v: unknown): boolean {
+  if (v === undefined || v === "") return true;
+  if (Array.isArray(v) && v.length === 0) return true;
+  if (type === "file") return parseFiles(v).length === 0;
+  return false;
+}
+
 export async function POST(req: Request) {
   let body: { service?: string; company?: string; answers?: Answers };
   try {
@@ -41,8 +68,7 @@ export async function POST(req: Request) {
     for (const f of section.fields) {
       if (!f.required) continue;
       if (!evaluateShowIf(f.showIf, answers)) continue;
-      const v = answers[f.id];
-      if (v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) {
+      if (isAnswerEmpty(f.type, answers[f.id])) {
         return NextResponse.json(
           { error: `Missing required field: ${f.label}` },
           { status: 400 },
@@ -80,15 +106,23 @@ export async function POST(req: Request) {
     const sectionVisibleFields = section.fields.filter((f) =>
       evaluateShowIf(f.showIf, answers),
     );
-    const populatedFields = sectionVisibleFields.filter((f) => {
-      const v = answers[f.id];
-      return v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
-    });
+    const populatedFields = sectionVisibleFields.filter(
+      (f) => !isAnswerEmpty(f.type, answers[f.id]),
+    );
     if (populatedFields.length === 0) continue;
 
     lines.push(`── ${section.title.toUpperCase()} ──`);
     for (const f of populatedFields) {
       const v = answers[f.id];
+      if (f.type === "file") {
+        const files = parseFiles(v);
+        lines.push(`${f.label}:`);
+        for (const file of files) {
+          lines.push(`  • ${file.name} — ${file.url}`);
+        }
+        lines.push("");
+        continue;
+      }
       const display = Array.isArray(v) ? v.join(", ") : String(v);
       lines.push(`${f.label}:`);
       lines.push(`  ${display.split("\n").join("\n  ")}`);

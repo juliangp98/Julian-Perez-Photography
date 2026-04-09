@@ -43,17 +43,47 @@ export default function ServicesIndex() {
                 className="group border border-[var(--border)] rounded-lg p-6 bg-white hover:border-[var(--foreground)] transition flex flex-col"
               >
                 <h3 className="font-serif text-2xl">{s.title}</h3>
-                <p className="mt-2 text-sm text-[var(--muted)] flex-1">
-                  {s.tagline}
-                </p>
-                <div className="mt-6 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
-                  View pricing →
+                <p className="mt-2 text-sm text-[var(--muted)] flex-1">{s.tagline}</p>
+                
+                {/* Wrapped the bottom elements properly */}
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                    View pricing →
+                  </div>
+                  <p className="text-xs text-[var(--muted)]">
+                    {s.packages.length} packages
+                  </p>
                 </div>
+                
               </Link>
             ))}
           </div>
         </div>
       ))}
+
+  <div className="mt-20 p-8 border border-[var(--border)] rounded-lg bg-white max-w-3xl">
+          <h2 className="font-serif text-2xl">Don&rsquo;t see your service?</h2>
+          <p className="mt-2 text-[var(--muted)]">
+            Some services need more of a custom fit. For those,
+            the inquiry form is your friend.
+
+          </p>
+          <div className="mt-5 flex gap-3 flex-wrap">
+            <Link
+              href="/inquire"
+              className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
+            >
+              Send an inquiry
+            </Link>
+            <Link
+              href="/portfolio"
+              className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
+            >
+              Browse portfolio
+            </Link>
+          </div>
+        </div>
+        
     </section>
   );
 }

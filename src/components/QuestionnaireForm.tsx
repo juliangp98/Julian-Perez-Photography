@@ -13,6 +13,22 @@ type Status = "idle" | "submitting" | "success" | "error";
 type Value = string | string[];
 type FormState = Record<string, Value>;
 
+// Shared emptiness check — file fields store a JSON array as a string, so a
+// raw empty-string check isn't enough and `"[]"` also counts as empty.
+function isFieldEmpty(type: string, v: Value | undefined): boolean {
+  if (v === undefined || v === "") return true;
+  if (Array.isArray(v) && v.length === 0) return true;
+  if (type === "file" && typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      return !Array.isArray(parsed) || parsed.length === 0;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default function QuestionnaireForm({
   questionnaire,
   prefill,
@@ -86,7 +102,7 @@ export default function QuestionnaireForm({
     for (const f of visibleFields) {
       if (!f.required) continue;
       const v = state[f.id];
-      if (v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) {
+      if (isFieldEmpty(f.type, v)) {
         return `Please answer: ${f.label}`;
       }
     }
@@ -129,7 +145,8 @@ export default function QuestionnaireForm({
       for (const f of sec.fields) {
         if (!evaluateShowIf(f.showIf, state)) continue;
         const v = state[f.id];
-        if (v !== undefined && v !== "") payload[f.id] = v;
+        if (isFieldEmpty(f.type, v)) continue;
+        payload[f.id] = v as Value;
       }
     }
 
@@ -489,8 +506,162 @@ function FieldRenderer({
         </div>
       );
     }
+    case "file":
+      return (
+        <FileField
+          field={field}
+          value={value}
+          onChange={onChange}
+          slug={slug}
+          labelEl={labelEl}
+          helpEl={helpEl}
+        />
+      );
     default:
       return null;
   }
+}
+
+// ----------------------------------------------------------------------------
+// File field — uploads to Vercel Blob on selection so the form submit payload
+// stays JSON. State holds a JSON-encoded `{ url, name, size }[]`.
+// ----------------------------------------------------------------------------
+
+type UploadedFile = { url: string; name: string; size: number };
+
+function parseFiles(value: Value | undefined): UploadedFile[] {
+  if (typeof value !== "string" || !value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (f): f is UploadedFile =>
+        f && typeof f.url === "string" && typeof f.name === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function FileField({
+  field,
+  value,
+  onChange,
+  slug,
+  labelEl,
+  helpEl,
+}: {
+  field: Field;
+  value: Value | undefined;
+  onChange: (v: Value) => void;
+  slug: string;
+  labelEl: React.ReactNode;
+  helpEl: React.ReactNode;
+}) {
+  const files = parseFiles(value);
+  const maxFiles = field.maxFiles ?? 10;
+  const maxSizeMb = field.maxFileSizeMb ?? 10;
+  const maxSizeBytes = maxSizeMb * 1024 * 1024;
+
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function handleFiles(selected: FileList | null) {
+    if (!selected || selected.length === 0) return;
+    setMessage(null);
+    setUploading(true);
+    // Dynamic import keeps @vercel/blob/client out of the initial client
+    // bundle for pages that don't use file fields.
+    const { upload } = await import("@vercel/blob/client");
+    const next = [...files];
+    const skipped: string[] = [];
+    try {
+      for (const file of Array.from(selected)) {
+        if (next.length >= maxFiles) {
+          skipped.push(`${file.name} (limit ${maxFiles})`);
+          continue;
+        }
+        if (file.size > maxSizeBytes) {
+          skipped.push(`${file.name} (over ${maxSizeMb} MB)`);
+          continue;
+        }
+        try {
+          const blob = await upload(
+            `questionnaires/${slug}/${Date.now()}-${file.name}`,
+            file,
+            {
+              access: "public",
+              handleUploadUrl: "/api/questionnaire-upload",
+            },
+          );
+          next.push({ url: blob.url, name: file.name, size: file.size });
+        } catch {
+          skipped.push(`${file.name} (upload failed)`);
+        }
+      }
+      onChange(JSON.stringify(next));
+      if (skipped.length > 0) {
+        setMessage(`Skipped: ${skipped.join(", ")}`);
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAt(i: number) {
+    const next = files.filter((_, j) => j !== i);
+    onChange(JSON.stringify(next));
+  }
+
+  return (
+    <div>
+      {labelEl}
+      <input
+        id={field.id}
+        type="file"
+        multiple
+        disabled={uploading}
+        accept={field.accept || "image/*,application/pdf"}
+        onChange={(e) => {
+          void handleFiles(e.target.files);
+          e.target.value = ""; // reset so selecting the same file twice re-fires
+        }}
+        className="block w-full text-sm text-[var(--muted)] file:mr-3 file:px-4 file:py-2 file:border-0 file:rounded-full file:bg-[var(--foreground)] file:text-[var(--background)] hover:file:opacity-90 file:cursor-pointer file:disabled:opacity-60"
+      />
+      {uploading && (
+        <p className="mt-2 text-xs text-[var(--muted)]">Uploading…</p>
+      )}
+      {files.length > 0 && (
+        <ul className="mt-3 space-y-1.5 text-sm">
+          {files.map((f, i) => (
+            <li key={f.url} className="flex justify-between items-center gap-3">
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 truncate text-[var(--foreground)] hover:text-[var(--accent)]"
+              >
+                {f.name}
+              </a>
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {message && (
+        <p className="mt-2 text-xs text-[var(--muted)]">{message}</p>
+      )}
+      <p className="mt-1.5 text-xs text-[var(--muted)]">
+        Up to {maxFiles} files, {maxSizeMb} MB each. Images and PDFs.
+      </p>
+      {helpEl}
+    </div>
+  );
 }
 
