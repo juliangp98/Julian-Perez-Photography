@@ -190,9 +190,125 @@ const weddingQuestionnaire: Questionnaire = {
     },
     bookingStatusSection("weddings"),
     {
+      title: "Getting ready",
+      description:
+        "Coverage of prep, hair, makeup, and the small moments before the ceremony.",
+      showIf: { id: "package", notEquals: "Mini" },
+      fields: [
+        {
+          id: "gettingReady",
+          label: "Would you like getting-ready coverage?",
+          type: "radio",
+          required: true,
+          options: YES_NO,
+        },
+        {
+          id: "gettingReadyAddress",
+          label: "Address of your get-ready location",
+          type: "textarea",
+          showIf: { id: "gettingReady", equals: "Yes" },
+        },
+        {
+          id: "partnerGettingReady",
+          label: "Would you like coverage of your partner getting ready?",
+          type: "radio",
+          required: true,
+          options: YES_NO,
+          help: "Silver, Premium, and Platinum include a second shooter — this is the ideal use of them. Essentials is solo unless you've added a second shooter.",
+          showIf: { id: "package", notEquals: "Essentials" },
+        },
+        {
+          id: "partnerGettingReadyAddress",
+          label: "Address of your partner's get-ready location",
+          type: "textarea",
+          showIf: { id: "partnerGettingReady", equals: "Yes" },
+        },
+        {
+          id: "essentialsSecondShooter",
+          label:
+            "Are you adding the second-shooter add-on to your Essentials package?",
+          type: "radio",
+          required: true,
+          options: YES_NO,
+          help: "Essentials is solo by default; second shooter is a $400 add-on. Lets me know whether to plan for partner getting-ready coverage.",
+          showIf: { id: "package", equals: "Essentials" },
+        },
+        {
+          id: "firstLook",
+          label: "Are you having a first look, first touch, or neither?",
+          type: "radio",
+          required: true,
+          options: [
+            "First look (with each other)",
+            "First touch (no eye contact)",
+            "First look with parent / family member",
+            "First look with bridal party",
+            "No first look — we want to see each other at the aisle",
+            "Still deciding",
+          ],
+        },
+        {
+          id: "firstLookWith",
+          label: "If a first look with someone other than your partner, with whom?",
+          type: "text",
+          placeholder: "e.g. dad, mom, both parents, sister",
+        },
+      ],
+    },
+    {
+      title: "Wedding party & details",
+      description:
+        "Everyone and everything involved in making your day perfect.",
+      showIf: { id: "package", notEquals: "Mini" },
+      fields: [
+        {
+          id: "weddingParty",
+          label: "Wedding party — how many on each side?",
+          type: "text",
+          required: true,
+          placeholder: "e.g. 5 bridesmaids, 5 groomsmen, 2 flower kids",
+          help: "Or 'no wedding party'.",
+        },
+        {
+          id: "detailPhotos",
+          label: "Detail photos you'd like prioritized",
+          type: "checkbox",
+          options: [
+            "Rings",
+            "Invitation suite / stationery flat-lay",
+            "Dress hanging shot",
+            "Suit / outfit hanging shot",
+            "Shoes",
+            "Jewelry / heirlooms",
+            "Bouquet & florals",
+            "Perfume / cologne",
+            "Vow books",
+            "Something old / new / borrowed / blue",
+          ],
+          help: "Bring these items together in one place when I arrive — I'll grab them quickly during getting-ready.",
+        },
+        {
+          id: "mustTakePhotos",
+          label: "Must-take photo ideas or reference shots",
+          type: "textarea",
+          placeholder:
+            "Specific frames you've seen on Pinterest / Instagram, or family combinations that absolutely cannot be missed (e.g. all four grandparents, fraternity brothers, etc.)",
+        },
+        {
+          id: "uniqueElements",
+          label:
+            "Anything unique, cultural, or personal you're incorporating that I should know about?",
+          type: "textarea",
+          placeholder:
+            "Cultural traditions, heirloom rituals, surprise performance, unique vows, pet ring-bearer, anything I shouldn't accidentally crop out.",
+          help: "The more I know, the more I can anticipate.",
+        },
+      ],
+    },
+    {
       title: "Ceremony",
       description:
-        "Every package includes the ceremony — even an elopement Mini.",
+        "Coverage of the main event.",
       fields: [
         {
           id: "ceremonyVenue",
@@ -233,7 +349,7 @@ const weddingQuestionnaire: Questionnaire = {
     {
       title: "Reception",
       description:
-        "Skip this section if you booked the Mini package — it's ceremony + portraits only.",
+        "The fun part! Special entrances, dances, speeches, and other logistics should be specified.",
       showIf: { id: "package", notEquals: "Mini" },
       fields: [
         {
@@ -315,122 +431,6 @@ const weddingQuestionnaire: Questionnaire = {
           required: true,
           options: YES_NO,
           help: "I'm happy either way — I just plan my breaks differently.",
-        },
-      ],
-    },
-    {
-      title: "Getting ready",
-      description:
-        "Coverage of prep, hair, makeup, and the small moments before the ceremony. Skipped automatically for elopement Mini packages.",
-      showIf: { id: "package", notEquals: "Mini" },
-      fields: [
-        {
-          id: "gettingReady",
-          label: "Would you like getting-ready coverage?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
-        },
-        {
-          id: "gettingReadyAddress",
-          label: "Address of your get-ready location",
-          type: "textarea",
-          showIf: { id: "gettingReady", equals: "Yes" },
-        },
-        {
-          id: "partnerGettingReady",
-          label: "Would you like coverage of your partner getting ready?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
-          help: "Silver, Premium, and Platinum include a second shooter — this is the ideal use of them. Essentials is solo unless you've added a second shooter.",
-          showIf: { id: "package", notEquals: "Essentials" },
-        },
-        {
-          id: "partnerGettingReadyAddress",
-          label: "Address of your partner's get-ready location",
-          type: "textarea",
-          showIf: { id: "partnerGettingReady", equals: "Yes" },
-        },
-        {
-          id: "essentialsSecondShooter",
-          label:
-            "Are you adding the second-shooter add-on to your Essentials package?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
-          help: "Essentials is solo by default; second shooter is a $400 add-on. Lets me know whether to plan for partner getting-ready coverage.",
-          showIf: { id: "package", equals: "Essentials" },
-        },
-        {
-          id: "firstLook",
-          label: "Are you having a first look, first touch, or neither?",
-          type: "radio",
-          required: true,
-          options: [
-            "First look (with each other)",
-            "First touch (no eye contact)",
-            "First look with parent / family member",
-            "First look with bridal party",
-            "No first look — we want to see each other at the aisle",
-            "Still deciding",
-          ],
-        },
-        {
-          id: "firstLookWith",
-          label: "If a first look with someone other than your partner, with whom?",
-          type: "text",
-          placeholder: "e.g. dad, mom, both parents, sister",
-        },
-      ],
-    },
-    {
-      title: "Wedding party & details",
-      description:
-        "Skipped automatically for the elopement Mini package — we'll catch up on details day-of.",
-      showIf: { id: "package", notEquals: "Mini" },
-      fields: [
-        {
-          id: "weddingParty",
-          label: "Wedding party — how many on each side?",
-          type: "text",
-          required: true,
-          placeholder: "e.g. 5 bridesmaids, 5 groomsmen, 2 flower kids",
-          help: "Or 'no wedding party'.",
-        },
-        {
-          id: "detailPhotos",
-          label: "Detail photos you'd like prioritized",
-          type: "checkbox",
-          options: [
-            "Rings",
-            "Invitation suite / stationery flat-lay",
-            "Dress hanging shot",
-            "Suit / outfit hanging shot",
-            "Shoes",
-            "Jewelry / heirlooms",
-            "Bouquet & florals",
-            "Perfume / cologne",
-            "Vow books",
-            "Something old / new / borrowed / blue",
-          ],
-          help: "Bring these items together in one place when I arrive — I'll grab them quickly during getting-ready.",
-        },
-        {
-          id: "mustTakePhotos",
-          label: "Must-take photo ideas or reference shots",
-          type: "textarea",
-          placeholder:
-            "Specific frames you've seen on Pinterest / Instagram, or family combinations that absolutely cannot be missed (e.g. all four grandparents, fraternity brothers, etc.)",
-        },
-        {
-          id: "uniqueElements",
-          label:
-            "Anything unique, cultural, or personal you're incorporating that I should know about?",
-          type: "textarea",
-          placeholder:
-            "Cultural traditions, heirloom rituals, surprise performance, unique vows, pet ring-bearer, anything I shouldn't accidentally crop out.",
-          help: "The more I know, the more I can anticipate.",
         },
       ],
     },
@@ -543,7 +543,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
     {
       title: "Ceremony / religious service",
       description:
-        "Skipped automatically if you booked the standalone Pre-Event Portraits package.",
+        "Making sure we commemorate the main event appropriately.",
       showIf: { id: "package", notEquals: "Pre-Event Portraits" },
       fields: [
         {
@@ -576,7 +576,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
     {
       title: "Reception",
       description:
-        "Skipped automatically if you booked the standalone Pre-Event Portraits package.",
+        "The fun part! Add any special traditions, VIPs, and moments to capture..",
       showIf: { id: "package", notEquals: "Pre-Event Portraits" },
       fields: [
         {
@@ -625,7 +625,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
     {
       title: "Pre-event portrait session",
       description:
-        "The Full Celebration package includes a separate pre-event session, and Pre-Event Portraits is a standalone version of it. Skipped automatically for the Reception Coverage package, which doesn't include a pre-event session.",
+        "The Full Celebration package includes a separate pre-event session, and Pre-Event Portraits is a standalone version of it.",
       showIf: { id: "package", notEquals: "Reception Coverage" },
       fields: [
         {
