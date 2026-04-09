@@ -100,6 +100,14 @@ export default function Footer() {
               </Link>
             </li>
             <li>
+              <Link
+                href="/questionnaire"
+                className="hover:text-[var(--foreground)]"
+              >
+                Planning questionnaires
+              </Link>
+            </li>
+            <li>
               <a
                 href={siteSettings.clientGalleryUrl}
                 target="_blank"

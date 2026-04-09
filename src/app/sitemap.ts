@@ -3,17 +3,24 @@ import {
   visibleServices as services,
   visiblePortfolios as portfolios,
 } from "@/lib/content";
+import { QUESTIONNAIRES } from "@/lib/questionnaires";
 
 const BASE = "https://julianperezphotography.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-  const staticRoutes = ["", "/portfolio", "/services", "/about", "/inquire", "/book"].map(
-    (path) => ({
-      url: `${BASE}${path}`,
-      lastModified: now,
-    }),
-  );
+  const staticRoutes = [
+    "",
+    "/portfolio",
+    "/services",
+    "/about",
+    "/inquire",
+    "/book",
+    "/questionnaire",
+  ].map((path) => ({
+    url: `${BASE}${path}`,
+    lastModified: now,
+  }));
   const portfolioRoutes = portfolios.map((p) => ({
     url: `${BASE}/portfolio/${p.slug}`,
     lastModified: now,
@@ -22,5 +29,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${BASE}/services/${s.slug}`,
     lastModified: now,
   }));
-  return [...staticRoutes, ...portfolioRoutes, ...serviceRoutes];
+  const questionnaireRoutes = Object.keys(QUESTIONNAIRES).map((slug) => ({
+    url: `${BASE}/questionnaire/${slug}`,
+    lastModified: now,
+  }));
+  return [
+    ...staticRoutes,
+    ...portfolioRoutes,
+    ...serviceRoutes,
+    ...questionnaireRoutes,
+  ];
 }

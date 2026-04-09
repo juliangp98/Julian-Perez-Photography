@@ -43,6 +43,16 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
           Your inquiry is in my inbox. I&rsquo;ll reply within 48 hours — often
           faster.
         </p>
+        <p className="mt-5 text-sm text-[var(--muted)]">
+          Once we&rsquo;re booked (or if you&rsquo;re seriously considering),
+          the next step is a planning questionnaire so I can show up prepared.{" "}
+          <a
+            href="/questionnaire"
+            className="underline underline-offset-4 hover:text-[var(--foreground)]"
+          >
+            Browse planning questionnaires →
+          </a>
+        </p>
       </div>
     );
   }

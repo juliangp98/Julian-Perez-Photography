@@ -110,6 +110,16 @@ export default function BookPage() {
           Email me directly.
         </a>
       </div>
+
+      <div className="mt-4 text-sm text-[var(--muted)]">
+        Already booked?{" "}
+        <Link
+          href="/questionnaire"
+          className="underline underline-offset-4 hover:text-[var(--foreground)]"
+        >
+          Fill out your planning questionnaire →
+        </Link>
+      </div>
     </section>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
 import { renderInline } from "@/lib/inline";
+import { getQuestionnaire } from "@/lib/questionnaires";
 
 export function generateStaticParams() {
   return services.map((s) => ({ category: s.slug }));
@@ -45,6 +46,7 @@ export default async function ServiceCategoryPage({
   const s = getService(category);
   if (!s) notFound();
   const portfolio = getPortfolio(s.slug);
+  const questionnaire = getQuestionnaire(s.slug);
 
   const serviceJsonLd = {
     "@context": "https://schema.org",
@@ -118,6 +120,26 @@ export default async function ServiceCategoryPage({
       {s.comboNote && (
         <div className="mt-10 max-w-3xl p-5 border-l-2 border-[var(--accent)] bg-white rounded-r text-[var(--foreground)]/90 italic">
           {renderInline(s.comboNote)}
+        </div>
+      )}
+
+      {questionnaire && (
+        <div className="mt-6 max-w-3xl p-5 border border-[var(--accent)] rounded-lg bg-white">
+          <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+            Booked or seriously considering?
+          </div>
+          <h3 className="mt-2 font-serif text-2xl">
+            {questionnaire.title}
+          </h3>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            ~{questionnaire.estimatedMinutes} min · autosaves in your browser
+          </p>
+          <Link
+            href={`/questionnaire/${s.slug}`}
+            className="mt-4 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
+          >
+            Start the questionnaire →
+          </Link>
         </div>
       )}
 

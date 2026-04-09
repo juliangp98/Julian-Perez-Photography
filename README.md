@@ -125,6 +125,26 @@ A file named `cover.jpg` or `hero.jpg` (any extension) is promoted to position 0
 - **`/client`** — embeds `siteSettings.clientGalleryUrl` (Pic-Time) the same way, with the same fallback.
 - **Google Reviews** — `src/components/GoogleReviews.tsx` tries the Places API first. If the call fails or env vars are unset, it renders manual testimonials from `siteSettings.testimonials`. If both are empty, the component renders `null` so the page degrades cleanly.
 
+## Planning questionnaires
+
+Schema-driven planning questionnaires live in **`src/lib/questionnaires.ts`**. Each questionnaire is a `Questionnaire` → `Section[]` → `Field[]` tree. Field types include `text`, `textarea`, `email`, `tel`, `date`, `time`, `number`, `select`, `radio`, `checkbox`, and `package` (the last one resolves at render-time from `services[slug].packages` so package lists never drift from pricing).
+
+- **Routes**: `/questionnaire` is the index; `/questionnaire/[service]` renders the form for one service (statically generated per slug in `QUESTIONNAIRES`).
+- **Submissions**: posted to `/api/questionnaire`, validated against the schema (skipping fields hidden by `showIf`), and emailed via Resend reusing the same env vars as `/api/inquire`. Without `RESEND_API_KEY` set, submissions log to the dev console.
+- **Drafts autosave** in `localStorage` under `questionnaire-draft-{slug}` and clear on a successful submit.
+- **Conditional fields** use `showIf: { id, equals }` so follow-up questions only appear when relevant.
+- **Prefill via URL**: query params seed initial values, e.g.
+  ```
+  /questionnaire/weddings?fullName=Sarah&package=Premium&eventDate=2026-08-15
+  ```
+  Paste this kind of link into post-booking confirmation emails so clients land on a partly-filled form.
+
+### Adding a new questionnaire
+
+1. Define a `Questionnaire` constant in `src/lib/questionnaires.ts` (most use the shared `yourDetailsSection` and `bookingStatusSection(slug)` as the first two sections).
+2. Register it in the `QUESTIONNAIRES` map keyed by `ServiceSlug`.
+3. The service page CTA (`/services/[category]`), the index page, and the sitemap pick it up automatically. No other wiring needed.
+
 ## Deployment (Vercel)
 
 The site is deployed to Vercel.
