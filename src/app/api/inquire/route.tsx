@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
+import { render } from "@react-email/components";
 import { siteSettings, getService } from "@/lib/content";
+import {
+  BrandedEmailLayout,
+  InquiryEmailTemplate,
+  ClientConfirmationTemplate,
+} from "@/lib/email-templates";
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -72,12 +78,19 @@ export async function POST(req: Request) {
     data.message,
   ].join("\n");
 
+  const html = await render(
+    <BrandedEmailLayout preview={`New inquiry from ${data.name} — ${serviceName}`}>
+      <InquiryEmailTemplate data={data} serviceName={serviceName} />
+    </BrandedEmailLayout>,
+  );
+
   try {
     const { error } = await resend.emails.send({
       from: fromAddress,
       to: toAddress,
       replyTo: data.email,
       subject,
+      html,
       text,
     });
     if (error) throw new Error(error.message);
@@ -87,6 +100,24 @@ export async function POST(req: Request) {
       { error: "Could not send right now. Please email directly." },
       { status: 500 },
     );
+  }
+
+  // Client confirmation email — fire and forget; don't fail the submission.
+  try {
+    const confirmHtml = await render(
+      <BrandedEmailLayout preview="Thanks for reaching out — I'll be in touch soon">
+        <ClientConfirmationTemplate clientName={data.name} />
+      </BrandedEmailLayout>,
+    );
+    await resend.emails.send({
+      from: fromAddress,
+      to: data.email,
+      subject: "Thanks for your inquiry — Julian Perez Photography",
+      html: confirmHtml,
+      text: `Thank you, ${data.name.split(" ")[0]}. Your inquiry is in my inbox. I'll review it and get back to you within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
+    });
+  } catch (err) {
+    console.error("[inquire] Client confirmation error:", err);
   }
 
   return NextResponse.json({ ok: true });

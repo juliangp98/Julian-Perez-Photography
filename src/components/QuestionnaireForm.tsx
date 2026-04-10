@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Field, Questionnaire } from "@/lib/questionnaires";
 import {
@@ -42,6 +42,9 @@ export default function QuestionnaireForm({
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  // Preserve submitted answers for the PDF download button after localStorage is cleared.
+  const submittedAnswersRef = useRef<FormState | null>(null);
 
   // Restore draft on mount, then layer prefill on top so query params always win.
   useEffect(() => {
@@ -166,6 +169,7 @@ export default function QuestionnaireForm({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
+      submittedAnswersRef.current = payload;
       setStatus("success");
       try {
         window.localStorage.removeItem(draftKey);
@@ -178,7 +182,35 @@ export default function QuestionnaireForm({
     }
   }
 
+  const downloadPdf = useCallback(async () => {
+    if (!submittedAnswersRef.current) return;
+    setPdfDownloading(true);
+    try {
+      const res = await fetch("/api/wedding-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service: "weddings",
+          answers: submittedAnswersRef.current,
+        }),
+      });
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Wedding-Day-Plan.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF download error:", err);
+    } finally {
+      setPdfDownloading(false);
+    }
+  }, []);
+
   if (status === "success") {
+    const isWedding = questionnaire.slug === "weddings";
     return (
       <div className="p-10 border border-[var(--accent)] rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
@@ -186,6 +218,24 @@ export default function QuestionnaireForm({
           Your answers are in my inbox. I&rsquo;ll review and reach out with next
           steps within 48 hours.
         </p>
+        {isWedding && submittedAnswersRef.current && (
+          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+            <p className="text-sm font-medium">Your Wedding Day Plan</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              A PDF copy was also sent to your email.
+            </p>
+            <button
+              type="button"
+              onClick={downloadPdf}
+              disabled={pdfDownloading}
+              className="mt-3 px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition disabled:opacity-50"
+            >
+              {pdfDownloading
+                ? "Generating PDF\u2026"
+                : "Download Wedding Day Plan (PDF)"}
+            </button>
+          </div>
+        )}
         <div className="mt-6 flex gap-3 flex-wrap">
           <Link
             href={`/services/${questionnaire.slug}`}

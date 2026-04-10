@@ -168,7 +168,7 @@ const weddingQuestionnaire: Questionnaire = {
   intro:
     "Welcome! This is the questionnaire I send to every booked wedding couple — it's how I learn your day inside and out so I can show up prepared and stress-free. Take your time. You can save your answers and come back later.",
   audience: "Booked and prospective wedding couples",
-  estimatedMinutes: 20,
+  estimatedMinutes: 25,
   sections: [
     yourDetailsSection,
     {
@@ -236,7 +236,7 @@ const weddingQuestionnaire: Questionnaire = {
         {
           id: "firstLook",
           label: "Are you having a first look, first touch, or neither?",
-          type: "radio",
+          type: "checkbox",
           required: true,
           options: [
             "First look (with each other)",
@@ -306,6 +306,98 @@ const weddingQuestionnaire: Questionnaire = {
       ],
     },
     {
+      title: "Family portrait groupings",
+      description:
+        "Names and groupings for formal portraits — so I can call people by name and keep the session moving.",
+      showIf: { id: "package", notEquals: "Mini" },
+      fields: [
+        {
+          id: "familyPortraitsPlanned",
+          label: "Will we be doing formal family portraits?",
+          type: "radio",
+          required: true,
+          options: [
+            "Yes — during cocktail hour / after ceremony",
+            "Yes — before the ceremony",
+            "Minimal — just immediate family",
+            "No formal family portraits",
+          ],
+        },
+        {
+          id: "brideParentsNames",
+          label: "Bride's / Partner 1's parents' names",
+          type: "text",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+          help: "First names only — so I can call people by name during portraits.",
+        },
+        {
+          id: "groomParentsNames",
+          label: "Groom's / Partner 2's parents' names",
+          type: "text",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+        {
+          id: "brideSiblingsNames",
+          label: "Bride's / Partner 1's siblings' names",
+          type: "text",
+          placeholder: "e.g. Sarah, Michael, Alex",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+        {
+          id: "groomSiblingsNames",
+          label: "Groom's / Partner 2's siblings' names",
+          type: "text",
+          placeholder: "e.g. James, Emily",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+        {
+          id: "grandparentsNames",
+          label: "Grandparents attending (both sides)",
+          type: "textarea",
+          placeholder:
+            "e.g. Bride's side: Grandma Rosa, Grandpa Luis. Groom's side: Nana Pat",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+        {
+          id: "additionalFamilyGroupings",
+          label: "Other specific family groupings you want?",
+          type: "textarea",
+          placeholder:
+            "List any additional groupings beyond the standard ones (couple + each set of parents, couple + siblings, etc.)",
+          help: "e.g. 'All the cousins', 'bride with her aunts', 'groom with fraternity brothers'.",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+        {
+          id: "familyPortraitNotes",
+          label: "Notes about family dynamics I should be aware of",
+          type: "textarea",
+          help: "VIPs to prioritize, divorced parents needing separate frames, accessibility needs, etc.",
+          showIf: {
+            id: "familyPortraitsPlanned",
+            notEquals: "No formal family portraits",
+          },
+        },
+      ],
+    },
+    {
       title: "Ceremony",
       description:
         "Coverage of the main event.",
@@ -337,6 +429,22 @@ const weddingQuestionnaire: Questionnaire = {
           placeholder: "e.g. 30 minutes, 1 hour",
         },
         {
+          id: "ceremonyMoments",
+          label: "Ceremony moments to prioritize",
+          type: "checkbox",
+          options: [
+            "Processional / walking down the aisle",
+            "Ring exchange",
+            "Vow reading",
+            "First kiss",
+            "Recessional",
+            "Guests' reactions",
+            "Unity candle / sand ceremony / other ritual",
+            "Officiant close-ups",
+            "Aisle decor and ceremony setup",
+          ],
+        },
+        {
           id: "ceremonyRestrictions",
           label: "Any photography restrictions during the ceremony?",
           type: "textarea",
@@ -346,6 +454,7 @@ const weddingQuestionnaire: Questionnaire = {
         },
       ],
     },
+
     {
       title: "Reception",
       description:
@@ -366,15 +475,25 @@ const weddingQuestionnaire: Questionnaire = {
           required: true,
         },
         {
-          id: "specialEntrance",
-          label: "Will you have an announced or special entrance?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
+          id: "receptionMoments",
+          label: "Reception moments to prioritize",
+          type: "checkbox",
+          showIf: { id: "package", notEquals: "Mini" },
+          options: [
+            "Wedding party grand entrance",
+            "Newlywed grand entrance",
+            "Speeches / toasts",
+            "Table details / centerpieces",
+            "Cake cutting & first bites",
+            "Bouquet / garter toss",
+            "DJ / band performing",
+            "Dance floor candids",
+            "Guest candids / table visits",
+          ],
         },
         {
           id: "specialDances",
-          label: "Special dances planned",
+          label: "Any special dances planned?",
           type: "checkbox",
           options: [
             "First dance",
@@ -386,20 +505,6 @@ const weddingQuestionnaire: Questionnaire = {
           ],
         },
         {
-          id: "speeches",
-          label: "Will there be speeches or toasts?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
-        },
-        {
-          id: "cakeCutting",
-          label: "Will there be a cake cutting?",
-          type: "radio",
-          required: true,
-          options: YES_NO,
-        },
-        {
           id: "sunsetPortraits",
           label:
             "Want me to steal you both away for 5–10 minutes of golden-hour / sunset portraits during the reception?",
@@ -409,12 +514,32 @@ const weddingQuestionnaire: Questionnaire = {
           help: "This is almost always a highlight of the gallery — I highly recommend it.",
         },
         {
+          id: "sunsetTime",
+          label: "Approximate sunset session time",
+          type: "time",
+          showIf: {
+            id: "sunsetPortraits",
+            equalsAny: [
+              "Yes, please",
+              "Up to you / surprise me",
+            ]
+          },
+          help: "Plan to start around 20-30 min before sunset.",
+        },
+        {
           id: "formalExit",
           label:
             "Are you doing a formal exit (sparklers, glow sticks, bubbles, getaway car, etc.)?",
-          type: "textarea",
+          type: "radio",
           required: true,
-          placeholder: "Describe it, or write 'no formal exit'.",
+          options: ["Yes, we're exiting in style!", "No, we'll just slip away quietly"],
+        },
+        {
+          id: "formalExitDescription",
+          label:
+            "Describe your sendoff!",
+          type: "textarea",
+          showIf: { id: "formalExit", equals: "Yes, we're exiting in style!"},
         },
         {
           id: "additionalReception",
@@ -431,6 +556,67 @@ const weddingQuestionnaire: Questionnaire = {
           required: true,
           options: YES_NO,
           help: "I'm happy either way — I just plan my breaks differently.",
+        },
+      ],
+    },
+    {
+      title: "Day-of timeline",
+      description:
+        "Fill in the times you know — leave blank any you haven't nailed down yet. This builds the schedule section of your wedding day plan.",
+      showIf: { id: "package", notEquals: "Mini" },
+      fields: [
+        {
+          id: "photoStartTime",
+          label: "What time should I arrive to start shooting?",
+          type: "time",
+          required: true,
+          help: "Usually 30–60 min before getting-ready coverage begins.",
+        },
+        {
+          id: "gettingReadyTime",
+          label: "Getting-ready coverage start time",
+          type: "time",
+          showIf: { id: "gettingReady", equals: "Yes" },
+        },
+        {
+          id: "firstLookTime",
+          label: "First look / first touch time",
+          type: "time",
+          showIf: {
+            id: "firstLook",
+            notEqualsAny: [
+              "No first look — we want to see each other at the aisle",
+              "Still deciding",
+            ],
+          },
+        },
+        {
+          id: "cocktailHourTime",
+          label: "Cocktail hour start time",
+          type: "time",
+        },
+        {
+          id: "cocktailHourLocation",
+          label:
+            "Cocktail hour location (if different from ceremony / reception)",
+          type: "text",
+          placeholder: "Same as ceremony / reception, or provide address",
+        },
+        {
+          id: "receptionStartTime",
+          label: "Reception start time",
+          type: "time",
+        },
+        {
+          id: "sendoffTime",
+          label: "Expected sendoff / last photo time",
+          type: "time",
+        },
+        {
+          id: "timelineNotes",
+          label: "Timing constraints or notes",
+          type: "textarea",
+          help: "Vendor arrival conflicts, venue curfews, hard stops, or anything that might affect the schedule.",
         },
       ],
     },

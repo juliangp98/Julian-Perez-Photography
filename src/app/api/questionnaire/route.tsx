@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { render } from "@react-email/components";
 import { siteSettings, getService } from "@/lib/content";
 import {
   getQuestionnaire,
   evaluateShowIf,
   visibleSectionsFor,
 } from "@/lib/questionnaires";
+import {
+  BrandedEmailLayout,
+  QuestionnaireEmailTemplate,
+  ClientConfirmationTemplate,
+} from "@/lib/email-templates";
 
 type Answers = Record<string, string | string[]>;
 
@@ -54,7 +60,10 @@ export async function POST(req: Request) {
 
   const q = getQuestionnaire(slug);
   if (!q) {
-    return NextResponse.json({ error: "Unknown questionnaire" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Unknown questionnaire" },
+      { status: 400 },
+    );
   }
 
   const answers = body.answers || {};
@@ -94,12 +103,27 @@ export async function POST(req: Request) {
     "Unknown client";
   const clientEmail =
     typeof answers["email"] === "string" ? answers["email"] : undefined;
+  const submittedAt = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const isWedding = slug === "weddings";
 
-  // Build a sectioned text email — one section header per questionnaire section.
+  // ── Build structured sections for the branded email template ──
+
+  const emailSections: {
+    title: string;
+    fields: { label: string; value: string; isFile?: boolean }[];
+  }[] = [];
+
+  // Also build a plain-text fallback alongside.
   const lines: string[] = [];
   lines.push(`New questionnaire — ${q.title}`);
   lines.push(`Service: ${serviceTitle}`);
-  lines.push(`Submitted: ${new Date().toISOString()}`);
+  lines.push(`Submitted: ${submittedAt}`);
   lines.push("");
 
   for (const section of visibleSections) {
@@ -111,11 +135,21 @@ export async function POST(req: Request) {
     );
     if (populatedFields.length === 0) continue;
 
+    const emailFields: {
+      label: string;
+      value: string;
+      isFile?: boolean;
+    }[] = [];
     lines.push(`── ${section.title.toUpperCase()} ──`);
+
     for (const f of populatedFields) {
       const v = answers[f.id];
       if (f.type === "file") {
         const files = parseFiles(v);
+        const htmlLinks = files
+          .map((file) => `• <a href="${file.url}">${file.name}</a>`)
+          .join("<br/>");
+        emailFields.push({ label: f.label, value: htmlLinks, isFile: true });
         lines.push(`${f.label}:`);
         for (const file of files) {
           lines.push(`  • ${file.name} — ${file.url}`);
@@ -124,10 +158,13 @@ export async function POST(req: Request) {
         continue;
       }
       const display = Array.isArray(v) ? v.join(", ") : String(v);
+      emailFields.push({ label: f.label, value: display });
       lines.push(`${f.label}:`);
       lines.push(`  ${display.split("\n").join("\n  ")}`);
       lines.push("");
     }
+
+    emailSections.push({ title: section.title, fields: emailFields });
   }
 
   const text = lines.join("\n");
@@ -147,13 +184,73 @@ export async function POST(req: Request) {
     "Julian Perez Photography <onboarding@resend.dev>";
   const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
 
+  // ── Wedding-specific: generate PDF + Google Doc ──
+
+  let pdfBuffer: Buffer | null = null;
+  let googleDocUrl: string | null = null;
+
+  if (isWedding) {
+    // PDF generation
+    try {
+      const { renderToBuffer } = await import("@react-pdf/renderer");
+      const { WeddingDayPlan } = await import("@/lib/wedding-day-plan");
+      pdfBuffer = await renderToBuffer(
+        <WeddingDayPlan answers={answers} />,
+      );
+    } catch (err) {
+      console.error("[questionnaire] PDF generation error:", err);
+    }
+
+    // Google Docs creation
+    if (clientEmail) {
+      try {
+        const { createWeddingPlanDoc } = await import("@/lib/google-docs");
+        googleDocUrl = await createWeddingPlanDoc({
+          coupleName: `${answers.fullName ?? ""} & ${answers.partnerFullName ?? ""}`,
+          eventDate: String(answers.eventDate || "TBD"),
+          answers,
+          shareWith: [toAddress, clientEmail],
+        });
+      } catch (err) {
+        console.error("[questionnaire] Google Docs error:", err);
+      }
+    }
+  }
+
+  // ── Send Julian's email ──
+
+  const html = await render(
+    <BrandedEmailLayout
+      preview={`New ${q.title.toLowerCase()} from ${clientName}`}
+    >
+      <QuestionnaireEmailTemplate
+        questionnaireTitle={q.title}
+        serviceTitle={serviceTitle}
+        submittedAt={submittedAt}
+        sections={emailSections}
+        googleDocUrl={googleDocUrl}
+        hasPdf={!!pdfBuffer}
+      />
+    </BrandedEmailLayout>,
+  );
+
+  const attachments: { filename: string; content: Buffer }[] = [];
+  if (pdfBuffer) {
+    attachments.push({
+      filename: "Wedding-Day-Plan.pdf",
+      content: pdfBuffer,
+    });
+  }
+
   try {
     const { error } = await resend.emails.send({
       from: fromAddress,
       to: toAddress,
       replyTo: clientEmail,
       subject,
+      html,
       text,
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
     if (error) throw new Error(error.message);
   } catch (err) {
@@ -162,6 +259,47 @@ export async function POST(req: Request) {
       { error: "Could not send right now. Please email directly." },
       { status: 500 },
     );
+  }
+
+  // ── Client confirmation email — fire and forget ──
+
+  if (clientEmail) {
+    try {
+      const confirmHtml = await render(
+        <BrandedEmailLayout
+          preview={`Thanks for your ${q.title.toLowerCase()} — I'll be in touch soon`}
+        >
+          <ClientConfirmationTemplate
+            clientName={clientName}
+            questionnaireTitle={q.title}
+            isWedding={isWedding}
+            googleDocUrl={googleDocUrl}
+            hasPdf={!!pdfBuffer}
+          />
+        </BrandedEmailLayout>,
+      );
+
+      const confirmAttachments: { filename: string; content: Buffer }[] = [];
+      if (pdfBuffer) {
+        confirmAttachments.push({
+          filename: "Wedding-Day-Plan.pdf",
+          content: pdfBuffer,
+        });
+      }
+
+      await resend.emails.send({
+        from: fromAddress,
+        to: clientEmail,
+        subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
+        html: confirmHtml,
+        text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.${googleDocUrl ? `\n\nOpen your shared Wedding Day Plan: ${googleDocUrl}` : ""}\n\nJulian Perez Photography\njulianperezphotography.com`,
+        ...(confirmAttachments.length > 0
+          ? { attachments: confirmAttachments }
+          : {}),
+      });
+    } catch (err) {
+      console.error("[questionnaire] Client confirmation error:", err);
+    }
   }
 
   return NextResponse.json({ ok: true });
