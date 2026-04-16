@@ -57,6 +57,7 @@ import {
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
 const KNOWN_SLUGS = [
   "weddings",
@@ -146,6 +147,19 @@ async function listImages(dir) {
     .sort(naturalSort);
 }
 
+async function generateBlurData(filePath) {
+  const meta = await sharp(filePath).metadata();
+  const buffer = await sharp(filePath)
+    .resize(10, undefined, { fit: "inside" })
+    .jpeg({ quality: 40 })
+    .toBuffer();
+  return {
+    width: meta.width,
+    height: meta.height,
+    blurDataURL: `data:image/jpeg;base64,${buffer.toString("base64")}`,
+  };
+}
+
 // ---------- discover slug folders in source ----------
 const sourceEntries = await readdir(source, { withFileTypes: true });
 const requestedSlugs = sourceEntries
@@ -201,12 +215,17 @@ for (const slug of requestedSlugs) {
     const seq = String(i + 1).padStart(2, "0");
     const ext = extname(ordered[i]).toLowerCase().replace(".jpeg", ".jpg");
     const outName = `${slug}-${seq}${ext}`;
+    const outPath = join(outDir, outName);
     if (!dryRun) {
-      await copyFile(join(srcDir, ordered[i]), join(outDir, outName));
+      await copyFile(join(srcDir, ordered[i]), outPath);
     }
+    const blur = dryRun
+      ? { width: 0, height: 0, blurDataURL: "" }
+      : await generateBlurData(outPath);
     newImages.push({
       src: `/portfolio/${slug}/${outName}`,
       alt: `${slugToWords(slug)} photograph ${i + 1}`,
+      ...blur,
     });
   }
 
@@ -235,12 +254,19 @@ for (const slug of KNOWN_SLUGS) {
       ? [files[coverIdx], ...files.slice(0, coverIdx), ...files.slice(coverIdx + 1)]
       : files;
 
-  processed[slug] = {
-    coverImage: `/portfolio/${slug}/${ordered[0]}`,
-    images: ordered.map((f, i) => ({
+  const images = [];
+  for (let i = 0; i < ordered.length; i++) {
+    const f = ordered[i];
+    const blur = await generateBlurData(join(dir, f));
+    images.push({
       src: `/portfolio/${slug}/${f}`,
       alt: `${slugToWords(slug)} photograph ${i + 1}`,
-    })),
+      ...blur,
+    });
+  }
+  processed[slug] = {
+    coverImage: `/portfolio/${slug}/${ordered[0]}`,
+    images,
   };
 }
 
@@ -257,7 +283,7 @@ if (!dryRun) {
 
 export type PortfolioManifestEntry = {
   coverImage: string;
-  images: { src: string; alt: string }[];
+  images: { src: string; alt: string; width: number; height: number; blurDataURL: string }[];
 };
 
 export const portfolioManifest: Record<string, PortfolioManifestEntry> = ${JSON.stringify(

@@ -6,6 +6,7 @@ import {
   getService,
   visiblePortfolios as portfolios,
 } from "@/lib/content";
+import PortfolioGallery from "@/components/PortfolioGallery";
 
 export function generateStaticParams() {
   return portfolios.map((p) => ({ category: p.slug }));
@@ -67,17 +68,8 @@ export default async function PortfolioCategoryPage({
           </Link>
         </div>
       ) : (
-        <div className="mt-12 columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]">
-          {p.images.map((img, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={img.src}
-              alt={img.alt}
-              className="mb-4 w-full rounded break-inside-avoid"
-              loading="lazy"
-            />
-          ))}
+        <div className="mt-12">
+          <PortfolioGallery images={p.images} />
         </div>
       )}
     </section>

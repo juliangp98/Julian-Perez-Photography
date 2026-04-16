@@ -66,6 +66,8 @@ export type AddOn = {
   description?: string;
 };
 
+export type FAQ = { question: string; answer: string };
+
 export type ServiceCategory = {
   slug: ServiceSlug;
   umbrella: Umbrella;
@@ -78,7 +80,16 @@ export type ServiceCategory = {
   packages: Package[];
   addOns?: AddOn[];
   pricingNote?: string;
+  faqs?: FAQ[]; // Rendered as FAQPage JSON-LD for Google rich results.
   hidden?: boolean; // If true, excluded from nav/listings/sitemap/static params.
+};
+
+export type PortfolioImage = {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  blurDataURL: string;
 };
 
 export type PortfolioCategory = {
@@ -87,7 +98,7 @@ export type PortfolioCategory = {
   title: string;
   description: string;
   coverImage: string;
-  images: { src: string; alt: string }[];
+  images: PortfolioImage[];
   hidden?: boolean;
 };
 

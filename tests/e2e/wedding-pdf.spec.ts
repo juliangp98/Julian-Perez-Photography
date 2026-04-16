@@ -31,7 +31,7 @@ test("wedding-plan: honeypot triggered → 200 silently (no PDF leak)", async ({
   const res = await request.post("/api/wedding-plan", {
     data: {
       service: "weddings",
-      company: "bot-filled",
+      hp_company: "bot-filled",
       answers: {},
     },
   });

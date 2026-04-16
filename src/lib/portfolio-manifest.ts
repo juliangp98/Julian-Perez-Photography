@@ -9,7 +9,7 @@
 
 export type PortfolioManifestEntry = {
   coverImage: string;
-  images: { src: string; alt: string }[];
+  images: { src: string; alt: string; width: number; height: number; blurDataURL: string }[];
 };
 
 export const portfolioManifest: Record<string, PortfolioManifestEntry> = {};

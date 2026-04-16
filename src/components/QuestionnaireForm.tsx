@@ -163,7 +163,7 @@ export default function QuestionnaireForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service: questionnaire.slug,
-          company: state["company"] || "", // honeypot
+          company: state["hp_company"] || "", // honeypot
           answers: payload,
         }),
       });
@@ -378,13 +378,13 @@ export default function QuestionnaireForm({
       {/* Honeypot — hidden from users, must stay empty */}
       <input
         type="text"
-        name="company"
+        name="hp_company"
         tabIndex={-1}
         autoComplete="off"
         className="hidden"
         aria-hidden="true"
-        value={(state["company"] as string) || ""}
-        onChange={(e) => update("company", e.target.value)}
+        value={(state["hp_company"] as string) || ""}
+        onChange={(e) => update("hp_company", e.target.value)}
       />
 
       <h2 className="font-serif text-3xl">{section.title}</h2>

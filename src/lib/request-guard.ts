@@ -3,7 +3,7 @@
 // Two concerns live here because both are request-gate checks you want to
 // run near the top of every route handler:
 //
-//   1. Honeypot — a hidden `company` field on every public form. Bots fill
+//   1. Honeypot — a hidden `hp_company` field on every public form. Bots fill
 //      it; humans don't. We silently succeed when it's populated so the bot
 //      thinks the submission worked and moves on.
 //   2. Rate limit — a per-IP token bucket, keyed by endpoint so a chatty

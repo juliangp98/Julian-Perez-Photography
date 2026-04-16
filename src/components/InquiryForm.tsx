@@ -81,7 +81,7 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
       {/* Honeypot */}
       <input
         type="text"
-        name="company"
+        name="hp_company"
         tabIndex={-1}
         autoComplete="off"
         className="hidden"

@@ -23,8 +23,9 @@ const schema = z.object({
   budget: z.string().max(100).optional().or(z.literal("")),
   referral: z.string().max(200).optional().or(z.literal("")),
   message: z.string().min(1).max(5000),
-  // Honeypot — should be empty
-  company: z.string().max(0).optional().or(z.literal("")),
+  // Honeypot — should be empty (named hp_company to avoid collision with
+  // legitimate "company" fields in questionnaires like corporate-headshots)
+  hp_company: z.string().max(0).optional().or(z.literal("")),
 });
 
 export async function POST(req: Request) {
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
   const data = parsed.data;
 
   // Honeypot triggered — pretend success silently
-  if (isHoneypotTriggered(data.company)) {
+  if (isHoneypotTriggered(data.hp_company)) {
     return NextResponse.json({ ok: true });
   }
 

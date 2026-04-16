@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { service?: string; company?: string; answers?: Answers };
+  let body: { service?: string; hp_company?: string; answers?: Answers };
   try {
     body = await req.json();
   } catch {
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   // Honeypot — silently return an empty PDF-less 200 so bots don't learn
   // the field is a trap. Human clients never populate it.
-  if (isHoneypotTriggered(body.company)) {
+  if (isHoneypotTriggered(body.hp_company)) {
     return new Response("", { status: 200 });
   }
 

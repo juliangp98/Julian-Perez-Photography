@@ -219,6 +219,36 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Traveling outside the DMV? Reach out — custom quotes available for destination and multi-day weddings.",
+    faqs: [
+      {
+        question:
+          "How much does wedding photography cost in Northern Virginia?",
+        answer:
+          "My wedding packages range from $2,400 to $3,600 depending on coverage length and extras like a second shooter or album. I also offer an $800 elopement package and a $1,400 vow renewal option. Every package includes a private gallery, full print release, and a 72-hour sneak peek.",
+      },
+      {
+        question: "Do you include a second photographer for weddings?",
+        answer:
+          "Yes — a second shooter is included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) packages. For the Essentials package, you can add one for $400.",
+      },
+      {
+        question: "How long until we get our wedding photos back?",
+        answer:
+          "You'll receive a sneak peek of 10-25 photos within 72 hours of your wedding day. The full gallery is typically delivered within a few weeks, or you can add rush delivery for $250 to get it in two weeks.",
+      },
+      {
+        question:
+          "Do you travel for weddings outside the DC / Maryland / Virginia area?",
+        answer:
+          "Absolutely. I'm based in Northern Virginia and cover the entire DMV at no extra charge. For destination weddings further out, just reach out — I'll put together a custom quote that includes travel.",
+      },
+      {
+        question:
+          "Can I add an engagement session to my wedding package?",
+        answer:
+          "Engagement sessions are already included with Silver, Premium, and Platinum wedding packages at no additional cost. If you're booking the Essentials package, you can add a standalone engagement session from the Engagements & Couples page.",
+      },
+    ],
   },
   {
     slug: "engagements-couples",
@@ -273,6 +303,32 @@ export const services: ServiceCategory[] = [
       { name: "Rush gallery delivery (48 hours)", price: "$75" },
       { name: "Film roll add-on", price: "$100" },
       { name: "Print package (5 × 8×10)", price: "$85" },
+    ],
+    faqs: [
+      {
+        question:
+          "How much do engagement photos cost in the DC area?",
+        answer:
+          "Engagement sessions start at $300 for a 45-minute session and go up to $400 for a 2-hour Premium session with multiple outfits and locations. If you're also booking a wedding package at the Silver level or above, an engagement session is included at no extra cost.",
+      },
+      {
+        question:
+          "Can you photograph a surprise proposal in Washington DC?",
+        answer:
+          "Yes! I offer a dedicated Surprise Proposal package for $350. I'll coordinate timing and positioning with you ahead of time, stay hidden until the moment happens, and then transition into a portrait session right after the yes.",
+      },
+      {
+        question:
+          "What's the best time of year for engagement photos in Northern Virginia?",
+        answer:
+          "Golden hour in spring and fall is hard to beat in the DMV — the light is warm and the crowds thin out in the evening. That said, every season has something going for it. I'll help you pick a location and time that works for the look you want.",
+      },
+      {
+        question:
+          "Is an engagement session included with wedding packages?",
+        answer:
+          "Yes — engagement sessions are included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) wedding packages. It's a great way for us to get comfortable working together before the big day.",
+      },
     ],
   },
 
@@ -344,6 +400,38 @@ export const services: ServiceCategory[] = [
       { name: "Rush gallery delivery (72 hours)", price: "$75" },
       { name: "Studio rental", price: "$100" },
     ],
+    faqs: [
+      {
+        question:
+          "How much does a maternity photo session cost in Northern Virginia?",
+        answer:
+          "Maternity sessions range from $350 for a 45-minute Essentials session to $725 for the Premium package, which includes both studio and outdoor locations, unlimited outfit changes, and a full styling consult. The most popular option is the Signature at $525 for 90 minutes.",
+      },
+      {
+        question:
+          "When should I schedule my maternity session?",
+        answer:
+          "Most moms book between 28 and 34 weeks, but there's no strict rule — we'll plan around how you're feeling. I keep the pacing relaxed with plenty of breaks, and I'm happy to reschedule if the timing shifts.",
+      },
+      {
+        question:
+          "Can my partner and kids be in the maternity photos?",
+        answer:
+          "Absolutely — partner and sibling shots are always included at no extra charge, no matter which package you choose. The more the merrier.",
+      },
+      {
+        question:
+          "Do you help with outfits and wardrobe for maternity sessions?",
+        answer:
+          "Yes! The Premium and Signature packages include wardrobe guidance, and I can help source flowy dresses and suggest colors that photograph beautifully. I'll also scout locations with shade and easy access so you're comfortable the whole time.",
+      },
+      {
+        question:
+          "Can I bundle maternity and newborn sessions together?",
+        answer:
+          "You can — and you'll get a discounted rate when you do. A lot of families book maternity plus the First Year Bundle so the whole arc from bump to first birthday is captured in one cohesive style.",
+      },
+    ],
   },
   {
     slug: "newborn",
@@ -411,6 +499,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "First Year Bundle is interest-free over three payments — one at each session.",
+    faqs: [
+      {
+        question:
+          "How much does newborn photography cost in the DMV area?",
+        answer:
+          "A standalone in-home newborn session is $525 for 2 hours. If you'd like to capture the whole first year, the First Year Bundle is $1,400 and includes three sessions — newborn, 6-month, and 1-year cake smash — with interest-free payments split across each session.",
+      },
+      {
+        question:
+          "Do you come to our home for newborn photos?",
+        answer:
+          "Yes — all newborn sessions are in-home so your baby stays comfortable in their own space. I use natural light from your windows and bring simple wraps and props. No packing up the diaper bag required.",
+      },
+      {
+        question:
+          "When should we schedule a newborn photo session?",
+        answer:
+          "The sweet spot is within the first two weeks, when babies are sleepiest and most curl-able. That said, I keep sessions slow and flexible with plenty of feeding and snuggle breaks, so don't stress about hitting an exact window.",
+      },
+      {
+        question:
+          "What is the First Year Bundle and how does the payment plan work?",
+        answer:
+          "The First Year Bundle ($1,400) covers three sessions across your baby's first year: newborn, 6-month sitter, and 1-year cake smash. It's split into three interest-free payments — one at each session — so you're never paying for the whole thing up front.",
+      },
+    ],
   },
   {
     slug: "family-portraits",
@@ -477,6 +591,32 @@ export const services: ServiceCategory[] = [
       { name: "Holiday card design (digital file)", price: "$75" },
       { name: "Print package (5 × 8×10)", price: "$85" },
     ],
+    faqs: [
+      {
+        question:
+          "How much do family photos cost in Northern Virginia?",
+        answer:
+          "Family portrait sessions start at $275 for a 30-minute mini (up to 6 people) and go up to $625 for a 90-minute Premium session that covers up to 15 people with multiple outfits and locations. The most popular is the Signature at $425 for 60 minutes.",
+      },
+      {
+        question:
+          "What should we wear for a family photo session?",
+        answer:
+          "I'll help you coordinate outfits before the session — the goal is complementary colors and textures, not everyone in matching white shirts. I send a wardrobe guide after booking and I'm always happy to review outfit options over text.",
+      },
+      {
+        question:
+          "Can you handle a large extended family group?",
+        answer:
+          "Absolutely. The Premium package covers up to 15 people, and for groups larger than that I offer an extended family add-on for $100. I'll organize the group shots efficiently so nobody's standing around too long.",
+      },
+      {
+        question:
+          "Do you offer holiday card photo sessions in the DC area?",
+        answer:
+          "I do — any family session can double as your holiday card shoot. I also offer a $75 holiday card design add-on so you get a ready-to-print digital file along with your gallery.",
+      },
+    ],
   },
   {
     slug: "family-celebrations",
@@ -542,6 +682,32 @@ export const services: ServiceCategory[] = [
       { name: "Rush gallery delivery (72 hours)", price: "$100" },
       { name: "Print package (10 × 8×10)", price: "$120" },
       { name: "Same-day social selects (up to 10)", price: "$150" },
+    ],
+    faqs: [
+      {
+        question:
+          "How much does a birthday party photographer cost in the DC area?",
+        answer:
+          "Event coverage starts at $450 for 2 hours (up to 15 guests) and goes up to $950 for 4 hours of full milestone coverage. The most popular Celebration package is $650 for 3 hours and covers up to 30 people.",
+      },
+      {
+        question:
+          "Do you photograph first birthday parties and baby showers?",
+        answer:
+          "Yes — 1st birthdays, baby showers, gender reveals, and family reunions are exactly what this service is built for. I treat each one like a mini wedding: I arrive early to capture the setup details, then shift to documentary mode once guests arrive.",
+      },
+      {
+        question:
+          "Can we get same-day photos for social media?",
+        answer:
+          "You can! Same-day social selects (up to 10 edited photos) are available as a $150 add-on so you can post while the party is still fresh in everyone's mind.",
+      },
+      {
+        question:
+          "What's the difference between family celebrations and family portraits?",
+        answer:
+          "Family portraits are posed and candid sessions focused on your family — think annual photos or holiday cards. Family celebrations are documentary event coverage for parties and gatherings where I'm capturing the whole scene as it unfolds.",
+      },
     ],
   },
   {
@@ -611,6 +777,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Bilingual coordination available (English / Spanish). Reach out if your celebration includes traditions I should plan for.",
+    faqs: [
+      {
+        question:
+          "How much does a quinceañera photographer cost in Northern Virginia?",
+        answer:
+          "Full-day quinceañera coverage starts at $2,400 and includes a pre-event portrait session, getting-ready coverage, ceremony, formal portraits, and full reception documentation. If you only need ceremony and reception, the $1,600 package covers 6 hours.",
+      },
+      {
+        question:
+          "Do you photograph Bar Mitzvahs and Sweet 16s in the DMV?",
+        answer:
+          "I do — Bar and Bat Mitzvahs, Sweet 16s, debuts, and other cultural milestone celebrations are all covered. The same packages and pricing apply, and I'll coordinate with your planner, venue, and DJ ahead of time.",
+      },
+      {
+        question:
+          "Do you speak Spanish for quinceañera coordination?",
+        answer:
+          "Yes — I'm bilingual (English and Spanish) and comfortable coordinating with families, planners, and church staff in either language. I'm also familiar with traditional ceremony elements like the waltz, the changing of the shoes, and the last doll.",
+      },
+      {
+        question:
+          "Can I book just a portrait session in the dress without full event coverage?",
+        answer:
+          "Absolutely. The Pre-Event Portraits package is $525 for a 90-minute session at 1-2 locations and includes solo and family portraits — no event coverage needed.",
+      },
+    ],
   },
   {
     slug: "pet",
@@ -674,6 +866,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Memorial sessions for senior pets are handled with extra care — reach out and we'll find a pace that works.",
+    faqs: [
+      {
+        question:
+          "How much does pet photography cost in the DC area?",
+        answer:
+          "Pet sessions start at $275 for a 45-minute in-home session and go up to $525 for a 75-minute Pet + Family session that includes portraits of the humans too. Additional pets are just $50 each.",
+      },
+      {
+        question:
+          "Do you offer memorial sessions for senior or aging pets?",
+        answer:
+          "I do, and there's no extra charge — memorial sessions are included at the same rate as any other pet session. I'll work at a gentle pace with extra patience and breaks so your pet stays comfortable the whole time.",
+      },
+      {
+        question:
+          "Can you photograph my cat or is this only for dogs?",
+        answer:
+          "Cats, dogs, rabbits, horses — I'm game for all of them. In-home sessions work especially well for cats and shy pets since they're already in their comfort zone. I bring treats, squeakers, and plenty of patience.",
+      },
+      {
+        question:
+          "What if my dog won't sit still for photos?",
+        answer:
+          "That's totally normal and honestly makes for the best photos. I work at the pace of the animal, not the other way around — lots of treats, breaks, and a relaxed approach. High-energy dogs do great with the Outdoor Adventure session where they can just be themselves.",
+      },
+    ],
   },
 
   // ==========================================================================
@@ -740,6 +958,32 @@ export const services: ServiceCategory[] = [
       { name: "Rush gallery delivery (48 hours)", price: "$75" },
       { name: "Print package (5 × 8×10)", price: "$85" },
       { name: "Studio rental", price: "$100" },
+    ],
+    faqs: [
+      {
+        question:
+          "How much does a portrait session cost in Northern Virginia?",
+        answer:
+          "Portrait sessions start at $275 for a 30-minute Essentials session and go up to $625 for the 90-minute Premium, which includes unlimited outfit changes and multiple locations. Every package includes a full print release.",
+      },
+      {
+        question:
+          "What kinds of portraits do you shoot?",
+        answer:
+          "A little bit of everything — personal branding, creative portfolios, artist headshots, dating app refreshes, anniversary gifts, or just a set of photos you actually love. Studio or outdoor, I'll help plan wardrobe and location before the session.",
+      },
+      {
+        question:
+          "I'm not photogenic — will I feel awkward?",
+        answer:
+          "Most people say that, and most people are wrong. I use gentle posing direction and natural conversation to keep things relaxed — it should feel like hanging out, not performing. You'll look like yourself on a really good day.",
+      },
+      {
+        question:
+          "Can I use the portraits for my business or personal brand?",
+        answer:
+          "Yes — every portrait package includes a full print release, so you can use the images on your website, LinkedIn, social media, or anywhere else you need them.",
+      },
     ],
   },
   {
@@ -831,6 +1075,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Questions or unique ideas? I'm all ears — use the inquiry form or email me directly to start planning your perfect graduation session.",
+    faqs: [
+      {
+        question:
+          "How much do graduation photos cost in the DC area?",
+        answer:
+          "Solo grad sessions start at $225 for a 30-minute Mini Cap & Gown and go up to $350 for the 60-minute Signature Graduate with two outfits and multiple locations. Group sessions start at $360 for two graduates.",
+      },
+      {
+        question:
+          "Can you take graduation photos at the National Mall or monuments?",
+        answer:
+          "Yes — the National Mall, Lincoln Memorial, and other monuments are popular spots for DC-area graduation sessions. I handle the permit process for you as a $150 add-on so you don't have to worry about the paperwork.",
+      },
+      {
+        question:
+          "Do you offer group graduation sessions for friends?",
+        answer:
+          "I do! The Study Group Session starts at $360 for two graduates and adds $60 per additional grad. Each person gets at least 5 individual portraits plus group shots — a great way to split the cost and celebrate together.",
+      },
+      {
+        question:
+          "Can my family be in the graduation photos too?",
+        answer:
+          "Absolutely. The Family Graduation Session ($325 for 60 minutes) is designed for exactly that — solo cap-and-gown portraits mixed with proud family shots. Extra family members are just $25 each beyond the base group of four.",
+      },
+    ],
   },
   {
     slug: "corporate-headshots",
@@ -906,6 +1176,32 @@ export const services: ServiceCategory[] = [
       { name: "Additional background", price: "$50" },
       { name: "Rush delivery (24 hours)", price: "$100" },
       { name: "Extra person (Team Bundle expansion)", price: "$125" },
+    ],
+    faqs: [
+      {
+        question:
+          "How much do corporate headshots cost in Northern Virginia?",
+        answer:
+          "Individual headshots start at $200 for a quick 20-minute session with 3 retouched images. For a more in-depth personal branding session, the Professional package is $375 for 45 minutes with 5 retouched images. Team sessions start at $125 per person (minimum 5).",
+      },
+      {
+        question:
+          "Can you come to our office for team headshots?",
+        answer:
+          "Yes — the On-site Half-Day package ($1,200) covers up to 20 headshots at your office. I bring a full mobile lighting kit and backdrop so we can set up in a conference room or lobby and keep everyone's day moving.",
+      },
+      {
+        question:
+          "How fast can we get our headshots back?",
+        answer:
+          "Standard turnaround is 48 hours for individual sessions. For rush jobs, I offer 24-hour delivery for $100. Team galleries are delivered within a week with consistent editing across every person.",
+      },
+      {
+        question:
+          "Will our team headshots look consistent and match?",
+        answer:
+          "That's the whole point — I match lighting, framing, background, and editing across every team member so your About page finally looks cohesive instead of a patchwork of different photographers over the years.",
+      },
     ],
   },
 
@@ -987,6 +1283,32 @@ export const services: ServiceCategory[] = [
       "Booking a live music show, a band's set, or a stage performance instead? That coverage lives on the [Concerts & Performances page](/services/concerts-performances).",
     pricingNote:
       "Recurring schedules — monthly community events, quarterly conferences — get a discounted rate. Need video alongside stills? I've started taking on select video projects — ask about combined coverage.",
+    faqs: [
+      {
+        question:
+          "How much does event photography cost in the DC area?",
+        answer:
+          "Event coverage starts at $750 for 3 hours (community events) and goes up to $1,800 for a full 8-hour day. Multi-day conferences are custom quoted. Same-day social selects are available so your team can post while the event is still happening.",
+      },
+      {
+        question:
+          "Do you photograph corporate conferences and galas in DC?",
+        answer:
+          "Yes — conferences, galas, receptions, nonprofit events, and Hill receptions are all in my wheelhouse. I cover keynotes, panels, candid networking moments, and formal posed shots with the same documentary approach.",
+      },
+      {
+        question:
+          "Can we get same-day photos for social media during the event?",
+        answer:
+          "Absolutely. Same-day social selects are included with most packages — up to 20 edited images for full-day coverage. Your marketing team can start posting while the event is still winding down.",
+      },
+      {
+        question:
+          "Do you offer discounts for recurring events?",
+        answer:
+          "I do — recurring schedules like monthly community events, quarterly conferences, or regular apartment happy hours get a discounted rate. Reach out and I'll put together a retainer that makes sense for your calendar.",
+      },
+    ],
   },
   {
     slug: "concerts-performances",
@@ -1064,6 +1386,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Press credentials and venue clearance are the artist's or venue's responsibility — I'm happy to coordinate directly with your tour manager or venue contact ahead of the show.",
+    faqs: [
+      {
+        question:
+          "How much does concert photography cost in the DC area?",
+        answer:
+          "Concert coverage starts at $425 for a 2-hour recital or showcase and goes up to $950 for a full-bill show covering all acts over 6 hours. Multi-night residencies and festival runs are custom quoted.",
+      },
+      {
+        question:
+          "Do you respect the 3-song rule at concerts?",
+        answer:
+          "Always. I work within whatever access the venue or artist grants — whether that's the standard 3-song rule from the pit or full-set access. I'll coordinate with your tour manager or venue contact ahead of time.",
+      },
+      {
+        question:
+          "Can you deliver photos the same night for social media?",
+        answer:
+          "Yes — same-day social selects are available with most packages, so your team can post while people are still talking about the show. Full galleries are delivered within a week.",
+      },
+      {
+        question:
+          "Do you photograph school recitals and dance showcases too?",
+        answer:
+          "I do. The Recital / Showcase package ($425 for 2 hours) covers the full performance plus posed group and cast shots afterward. It works great for dance recitals, school concerts, and theater showcases.",
+      },
+    ],
   },
   {
     slug: "brand-commercial",
@@ -1143,6 +1491,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Recurring schedules — monthly classes, quarterly product drops — get a discounted rate. Ask about a retainer.",
+    faqs: [
+      {
+        question:
+          "How much does brand photography cost in Northern Virginia?",
+        answer:
+          "Brand content starts at $300 for a 45-minute Brand Mini session and goes up to $1,200 for a half-day shoot covering multiple classes, full studio shoots, or product catalogs. Commercial usage rights are included with every package.",
+      },
+      {
+        question:
+          "Do you photograph fitness classes and yoga studios?",
+        answer:
+          "I do — class and workshop shoots are one of my favorite brand sessions. The Class/Workshop package ($450 for 90 minutes) covers in-class action, instructor portraits, and studio interior shots, all with commercial usage rights included.",
+      },
+      {
+        question:
+          "Are commercial usage rights included in the price?",
+        answer:
+          "Yes — commercial usage rights are included with every brand and commercial package. You can use the images on your website, social media, ads, flyers, and any other marketing materials without additional licensing fees.",
+      },
+      {
+        question:
+          "Do you offer discounted rates for recurring brand content?",
+        answer:
+          "I do. If you're running a regular schedule — monthly class shoots, quarterly product drops, seasonal campaigns — I'll set up a retainer at a discounted per-session rate. Reach out and we'll find a rhythm that works.",
+      },
+    ],
   },
   {
     slug: "real-estate",
@@ -1222,6 +1596,32 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Agents shooting 4+ listings a month qualify for the Bulk Listing Bundle rate. Drone aerials are weather- and FAA-permitting.",
+    faqs: [
+      {
+        question:
+          "How much does real estate photography cost in Northern Virginia?",
+        answer:
+          "A standard single listing is $325 with 24-hour turnaround. The Listing + Twilight package is $525 and adds twilight exterior shots. For agents shooting 4+ listings a month, the Bulk Bundle drops the price to $275 per listing.",
+      },
+      {
+        question:
+          "How fast do you deliver listing photos?",
+        answer:
+          "Standard turnaround is 24 hours for all listing packages. If you need them faster, same-day rush delivery is available for $150. Airbnb Refresh photos are delivered within 48 hours.",
+      },
+      {
+        question:
+          "Do you offer drone photography for listings?",
+        answer:
+          "Yes — drone aerial shots are available as a $200 add-on for any listing package. Drone flights are weather- and FAA-permitting, but I'll work with your schedule to get them done as close to the interior shoot as possible.",
+      },
+      {
+        question:
+          "Do you photograph Airbnb and short-term rental properties?",
+        answer:
+          "I do. The Airbnb Refresh package ($275) is built for short-term rental hosts who need seasonal or post-renovation updates. It includes lifestyle vignettes — coffee setups, towel arrangements, table settings — optimized for Airbnb and VRBO listings.",
+      },
+    ],
   },
 
   // ==========================================================================
@@ -1290,6 +1690,26 @@ export const services: ServiceCategory[] = [
     ],
     pricingNote:
       "Agencies and creative teams — reach out for multi-model day rates and recurring test-shoot programs.",
+    faqs: [
+      {
+        question:
+          "How much does a model test shoot cost in the DC area?",
+        answer:
+          "Test shoots start at $500 for a 2-hour session with 2-3 looks and 30+ edited portfolio images. For a full editorial story with concept development, the Editorial package is $850 for a half-day shoot.",
+      },
+      {
+        question:
+          "Do you shoot agency digitals for model submissions?",
+        answer:
+          "I do. The Digitals package ($250 for 45 minutes) delivers clean, unretouched frames — full-length, 3/4, and headshot — on a neutral background with 24-hour turnaround. Agency-ready formats included.",
+      },
+      {
+        question:
+          "Can you help coordinate hair, makeup, and styling for a shoot?",
+        answer:
+          "Absolutely. I have HMUA referrals in the DMV area and I'm happy to coordinate with your existing team. Every session starts with a concept call so we're on the same page before anyone shows up on set.",
+      },
+    ],
   },
 ];
 

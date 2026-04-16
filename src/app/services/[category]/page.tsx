@@ -78,6 +78,22 @@ export default async function ServiceCategoryPage({
     },
   };
 
+  const faqJsonLd =
+    s.faqs && s.faqs.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: s.faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: faq.answer,
+            },
+          })),
+        }
+      : null;
+
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <Script
@@ -86,6 +102,14 @@ export default async function ServiceCategoryPage({
         strategy="beforeInteractive"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }}
       />
+      {faqJsonLd && (
+        <Script
+          id={`ld-faq-${s.slug}`}
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Link
           href="/services"

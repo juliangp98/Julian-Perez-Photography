@@ -49,3 +49,10 @@ body {
 .nav-link[data-active="true"]::after {
   width: 100%;
 }
+
+/* Lightbox theme — yet-another-react-lightbox overrides */
+.yarl__root {
+  --yarl__color_backdrop: rgba(14, 14, 14, 0.95);
+  --yarl__color_button: rgba(255, 255, 255, 0.8);
+  --yarl__color_button_active: #fff;
+}

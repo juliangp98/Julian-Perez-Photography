@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { service?: string; company?: string; answers?: Answers };
+  let body: { service?: string; hp_company?: string; answers?: Answers };
   try {
     body = await req.json();
   } catch {
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   }
 
   // Honeypot — silently succeed.
-  if (isHoneypotTriggered(body.company)) return NextResponse.json({ ok: true });
+  if (isHoneypotTriggered(body.hp_company)) return NextResponse.json({ ok: true });
 
   const slug = body.service;
   if (!slug || typeof slug !== "string") {
