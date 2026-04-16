@@ -3,16 +3,35 @@
 // Called from the success screen's "Download" button. Accepts the same
 // { service, answers } payload as /api/questionnaire but only returns the PDF.
 
+export const runtime = "nodejs";
+
 import { getQuestionnaire, visibleSectionsFor, evaluateShowIf } from "@/lib/questionnaires";
+import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 
 type Answers = Record<string, string | string[]>;
 
 export async function POST(req: Request) {
-  let body: { service?: string; answers?: Answers };
+  // Rate limit: 10 / 10 min / IP. Higher than inquire/questionnaire
+  // because the preview button lets real clients regenerate mid-edit.
+  // Still low enough to kneecap a scraper burning Vercel minutes.
+  const limited = rateLimitResponse(req, {
+    key: "wedding-plan",
+    max: 10,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
+
+  let body: { service?: string; company?: string; answers?: Answers };
   try {
     body = await req.json();
   } catch {
     return new Response("Invalid JSON", { status: 400 });
+  }
+
+  // Honeypot — silently return an empty PDF-less 200 so bots don't learn
+  // the field is a trap. Human clients never populate it.
+  if (isHoneypotTriggered(body.company)) {
+    return new Response("", { status: 200 });
   }
 
   if (body.service !== "weddings") {

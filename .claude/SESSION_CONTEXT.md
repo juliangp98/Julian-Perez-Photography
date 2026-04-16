@@ -16,7 +16,6 @@ A running brain-dump of the project so a fresh Claude session can hit the ground
 - **Tailwind CSS v4** with custom CSS variables in `src/app/globals.css`
 - **Resend** + **@react-email/components** for branded inquiry + questionnaire email delivery
 - **@react-pdf/renderer** for server-side Wedding Day Plan PDF generation
-- **googleapis** for Google Docs/Drive API (service account, creates shared wedding plan doc)
 - **Square Appointments** embedded on `/book` (cannot use iframe `sandbox` — Square detects it and silently no-ops)
 - **Pic-Time** embedded on `/client`
 - **Google Places API (New)** for live reviews with manual-testimonial fallback
@@ -30,7 +29,7 @@ src/
 ├── app/
 │   ├── about/                       About page
 │   ├── api/inquire/                 Inquiry POST handler (Resend, branded HTML + client confirmation)
-│   ├── api/questionnaire/           Questionnaire POST handler (Resend, branded HTML, PDF attach, Google Docs)
+│   ├── api/questionnaire/           Questionnaire POST handler (Resend, branded HTML, PDF attach)
 │   ├── api/wedding-plan/            Wedding Day Plan PDF download handler
 │   ├── book/                        Square Appointments embed
 │   ├── client/                      Pic-Time gallery embed
@@ -48,7 +47,6 @@ src/
     ├── content.ts                   Single source of truth: services, portfolios, settings (~1460 lines)
     ├── questionnaires.ts            Schema-driven planning questionnaires (~2700 lines, 13 schemas)
     ├── wedding-day-plan.tsx         @react-pdf/renderer branded PDF for wedding submissions
-    ├── google-docs.ts               Google Docs API helper (create + share wedding plan doc)
     ├── email-templates.tsx          Branded React Email templates (inquiry, questionnaire, client confirm)
     ├── google-reviews.ts            Server-only Google Places fetcher
     ├── inline.tsx                   Markdown link → React renderer for cross-page link copy
@@ -131,8 +129,6 @@ Top nav (after Round 5): `Portfolio ▾`, `Services & Pricing ▾`, `About`, `Cl
 | `INQUIRY_TO` | Where inquiries land (defaults to `siteSettings.contactEmail`) |
 | `GOOGLE_PLACES_API_KEY` | Live Google reviews. Without it: manual testimonials fallback. |
 | `GOOGLE_PLACE_ID` | Real Place ID from Google's Place ID Finder (NOT a CID) |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account for Google Docs/Drive (wedding plan doc creation) |
-| `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | PEM private key for service account (newlines as `\n`) |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob storage for file uploads (auto-provisioned on Vercel) |
 
 ## Key file paths to remember
@@ -145,10 +141,9 @@ Top nav (after Round 5): `Portfolio ▾`, `Services & Pricing ▾`, `About`, `Cl
 - **Form renderer (single client component for all questionnaires):** `src/components/QuestionnaireForm.tsx`.
 - **Form validator (server, mirrors client visibility logic):** `src/app/api/questionnaire/route.tsx`.
 - **Wedding Day Plan PDF component:** `src/lib/wedding-day-plan.tsx`.
-- **Google Docs helper:** `src/lib/google-docs.ts`.
 - **Branded email templates:** `src/lib/email-templates.tsx`.
 
-**Round 7 — Wedding Day Plan: questionnaire enhancements + branded PDF export + Google Docs + branded emails.**
+**Round 7 — Wedding Day Plan: questionnaire enhancements + branded PDF export + branded emails.**
 
 **Questionnaire enhancements (`src/lib/questionnaires.ts`):**
 - Added "Family portrait groupings" section (8 fields) after "Wedding party & details". `showIf: package notEquals "Mini"`. Radio for portrait plan + 7 conditional name/grouping/notes fields that hide when "No formal family portraits" selected.
@@ -166,31 +161,39 @@ Top nav (after Round 5): `Portfolio ▾`, `Services & Pricing ▾`, `About`, `Cl
 - PDF attached to Julian's email + client confirmation email for wedding submissions.
 - "Download Wedding Day Plan (PDF)" button on wedding success screen using `submittedAnswersRef` to preserve answers after localStorage clear.
 
-**Google Docs integration (`src/lib/google-docs.ts`):**
-- `createWeddingPlanDoc()` creates a populated Google Doc via service account, shares with both Julian and client as editors.
-- Content mirrors the PDF: cover, timeline, venues, shot preferences (☑/☐ characters), family portrait groupings, notes.
-- Heading styles + gold (#8a6e4b) color applied via `batchUpdate`.
-- Graceful degradation: returns `null` if `GOOGLE_SERVICE_ACCOUNT_*` env vars missing.
-- Google Doc URL included in both Julian's email and client confirmation.
-
 **Branded HTML emails (`src/lib/email-templates.tsx`):**
 - `@react-email/components` templates: `BrandedEmailLayout` (header + footer), `InquiryEmailTemplate`, `QuestionnaireEmailTemplate`, `ClientConfirmationTemplate`.
 - Brand tokens: gold accent `#8a6e4b`, warm `#fafaf7` background, Georgia/sans-serif stacks.
 - Applied to ALL emails: inquiry (Julian + client confirmation), all 13 questionnaires (Julian + client confirmation).
-- Client confirmation: warm thank-you + PDF attachment + Google Doc link for weddings, no answer summary.
+- Client confirmation: warm thank-you + PDF attachment for weddings, no answer summary.
 - Route files renamed `.ts` → `.tsx` for JSX support: `api/inquire/route.tsx`, `api/questionnaire/route.tsx`, `api/wedding-plan/route.tsx`.
+- All three API routes pin `export const runtime = "nodejs"` — `@react-pdf/renderer` and `@react-email/components` need Node APIs, not Edge.
+- Error handling surfaces specific messages: invalid email address, rate limit, and a generic fallback pointing to `siteSettings.contactEmail`.
 
-**New dependencies:** `@react-pdf/renderer`, `@react-email/components`, `googleapis`.
+**New dependencies:** `@react-pdf/renderer`, `@react-email/components`.
 
-**New env vars:**
-| Variable | Purpose |
-| --- | --- |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account email for Google Docs/Drive API |
-| `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | PEM private key (newlines as `\n` in env var) |
+**Google Docs — attempted, dropped.** Initial plan included a service-account-created shared Google Doc (`src/lib/google-docs.ts`, `googleapis`). Dropped after discovering service accounts on **non-Workspace GCP projects have 0 GB Drive storage quota** — they literally cannot own Docs, and personal Gmail accounts can't host them in Shared Drives (Workspace-only). Parent-folder workarounds don't help because SA-owned files count against SA quota regardless of parent. Only real path would be OAuth refresh-token flow impersonating Julian's Gmail. Not worth the complexity — the PDF attached to both emails covers the use case. `googleapis` uninstalled, `google-docs.ts` deleted, env vars removed from `.env.local`.
 
 **Verified:** `npm run build` clean (60 pages). Preview: 10 sections visible for non-Mini wedding, family portrait conditional hide/show, ceremony/reception checkboxes, timeline time pickers, sunset time conditional field. No console errors.
 
-**Pending deployment steps:** Enable Google Docs API + Google Drive API in GCP console. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` on Vercel.
+**Round 8 — Defensive + QoL (rate limits, subject dates, a11y, preview PDF, Playwright).**
+
+- **Request guards (`src/lib/request-guard.ts`):** shared in-memory token-bucket rate limit + honeypot helper keyed by client IP (from `x-forwarded-for`). Applied to all four POST routes — `/api/inquire` (5/10min), `/api/questionnaire` (5/10min), `/api/questionnaire-upload` (20/10min), `/api/wedding-plan` (10/10min). Each returns 429 with `Retry-After`. Honeypot extracted into `isHoneypotTriggered()` and added to `/api/wedding-plan` too. Not distributed — cold starts reset buckets; swap to `@upstash/ratelimit` later with the same signature.
+- **Subject-line dates (`src/lib/email-helpers.ts`):** new `formatSubjectDate()` renders ISO dates as ` — Aug 15, 2026`. Applied to inquire and questionnaire subjects. Falls back to empty string when missing/unparseable. Wedding questionnaire tries `weddingDate` first, then `eventDate`.
+- **a11y instrumentation:** `role="alert" aria-live="polite"` on error regions in both forms; `aria-live="polite" aria-atomic="true"` on the section-progress indicator; `role="status"` on the FileField upload status with a human-readable summary ("Uploaded 2 files. Skipped: …"). `eslint-plugin-jsx-a11y` was already active via `eslint-config-next`.
+- **Wedding PDF preview button:** `QuestionnaireForm.tsx` has a new `previewPdf()` handler + "Preview my plan (PDF)" button on the last section when `slug === "weddings"`. Reuses `/api/wedding-plan` (which never sends email) — opens the rendered PDF in a new tab via `URL.createObjectURL`. Validates required fields first; jumps to the offending section on error.
+- **Playwright E2E (`tests/e2e/`):** 11 tests across 5 files — inquire flow, rate limiting, wedding PDF guards (missing fields, honeypot, wrong slug), subject-line round-trip, and axe a11y on home/inquire/questionnaire/services. Run with `npm run test:e2e`. Tests use unique `x-forwarded-for` headers to isolate rate-limit buckets. Dev server auto-spawns with `RESEND_API_KEY=""` so the dev-mode fallback short-circuits email.
+- **axe exclusions:** `color-contrast` (brand gold on white is ~4.3:1 — passes AA for large text only; brand constraint) and `region` (carousel sections aren't wrapped in landmarks — low priority).
+
+**New dev dependencies:** `@playwright/test`, `@axe-core/playwright`.
+
+**New scripts:** `npm run test:e2e` (Playwright).
+
+**Bug spawned as side task:** honeypot collides with the `company` field ID in the corporate-headshots questionnaire — a legitimate user entering their company name currently trips the honeypot and the submission silently succeeds without emailing. Rename the honeypot to something non-colliding (e.g. `hp_company`) in `QuestionnaireForm.tsx` + `api/questionnaire/route.tsx`.
+
+**Deferred until Julian sets up Square "Planning Call" booking type:** success-screen CTA + `.ics` attachment on client confirmation.
+
+**Backlog logged in the plan file** `/Users/julianperez/.claude/plans/splendid-frolicking-journal.md` (items 6–14: journal CMS, venue pages, FAQ JSON-LD, portfolio lightbox, LQIP placeholders, submission archive, status page, referral tracking, SMS).
 
 ## Open follow-ups (V2 — not yet started)
 
@@ -200,6 +203,7 @@ Top nav (after Round 5): `Portfolio ▾`, `Services & Pricing ▾`, `About`, `Cl
 
 - Slack/Discord webhook for submissions (Julian gets the Resend email already).
 - Database persistence for submissions (inbox is fine until volume justifies it).
+- Google Docs auto-creation (see Round 7 note — service account quota is a hard block; revisit only with OAuth if truly needed).
 
 ## Memory system
 

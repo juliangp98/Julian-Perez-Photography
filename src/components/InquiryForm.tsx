@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { visibleServices as services } from "@/lib/content";
+import { siteSettings, visibleServices as services } from "@/lib/content";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -53,6 +53,21 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
             Browse planning questionnaires →
           </a>
         </p>
+        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          <p className="text-sm font-medium">Want to chat first?</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            A quick discovery call is the easiest way to see if we&rsquo;re a
+            good fit. No commitment, no pressure.
+          </p>
+          <a
+            href={siteSettings.calls.discoveryCall.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
+          >
+            {siteSettings.calls.discoveryCall.label} &rarr;
+          </a>
+        </div>
       </div>
     );
   }
@@ -177,9 +192,11 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
         />
       </div>
 
-      {status === "error" && (
-        <div className="text-sm text-red-700">{errorMsg}</div>
-      )}
+      {/* role="alert" + aria-live so screen readers announce submission
+          failures without requiring the user to tab back to the error. */}
+      <div role="alert" aria-live="polite" className="text-sm text-red-700">
+        {status === "error" ? errorMsg : null}
+      </div>
 
       <div>
         <button

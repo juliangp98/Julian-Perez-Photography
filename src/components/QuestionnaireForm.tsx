@@ -8,6 +8,7 @@ import {
   resolvePackageOptions,
   visibleSectionsFor,
 } from "@/lib/questionnaires";
+import { siteSettings } from "@/lib/content";
 
 type Status = "idle" | "submitting" | "success" | "error";
 type Value = string | string[];
@@ -43,6 +44,7 @@ export default function QuestionnaireForm({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   // Preserve submitted answers for the PDF download button after localStorage is cleared.
   const submittedAnswersRef = useRef<FormState | null>(null);
 
@@ -182,6 +184,61 @@ export default function QuestionnaireForm({
     }
   }
 
+  // Mid-form PDF preview for weddings. Validates required fields across
+  // every visible section (not just the current one, so clients don't
+  // get a half-empty plan), then opens the rendered PDF in a new tab.
+  // Pure read-side — no state mutation, no submission side-effects,
+  // and /api/wedding-plan never sends email.
+  const previewPdf = useCallback(async () => {
+    // Build the same payload submit() would, but without side effects.
+    const payload: Record<string, Value> = {};
+    for (const sec of visibleSections) {
+      for (const f of sec.fields) {
+        if (!evaluateShowIf(f.showIf, state)) continue;
+        const v = state[f.id];
+        if (isFieldEmpty(f.type, v)) {
+          if (f.required) {
+            // Jump to the offending section and surface the message.
+            const targetIdx = visibleSections.findIndex((s) => s === sec);
+            if (targetIdx !== -1) setSectionIndex(targetIdx);
+            setErrorMsg(`Please answer: ${f.label}`);
+            setStatus("error");
+            if (typeof window !== "undefined") {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+            return;
+          }
+          continue;
+        }
+        payload[f.id] = v as Value;
+      }
+    }
+
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/wedding-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service: "weddings",
+          answers: payload,
+        }),
+      });
+      if (!res.ok) throw new Error("PDF preview failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Keep the blob alive briefly so the new tab has time to load it.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      console.error("PDF preview error:", err);
+      setErrorMsg("Couldn't generate the preview — please try again.");
+      setStatus("error");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [visibleSections, state]);
+
   const downloadPdf = useCallback(async () => {
     if (!submittedAnswersRef.current) return;
     setPdfDownloading(true);
@@ -236,6 +293,44 @@ export default function QuestionnaireForm({
             </button>
           </div>
         )}
+        {/* Call booking CTAs */}
+        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg space-y-4">
+          <div>
+            <p className="text-sm font-medium">Ready to hop on a call?</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Now that I have your answers, a quick call lets us align on the
+              details. Pick the one that fits.
+            </p>
+          </div>
+          <a
+            href={siteSettings.calls.planningCall.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
+          >
+            {siteSettings.calls.planningCall.label} &rarr;
+          </a>
+          {isWedding && (
+            <div className="flex gap-3 flex-wrap">
+              <a
+                href={siteSettings.calls.weddingTimelineCall.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+              >
+                {siteSettings.calls.weddingTimelineCall.label} &rarr;
+              </a>
+              <a
+                href={siteSettings.calls.venueWalkthrough.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+              >
+                {siteSettings.calls.venueWalkthrough.label} &rarr;
+              </a>
+            </div>
+          )}
+        </div>
         <div className="mt-6 flex gap-3 flex-wrap">
           <Link
             href={`/services/${questionnaire.slug}`}
@@ -260,7 +355,11 @@ export default function QuestionnaireForm({
           the denominator stays accurate when scope-narrowing branches drop
           sections out of the flow. */}
       <div className="flex items-center justify-between mb-6">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        <div
+          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           Section {safeIndex + 1} of {visibleSections.length}
         </div>
         <div className="text-xs text-[var(--muted)]">
@@ -305,9 +404,15 @@ export default function QuestionnaireForm({
         ))}
       </div>
 
-      {errorMsg && (
-        <div className="mt-6 text-sm text-red-700">{errorMsg}</div>
-      )}
+      {/* aria-live so the error announces when it changes — the user
+          doesn't need to tab back to find out why submit was blocked. */}
+      <div
+        role="alert"
+        aria-live="polite"
+        className="mt-6 text-sm text-red-700 min-h-[1.25rem]"
+      >
+        {errorMsg || null}
+      </div>
 
       <div className="mt-10 flex gap-3 flex-wrap">
         {!isFirst && (
@@ -336,6 +441,17 @@ export default function QuestionnaireForm({
             className="px-8 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
           >
             {status === "submitting" ? "Sending…" : "Submit questionnaire"}
+          </button>
+        )}
+        {isLast && questionnaire.slug === "weddings" && (
+          <button
+            type="button"
+            onClick={previewPdf}
+            disabled={previewLoading || status === "submitting"}
+            className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm disabled:opacity-60"
+            title="Open a PDF preview of your Wedding Day Plan in a new tab"
+          >
+            {previewLoading ? "Generating preview…" : "Preview my plan (PDF)"}
           </button>
         )}
       </div>
@@ -625,6 +741,7 @@ function FileField({
     const { upload } = await import("@vercel/blob/client");
     const next = [...files];
     const skipped: string[] = [];
+    let added = 0;
     try {
       for (const file of Array.from(selected)) {
         if (next.length >= maxFiles) {
@@ -645,14 +762,18 @@ function FileField({
             },
           );
           next.push({ url: blob.url, name: file.name, size: file.size });
+          added += 1;
         } catch {
           skipped.push(`${file.name} (upload failed)`);
         }
       }
       onChange(JSON.stringify(next));
-      if (skipped.length > 0) {
-        setMessage(`Skipped: ${skipped.join(", ")}`);
-      }
+      // Summarize for screen-reader announcement. A spoken "Uploaded 2
+      // files" is much more useful than silent state changes.
+      const parts: string[] = [];
+      if (added > 0) parts.push(`Uploaded ${added} file${added === 1 ? "" : "s"}.`);
+      if (skipped.length > 0) parts.push(`Skipped: ${skipped.join(", ")}`);
+      setMessage(parts.length > 0 ? parts.join(" ") : null);
     } finally {
       setUploading(false);
     }
@@ -678,9 +799,16 @@ function FileField({
         }}
         className="block w-full text-sm text-[var(--muted)] file:mr-3 file:px-4 file:py-2 file:border-0 file:rounded-full file:bg-[var(--foreground)] file:text-[var(--background)] hover:file:opacity-90 file:cursor-pointer file:disabled:opacity-60"
       />
-      {uploading && (
-        <p className="mt-2 text-xs text-[var(--muted)]">Uploading…</p>
-      )}
+      {/* Single live region for the uploader so screen readers announce
+          in-progress uploads and summary results without the user
+          having to hunt for status text. */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="mt-2 text-xs text-[var(--muted)] min-h-[1rem]"
+      >
+        {uploading ? "Uploading…" : message || null}
+      </div>
       {files.length > 0 && (
         <ul className="mt-3 space-y-1.5 text-sm">
           {files.map((f, i) => (
@@ -703,9 +831,6 @@ function FileField({
             </li>
           ))}
         </ul>
-      )}
-      {message && (
-        <p className="mt-2 text-xs text-[var(--muted)]">{message}</p>
       )}
       <p className="mt-1.5 text-xs text-[var(--muted)]">
         Up to {maxFiles} files, {maxSizeMb} MB each. Images and PDFs.

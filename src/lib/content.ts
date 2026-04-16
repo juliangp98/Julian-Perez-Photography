@@ -15,6 +15,24 @@ export const siteSettings: SiteSettings = {
   bookingStatus: "Booking 2026–2027",
   bookingUrl:
     "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services",
+  calls: {
+    discoveryCall: {
+      label: "Book a discovery call",
+      url: "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services/2LKF3PGSFGBI6Y2AY4DJQMT6",
+    },
+    planningCall: {
+      label: "Book a planning call",
+      url: "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services/U4N4NWOKZ5W5EFBL6VLNBV3N",
+    },
+    weddingTimelineCall: {
+      label: "Book a wedding timeline call",
+      url: "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services/PZ5HV4XYSEIJ3CZJURRRBUZ4",
+    },
+    venueWalkthrough: {
+      label: "Book a venue walkthrough",
+      url: "https://book.squareup.com/appointments/av2zblbi8bxb7j/location/LM2BPYJFHR5QV/services/JMDAYYTC2GCUD4OLQHDBHESX",
+    },
+  },
   clientGalleryUrl: "https://julianperezphotography.pic-time.com/client",
   paymentPreferences:
     "Deposits via Square. Balances preferred via Zelle, Venmo, or cash.",

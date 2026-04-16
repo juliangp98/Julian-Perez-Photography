@@ -111,6 +111,12 @@ export type SiteSettings = {
   coverageArea: string;
   bookingStatus: string;
   bookingUrl: string;
+  calls: {
+    discoveryCall: { label: string; url: string };
+    planningCall: { label: string; url: string };
+    weddingTimelineCall: { label: string; url: string };
+    venueWalkthrough: { label: string; url: string };
+  };
   clientGalleryUrl: string; // Pic-Time client delivery portal.
   paymentPreferences: string;
   social: {

@@ -268,14 +268,12 @@ export function QuestionnaireEmailTemplate({
   serviceTitle,
   submittedAt,
   sections,
-  googleDocUrl,
   hasPdf,
 }: {
   questionnaireTitle: string;
   serviceTitle: string;
   submittedAt: string;
   sections: SectionBlock[];
-  googleDocUrl?: string | null;
   hasPdf?: boolean;
 }) {
   return (
@@ -294,7 +292,7 @@ export function QuestionnaireEmailTemplate({
         {serviceTitle} · {submittedAt}
       </Text>
 
-      {(googleDocUrl || hasPdf) && (
+      {hasPdf && (
         <Section
           style={{
             backgroundColor: "#ffffff",
@@ -304,34 +302,15 @@ export function QuestionnaireEmailTemplate({
             margin: "0 0 24px 0",
           }}
         >
-          {googleDocUrl && (
-            <Link
-              href={googleDocUrl}
-              style={{
-                display: "inline-block",
-                backgroundColor: ACCENT,
-                color: "#ffffff",
-                padding: "10px 20px",
-                borderRadius: "20px",
-                fontSize: "13px",
-                textDecoration: "none",
-                marginRight: "12px",
-              }}
-            >
-              Open Wedding Day Plan in Google Docs →
-            </Link>
-          )}
-          {hasPdf && (
-            <Text
-              style={{
-                fontSize: "12px",
-                color: MUTED,
-                margin: googleDocUrl ? "12px 0 0 0" : "0",
-              }}
-            >
-              Wedding Day Plan PDF is attached to this email.
-            </Text>
-          )}
+          <Text
+            style={{
+              fontSize: "13px",
+              color: FOREGROUND,
+              margin: "0",
+            }}
+          >
+            Wedding Day Plan PDF is attached to this email.
+          </Text>
         </Section>
       )}
 
@@ -403,13 +382,11 @@ export function ClientConfirmationTemplate({
   clientName,
   questionnaireTitle,
   isWedding,
-  googleDocUrl,
   hasPdf,
 }: {
   clientName: string;
   questionnaireTitle?: string;
   isWedding?: boolean;
-  googleDocUrl?: string | null;
   hasPdf?: boolean;
 }) {
   const isQuestionnaire = !!questionnaireTitle;
@@ -436,11 +413,11 @@ export function ClientConfirmationTemplate({
         }}
       >
         {isQuestionnaire
-          ? `Your ${questionnaireTitle?.toLowerCase().replace(" questionnaire", "")} planning questionnaire is in my inbox. I'll review everything and reach out with next steps within 48 hours.`
+          ? `Your ${questionnaireTitle?.toLowerCase().replace(" questionnaire", "")} questionnaire is in my inbox. I'll review everything and reach out with next steps within 48 hours.`
           : "Your inquiry is in my inbox. I'll review it and get back to you within 48 hours."}
       </Text>
 
-      {isWedding && (googleDocUrl || hasPdf) && (
+      {isWedding && hasPdf && (
         <Section
           style={{
             backgroundColor: "#ffffff",
@@ -460,48 +437,17 @@ export function ClientConfirmationTemplate({
           >
             Your Wedding Day Plan
           </Text>
-          {hasPdf && (
-            <Text
-              style={{
-                fontSize: "13px",
-                color: MUTED,
-                margin: "0 0 12px 0",
-                lineHeight: "20px",
-              }}
-            >
-              A PDF copy of your Wedding Day Plan is attached to this email —
-              feel free to save or print it.
-            </Text>
-          )}
-          {googleDocUrl && (
-            <>
-              <Text
-                style={{
-                  fontSize: "13px",
-                  color: MUTED,
-                  margin: "0 0 12px 0",
-                  lineHeight: "20px",
-                }}
-              >
-                I&apos;ve also created a shared Google Doc where we can
-                collaborate on the final details together.
-              </Text>
-              <Link
-                href={googleDocUrl}
-                style={{
-                  display: "inline-block",
-                  backgroundColor: FOREGROUND,
-                  color: BG,
-                  padding: "10px 20px",
-                  borderRadius: "20px",
-                  fontSize: "13px",
-                  textDecoration: "none",
-                }}
-              >
-                Open shared Wedding Day Plan →
-              </Link>
-            </>
-          )}
+          <Text
+            style={{
+              fontSize: "13px",
+              color: MUTED,
+              margin: "0",
+              lineHeight: "20px",
+            }}
+          >
+            A PDF copy of your Wedding Day Plan is attached to this email —
+            feel free to save or print it.
+          </Text>
         </Section>
       )}
 

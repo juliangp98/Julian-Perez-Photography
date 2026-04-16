@@ -16,8 +16,19 @@
 
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { rateLimitResponse } from "@/lib/request-guard";
 
 export async function POST(request: Request) {
+  // Rate limit: 20 token requests / 10 min / IP. Each token = one file,
+  // and the questionnaire's file field caps at 6 files so a real client
+  // shouldn't come anywhere near this.
+  const limited = rateLimitResponse(request, {
+    key: "questionnaire-upload",
+    max: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   let body: HandleUploadBody;
   try {
     body = (await request.json()) as HandleUploadBody;

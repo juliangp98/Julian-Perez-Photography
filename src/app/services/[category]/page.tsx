@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import {
   getPortfolio,
   getService,
+  siteSettings,
   visibleServices as services,
 } from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
@@ -241,6 +242,14 @@ export default async function ServiceCategoryPage({
           >
             Book a session
           </Link>
+          <a
+            href={siteSettings.calls.discoveryCall.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+          >
+            Schedule a discovery call
+          </a>
         </div>
       </div>
     </section>

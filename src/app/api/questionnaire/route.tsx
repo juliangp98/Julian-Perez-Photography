@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
@@ -12,6 +14,8 @@ import {
   QuestionnaireEmailTemplate,
   ClientConfirmationTemplate,
 } from "@/lib/email-templates";
+import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import { formatSubjectDate } from "@/lib/email-helpers";
 
 type Answers = Record<string, string | string[]>;
 
@@ -43,6 +47,15 @@ function isAnswerEmpty(type: string, v: unknown): boolean {
 }
 
 export async function POST(req: Request) {
+  // Rate limit: 5 submissions / 10 min / IP. Questionnaires are longer
+  // than inquiries — the real risk here is abuse, not legitimate volume.
+  const limited = rateLimitResponse(req, {
+    key: "questionnaire",
+    max: 5,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   let body: { service?: string; company?: string; answers?: Answers };
   try {
     body = await req.json();
@@ -51,7 +64,7 @@ export async function POST(req: Request) {
   }
 
   // Honeypot — silently succeed.
-  if (body.company) return NextResponse.json({ ok: true });
+  if (isHoneypotTriggered(body.company)) return NextResponse.json({ ok: true });
 
   const slug = body.service;
   if (!slug || typeof slug !== "string") {
@@ -168,7 +181,13 @@ export async function POST(req: Request) {
   }
 
   const text = lines.join("\n");
-  const subject = `New questionnaire — ${serviceTitle} — ${clientName}`;
+  // Prefer wedding-specific field, fall back to generic. Either way
+  // missing/unparseable values render as an empty string.
+  const eventDateForSubject =
+    (typeof answers["weddingDate"] === "string" && answers["weddingDate"]) ||
+    (typeof answers["eventDate"] === "string" && answers["eventDate"]) ||
+    "";
+  const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}`;
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -184,13 +203,12 @@ export async function POST(req: Request) {
     "Julian Perez Photography <onboarding@resend.dev>";
   const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
 
-  // ── Wedding-specific: generate PDF + Google Doc ──
+  // ── Wedding-specific: generate PDF ──
 
+  const warnings: string[] = [];
   let pdfBuffer: Buffer | null = null;
-  let googleDocUrl: string | null = null;
 
   if (isWedding) {
-    // PDF generation
     try {
       const { renderToBuffer } = await import("@react-pdf/renderer");
       const { WeddingDayPlan } = await import("@/lib/wedding-day-plan");
@@ -198,22 +216,9 @@ export async function POST(req: Request) {
         <WeddingDayPlan answers={answers} />,
       );
     } catch (err) {
-      console.error("[questionnaire] PDF generation error:", err);
-    }
-
-    // Google Docs creation
-    if (clientEmail) {
-      try {
-        const { createWeddingPlanDoc } = await import("@/lib/google-docs");
-        googleDocUrl = await createWeddingPlanDoc({
-          coupleName: `${answers.fullName ?? ""} & ${answers.partnerFullName ?? ""}`,
-          eventDate: String(answers.eventDate || "TBD"),
-          answers,
-          shareWith: [toAddress, clientEmail],
-        });
-      } catch (err) {
-        console.error("[questionnaire] Google Docs error:", err);
-      }
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[questionnaire] PDF generation error:", detail);
+      warnings.push(`PDF generation failed: ${detail}`);
     }
   }
 
@@ -228,7 +233,6 @@ export async function POST(req: Request) {
         serviceTitle={serviceTitle}
         submittedAt={submittedAt}
         sections={emailSections}
-        googleDocUrl={googleDocUrl}
         hasPdf={!!pdfBuffer}
       />
     </BrandedEmailLayout>,
@@ -252,13 +256,17 @@ export async function POST(req: Request) {
       text,
       ...(attachments.length > 0 ? { attachments } : {}),
     });
-    if (error) throw new Error(error.message);
-  } catch (err) {
+    if (error) throw error;
+  } catch (err: unknown) {
     console.error("[questionnaire] Resend error:", err);
-    return NextResponse.json(
-      { error: "Could not send right now. Please email directly." },
-      { status: 500 },
-    );
+    const msg =
+      err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
+    const userMessage = msg.includes("valid")
+      ? "The email address doesn't appear to be valid. Please double-check and try again."
+      : msg.includes("rate")
+        ? "Too many submissions — please wait a moment and try again."
+        : `Could not send right now — please email ${siteSettings.contactEmail} directly.`;
+    return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 
   // ── Client confirmation email — fire and forget ──
@@ -273,7 +281,6 @@ export async function POST(req: Request) {
             clientName={clientName}
             questionnaireTitle={q.title}
             isWedding={isWedding}
-            googleDocUrl={googleDocUrl}
             hasPdf={!!pdfBuffer}
           />
         </BrandedEmailLayout>,
@@ -292,7 +299,7 @@ export async function POST(req: Request) {
         to: clientEmail,
         subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
         html: confirmHtml,
-        text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.${googleDocUrl ? `\n\nOpen your shared Wedding Day Plan: ${googleDocUrl}` : ""}\n\nJulian Perez Photography\njulianperezphotography.com`,
+        text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
         ...(confirmAttachments.length > 0
           ? { attachments: confirmAttachments }
           : {}),
@@ -302,5 +309,8 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  });
 }

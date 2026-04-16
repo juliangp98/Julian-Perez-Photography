@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
@@ -8,6 +10,8 @@ import {
   InquiryEmailTemplate,
   ClientConfirmationTemplate,
 } from "@/lib/email-templates";
+import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import { formatSubjectDate } from "@/lib/email-helpers";
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -24,6 +28,15 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Rate limit: 5 submissions / 10 min / IP — a legitimate client will
+  // never hit this; a bot farm will.
+  const limited = rateLimitResponse(req, {
+    key: "inquire",
+    max: 5,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -42,7 +55,7 @@ export async function POST(req: Request) {
   const data = parsed.data;
 
   // Honeypot triggered — pretend success silently
-  if (data.company) {
+  if (isHoneypotTriggered(data.company)) {
     return NextResponse.json({ ok: true });
   }
 
@@ -61,7 +74,9 @@ export async function POST(req: Request) {
     process.env.RESEND_FROM || "Julian Perez Photography <onboarding@resend.dev>";
   const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
 
-  const subject = `New inquiry — ${serviceName} — ${data.name}`;
+  // Include the event date in the subject when supplied — makes triage
+  // easier when multiple inquiries for the same service land in a row.
+  const subject = `New inquiry — ${serviceName} — ${data.name}${formatSubjectDate(data.eventDate)}`;
   const text = [
     `New inquiry from ${siteSettings.siteName}`,
     ``,
@@ -93,13 +108,17 @@ export async function POST(req: Request) {
       html,
       text,
     });
-    if (error) throw new Error(error.message);
-  } catch (err) {
+    if (error) throw error;
+  } catch (err: unknown) {
     console.error("[inquire] Resend error:", err);
-    return NextResponse.json(
-      { error: "Could not send right now. Please email directly." },
-      { status: 500 },
-    );
+    const msg =
+      err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
+    const userMessage = msg.includes("valid")
+      ? "The email address doesn't appear to be valid. Please double-check and try again."
+      : msg.includes("rate")
+        ? "Too many submissions — please wait a moment and try again."
+        : `Could not send right now — please email ${siteSettings.contactEmail} directly.`;
+    return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 
   // Client confirmation email — fire and forget; don't fail the submission.
