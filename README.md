@@ -85,6 +85,9 @@ cp .env.example .env.local
 | `INQUIRY_TO` | no | Where inquiries are delivered (defaults to `siteSettings.contactEmail`) |
 | `GOOGLE_PLACES_API_KEY` | no | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials` |
 | `GOOGLE_PLACE_ID` | no | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped |
+| `TWILIO_ACCOUNT_SID` | no | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires |
+| `TWILIO_AUTH_TOKEN` | no | Twilio Auth Token (from the dashboard) |
+| `TWILIO_PHONE_FROM` | no | Twilio-provisioned phone number in E.164 format (e.g. `+15555550123`). Must be SMS-capable for US numbers |
 
 ### Run the dev server
 

@@ -16,6 +16,8 @@ import {
 } from "@/lib/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email-helpers";
+import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
+import { sendSms } from "@/lib/sms";
 
 type Answers = Record<string, string | string[]>;
 
@@ -157,6 +159,22 @@ export async function POST(req: Request) {
 
     for (const f of populatedFields) {
       const v = answers[f.id];
+      // `referral` renders as the friendly label (+ "Other" free-text
+      // detail if supplied). `referralOther` is a companion field only
+      // — skip its own row so we don't duplicate the detail.
+      if (f.id === "referral") {
+        const referralRaw = typeof v === "string" ? v : "";
+        const otherRaw = typeof answers["referralOther"] === "string"
+          ? (answers["referralOther"] as string)
+          : "";
+        const display = formatReferral(referralRaw, otherRaw);
+        emailFields.push({ label: f.label, value: display });
+        lines.push(`${f.label}:`);
+        lines.push(`  ${display}`);
+        lines.push("");
+        continue;
+      }
+      if (f.id === "referralOther") continue;
       if (f.type === "file") {
         const files = parseFiles(v);
         const htmlLinks = files
@@ -187,7 +205,14 @@ export async function POST(req: Request) {
     (typeof answers["weddingDate"] === "string" && answers["weddingDate"]) ||
     (typeof answers["eventDate"] === "string" && answers["eventDate"]) ||
     "";
-  const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}`;
+  // Tag the subject line with the referral source so Julian can inbox-
+  // filter by channel without opening each email.
+  const referralRaw =
+    typeof answers["referral"] === "string" ? (answers["referral"] as string) : "";
+  const referralLabel = referralRaw
+    ? REFERRAL_LABELS[referralRaw] ?? referralRaw
+    : "";
+  const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -306,6 +331,23 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       console.error("[questionnaire] Client confirmation error:", err);
+    }
+  }
+
+  // SMS confirmation — fire and forget. Every questionnaire shares the
+  // `yourDetailsSection` block, which includes a required phone number,
+  // so this path is available on all services.
+  const clientPhone =
+    typeof answers["phone"] === "string" ? (answers["phone"] as string) : "";
+  if (clientPhone) {
+    try {
+      const firstName = clientName.split(" ")[0];
+      await sendSms(
+        clientPhone,
+        `Thanks, ${firstName}! Your ${serviceTitle} questionnaire is received. Julian will review and reply within 48h.`,
+      );
+    } catch (err) {
+      console.error("[questionnaire] SMS error:", err);
     }
   }
 

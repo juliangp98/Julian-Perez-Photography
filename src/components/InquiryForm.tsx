@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { siteSettings, visibleServices as services } from "@/lib/content";
+import { REFERRAL_OPTIONS } from "@/lib/referral";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 export default function InquiryForm({ defaultService }: { defaultService?: string }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Track referral selection so we can reveal a follow-up text field when
+  // the user picks "Other" — keeps the long tail of real sources visible
+  // without cluttering the dropdown.
+  const [referral, setReferral] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -175,7 +180,27 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
           <label htmlFor="referral" className={label}>
             How did you hear about me?
           </label>
-          <input id="referral" name="referral" className={input} />
+          <select
+            id="referral"
+            name="referral"
+            value={referral}
+            onChange={(e) => setReferral(e.target.value)}
+            className={input}
+          >
+            {REFERRAL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {referral === "other" && (
+            <input
+              id="referralOther"
+              name="referralOther"
+              placeholder="Tell me more (optional)"
+              className={`${input} mt-2`}
+            />
+          )}
         </div>
       </div>
 

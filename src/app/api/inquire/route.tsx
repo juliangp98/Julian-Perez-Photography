@@ -12,6 +12,8 @@ import {
 } from "@/lib/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email-helpers";
+import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
+import { sendSms } from "@/lib/sms";
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -21,7 +23,8 @@ const schema = z.object({
   eventDate: z.string().optional().or(z.literal("")),
   location: z.string().max(300).optional().or(z.literal("")),
   budget: z.string().max(100).optional().or(z.literal("")),
-  referral: z.string().max(200).optional().or(z.literal("")),
+  referral: z.string().max(100).optional().or(z.literal("")),
+  referralOther: z.string().max(200).optional().or(z.literal("")),
   message: z.string().min(1).max(5000),
   // Honeypot — should be empty (named hp_company to avoid collision with
   // legitimate "company" fields in questionnaires like corporate-headshots)
@@ -75,9 +78,18 @@ export async function POST(req: Request) {
     process.env.RESEND_FROM || "Julian Perez Photography <onboarding@resend.dev>";
   const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
 
+  // Resolve the curated referral value → friendly label, and fold in the
+  // free-text "Other" detail when present. Both live in the email body;
+  // the shortform label also tags the subject line so Julian can inbox-
+  // filter by source without opening the email.
+  const referralLabel = data.referral
+    ? REFERRAL_LABELS[data.referral] ?? data.referral
+    : "";
+  const referralDisplay = formatReferral(data.referral, data.referralOther);
+
   // Include the event date in the subject when supplied — makes triage
   // easier when multiple inquiries for the same service land in a row.
-  const subject = `New inquiry — ${serviceName} — ${data.name}${formatSubjectDate(data.eventDate)}`;
+  const subject = `New inquiry — ${serviceName} — ${data.name}${formatSubjectDate(data.eventDate)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
   const text = [
     `New inquiry from ${siteSettings.siteName}`,
     ``,
@@ -88,15 +100,19 @@ export async function POST(req: Request) {
     `Date:      ${data.eventDate || "—"}`,
     `Location:  ${data.location || "—"}`,
     `Budget:    ${data.budget || "—"}`,
-    `Referral:  ${data.referral || "—"}`,
+    `Referral:  ${referralDisplay}`,
     ``,
     `Message:`,
     data.message,
   ].join("\n");
 
+  // Override the raw referral value with the friendly display string so the
+  // branded template shows "Instagram" (or "Other — at a friend's reception")
+  // rather than the internal slug.
+  const emailData = { ...data, referral: referralDisplay === "—" ? undefined : referralDisplay };
   const html = await render(
     <BrandedEmailLayout preview={`New inquiry from ${data.name} — ${serviceName}`}>
-      <InquiryEmailTemplate data={data} serviceName={serviceName} />
+      <InquiryEmailTemplate data={emailData} serviceName={serviceName} />
     </BrandedEmailLayout>,
   );
 
@@ -138,6 +154,21 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[inquire] Client confirmation error:", err);
+  }
+
+  // SMS confirmation — fire and forget. Only when the client supplied a
+  // phone number. Failures never surface to the user (email already
+  // succeeded; SMS is a nice-to-have nudge).
+  if (data.phone) {
+    try {
+      const firstName = data.name.split(" ")[0];
+      await sendSms(
+        data.phone,
+        `Thanks, ${firstName}! Your inquiry for ${serviceName} is in Julian's inbox. He'll reply within 48h. — Julian Perez Photography`,
+      );
+    } catch (err) {
+      console.error("[inquire] SMS error:", err);
+    }
   }
 
   return NextResponse.json({ ok: true });

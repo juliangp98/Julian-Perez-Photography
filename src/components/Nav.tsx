@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   servicesByUmbrella,
@@ -12,6 +13,12 @@ const serviceGroups = servicesByUmbrella();
 const portfolioGroups = portfoliosByUmbrella();
 
 export default function Nav() {
+  const pathname = usePathname();
+  // Sanity Studio owns its own full-viewport UI; rendering our site chrome
+  // on /studio routes both steals vertical space and clashes with Studio's
+  // drag/drop + keyboard shortcuts. Bail before any state is set up.
+  if (pathname?.startsWith("/studio")) return null;
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<
     "portfolio" | "services" | null

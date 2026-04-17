@@ -9,6 +9,7 @@ import {
   visibleSectionsFor,
 } from "@/lib/questionnaires";
 import { siteSettings } from "@/lib/content";
+import { REFERRAL_OPTIONS } from "@/lib/referral";
 
 type Status = "idle" | "submitting" | "success" | "error";
 type Value = string | string[];
@@ -153,6 +154,13 @@ export default function QuestionnaireForm({
         if (isFieldEmpty(f.type, v)) continue;
         payload[f.id] = v as Value;
       }
+    }
+    // `referralOther` isn't declared in the questionnaire schema — it's a
+    // companion field that only appears when the referral dropdown is set
+    // to "Other". Include it in the payload when present so Julian sees
+    // the long-tail source in his email.
+    if (payload.referral === "other" && typeof state.referralOther === "string" && state.referralOther) {
+      payload.referralOther = state.referralOther;
     }
 
     setStatus("submitting");
@@ -393,15 +401,34 @@ export default function QuestionnaireForm({
       )}
 
       <div className="mt-8 grid gap-6">
-        {visibleFields.map((field) => (
-          <FieldRenderer
-            key={field.id}
-            field={field}
-            value={state[field.id]}
-            onChange={(v) => update(field.id, v)}
-            slug={questionnaire.slug}
-          />
-        ))}
+        {visibleFields.map((field) => {
+          // Normalize the "How did you find me?" field into the curated
+          // dropdown used across the site — regardless of what `type` the
+          // questionnaire JSON declares for it. The "Other" option reveals
+          // a sibling free-text input (`referralOther`) so long-tail
+          // sources still come through.
+          if (field.id === "referral") {
+            return (
+              <ReferralField
+                key={field.id}
+                field={field}
+                value={state.referral as string | undefined}
+                otherValue={state.referralOther as string | undefined}
+                onChange={(v) => update("referral", v)}
+                onOtherChange={(v) => update("referralOther", v)}
+              />
+            );
+          }
+          return (
+            <FieldRenderer
+              key={field.id}
+              field={field}
+              value={state[field.id]}
+              onChange={(v) => update(field.id, v)}
+              slug={questionnaire.slug}
+            />
+          );
+        })}
       </div>
 
       {/* aria-live so the error announces when it changes — the user
@@ -461,6 +488,63 @@ export default function QuestionnaireForm({
           Your answers autosave in this browser. You can close the tab and come
           back.
         </p>
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Referral field — curated dropdown with an "Other" free-text fallback.
+// Rendered in place of the generic text renderer for the `referral` field so
+// the inquiry + questionnaire data stays normalized site-wide.
+// ----------------------------------------------------------------------------
+
+function ReferralField({
+  field,
+  value,
+  otherValue,
+  onChange,
+  onOtherChange,
+}: {
+  field: Field;
+  value: string | undefined;
+  otherValue: string | undefined;
+  onChange: (v: string) => void;
+  onOtherChange: (v: string) => void;
+}) {
+  const input =
+    "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
+  const label = "block text-sm font-medium mb-1.5";
+  return (
+    <div>
+      <label htmlFor={field.id} className={label}>
+        {field.label}
+        {field.required && <span className="text-[var(--accent)]"> *</span>}
+      </label>
+      <select
+        id={field.id}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className={input}
+      >
+        {REFERRAL_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {value === "other" && (
+        <input
+          id="referralOther"
+          name="referralOther"
+          value={otherValue || ""}
+          onChange={(e) => onOtherChange(e.target.value)}
+          placeholder="Tell me more (optional)"
+          className={`${input} mt-2`}
+        />
+      )}
+      {field.help && (
+        <p className="mt-1.5 text-xs text-[var(--muted)]">{field.help}</p>
       )}
     </div>
   );
