@@ -14,11 +14,6 @@ const portfolioGroups = portfoliosByUmbrella();
 
 export default function Nav() {
   const pathname = usePathname();
-  // Sanity Studio owns its own full-viewport UI; rendering our site chrome
-  // on /studio routes both steals vertical space and clashes with Studio's
-  // drag/drop + keyboard shortcuts. Bail before any state is set up.
-  if (pathname?.startsWith("/studio")) return null;
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<
     "portfolio" | "services" | null
@@ -35,6 +30,12 @@ export default function Nav() {
       document.body.style.overflow = previousOverflow;
     };
   }, [mobileOpen]);
+
+  // Sanity Studio owns its own full-viewport UI; rendering our site chrome
+  // on /studio routes both steals vertical space and clashes with Studio's
+  // drag/drop + keyboard shortcuts. Must come AFTER hook declarations so
+  // React's hook-order invariant holds across renders.
+  if (pathname?.startsWith("/studio")) return null;
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--background)]/85 backdrop-blur-md border-b border-[var(--border)]">
@@ -142,6 +143,9 @@ export default function Nav() {
           <Link href="/about" className="nav-link">
             About
           </Link>
+          <Link href="/journal" className="nav-link">
+            Journal
+          </Link>
           <Link href="/client" className="nav-link">
             Clients
           </Link>
@@ -245,6 +249,9 @@ export default function Nav() {
             </details>
             <Link href="/about" onClick={() => setMobileOpen(false)}>
               About
+            </Link>
+            <Link href="/journal" onClick={() => setMobileOpen(false)}>
+              Journal
             </Link>
             <Link href="/client" onClick={() => setMobileOpen(false)}>
               Clients

@@ -13,6 +13,15 @@ const nextConfig: NextConfig = {
   // Emit a minimal standalone server so the Docker image stays small.
   // Safe to keep enabled for Vercel deployments too — Vercel ignores it.
   output: "standalone",
+  // Whitelist hostnames that next/image is allowed to optimize. `cdn.sanity.io`
+  // is added for the journal (round 13) — all coverImage + inline-image assets
+  // flow through that host. Without this, <Image src="https://cdn.sanity.io/...">
+  // would throw at runtime with "hostname not configured".
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "cdn.sanity.io", pathname: "/**" },
+    ],
+  },
   async redirects() {
     return SLUG_REDIRECTS.flatMap(({ from, to }) => [
       {

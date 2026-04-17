@@ -1,8 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FaInstagram, FaFacebook, FaYoutube } from "react-icons/fa6";
 import { siteSettings } from "@/lib/content";
 
 export default function Footer() {
+  const pathname = usePathname();
+  // Mirror Nav.tsx — Studio owns its viewport. Skip the footer too so Studio's
+  // own bottom chrome (status bar, etc.) isn't shoved below ours. Cheap to
+  // be a client component; the footer is static links, no RSC benefit lost.
+  if (pathname?.startsWith("/studio")) return null;
+
   const year = new Date().getFullYear();
   const socialIconClass =
     "w-9 h-9 flex items-center justify-center rounded-full border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] hover:border-[var(--foreground)] transition";
@@ -77,6 +86,11 @@ export default function Footer() {
             <li>
               <Link href="/about" className="hover:text-[var(--foreground)]">
                 About
+              </Link>
+            </li>
+            <li>
+              <Link href="/journal" className="hover:text-[var(--foreground)]">
+                Journal
               </Link>
             </li>
             <li>
