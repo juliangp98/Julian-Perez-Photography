@@ -16,7 +16,7 @@ export default function Nav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<
-    "portfolio" | "services" | null
+    "portfolio" | "services" | "about" | "clients" | null
   >(null);
 
   // Lock background scroll while the mobile drawer is open so the page
@@ -140,20 +140,71 @@ export default function Nav() {
             )}
           </div>
 
-          <Link href="/about" className="nav-link">
-            About
-          </Link>
-          <Link href="/journal" className="nav-link">
-            Journal
-          </Link>
-          <Link href="/client" className="nav-link">
-            Clients
-          </Link>
+          {/* About dropdown — groups the who-is-Julian content (About page +
+              Journal) so those two related links stop competing with the CTAs
+              in the main nav bar. Trigger itself navigates to /about, matching
+              how Portfolio's trigger goes to /portfolio. */}
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenSubmenu("about")}
+            onMouseLeave={() => setOpenSubmenu(null)}
+          >
+            <Link href="/about" className="nav-link">
+              About ▾
+            </Link>
+            {openSubmenu === "about" && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-56">
+                <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-4 flex flex-col">
+                  <Link
+                    href="/about"
+                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                  >
+                    About Julian
+                  </Link>
+                  <Link
+                    href="/journal"
+                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                  >
+                    Journal
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Clients dropdown — post-booking client tools (gallery access +
+              planning questionnaire). Trigger → /client so clicking behaves
+              like the existing Clients link did. */}
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenSubmenu("clients")}
+            onMouseLeave={() => setOpenSubmenu(null)}
+          >
+            <Link href="/client" className="nav-link">
+              Clients ▾
+            </Link>
+            {openSubmenu === "clients" && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-56">
+                <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-4 flex flex-col">
+                  <Link
+                    href="/client"
+                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                  >
+                    Client galleries
+                  </Link>
+                  <Link
+                    href="/questionnaire"
+                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                  >
+                    Plan your session
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           <Link href="/inquire" className="nav-link">
             Inquire
-          </Link>
-          <Link href="/questionnaire" className="nav-link">
-            Plan
           </Link>
           <Link
             href="/book"
@@ -247,20 +298,50 @@ export default function Nav() {
                   ))}
               </div>
             </details>
-            <Link href="/about" onClick={() => setMobileOpen(false)}>
-              About
-            </Link>
-            <Link href="/journal" onClick={() => setMobileOpen(false)}>
-              Journal
-            </Link>
-            <Link href="/client" onClick={() => setMobileOpen(false)}>
-              Clients
-            </Link>
+            {/* About + Clients get the same disclosure treatment as
+                Portfolio/Services above so the mobile drawer groups match
+                what desktop shows on hover. The summary acts as both label
+                and toggle; tapping a child link closes the drawer. */}
+            <details>
+              <summary className="cursor-pointer py-2">About</summary>
+              <div className="flex flex-col pl-4 gap-2 mt-2">
+                <Link
+                  href="/about"
+                  onClick={() => setMobileOpen(false)}
+                  className="py-1"
+                >
+                  About Julian
+                </Link>
+                <Link
+                  href="/journal"
+                  onClick={() => setMobileOpen(false)}
+                  className="py-1"
+                >
+                  Journal
+                </Link>
+              </div>
+            </details>
+            <details>
+              <summary className="cursor-pointer py-2">Clients</summary>
+              <div className="flex flex-col pl-4 gap-2 mt-2">
+                <Link
+                  href="/client"
+                  onClick={() => setMobileOpen(false)}
+                  className="py-1"
+                >
+                  Client galleries
+                </Link>
+                <Link
+                  href="/questionnaire"
+                  onClick={() => setMobileOpen(false)}
+                  className="py-1"
+                >
+                  Plan your session
+                </Link>
+              </div>
+            </details>
             <Link href="/inquire" onClick={() => setMobileOpen(false)}>
               Inquire
-            </Link>
-            <Link href="/questionnaire" onClick={() => setMobileOpen(false)}>
-              Plan
             </Link>
             <Link
               href="/book"
