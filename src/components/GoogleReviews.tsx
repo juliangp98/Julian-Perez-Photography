@@ -1,13 +1,14 @@
 import { fetchGoogleReviews } from "@/lib/google-reviews";
-import { siteSettings } from "@/lib/content";
+import { getSiteSettings } from "@/lib/content";
 import type { Testimonial } from "@/lib/types";
 import ReviewsCarousel from "./ReviewsCarousel";
 
 // Async server component. Renders client testimonials in a grid. Pulls
 // from the Google Places API when env vars are set and the business is
 // API-visible; otherwise falls back to the manually curated
-// `siteSettings.testimonials` list. If both are empty, returns null so
-// the consumer page renders without a reviews section.
+// `testimonials` list on the Sanity-backed site settings (or the
+// hard-coded fallback when Sanity is unconfigured). If both are empty,
+// returns null so the consumer page renders without a reviews section.
 //
 // API display follows Google's Places attribution requirements:
 // reviewer name, profile photo (when provided), star rating, relative
@@ -63,8 +64,8 @@ export default async function GoogleReviews({
   className = "",
   variant = "grid",
 }: Props) {
-  const { reviews, rating, reviewCount, mapsUrl, businessName } =
-    await fetchGoogleReviews();
+  const [{ reviews, rating, reviewCount, mapsUrl, businessName }, settings] =
+    await Promise.all([fetchGoogleReviews(), getSiteSettings()]);
 
   // Prefer live API data; fall back to curated testimonials.
   let display: DisplayReview[];
@@ -81,13 +82,13 @@ export default async function GoogleReviews({
     attributionLabel = `Powered by Google${
       businessName ? ` · See all reviews for ${businessName}` : ""
     }`;
-  } else if (siteSettings.testimonials.length > 0) {
-    display = siteSettings.testimonials.map(testimonialToDisplay);
+  } else if (settings.testimonials.length > 0) {
+    display = settings.testimonials.map(testimonialToDisplay);
     const avg =
       display.reduce((sum, r) => sum + r.rating, 0) / display.length;
     aggregateRating = Number(avg.toFixed(1));
-    aggregateCount = siteSettings.testimonials.length;
-    attributionUrl = siteSettings.googleProfileUrl ?? null;
+    aggregateCount = settings.testimonials.length;
+    attributionUrl = settings.googleProfileUrl ?? null;
     attributionLabel = "Reviews from Google Business Profile";
   } else {
     return null;

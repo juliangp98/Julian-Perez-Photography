@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
-import { siteSettings, getService } from "@/lib/content";
+import { getSiteSettings, getService } from "@/lib/content";
 import {
   getQuestionnaire,
   evaluateShowIf,
@@ -111,7 +111,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const svc = getService(slug);
+  // Async after round 14b.2 — service catalog lives in Sanity now.
+  const svc = await getService(slug);
   const serviceTitle = svc?.title || slug;
   const clientName =
     (typeof answers["fullName"] === "string" && answers["fullName"]) ||
@@ -226,7 +227,8 @@ export async function POST(req: Request) {
   const fromAddress =
     process.env.RESEND_FROM ||
     "Julian Perez Photography <onboarding@resend.dev>";
-  const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
+  const settings = await getSiteSettings();
+  const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
   // ── Wedding-specific: generate PDF ──
 
@@ -290,7 +292,7 @@ export async function POST(req: Request) {
       ? "The email address doesn't appear to be valid. Please double-check and try again."
       : msg.includes("rate")
         ? "Too many submissions — please wait a moment and try again."
-        : `Could not send right now — please email ${siteSettings.contactEmail} directly.`;
+        : `Could not send right now — please email ${settings.contactEmail} directly.`;
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 

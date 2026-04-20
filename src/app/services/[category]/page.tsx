@@ -5,15 +5,23 @@ import type { Metadata } from "next";
 import {
   getPortfolio,
   getService,
-  siteSettings,
-  visibleServices as services,
+  getSiteSettings,
+  getVisibleServices,
 } from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
 import { renderInline } from "@/lib/inline";
 import { getQuestionnaire } from "@/lib/questionnaires";
 
-export function generateStaticParams() {
-  return services.map((s) => ({ category: s.slug }));
+// Async after 14b.2 — slugs come from Sanity when configured and fall
+// back to the hard-coded array otherwise. Wrapped so a network hiccup
+// at build time doesn't break the build; pages still render on demand.
+export async function generateStaticParams() {
+  try {
+    const services = await getVisibleServices();
+    return services.map((s) => ({ category: s.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -22,7 +30,7 @@ export async function generateMetadata({
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const s = getService(category);
+  const s = await getService(category);
   if (!s) return {};
   const url = `https://julianperezphotography.com/services/${s.slug}`;
   return {
@@ -44,10 +52,16 @@ export default async function ServiceCategoryPage({
   params: Promise<{ category: string }>;
 }) {
   const { category } = await params;
-  const s = getService(category);
+  const s = await getService(category);
   if (!s) notFound();
-  const portfolio = getPortfolio(s.slug);
+  // `getPortfolio` is async after round 14c — portfolios live in Sanity
+  // now. Parallelize with `getSiteSettings()` so we don't serialize two
+  // independent Sanity round-trips on each service detail render.
   const questionnaire = getQuestionnaire(s.slug);
+  const [portfolio, settings] = await Promise.all([
+    getPortfolio(s.slug),
+    getSiteSettings(),
+  ]);
 
   const serviceJsonLd = {
     "@context": "https://schema.org",
@@ -267,7 +281,7 @@ export default async function ServiceCategoryPage({
             Book a session
           </Link>
           <a
-            href={siteSettings.calls.discoveryCall.url}
+            href={settings.calls.discoveryCall.url}
             target="_blank"
             rel="noopener noreferrer"
             className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"

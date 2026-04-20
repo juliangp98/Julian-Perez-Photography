@@ -8,8 +8,16 @@ import {
   resolvePackageOptions,
   visibleSectionsFor,
 } from "@/lib/questionnaires";
-import { siteSettings } from "@/lib/content";
+import type { SiteSettings } from "@/lib/types";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
+
+// Three of the four Square call URLs (post-questionnaire wrap-up needs
+// everything except the top-of-funnel discovery call). Taken from
+// `SiteSettings["calls"]` so the shape can't drift from the parent.
+type QuestionnaireCalls = Pick<
+  SiteSettings["calls"],
+  "planningCall" | "weddingTimelineCall" | "venueWalkthrough"
+>;
 
 type Status = "idle" | "submitting" | "success" | "error";
 type Value = string | string[];
@@ -34,9 +42,14 @@ function isFieldEmpty(type: string, v: Value | undefined): boolean {
 export default function QuestionnaireForm({
   questionnaire,
   prefill,
+  calls,
 }: {
   questionnaire: Questionnaire;
   prefill?: Record<string, string>;
+  // Call-booking CTAs shown on the success screen. Passed from the
+  // parent server page so the client bundle doesn't pull siteSettings
+  // (Sanity-backed + async after round 14a).
+  calls: QuestionnaireCalls;
 }) {
   const draftKey = `questionnaire-draft-${questionnaire.slug}`;
   const [state, setState] = useState<FormState>(() => ({ ...(prefill || {}) }));
@@ -311,30 +324,30 @@ export default function QuestionnaireForm({
             </p>
           </div>
           <a
-            href={siteSettings.calls.planningCall.url}
+            href={calls.planningCall.url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
           >
-            {siteSettings.calls.planningCall.label} &rarr;
+            {calls.planningCall.label} &rarr;
           </a>
           {isWedding && (
             <div className="flex gap-3 flex-wrap">
               <a
-                href={siteSettings.calls.weddingTimelineCall.url}
+                href={calls.weddingTimelineCall.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
               >
-                {siteSettings.calls.weddingTimelineCall.label} &rarr;
+                {calls.weddingTimelineCall.label} &rarr;
               </a>
               <a
-                href={siteSettings.calls.venueWalkthrough.url}
+                href={calls.venueWalkthrough.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
               >
-                {siteSettings.calls.venueWalkthrough.label} &rarr;
+                {calls.venueWalkthrough.label} &rarr;
               </a>
             </div>
           )}

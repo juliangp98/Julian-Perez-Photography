@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { servicesByUmbrella } from "@/lib/content";
+import { getServicesByUmbrella } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Services & Pricing",
@@ -8,8 +8,13 @@ export const metadata: Metadata = {
     "Wedding, engagement, family, portrait, brand, and event photography packages across the DMV.",
 };
 
-export default function ServicesIndex() {
-  const groups = servicesByUmbrella().filter((g) => g.items.length > 0);
+export default async function ServicesIndex() {
+  // Async after round 14b.2 — `getServicesByUmbrella()` resolves from
+  // Sanity first (60s cached) and falls back to the hard-coded array
+  // when Sanity is unreachable or empty.
+  const groups = (await getServicesByUmbrella()).filter(
+    (g) => g.items.length > 0,
+  );
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">

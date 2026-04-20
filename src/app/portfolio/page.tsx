@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { portfoliosByUmbrella } from "@/lib/content";
+import { getPortfoliosByUmbrella } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Portfolio",
@@ -8,8 +8,12 @@ export const metadata: Metadata = {
     "Wedding, engagement, family, portrait, brand, and event portfolios from across the DMV.",
 };
 
-export default function PortfolioIndex() {
-  const groups = portfoliosByUmbrella().filter((g) => g.items.length > 0);
+// Async after round 14c — portfolios now live in Sanity with a 60s
+// revalidate + cache tag (same pattern as /services).
+export default async function PortfolioIndex() {
+  const groups = (await getPortfoliosByUmbrella()).filter(
+    (g) => g.items.length > 0,
+  );
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">

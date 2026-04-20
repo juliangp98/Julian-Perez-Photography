@@ -1,12 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { siteSettings, visibleServices as services } from "@/lib/content";
+import { visibleServices as services } from "@/lib/content";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
+
+type CallLink = { label: string; url: string };
 
 type Status = "idle" | "submitting" | "success" | "error";
 
-export default function InquiryForm({ defaultService }: { defaultService?: string }) {
+export default function InquiryForm({
+  defaultService,
+  discoveryCall,
+}: {
+  defaultService?: string;
+  // Discovery-call CTA on the success screen. Passed from the parent
+  // server page so the client bundle doesn't need to pull siteSettings
+  // — after round 14a that value is Sanity-backed + async, which a
+  // client component can't await.
+  discoveryCall: CallLink;
+}) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // Track referral selection so we can reveal a follow-up text field when
@@ -65,12 +77,12 @@ export default function InquiryForm({ defaultService }: { defaultService?: strin
             good fit. No commitment, no pressure.
           </p>
           <a
-            href={siteSettings.calls.discoveryCall.url}
+            href={discoveryCall.url}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
           >
-            {siteSettings.calls.discoveryCall.label} &rarr;
+            {discoveryCall.label} &rarr;
           </a>
         </div>
       </div>

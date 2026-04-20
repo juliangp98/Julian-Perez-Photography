@@ -3,13 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaInstagram, FaFacebook, FaYoutube } from "react-icons/fa6";
-import { siteSettings } from "@/lib/content";
+import { siteSettingsFallback } from "@/lib/content";
 
+// Footer stays a client component because of the `usePathname()` gate
+// below. That means it can't `await getSiteSettings()` — we read from
+// `siteSettingsFallback` directly instead. Every field used here
+// (siteName, tagline, coverageArea, contactEmail, social.*,
+// clientGalleryUrl, bookingStatus) either changes rarely (siteName,
+// social URLs, gallery portal) or rolls forward with the seed source
+// (bookingStatus → "Booking YYYY-YYYY" updates annually via code + seed).
+// Moving the /studio pathname gate to the root layout would let this
+// become a server component, but it'd also couple root-layout rendering
+// to a routing prop that nothing else uses — not worth it for fields
+// that basically never change at runtime.
 export default function Footer() {
   const pathname = usePathname();
   // Mirror Nav.tsx — Studio owns its viewport. Skip the footer too so Studio's
-  // own bottom chrome (status bar, etc.) isn't shoved below ours. Cheap to
-  // be a client component; the footer is static links, no RSC benefit lost.
+  // own bottom chrome (status bar, etc.) isn't shoved below ours.
   if (pathname?.startsWith("/studio")) return null;
 
   const year = new Date().getFullYear();
@@ -19,25 +29,25 @@ export default function Footer() {
     <footer className="border-t border-[var(--border)] mt-24">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-14 grid gap-10 md:grid-cols-4">
         <div className="md:col-span-2">
-          <div className="font-serif text-2xl">{siteSettings.siteName}</div>
+          <div className="font-serif text-2xl">{siteSettingsFallback.siteName}</div>
           <p className="mt-3 text-sm text-[var(--muted)] max-w-sm">
-            {siteSettings.tagline}
+            {siteSettingsFallback.tagline}
           </p>
           <p className="mt-3 text-sm text-[var(--muted)]">
-            {siteSettings.coverageArea}
+            {siteSettingsFallback.coverageArea}
           </p>
           <p className="mt-3 text-sm">
             <a
-              href={`mailto:${siteSettings.contactEmail}`}
+              href={`mailto:${siteSettingsFallback.contactEmail}`}
               className="underline underline-offset-4"
             >
-              {siteSettings.contactEmail}
+              {siteSettingsFallback.contactEmail}
             </a>
           </p>
           <div className="mt-5 flex gap-3">
-            {siteSettings.social.instagram && (
+            {siteSettingsFallback.social.instagram && (
               <a
-                href={siteSettings.social.instagram}
+                href={siteSettingsFallback.social.instagram}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
@@ -46,9 +56,9 @@ export default function Footer() {
                 <FaInstagram size={16} />
               </a>
             )}
-            {siteSettings.social.facebook && (
+            {siteSettingsFallback.social.facebook && (
               <a
-                href={siteSettings.social.facebook}
+                href={siteSettingsFallback.social.facebook}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
@@ -57,9 +67,9 @@ export default function Footer() {
                 <FaFacebook size={16} />
               </a>
             )}
-            {siteSettings.social.youtube && (
+            {siteSettingsFallback.social.youtube && (
               <a
-                href={siteSettings.social.youtube}
+                href={siteSettingsFallback.social.youtube}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube"
@@ -123,7 +133,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href={siteSettings.clientGalleryUrl}
+                href={siteSettingsFallback.clientGalleryUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="hover:text-[var(--foreground)]"
@@ -137,9 +147,9 @@ export default function Footer() {
       <div className="border-t border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6 text-xs text-[var(--muted)] flex flex-col md:flex-row gap-3 justify-between">
           <div>
-            © {year} {siteSettings.siteName}. All rights reserved.
+            © {year} {siteSettingsFallback.siteName}. All rights reserved.
           </div>
-          <div>{siteSettings.bookingStatus}</div>
+          <div>{siteSettingsFallback.bookingStatus}</div>
         </div>
       </div>
     </footer>

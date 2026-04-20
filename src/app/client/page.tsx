@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { siteSettings } from "@/lib/content";
+import { getSiteSettings } from "@/lib/content";
 import GoogleReviews from "@/components/GoogleReviews";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ClientGalleriesPage() {
-  const url = siteSettings.clientGalleryUrl;
+  const settings = await getSiteSettings();
+  const url = settings.clientGalleryUrl;
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -22,7 +23,7 @@ export default async function ClientGalleriesPage() {
         I sent you to view, favorite, download, and order prints. If you
         can&rsquo;t find your invite,{" "}
         <a
-          href={`mailto:${siteSettings.contactEmail}`}
+          href={`mailto:${settings.contactEmail}`}
           className="underline underline-offset-4"
         >
           email me

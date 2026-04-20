@@ -5,7 +5,7 @@ import {
   QUESTIONNAIRES,
   getQuestionnaire,
 } from "@/lib/questionnaires";
-import { getService } from "@/lib/content";
+import { getService, getSiteSettings } from "@/lib/content";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
 
 export function generateStaticParams() {
@@ -45,8 +45,11 @@ export default async function QuestionnairePage({
   const { service } = await params;
   const q = getQuestionnaire(service);
   if (!q) notFound();
-  const svc = getService(service);
-  const sp = await searchParams;
+  const [svc, sp, settings] = await Promise.all([
+    getService(service),
+    searchParams,
+    getSiteSettings(),
+  ]);
 
   // Flatten any array query params to first value so we can pass a clean string map.
   const prefill: Record<string, string> = {};
@@ -84,7 +87,15 @@ export default async function QuestionnairePage({
         <p className="mt-5 text-[var(--muted)]">{q.intro}</p>
       </div>
 
-      <QuestionnaireForm questionnaire={q} prefill={prefill} />
+      <QuestionnaireForm
+        questionnaire={q}
+        prefill={prefill}
+        calls={{
+          planningCall: settings.calls.planningCall,
+          weddingTimelineCall: settings.calls.weddingTimelineCall,
+          venueWalkthrough: settings.calls.venueWalkthrough,
+        }}
+      />
     </section>
   );
 }

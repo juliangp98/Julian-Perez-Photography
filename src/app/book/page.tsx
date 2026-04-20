@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { siteSettings } from "@/lib/content";
+import { getSiteSettings } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Book a Session",
   description: "Book a photography session via Square Appointments.",
 };
 
-export default function BookPage() {
+export default async function BookPage() {
+  const settings = await getSiteSettings();
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -28,7 +29,7 @@ export default function BookPage() {
             Payment preferences
           </div>
           <p className="mt-2 text-[var(--foreground)]">
-            {siteSettings.paymentPreferences}
+            {settings.paymentPreferences}
           </p>
           <p className="mt-3 text-sm text-[var(--muted)]">
             Zelle and Venmo details are shared in the booking confirmation
@@ -70,7 +71,7 @@ export default function BookPage() {
           users who'd rather complete booking on squareup.com directly. */}
       <div className="mt-12 rounded-lg overflow-hidden border border-[var(--border)] bg-white">
         <iframe
-          src={siteSettings.bookingUrl}
+          src={settings.bookingUrl}
           title="Square Appointments — book a session"
           className="w-full h-[85vh] min-h-[800px]"
           loading="lazy"
@@ -85,7 +86,7 @@ export default function BookPage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <a
-            href={siteSettings.bookingUrl}
+            href={settings.bookingUrl}
             target="_blank"
             rel="noreferrer"
             className="px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
@@ -104,7 +105,7 @@ export default function BookPage() {
       <div className="mt-10 text-sm text-[var(--muted)]">
         Prefer to chat before booking?{" "}
         <a
-          href={`mailto:${siteSettings.contactEmail}`}
+          href={`mailto:${settings.contactEmail}`}
           className="underline underline-offset-4"
         >
           Email me directly.

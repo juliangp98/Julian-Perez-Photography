@@ -4,13 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  servicesByUmbrella,
-  portfoliosByUmbrella,
-  siteSettings,
+  servicesByUmbrellaFallback,
+  portfoliosByUmbrellaFallback,
+  siteSettingsFallback,
 } from "@/lib/content";
 
-const serviceGroups = servicesByUmbrella();
-const portfolioGroups = portfoliosByUmbrella();
+// Nav is a client component (it needs `usePathname()` to hide itself on
+// /studio) and can't `await` async content getters. We import the sync
+// *Fallback variants — `siteSettingsFallback` for `siteName` (14a),
+// `servicesByUmbrellaFallback()` for the Services megamenu (14b.2), and
+// `portfoliosByUmbrellaFallback()` for the Portfolio megamenu (14c).
+// Staleness cadence across all three: "Julian restructures the catalog
+// → redeploy to update the nav," which matches the deploy cadence for
+// this class of change anyway.
+
+const serviceGroups = servicesByUmbrellaFallback();
+const portfolioGroups = portfoliosByUmbrellaFallback();
 
 export default function Nav() {
   const pathname = usePathname();
@@ -45,7 +54,7 @@ export default function Nav() {
           className="font-serif text-xl tracking-tight"
           onClick={() => setMobileOpen(false)}
         >
-          {siteSettings.siteName}
+          {siteSettingsFallback.siteName}
         </Link>
 
         {/* Desktop nav */}

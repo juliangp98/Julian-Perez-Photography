@@ -1,20 +1,31 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
-  visiblePortfolios as portfolios,
-  visibleServices as services,
-  siteSettings,
+  getSiteSettings,
+  getVisiblePortfolios,
+  getVisibleServices,
 } from "@/lib/content";
 import GoogleReviews from "@/components/GoogleReviews";
 
-export const metadata: Metadata = {
-  title: `${siteSettings.siteName} · DMV Wedding, Portrait & Event Photographer`,
-  description:
-    "DMV-based photographer covering weddings, engagements, graduations, portraits, family events, maternity, headshots, and corporate events across Northern Virginia, Washington DC, and Maryland.",
-  alternates: { canonical: "https://julianperezphotography.com" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: `${settings.siteName} · DMV Wedding, Portrait & Event Photographer`,
+    description:
+      "DMV-based photographer covering weddings, engagements, graduations, portraits, family events, maternity, headshots, and corporate events across Northern Virginia, Washington DC, and Maryland.",
+    alternates: { canonical: "https://julianperezphotography.com" },
+  };
+}
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Settings + services + portfolios fetched in parallel — all three
+  // are React-cached so the layout / Footer / GoogleReviews components
+  // re-use the same resolved promise without re-hitting Sanity.
+  const [settings, services, portfolios] = await Promise.all([
+    getSiteSettings(),
+    getVisibleServices(),
+    getVisiblePortfolios(),
+  ]);
   return (
     <>
       {/* Hero */}
@@ -22,10 +33,10 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
           <div className="max-w-3xl">
             <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-              {siteSettings.coverageArea} · {siteSettings.bookingStatus}
+              {settings.coverageArea} · {settings.bookingStatus}
             </div>
             <h1 className="mt-6 font-serif text-5xl lg:text-7xl leading-[1.05]">
-              {siteSettings.tagline}
+              {settings.tagline}
             </h1>
             <p className="mt-6 text-lg text-[var(--muted)] max-w-xl">
               Wedding, engagement, graduation, portrait, and event photography

@@ -4,12 +4,21 @@ import type { Metadata } from "next";
 import {
   getPortfolio,
   getService,
-  visiblePortfolios as portfolios,
+  getVisiblePortfolios,
 } from "@/lib/content";
 import PortfolioGallery from "@/components/PortfolioGallery";
 
-export function generateStaticParams() {
-  return portfolios.map((p) => ({ category: p.slug }));
+// Async after round 14c — slugs come from Sanity when configured and
+// fall back to `portfoliosFallback` otherwise. Wrapped in try/catch so
+// a network hiccup at build time doesn't break the build; pages still
+// render on demand.
+export async function generateStaticParams() {
+  try {
+    const portfolios = await getVisiblePortfolios();
+    return portfolios.map((p) => ({ category: p.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -18,7 +27,7 @@ export async function generateMetadata({
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const p = getPortfolio(category);
+  const p = await getPortfolio(category);
   if (!p) return {};
   return { title: p.title, description: p.description };
 }
@@ -29,9 +38,13 @@ export default async function PortfolioCategoryPage({
   params: Promise<{ category: string }>;
 }) {
   const { category } = await params;
-  const p = getPortfolio(category);
+  // `getPortfolio` is async after round 14c — awaits the Sanity lookup.
+  const p = await getPortfolio(category);
   if (!p) notFound();
-  const service = getService(p.slug);
+  // `getService` is async after round 14b.2 — awaits the Sanity lookup
+  // so the pricing-page cross-link only renders if the service is
+  // currently visible in the catalog.
+  const service = await getService(p.slug);
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">

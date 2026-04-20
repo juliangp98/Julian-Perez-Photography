@@ -1,13 +1,13 @@
 import type { MetadataRoute } from "next";
-import {
-  visibleServices as services,
-  visiblePortfolios as portfolios,
-} from "@/lib/content";
+import { getVisiblePortfolios, getVisibleServices } from "@/lib/content";
 import { QUESTIONNAIRES } from "@/lib/questionnaires";
 
 const BASE = "https://julianperezphotography.com";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+// Async after round 14b.2 — services come from Sanity at request time
+// (60s revalidate). Round 14c added portfolios to the same pattern, so
+// both fetches now run in parallel under React's `cache()`.
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes = [
     "",
@@ -21,6 +21,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${BASE}${path}`,
     lastModified: now,
   }));
+  const [portfolios, services] = await Promise.all([
+    getVisiblePortfolios(),
+    getVisibleServices(),
+  ]);
   const portfolioRoutes = portfolios.map((p) => ({
     url: `${BASE}/portfolio/${p.slug}`,
     lastModified: now,

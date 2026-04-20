@@ -1,13 +1,11 @@
 import { siteSettings } from "./siteSettings";
+import { categoryUmbrella } from "./categoryUmbrella";
 import {
   serviceCategory,
   pkg,
   addOn,
 } from "./serviceCategory";
-import {
-  portfolioCategory,
-  galleryImage,
-} from "./portfolioCategory";
+import { portfolioCategory } from "./portfolioCategory";
 import { aboutPage } from "./aboutPage";
 import { journalPost } from "./journalPost";
 
@@ -16,13 +14,21 @@ import { journalPost } from "./journalPost";
 // until their rendering side ships.
 export const schemaTypes = [
   siteSettings,
+  categoryUmbrella,
   serviceCategory,
   pkg,
   addOn,
   portfolioCategory,
-  galleryImage,
   aboutPage,
   journalPost,
 ];
 
-export { journalPost };
+export {
+  journalPost,
+  categoryUmbrella,
+  serviceCategory,
+  pkg,
+  addOn,
+  portfolioCategory,
+  aboutPage,
+};

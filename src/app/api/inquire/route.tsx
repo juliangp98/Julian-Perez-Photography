@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
-import { siteSettings, getService } from "@/lib/content";
+import { getSiteSettings, getService } from "@/lib/content";
 import {
   BrandedEmailLayout,
   InquiryEmailTemplate,
@@ -63,7 +63,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const serviceName = getService(data.service)?.title || data.service;
+  // getService + getSiteSettings are both async + React-cached after
+  // round 14b.2. Fetch them in parallel so the inquiry doesn't serialize
+  // two Sanity round-trips on every submit.
+  const [svc, settings] = await Promise.all([
+    getService(data.service),
+    getSiteSettings(),
+  ]);
+  const serviceName = svc?.title || data.service;
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -76,7 +83,7 @@ export async function POST(req: Request) {
   const resend = new Resend(apiKey);
   const fromAddress =
     process.env.RESEND_FROM || "Julian Perez Photography <onboarding@resend.dev>";
-  const toAddress = process.env.INQUIRY_TO || siteSettings.contactEmail;
+  const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
   // Resolve the curated referral value → friendly label, and fold in the
   // free-text "Other" detail when present. Both live in the email body;
@@ -91,7 +98,7 @@ export async function POST(req: Request) {
   // easier when multiple inquiries for the same service land in a row.
   const subject = `New inquiry — ${serviceName} — ${data.name}${formatSubjectDate(data.eventDate)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
   const text = [
-    `New inquiry from ${siteSettings.siteName}`,
+    `New inquiry from ${settings.siteName}`,
     ``,
     `Name:      ${data.name}`,
     `Email:     ${data.email}`,
@@ -134,7 +141,7 @@ export async function POST(req: Request) {
       ? "The email address doesn't appear to be valid. Please double-check and try again."
       : msg.includes("rate")
         ? "Too many submissions — please wait a moment and try again."
-        : `Could not send right now — please email ${siteSettings.contactEmail} directly.`;
+        : `Could not send right now — please email ${settings.contactEmail} directly.`;
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 

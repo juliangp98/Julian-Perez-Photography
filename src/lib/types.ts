@@ -115,6 +115,21 @@ export type Testimonial = {
   source?: string; // defaults to "Google"
 };
 
+// /about page content — singleton doc in Sanity after round 14d.
+// Fields track the editable surface of src/app/about/page.tsx:
+//   - `heading`: top headline, e.g. "Hi, I'm Julian."
+//   - `bio`: array of plain-text paragraphs (not Portable Text — the
+//     copy is 3 plain paragraphs).
+//   - `headshot`: optional path to a /public image (Lightroom workflow,
+//     decision 1A). Not rendered yet; reserved for the feature landing.
+// Cross-page info (coverage area, booking status, contact email) lives
+// on `SiteSettings` below — not duplicated here.
+export type AboutPage = {
+  heading: string;
+  bio: string[];
+  headshot?: string;
+};
+
 export type SiteSettings = {
   siteName: string;
   tagline: string;

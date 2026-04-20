@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import InquiryForm from "@/components/InquiryForm";
 import GoogleReviews from "@/components/GoogleReviews";
-import { siteSettings } from "@/lib/content";
+import { getSiteSettings } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Inquire",
@@ -14,7 +14,7 @@ export default async function InquirePage({
 }: {
   searchParams: Promise<{ service?: string }>;
 }) {
-  const sp = await searchParams;
+  const [sp, settings] = await Promise.all([searchParams, getSiteSettings()]);
   return (
     <section className="max-w-5xl mx-auto px-6 lg:px-10 py-20">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -27,10 +27,10 @@ export default async function InquirePage({
         booking. I&rsquo;ll reply within 48 hours. Prefer email? Reach me
         directly at{" "}
         <a
-          href={`mailto:${siteSettings.contactEmail}`}
+          href={`mailto:${settings.contactEmail}`}
           className="underline underline-offset-4"
         >
-          {siteSettings.contactEmail}
+          {settings.contactEmail}
         </a>
         .
       </p>
@@ -51,7 +51,10 @@ export default async function InquirePage({
         </Link>
       </div>
       <div className="mt-12 max-w-3xl">
-        <InquiryForm defaultService={sp.service} />
+        <InquiryForm
+          defaultService={sp.service}
+          discoveryCall={settings.calls.discoveryCall}
+        />
       </div>
       <div className="mt-20 pt-12 border-t border-[var(--border)]">
         <GoogleReviews heading="What clients say" variant="carousel" />

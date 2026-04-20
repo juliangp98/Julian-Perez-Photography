@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listQuestionnaires } from "@/lib/questionnaires";
-import { getService } from "@/lib/content";
-import { UMBRELLAS } from "@/lib/types";
+import { getUmbrellas, getVisibleServices } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Planning questionnaires",
@@ -10,16 +9,26 @@ export const metadata: Metadata = {
     "Built-in planning questionnaires for booked clients (and serious prospects). Pick your service and tell me about your day so I can show up prepared.",
 };
 
-export default function QuestionnaireIndexPage() {
+export default async function QuestionnaireIndexPage() {
   const all = listQuestionnaires();
+  // Pull umbrellas + services in parallel (both React-cached).
+  // Looking up each questionnaire's service via a shared Map avoids
+  // one async hop per row inside the `.map()` render loop below.
+  const [umbrellas, services] = await Promise.all([
+    getUmbrellas(),
+    getVisibleServices(),
+  ]);
+  const serviceBySlug = new Map(services.map((s) => [s.slug, s]));
 
   // Group by umbrella for cleaner scan.
-  const grouped = UMBRELLAS.map((u) => ({
-    ...u,
-    items: all
-      .map((q) => ({ q, svc: getService(q.slug) }))
-      .filter((x) => x.svc?.umbrella === u.id),
-  })).filter((u) => u.items.length > 0);
+  const grouped = umbrellas
+    .map((u) => ({
+      ...u,
+      items: all
+        .map((q) => ({ q, svc: serviceBySlug.get(q.slug) }))
+        .filter((x) => x.svc?.umbrella === u.id),
+    }))
+    .filter((u) => u.items.length > 0);
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">

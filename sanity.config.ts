@@ -1,15 +1,53 @@
 // Embedded Sanity Studio config — surfaces the Studio at /studio.
 //
-// For round 1 (journal activation) we register ONLY the `journalPost` schema.
-// The other schemas that live in sanity/schemas/ (siteSettings, serviceCategory,
-// portfolioCategory, aboutPage) are written but not wired to rendering yet;
-// exposing them here would invite Julian to edit content that wouldn't show
-// up on the site. They get turned on in round 14 when their renderers ship.
+// Registered schemas grow one sub-round at a time. Rounds landed so far:
+//   - Round 13:    journalPost
+//   - Round 14a:   siteSettings (singleton)
+//   - Round 14b.1: categoryUmbrella + serviceCategory (+ pkg/addOn objects)
+//   - Round 14c:   portfolioCategory (metadata-only — binaries stay in /public)
+//   - Round 14d:   aboutPage (singleton)
+// With 14d landed, the full content graph is in Studio. Remaining work
+// is the webhook revalidation ticket (instant publish → site propagation)
+// and the deferred publish-then-assert e2e spec.
 
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
 import { journalPost } from "./sanity/schemas/journalPost";
+import { siteSettings } from "./sanity/schemas/siteSettings";
+import { categoryUmbrella } from "./sanity/schemas/categoryUmbrella";
+import {
+  serviceCategory,
+  pkg,
+  addOn,
+} from "./sanity/schemas/serviceCategory";
+import { portfolioCategory } from "./sanity/schemas/portfolioCategory";
+import { aboutPage } from "./sanity/schemas/aboutPage";
+
+// Singleton types: exactly one document of this type should exist in the
+// dataset. Pinned above the divider in the rail; `document.actions` +
+// `document.newDocumentOptions` below strip duplicate/delete so editors
+// can't fork or nuke the seeded doc.
+const SINGLETON_TYPES = new Set(["siteSettings", "aboutPage"]);
+
+// Locked-set types: fixed number of docs where the set is code-controlled
+// (e.g. categoryUmbrella mirrors the `Umbrella` union in src/lib/types.ts).
+// Editors can edit values but can't add or remove docs. Listed in the rail
+// normally (we want to see all 4 umbrellas); create/delete hidden below.
+const LOCKED_SET_TYPES = new Set(["categoryUmbrella"]);
+
+// Union — both singletons and locked-sets get `+ New` hidden from the
+// global menu and duplicate/delete/unpublish stripped from the doc pane.
+const PROTECTED_TYPES = new Set([...SINGLETON_TYPES, ...LOCKED_SET_TYPES]);
+
+// Fixed document IDs for singletons — kept in lockstep with the seed
+// script (`scripts/seed-sanity.ts`) so re-seeding always targets the same
+// doc. Locked-set ids are also stable but encoded in the seed script
+// (umbrella-<id> per umbrella in types.ts) rather than listed here.
+const SINGLETON_IDS: Record<string, string> = {
+  siteSettings: "siteSettings",
+  aboutPage: "aboutPage",
+};
 
 export default defineConfig({
   name: "julian-perez-photography",
@@ -17,6 +55,114 @@ export default defineConfig({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "",
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
   basePath: "/studio",
-  plugins: [structureTool(), visionTool()],
-  schema: { types: [journalPost] },
+  plugins: [
+    structureTool({
+      // Custom rail:
+      //   ─ Site Settings (singleton, pinned at top)
+      //   ─ About Page    (singleton)
+      //   ─ (divider)
+      //   ─ Services (ordered by `order`)
+      //   ─ Portfolios (ordered by `order`)
+      //   ─ Umbrellas (locked set of 4, ordered by `order`)
+      //   ─ (divider)
+      //   ─ everything else (currently: Journal Post) — auto-listed so
+      //     future doc types appear without a rail edit.
+      structure: (S) =>
+        S.list()
+          .title("Content")
+          .items([
+            // Singleton: Site Settings
+            S.listItem()
+              .title("Site Settings")
+              .id("siteSettings")
+              .child(
+                S.document()
+                  .schemaType("siteSettings")
+                  .documentId(SINGLETON_IDS.siteSettings),
+              ),
+            // Singleton: About Page
+            S.listItem()
+              .title("About Page")
+              .id("aboutPage")
+              .child(
+                S.document()
+                  .schemaType("aboutPage")
+                  .documentId(SINGLETON_IDS.aboutPage),
+              ),
+            S.divider(),
+            // Services + Umbrellas — explicit list items so we can pin
+            // their ordering (lowest `order` first) rather than accept
+            // the default alphabetical sort.
+            S.listItem()
+              .title("Services")
+              .id("serviceCategory")
+              .child(
+                S.documentTypeList("serviceCategory")
+                  .title("Services")
+                  .defaultOrdering([{ field: "order", direction: "asc" }]),
+              ),
+            S.listItem()
+              .title("Portfolios")
+              .id("portfolioCategory")
+              .child(
+                S.documentTypeList("portfolioCategory")
+                  .title("Portfolios")
+                  .defaultOrdering([{ field: "order", direction: "asc" }]),
+              ),
+            S.listItem()
+              .title("Umbrellas")
+              .id("categoryUmbrella")
+              .child(
+                S.documentTypeList("categoryUmbrella")
+                  .title("Umbrellas")
+                  .defaultOrdering([{ field: "order", direction: "asc" }]),
+              ),
+            S.divider(),
+            // Auto-listed catalog for everything else (currently just
+            // journalPost). Filter out the explicitly-listed types above
+            // and the singletons so we don't double-render.
+            ...S.documentTypeListItems().filter((item) => {
+              const id = item.getId() ?? "";
+              return (
+                !SINGLETON_TYPES.has(id) &&
+                id !== "serviceCategory" &&
+                id !== "portfolioCategory" &&
+                id !== "categoryUmbrella"
+              );
+            }),
+          ]),
+    }),
+    visionTool(),
+  ],
+  schema: {
+    types: [
+      journalPost,
+      siteSettings,
+      categoryUmbrella,
+      serviceCategory,
+      pkg,
+      addOn,
+      portfolioCategory,
+      aboutPage,
+    ],
+  },
+  document: {
+    // Hide "New <protected type>" from the global "+" menu — for
+    // singletons the seeded doc is the only one; for locked sets the
+    // code-controlled set is definitive.
+    newDocumentOptions: (prev, { creationContext }) =>
+      creationContext.type === "global"
+        ? prev.filter((item) => !PROTECTED_TYPES.has(item.templateId))
+        : prev,
+    // Strip duplicate/delete/unpublish for protected types. Editors can
+    // still publish and discard draft changes, which is all we want them
+    // to do on these docs.
+    actions: (prev, { schemaType }) =>
+      PROTECTED_TYPES.has(schemaType)
+        ? prev.filter(
+            (action) =>
+              !["duplicate", "delete", "unpublish"].includes(action.action ?? ""),
+          )
+        : prev,
+  },
 });

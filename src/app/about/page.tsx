@@ -1,58 +1,44 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { siteSettings } from "@/lib/content";
+import { getAboutPage, getSiteSettings } from "@/lib/content";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: `About ${siteSettings.siteName} — Northeastern-trained engineer turned DMV wedding, portrait, and event photographer.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return {
+    title: "About",
+    description: `About ${settings.siteName} — Northeastern-trained engineer turned DMV wedding, portrait, and event photographer.`,
+  };
+}
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  // Both getters are React-`cache`d; Promise.all shares the round-trip
+  // with siteSettings (coverage area + booking status block below) so the
+  // page waits on the slower of the two, not the sum.
+  const [about, settings] = await Promise.all([
+    getAboutPage(),
+    getSiteSettings(),
+  ]);
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-24">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         About
       </div>
-      <h1 className="mt-2 font-serif text-5xl">Hi, I&rsquo;m Julian.</h1>
+      <h1 className="mt-2 font-serif text-5xl">{about.heading}</h1>
       <div className="mt-8 space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
-        <p>
-          My name is Julian Perez and I&rsquo;m a 2021 graduate of Northeastern
-          University, with a Computer Engineering degree and a Photography
-          Minor. At the start of my photography adventure, I was entirely
-          self-taught in regard to both photo-taking and post-processing
-          techniques. My interest in photography slowly developed over several
-          years from a novelty hobby out of boredom on my old iPhone 4 to a
-          genuine passion using my Canon Rebel T3i and film cameras. I would
-          mainly focus on travel photography and landscapes, and I always
-          became the designated photographer for family events.
-        </p>
-        <p>
-          As I took on more work and upgraded to professional equipment, I have 
-          continued expanding my horizons and exploring the human connection as 
-          a photographer for weddings and engagements, events, portraits and 
-          headshots, and photojournalism. I&rsquo;ve also started delving into 
-          video work! As I continue to expand my capabilities, I have consistently 
-          challenged myself to change my mindset and use new tools to accomplish 
-          something unique for each project — something I feel is a crucial skill 
-          to be able to satisfy every client&rsquo;s unique needs while retaining the 
-          signature style I have developed over the years.
-        </p>
-        <p>
-          For details about my services and pricing, please feel free to reach
-          me using the contact page. I mainly work in the Arlington, VA /
-          Washington, DC / Maryland area but can travel as needed.
-        </p>
+        {about.bio.map((paragraph, i) => (
+          <p key={i}>{paragraph}</p>
+        ))}
       </div>
 
       <div className="mt-12 border-t border-[var(--border)] pt-8 text-sm text-[var(--muted)] space-y-2">
-        <div>{siteSettings.coverageArea}</div>
-        <div>{siteSettings.bookingStatus}</div>
+        <div>{settings.coverageArea}</div>
+        <div>{settings.bookingStatus}</div>
         <div>
           <a
-            href={`mailto:${siteSettings.contactEmail}`}
+            href={`mailto:${settings.contactEmail}`}
             className="underline underline-offset-4"
           >
-            {siteSettings.contactEmail}
+            {settings.contactEmail}
           </a>
         </div>
       </div>

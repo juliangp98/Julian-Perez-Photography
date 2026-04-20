@@ -19,6 +19,20 @@
 
 import { sanityClient, isSanityConfigured } from "./client";
 import type { JournalPost, JournalPostCard } from "./types";
+import type {
+  AboutPage,
+  PortfolioCategory,
+  ServiceCategory,
+  SiteSettings,
+  Umbrella,
+} from "@/lib/types";
+
+// Portfolio docs in Sanity store metadata ONLY — the `images[]` gallery
+// (and the "real" coverImage) are supplied by src/lib/portfolio-manifest.ts
+// (auto-generated from Lightroom exports). So GROQ returns a trimmed
+// shape; the splice in src/lib/content.ts unions it with the manifest to
+// produce a full `PortfolioCategory`.
+export type PortfolioMetadata = Omit<PortfolioCategory, "images">;
 
 const POST_CARD_FIELDS = `
   _id,
@@ -92,6 +106,53 @@ export async function getPostSlugs(): Promise<string[]> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Site settings (round 14a)
+//
+// Singleton document: there should only ever be one `siteSettings` doc in
+// the dataset, pinned to id `siteSettings` by the Studio config + seed
+// script. Reading uses the same `revalidate: 60` cadence as the journal
+// so Studio edits show up within a minute without a webhook (webhook
+// revalidation lands as the final round-14 improvement).
+// ---------------------------------------------------------------------------
+
+const SITE_SETTINGS_ID = "siteSettings";
+
+// GROQ projection kept flat so the returned shape matches the
+// `SiteSettings` TS type in src/lib/types.ts 1:1. If the two ever drift
+// the consumer code at `getSiteSettings()` (src/lib/content.ts) will
+// catch it via `mergeWithFallback` — remote fields overlay the fallback
+// object per-key, so missing fields collapse to the hard-coded defaults.
+const SITE_SETTINGS_FIELDS = `
+  siteName,
+  tagline,
+  contactEmail,
+  coverageArea,
+  bookingStatus,
+  bookingUrl,
+  calls {
+    discoveryCall       { label, url },
+    planningCall        { label, url },
+    weddingTimelineCall { label, url },
+    venueWalkthrough    { label, url }
+  },
+  clientGalleryUrl,
+  paymentPreferences,
+  social    { instagram, facebook, youtube },
+  analytics { ga4Id },
+  googleProfileUrl,
+  testimonials[] { author, rating, relativeTime, text, source }
+`;
+
+export async function getSiteSettings(): Promise<Partial<SiteSettings> | null> {
+  if (!isSanityConfigured()) return null;
+  return sanityClient.fetch<Partial<SiteSettings> | null>(
+    `*[_type == "siteSettings" && _id == $id][0] { ${SITE_SETTINGS_FIELDS} }`,
+    { id: SITE_SETTINGS_ID },
+    { next: { revalidate: 60, tags: ["siteSettings"] } },
+  );
+}
+
 // Used by /journal/[slug] to show "more stories" after the post body.
 // Simple "3 most recent other posts" — richer relatedness deferred.
 export async function getRelatedPosts(
@@ -106,5 +167,249 @@ export async function getRelatedPosts(
       | order(publishedAt desc)[0...3] { ${POST_CARD_FIELDS} }`,
     { currentSlug },
     { next: { revalidate: 60, tags: ["journalPost"] } },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Service categories + umbrellas (round 14b.2)
+//
+// Projection strategy:
+//   - `slug` is unwrapped from the Sanity `{_type, current}` shape so the
+//     returned object matches the `ServiceCategory` TS type 1:1 — consumers
+//     read `s.slug`, not `s.slug.current`.
+//   - `umbrella` is flattened from the reference doc down to its `id`
+//     string (e.g. "weddings-couples"). The code keys off that id, not
+//     the title — renaming an umbrella title in Studio is cosmetic;
+//     changing the id requires a deploy because it lives in the
+//     `Umbrella` union in src/lib/types.ts.
+//   - Array objects (`packages`, `addOns`, `faqs`) are projected
+//     field-by-field so Sanity's `_key`/`_type` system fields don't leak
+//     through into the runtime type. The shape mirrors the `Package`,
+//     `AddOn`, and `FAQ` types.
+//
+// Consumers in `src/lib/content.ts` merge the remote list into the
+// hard-coded `services` fallback (all-or-nothing: if remote has any
+// docs, use them; otherwise fall back entirely). A 60s revalidate +
+// `serviceCategory` tag keeps Studio edits flowing through without
+// requiring a webhook.
+// ---------------------------------------------------------------------------
+
+type UmbrellaDoc = { id: Umbrella; title: string; tagline: string };
+
+const SERVICE_FIELDS = `
+  "slug": slug.current,
+  title,
+  "umbrella": umbrella->id,
+  tagline,
+  description,
+  intro,
+  comboNote,
+  heroImage,
+  packages[] {
+    name,
+    tagline,
+    price,
+    priceNote,
+    duration,
+    featured,
+    group,
+    inclusions
+  },
+  addOns[] {
+    name,
+    price,
+    description
+  },
+  pricingNote,
+  faqs[] { question, answer },
+  hidden,
+  order
+`;
+
+export async function getServicesFromSanity(): Promise<
+  ServiceCategory[] | null
+> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const rows = await sanityClient.fetch<ServiceCategory[]>(
+      `*[_type == "serviceCategory"] | order(order asc) { ${SERVICE_FIELDS} }`,
+      {},
+      { next: { revalidate: 60, tags: ["serviceCategory"] } },
+    );
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// Individual fetch kept separate from `getServicesFromSanity()` so the
+// detail page doesn't pay to pull all 16 services just to render one.
+// Same projection, per-slug cache tag so a publish on a single service
+// only invalidates that page (once webhook revalidation lands in the
+// final round-14 ticket).
+export async function getServiceBySlugFromSanity(
+  slug: string,
+): Promise<ServiceCategory | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    return await sanityClient.fetch<ServiceCategory | null>(
+      `*[_type == "serviceCategory" && slug.current == $slug][0] {
+        ${SERVICE_FIELDS}
+      }`,
+      { slug },
+      {
+        next: {
+          revalidate: 60,
+          tags: [`serviceCategory:${slug}`, "serviceCategory"],
+        },
+      },
+    );
+  } catch {
+    return null;
+  }
+}
+
+// Drives `generateStaticParams` for /services/[category]. Parallels
+// `getPostSlugs()` above — a network hiccup at build time returns an
+// empty array so the build stays green and pages render on demand.
+export async function getServiceSlugsFromSanity(): Promise<string[] | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const rows = await sanityClient.fetch<string[]>(
+      `*[_type == "serviceCategory" && hidden != true].slug.current`,
+      {},
+      { next: { revalidate: 60, tags: ["serviceCategory"] } },
+    );
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getUmbrellasFromSanity(): Promise<UmbrellaDoc[] | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const rows = await sanityClient.fetch<UmbrellaDoc[]>(
+      `*[_type == "categoryUmbrella"] | order(order asc) {
+        id,
+        title,
+        tagline
+      }`,
+      {},
+      { next: { revalidate: 60, tags: ["categoryUmbrella"] } },
+    );
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio categories (round 14c)
+//
+// Parallels the services projection above, with two differences:
+//   1. No `images[]` — the gallery comes from the Lightroom-generated
+//      portfolio-manifest.ts at runtime. GROQ returns metadata only.
+//   2. `coverImage` is a plain string path; the manifest overrides it
+//      when an export exists for the slug.
+//
+// Consumers in src/lib/content.ts union the remote metadata with the
+// manifest (coverImage + images[] spliced in) before exposing a full
+// `PortfolioCategory`. All-or-nothing fallback policy matches services:
+// if Sanity returns any docs, trust the list wholesale.
+// ---------------------------------------------------------------------------
+
+const PORTFOLIO_FIELDS = `
+  "slug": slug.current,
+  title,
+  "umbrella": umbrella->id,
+  description,
+  coverImage,
+  hidden,
+  order
+`;
+
+export async function getPortfoliosFromSanity(): Promise<
+  PortfolioMetadata[] | null
+> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const rows = await sanityClient.fetch<PortfolioMetadata[]>(
+      `*[_type == "portfolioCategory"] | order(order asc) { ${PORTFOLIO_FIELDS} }`,
+      {},
+      { next: { revalidate: 60, tags: ["portfolioCategory"] } },
+    );
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// Individual fetch for the detail page — same pattern as
+// getServiceBySlugFromSanity. Per-slug cache tag so a publish on a
+// single portfolio only invalidates that page (once webhook
+// revalidation lands in the final round-14 ticket).
+export async function getPortfolioBySlugFromSanity(
+  slug: string,
+): Promise<PortfolioMetadata | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    return await sanityClient.fetch<PortfolioMetadata | null>(
+      `*[_type == "portfolioCategory" && slug.current == $slug][0] {
+        ${PORTFOLIO_FIELDS}
+      }`,
+      { slug },
+      {
+        next: {
+          revalidate: 60,
+          tags: [`portfolioCategory:${slug}`, "portfolioCategory"],
+        },
+      },
+    );
+  } catch {
+    return null;
+  }
+}
+
+// Drives `generateStaticParams` for /portfolio/[category].
+export async function getPortfolioSlugsFromSanity(): Promise<string[] | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    const rows = await sanityClient.fetch<string[]>(
+      `*[_type == "portfolioCategory" && hidden != true].slug.current`,
+      {},
+      { next: { revalidate: 60, tags: ["portfolioCategory"] } },
+    );
+    return Array.isArray(rows) ? rows : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// About page (round 14d)
+//
+// Singleton document at `_id: "aboutPage"`. Same pattern as siteSettings —
+// partial result merged per-field on top of `aboutPageFallback` in
+// src/lib/content.ts so a half-edited doc (editor cleared the heading)
+// still renders with the hard-coded default.
+// ---------------------------------------------------------------------------
+
+const ABOUT_PAGE_ID = "aboutPage";
+
+const ABOUT_PAGE_FIELDS = `
+  heading,
+  bio,
+  headshot
+`;
+
+export async function getAboutPageFromSanity(): Promise<
+  Partial<AboutPage> | null
+> {
+  if (!isSanityConfigured()) return null;
+  return sanityClient.fetch<Partial<AboutPage> | null>(
+    `*[_type == "aboutPage" && _id == $id][0] { ${ABOUT_PAGE_FIELDS} }`,
+    { id: ABOUT_PAGE_ID },
+    { next: { revalidate: 60, tags: ["aboutPage"] } },
   );
 }
