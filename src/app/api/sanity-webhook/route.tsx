@@ -1,9 +1,21 @@
 // Sanity → Next revalidation webhook.
 //
 // Without this handler, content in Sanity takes up to 60s to appear on the
-// site (the `revalidate: 60` on every GROQ fetch in src/sanity/queries.ts).
-// With it, publishes in Studio invalidate the relevant Next.js fetch-cache
-// tags within the round-trip latency of one HTTP POST — usually <1s.
+// site — not because of one cache layer but TWO:
+//   1. Next's Data Cache — `revalidate: 60` on every GROQ fetch in
+//      src/sanity/queries.ts, keyed by tag.
+//   2. Vercel's CDN cache — `s-maxage=60` applied to rendered HTML at the
+//      edge. This is the `Revalidate: 1m` column in `next build` output.
+// With this handler, publishes in Studio invalidate BOTH layers in the
+// round-trip latency of one HTTP POST — usually <1s.
+//
+// The reason both calls matter: `revalidateTag` only busts layer 1. A page
+// whose HTML is already in Vercel's edge cache keeps serving the stale
+// HTML until layer 2's TTL expires, even though the next cold render
+// WOULD fetch fresh data. That produced the "webhook returns 200, site
+// still stale for 60s" symptom we hit in staging. `revalidatePath` busts
+// BOTH the router cache and the edge cache, so the next request to the
+// affected route is a cold miss that re-renders + repopulates both layers.
 //
 // Next 16 note: `revalidateTag` takes a second argument now. For webhooks
 // that need immediate invalidation we pass `{ expire: 0 }` — the
@@ -11,7 +23,7 @@
 // default for Server Actions, but for external-system-driven revalidation
 // the docs explicitly recommend `{ expire: 0 }` so the next page request
 // is a cold miss rather than serving stale content while the background
-// fetch runs.
+// fetch runs. `revalidatePath(path, type?)` signature is unchanged in 16.
 //
 // ---------------------------------------------------------------------------
 // Setup
@@ -63,11 +75,35 @@
 // per-slug tag when the doc type has one. That way editing one service
 // busts `/services` (catalog consumers) AND `/services/<slug>` (detail)
 // without bothering the other 15 service detail pages.
+//
+// ---------------------------------------------------------------------------
+// Path strategy — edge-cache purge
+// ---------------------------------------------------------------------------
+// Hand-maintained map of doc-type → routes that render that content. Kept
+// tight (a serviceCategory edit doesn't purge `/journal`) so one publish
+// doesn't cold-start the entire site. Route-to-query mapping:
+//   - siteSettings     → every page (nav + footer) — handled by
+//                        `revalidatePath("/", "layout")`, which invalidates
+//                        every route under the root layout in one call.
+//   - aboutPage        → `/about`
+//   - categoryUmbrella → `/`, `/services`, `/portfolio`, `/questionnaire`,
+//                        `/sitemap.xml`
+//   - serviceCategory  → `/`, `/services`, `/questionnaire`, `/sitemap.xml`,
+//                        + `/services/<slug>`, `/questionnaire/<slug>`
+//   - portfolioCategory→ `/`, `/portfolio`, `/sitemap.xml`,
+//                        + `/portfolio/<slug>`
+//   - journalPost      → `/journal`, `/sitemap.xml`, + `/journal/<slug>`
+//
+// When you add a new schema or surface existing content on a new route,
+// update BOTH this map AND the tag strategy above, then ship. The e2e
+// suite exercises the routes but not the revalidation path — missing an
+// entry here surfaces as "content updates stay stale for 60s", not a test
+// failure.
 
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { isValidSignature, SIGNATURE_HEADER_NAME } from "@sanity/webhook";
 
 // Doc types we accept for revalidation — mirrors the filter we set on the
@@ -91,6 +127,50 @@ const PER_SLUG_TYPES = new Set([
   "portfolioCategory",
   "journalPost",
 ]);
+
+// Rendered routes affected by each doc type. See the "Path strategy" block
+// in the header for the reasoning. siteSettings is deliberately absent —
+// it's handled separately via layout-level revalidation because it
+// participates in every route's render through the root layout.
+function pathsForType(type: string, slug?: string): string[] {
+  switch (type) {
+    case "aboutPage":
+      return ["/about"];
+    case "categoryUmbrella":
+      return [
+        "/",
+        "/services",
+        "/portfolio",
+        "/questionnaire",
+        "/sitemap.xml",
+      ];
+    case "serviceCategory":
+      return [
+        "/",
+        "/services",
+        "/questionnaire",
+        "/sitemap.xml",
+        ...(slug
+          ? [`/services/${slug}`, `/questionnaire/${slug}`]
+          : []),
+      ];
+    case "portfolioCategory":
+      return [
+        "/",
+        "/portfolio",
+        "/sitemap.xml",
+        ...(slug ? [`/portfolio/${slug}`] : []),
+      ];
+    case "journalPost":
+      return [
+        "/journal",
+        "/sitemap.xml",
+        ...(slug ? [`/journal/${slug}`] : []),
+      ];
+    default:
+      return [];
+  }
+}
 
 type WebhookPayload = {
   _id?: string;
@@ -180,5 +260,33 @@ export async function POST(req: Request) {
     revalidateTag(tag, { expire: 0 });
   }
 
-  return NextResponse.json({ revalidated: true, tags, now: Date.now() });
+  // Path-level revalidation busts the layer `revalidateTag` can't reach:
+  // Vercel's CDN cache on rendered HTML (`s-maxage=60`). Without this the
+  // webhook returns 200 but the site keeps serving the cached HTML until
+  // Vercel's own TTL expires. See the header comment "two-layer cache
+  // model" for the full explanation.
+  //
+  // siteSettings is special-cased: it's consumed in the root layout (nav
+  // + footer + contact info), so there's no short list of pages to purge.
+  // `revalidatePath("/", "layout")` invalidates every route under the
+  // root layout in one call — heavier than a targeted purge, but correct.
+  const paths = pathsForType(_type, slug);
+  for (const path of paths) {
+    revalidatePath(path);
+  }
+  const revalidatedLayout = _type === "siteSettings";
+  if (revalidatedLayout) {
+    revalidatePath("/", "layout");
+  }
+
+  return NextResponse.json({
+    revalidated: true,
+    tags,
+    // Echo what we actually purged so the Sanity webhook attempt log is
+    // useful for debugging stale-content reports ("which tag/path did you
+    // expect to invalidate?"). The layout sentinel is a string, not a
+    // path, so it's obvious what happened when reading the log.
+    paths: revalidatedLayout ? ["layout:/"] : paths,
+    now: Date.now(),
+  });
 }

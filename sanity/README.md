@@ -12,10 +12,11 @@ deploy. Portfolio image binaries still live in `/public` under the
 Lightroom → `npm run import-photos` workflow (decision 1A); Sanity
 stores metadata only and the manifest splice supplies real cover images
 + galleries at runtime. Publishes in Studio propagate to the site
-within one round-trip via `/api/sanity-webhook` → `revalidateTag(...)`
-(see the round-final section below); a 60s fetch-cache TTL is the
-fallback if the webhook is misconfigured. With the webhook ticket
-landed, the CMS migration is complete.
+within one round-trip via `/api/sanity-webhook` →
+`revalidateTag(...)` + `revalidatePath(...)` (see the round-final
+section below); a 60s fetch-cache TTL is the fallback if the webhook
+is misconfigured. With the webhook ticket landed, the CMS migration
+is complete.
 
 ## Status
 
@@ -213,13 +214,29 @@ NEXT_PUBLIC_SANITY_DATASET=production
   verifies the `sanity-webhook-signature` header against
   `SANITY_WEBHOOK_SECRET` using `@sanity/webhook`'s `isValidSignature`
   (HMAC-SHA256 over the raw request body), then switches on `_type` and
-  calls `revalidateTag(tag, { expire: 0 })` for the matching cache tag.
-  Collection tag always revalidates; per-slug tag (`serviceCategory:<slug>`,
-  `portfolioCategory:<slug>`, `journalPost:<slug>`) revalidates
-  additionally when the projection includes a slug. The `{ expire: 0 }`
-  profile is Next 16's opt-in for immediate expiration — exactly right
-  for webhook-driven revalidation where we want the next page request
-  to cold-refetch rather than serve stale + revalidate in the background.
+  invalidates **both** cache layers:
+  - `revalidateTag(tag, { expire: 0 })` on the collection tag (and the
+    per-slug tag when applicable: `serviceCategory:<slug>`,
+    `portfolioCategory:<slug>`, `journalPost:<slug>`) — busts Next's
+    Data Cache so the next render refetches from Sanity.
+  - `revalidatePath(path)` on each route that actually renders the
+    changed content — busts Vercel's edge/CDN cache (`s-maxage=60` on
+    the rendered HTML) so the next request is a cold miss instead of
+    serving the already-cached HTML until its TTL expires.
+  Without the path-level call, the webhook returned 200 but the site
+  kept serving the stale HTML for up to 60s — both calls together
+  deliver sub-second end-to-end propagation. `siteSettings` is
+  special-cased to `revalidatePath("/", "layout")` because it lives in
+  the root layout and participates in every route's render. The
+  `{ expire: 0 }` profile on `revalidateTag` is Next 16's opt-in for
+  immediate expiration — right for webhook-driven revalidation where
+  we want the next request to cold-refetch rather than serve stale
+  while revalidating in the background.
+- Path map (doc-type → routes) lives in the handler's `pathsForType`
+  helper. Kept tight — a `serviceCategory` edit doesn't purge
+  `/journal` — so one publish doesn't cold-start the whole site. When
+  you add a new schema or surface existing content on a new route,
+  update **both** the path map and the tag strategy in the handler.
 - Allowlisted `_type` values (mirrors what queries.ts actually tags):
   `siteSettings`, `aboutPage`, `categoryUmbrella`, `serviceCategory`,
   `portfolioCategory`, `journalPost`. Unknown types 400 + log — catches
@@ -233,7 +250,9 @@ NEXT_PUBLIC_SANITY_DATASET=production
 - Error response codes: 500 if `SANITY_WEBHOOK_SECRET` is unset
   (deploy misconfigured; Sanity will retry), 401 on missing or invalid
   signature, 400 on invalid JSON or unknown `_type`, 200 with
-  `{revalidated, tags, now}` on success.
+  `{revalidated, tags, paths, now}` on success. The `paths` field
+  echoes what was actually purged so the Sanity webhook attempt log is
+  useful when debugging stale-content reports.
 - Build clean (route listed as `ƒ /api/sanity-webhook` — dynamic, as
   expected for a mutation endpoint).
 - `npm run test:e2e` — 11/11 pass.
