@@ -1,6 +1,6 @@
 # Julian Perez Photography
 
-The custom marketing site for [julianperezphotography.com](https://julianperezphotography.com) — a DMV-based wedding, portrait, and event photographer. Built as a replacement for the previous Adobe Portfolio site to give Julian full control over content, SEO, booking, and inquiry flow.
+The custom marketing site for [julianperezphotography.com](https://julianperezphotography.com) — a DMV-based wedding, portrait, and event photographer. Built as a replacement for the previous Adobe Portfolio site to give Julian full control over content, SEO, booking, inquiry flow, and analytics.
 
 ## Stack
 
