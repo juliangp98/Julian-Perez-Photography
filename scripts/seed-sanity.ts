@@ -6,15 +6,15 @@
  *   - SANITY_API_WRITE_TOKEN in .env.local. Create one at
  *     https://sanity.io/manage → your project → API → Tokens → +Add
  *     with the "Editor" role. Paste into .env.local, run this script,
- *     then delete the token from sanity.io (it's a write creds — we
- *     don't want it sitting around in a long-lived env file).
+ *     then delete the token from sanity.io (it's a write credential —
+ *     leaving it in a long-lived env file is a foot-gun).
  *
  * Usage:
  *   npm run seed:sanity
  *
  * What it does:
  *   Upserts the full code-owned content graph at stable `_id`s so every
- *   run is idempotent. As of round 14d:
+ *   run is idempotent:
  *     - 1 × siteSettings      → _id "siteSettings"
  *     - 1 × aboutPage         → _id "aboutPage"
  *     - 4 × categoryUmbrella  → _id "umbrella-<id>"     (from UMBRELLAS)
@@ -37,7 +37,7 @@
  *   in Studio.
  *
  * Import hygiene:
- *   We import from the pure-data modules (`site-settings-data`,
+ *   Imports come from the pure-data modules (`site-settings-data`,
  *   `services-data`, `types`) rather than `@/lib/content` so tsx doesn't
  *   try to resolve React, Next, or the Sanity runtime client just to
  *   read the fallback objects. Keep those modules import-free.
@@ -81,8 +81,8 @@ const client = createClient({
 });
 
 // Remove keys whose value is `undefined` before upserting. Sanity treats
-// explicit `undefined` inconsistently depending on the field type, and we
-// never want an optional TS field to land in the dataset as a literal
+// explicit `undefined` inconsistently depending on the field type, and
+// an optional TS field should never land in the dataset as a literal
 // null — better to just omit it so the field is "not set."
 function omitUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return Object.fromEntries(

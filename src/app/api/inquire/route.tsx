@@ -63,9 +63,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // getService + getSiteSettings are both async + React-cached after
-  // round 14b.2. Fetch them in parallel so the inquiry doesn't serialize
-  // two Sanity round-trips on every submit.
+  // getService + getSiteSettings are both async + React-cached. Fetch
+  // them in parallel so the inquiry doesn't serialize two Sanity
+  // round-trips on every submit.
   const [svc, settings] = await Promise.all([
     getService(data.service),
     getSiteSettings(),

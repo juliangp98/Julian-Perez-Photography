@@ -1,7 +1,8 @@
 // Brand-styled Portable Text renderer. Sanity returns body content as
 // Portable Text (an array of blocks — paragraphs, headings, images, etc.),
 // and @portabletext/react's <PortableText> walks the tree invoking these
-// serializers. Without custom serializers we'd get minimally-styled HTML.
+// serializers. Without custom serializers the output is minimally-styled
+// HTML.
 //
 // Three groups of overrides:
 //  - `types.image`  → render inline images via next/image with LQIP blur
@@ -12,9 +13,8 @@
 // journal detail page which is a server component. Next handles image
 // optimization server-side regardless.
 //
-// When round 14 ships dormant-schema content, this same component can serve
-// About-page body content (which will use the same `body` portable-text
-// shape) — no changes expected.
+// The same component can render About-page body content if that ever moves
+// to Portable Text — no changes expected.
 
 import Image from "next/image";
 import Link from "next/link";
@@ -27,8 +27,8 @@ import {
 import { urlFor } from "@/sanity/image";
 import type { SanityImageAsset } from "@/sanity/types";
 
-// Sanity stores inline images as a block of `_type: "image"` and our GROQ
-// query projects them with `asset->{ url, metadata { lqip, dimensions } }`.
+// Sanity stores inline images as a block of `_type: "image"` and the
+// GROQ query projects them with `asset->{ url, metadata { lqip, dimensions } }`.
 // Type narrows what the serializer receives.
 type InlineImageValue = SanityImageAsset & { _type: "image" };
 

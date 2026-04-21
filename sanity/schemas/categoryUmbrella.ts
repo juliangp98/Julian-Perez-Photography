@@ -1,13 +1,13 @@
-// Top-level grouping for services (and eventually portfolios). Examples:
+// Top-level grouping for services and portfolios. Examples:
 // "Weddings & Couples", "Family & Life Events", "Portraits & Pro",
 // "Brand & Events". Used by the nav megamenu, the /services index, and
-// (after 14c) the portfolio index to cluster related categories together.
+// the portfolio index to cluster related categories together.
 //
 // Why this is a document type rather than a hard-coded enum:
 //   - Julian wants to be able to rename / restructure umbrellas without a
-//     code change (decision 2B for round 14). The machine `id` stays
-//     stable (it's referenced from code in generators and JSON-LD), but
-//     `title`, `tagline`, and `order` are editor-controlled.
+//     code change (decision 2B). The machine `id` stays stable (it's
+//     referenced from code in generators and JSON-LD), but `title`,
+//     `tagline`, and `order` are editor-controlled.
 //   - Each serviceCategory holds a `reference → categoryUmbrella` so
 //     moving a service between umbrellas is one dropdown change.
 //

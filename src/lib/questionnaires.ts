@@ -3000,12 +3000,6 @@ export function resolvePackageOptions(slug: string): string[] {
   return [...svc.packages.map((p) => p.name), "Still deciding"];
 }
 
-// Helper for the API route — flattens every field across every section so the
-// server can validate / format submissions without re-implementing the schema.
-export function allFields(q: Questionnaire): Field[] {
-  return q.sections.flatMap((s) => s.fields);
-}
-
 // ----------------------------------------------------------------------------
 // Visibility evaluation
 // ----------------------------------------------------------------------------

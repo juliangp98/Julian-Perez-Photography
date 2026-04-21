@@ -6,7 +6,7 @@ import { FaInstagram, FaFacebook, FaYoutube } from "react-icons/fa6";
 import { siteSettingsFallback } from "@/lib/content";
 
 // Footer stays a client component because of the `usePathname()` gate
-// below. That means it can't `await getSiteSettings()` — we read from
+// below. That means it can't `await getSiteSettings()` — it reads from
 // `siteSettingsFallback` directly instead. Every field used here
 // (siteName, tagline, coverageArea, contactEmail, social.*,
 // clientGalleryUrl, bookingStatus) either changes rarely (siteName,

@@ -3,7 +3,7 @@
 // when extending either side. Seeded from src/lib/portfolios-data.ts via
 // `npm run seed:sanity`.
 //
-// Decision 1A / round 14c — metadata-only split:
+// Decision 1A — metadata-only split:
 //   Image binaries live in /public under the Lightroom → `npm run
 //   import-photos` workflow, which writes src/lib/portfolio-manifest.ts.
 //   The manifest overrides `coverImage` + supplies the full `images[]`

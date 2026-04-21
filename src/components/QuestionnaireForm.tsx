@@ -48,7 +48,7 @@ export default function QuestionnaireForm({
   prefill?: Record<string, string>;
   // Call-booking CTAs shown on the success screen. Passed from the
   // parent server page so the client bundle doesn't pull siteSettings
-  // (Sanity-backed + async after round 14a).
+  // (Sanity-backed and async — not awaitable from a client component).
   calls: QuestionnaireCalls;
 }) {
   const draftKey = `questionnaire-draft-${questionnaire.slug}`;
@@ -90,10 +90,10 @@ export default function QuestionnaireForm({
     return () => clearTimeout(t);
   }, [state, draftKey, hydrated]);
 
-  // Sections can be hidden by their own showIf clause (e.g. "Reception" hides
-  // when the wedding Mini package is selected). We compute the visible list
-  // reactively, then clamp the section index so navigation never points at a
-  // section that just disappeared.
+  // Sections can be hidden by their own showIf clause (e.g. "Reception"
+  // hides when the wedding Mini package is selected). The visible list
+  // is computed reactively, then the section index is clamped so
+  // navigation never points at a section that just disappeared.
   const visibleSections = useMemo(
     () => visibleSectionsFor(questionnaire, state),
     [questionnaire, state],
@@ -156,9 +156,9 @@ export default function QuestionnaireForm({
       return;
     }
 
-    // Strip hidden fields (and fields from hidden sections) from the payload
-    // before sending — the server validates the same way, so anything we omit
-    // here won't be required there either.
+    // Strip hidden fields (and fields from hidden sections) from the
+    // payload before sending — the server validates the same way, so
+    // anything omitted here won't be required there either.
     const payload: Record<string, Value> = {};
     for (const sec of visibleSections) {
       for (const f of sec.fields) {

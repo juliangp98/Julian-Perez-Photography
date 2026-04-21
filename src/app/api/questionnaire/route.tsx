@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // Async after round 14b.2 — service catalog lives in Sanity now.
+  // Async — the service catalog lives in Sanity.
   const svc = await getService(slug);
   const serviceTitle = svc?.title || slug;
   const clientName =
@@ -162,7 +162,7 @@ export async function POST(req: Request) {
       const v = answers[f.id];
       // `referral` renders as the friendly label (+ "Other" free-text
       // detail if supplied). `referralOther` is a companion field only
-      // — skip its own row so we don't duplicate the detail.
+      // — skip its own row to avoid duplicating the detail.
       if (f.id === "referral") {
         const referralRaw = typeof v === "string" ? v : "";
         const otherRaw = typeof answers["referralOther"] === "string"

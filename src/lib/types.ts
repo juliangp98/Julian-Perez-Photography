@@ -115,7 +115,7 @@ export type Testimonial = {
   source?: string; // defaults to "Google"
 };
 
-// /about page content — singleton doc in Sanity after round 14d.
+// /about page content — singleton doc in Sanity.
 // Fields track the editable surface of src/app/about/page.tsx:
 //   - `heading`: top headline, e.g. "Hi, I'm Julian."
 //   - `bio`: array of plain-text paragraphs (not Portable Text — the

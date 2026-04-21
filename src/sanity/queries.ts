@@ -1,21 +1,21 @@
 // GROQ queries for journal content. Two things worth noting:
 //
 // 1. LQIP + dimensions are projected INLINE via `asset->{ url, metadata { lqip, dimensions } }`
-//    so the callsite gets everything it needs to render a blur placeholder and
-//    set explicit width/height on <Image>. Without this, Next.js would
-//    request intrinsic sizes client-side (layout shift) and we'd have no
-//    base64 for `blurDataURL`.
+//    so the callsite gets everything it needs to render a blur placeholder
+//    and set explicit width/height on <Image>. Without this, Next.js
+//    would request intrinsic sizes client-side (layout shift) and there
+//    would be no base64 available for `blurDataURL`.
 //
 // 2. Every query passes `next: { revalidate: 60, tags: [...] }` to Next's
-//    fetch. 60s is a decent compromise: Julian's journal is not a news site,
+//    fetch. 60s is a decent compromise: the journal is not a news site,
 //    publishing rhythms are measured in days; a minute's lag between "I
-//    published" and "it's on the site" is acceptable. When we wire the
-//    webhook (round 14+), we'll call `revalidateTag("journalPost")` on
-//    publish and drop the TTL dependence entirely.
+//    published" and "it's on the site" is acceptable. The Sanity webhook
+//    at /api/sanity-webhook calls `revalidateTag("journalPost")` on
+//    publish, so the TTL is a safety net rather than the primary path.
 //
 // Published filter: `defined(publishedAt) && publishedAt < now()` — keeps
-// drafts + future-dated posts out. When draft-preview mode lands we'll
-// split this into two queries (published + preview).
+// drafts + future-dated posts out. When draft-preview mode lands this
+// splits into two queries (published + preview).
 
 import { sanityClient, isSanityConfigured } from "./client";
 import type { JournalPost, JournalPostCard } from "./types";
@@ -88,9 +88,9 @@ export async function getPostBySlug(slug: string): Promise<JournalPost | null> {
   );
 }
 
-// Drives `generateStaticParams` for /journal/[slug]. On a fresh clone we
-// return [] so the build doesn't try to prerender anything — the route still
-// exists and will render on demand once Julian publishes.
+// Drives `generateStaticParams` for /journal/[slug]. On a fresh clone
+// this returns [] so the build doesn't try to prerender anything — the
+// route still exists and renders on demand once Julian publishes.
 export async function getPostSlugs(): Promise<string[]> {
   if (!isSanityConfigured()) return [];
   try {
@@ -107,13 +107,13 @@ export async function getPostSlugs(): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Site settings (round 14a)
+// Site settings
 //
 // Singleton document: there should only ever be one `siteSettings` doc in
 // the dataset, pinned to id `siteSettings` by the Studio config + seed
 // script. Reading uses the same `revalidate: 60` cadence as the journal
-// so Studio edits show up within a minute without a webhook (webhook
-// revalidation lands as the final round-14 improvement).
+// so Studio edits show up within a minute; the webhook at
+// /api/sanity-webhook invalidates sooner on publish.
 // ---------------------------------------------------------------------------
 
 const SITE_SETTINGS_ID = "siteSettings";
@@ -153,6 +153,36 @@ export async function getSiteSettings(): Promise<Partial<SiteSettings> | null> {
   );
 }
 
+// Used by the home page to surface a single editor-flagged post in a
+// featured slot between the portfolio teaser and testimonials. Returns
+// the MOST RECENTLY published post that has `featured == true` — if
+// Julian flags several (e.g. he forgot to un-feature the last one),
+// the newest wins rather than requiring him to hunt down old flags.
+// The section is silently hidden when this returns null, so an empty
+// `featured` set is a valid steady state.
+//
+// Same `JournalPostCard` shape as the journal index so the rendering
+// component can share the LQIP / dims / tags plumbing — no new type
+// needed. Tagged `journalPost` so the webhook's existing
+// `revalidateTag("journalPost")` + `revalidatePath("/")` combo covers it
+// without any new wiring.
+export async function getFeaturedPostFromSanity(): Promise<JournalPostCard | null> {
+  if (!isSanityConfigured()) return null;
+  try {
+    return await sanityClient.fetch<JournalPostCard | null>(
+      `*[_type == "journalPost"
+          && featured == true
+          && defined(publishedAt)
+          && publishedAt < now()]
+        | order(publishedAt desc)[0] { ${POST_CARD_FIELDS} }`,
+      {},
+      { next: { revalidate: 60, tags: ["journalPost"] } },
+    );
+  } catch {
+    return null;
+  }
+}
+
 // Used by /journal/[slug] to show "more stories" after the post body.
 // Simple "3 most recent other posts" — richer relatedness deferred.
 export async function getRelatedPosts(
@@ -171,7 +201,7 @@ export async function getRelatedPosts(
 }
 
 // ---------------------------------------------------------------------------
-// Service categories + umbrellas (round 14b.2)
+// Service categories + umbrellas
 //
 // Projection strategy:
 //   - `slug` is unwrapped from the Sanity `{_type, current}` shape so the
@@ -305,7 +335,7 @@ export async function getUmbrellasFromSanity(): Promise<UmbrellaDoc[] | null> {
 }
 
 // ---------------------------------------------------------------------------
-// Portfolio categories (round 14c)
+// Portfolio categories
 //
 // Parallels the services projection above, with two differences:
 //   1. No `images[]` — the gallery comes from the Lightroom-generated
@@ -387,7 +417,7 @@ export async function getPortfolioSlugsFromSanity(): Promise<string[] | null> {
 }
 
 // ---------------------------------------------------------------------------
-// About page (round 14d)
+// About page
 //
 // Singleton document at `_id: "aboutPage"`. Same pattern as siteSettings —
 // partial result merged per-field on top of `aboutPageFallback` in

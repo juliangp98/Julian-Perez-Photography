@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 
 // The subject-line enhancement formats an ISO date as "Aug 15, 2027"
-// and appends it to the email subject. We can't inspect Resend's sent
-// email (no API key in test mode), but we can at least assert the API
-// round-trips successfully with a date and that formatSubjectDate's
-// output is exercised in the inquire path.
+// and appends it to the email subject. Resend's sent email isn't
+// inspectable from tests (no API key in test mode), but the API can
+// be asserted to round-trip successfully with a date and to exercise
+// formatSubjectDate in the inquire path.
 //
 // Direct unit coverage of formatSubjectDate would be nicer; this
 // smoke test just ensures the handler doesn't throw when a date is

@@ -1,7 +1,6 @@
 // Journal post — the editorial/behind-the-lens stories Julian publishes from
-// Sanity Studio. Kept intentionally minimal for round 1: title, slug, date,
-// excerpt, cover, body, tags, and a `featured` flag reserved for surfacing on
-// the home page in a later round.
+// Sanity Studio. Intentionally minimal: title, slug, date, excerpt, cover,
+// body, tags, and a `featured` flag that surfaces one post on the home page.
 //
 // Images (cover + inline body images) use `hotspot: true` so Julian can
 // re-crop in Studio without re-uploading, and carry a required `alt` subfield

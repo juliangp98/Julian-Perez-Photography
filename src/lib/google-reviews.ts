@@ -4,8 +4,8 @@
 // missing, returns an empty payload so the UI can gracefully render
 // nothing instead of erroring out.
 //
-// Cached for 24h via Next's fetch cache so we hit Google at most once
-// per day per region.
+// Cached for 24h via Next's fetch cache so the site hits Google at most
+// once per day per region.
 
 // Note: this module is server-only by virtue of reading non-public env
 // vars and being imported only from async server components.

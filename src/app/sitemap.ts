@@ -4,9 +4,9 @@ import { QUESTIONNAIRES } from "@/lib/questionnaires";
 
 const BASE = "https://julianperezphotography.com";
 
-// Async after round 14b.2 — services come from Sanity at request time
-// (60s revalidate). Round 14c added portfolios to the same pattern, so
-// both fetches now run in parallel under React's `cache()`.
+// Services and portfolios both come from Sanity at request time (60s
+// revalidate). The two fetches run in parallel under React's `cache()`
+// so the sitemap build pays one round-trip, not two.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes = [

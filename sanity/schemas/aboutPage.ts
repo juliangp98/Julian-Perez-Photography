@@ -10,7 +10,7 @@
 // fallback object so a partial doc (e.g. editor cleared the heading)
 // still renders the page.
 //
-// Scope decisions for round 14d:
+// Scope decisions:
 //   - `heading`, `bio` cover the editable surface shown on /about today.
 //     Everything else on that page (coverage area, booking status,
 //     contact email) lives on `siteSettings` and stays there — it's
@@ -21,8 +21,8 @@
 //     editors can stage the path ahead of the feature landing.
 //   - Bio is `string[]` (plain paragraphs) rather than Portable Text.
 //     The existing copy is 3 plain paragraphs; Portable Text is the
-//     wrong shape for that and would force us to write serializers for
-//     a field that doesn't need rich formatting.
+//     wrong shape for that and would force a serializer layer for a
+//     field that doesn't need rich formatting.
 
 import { defineField, defineType } from "sanity";
 

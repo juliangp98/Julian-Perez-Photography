@@ -13,17 +13,19 @@
 // whose HTML is already in Vercel's edge cache keeps serving the stale
 // HTML until layer 2's TTL expires, even though the next cold render
 // WOULD fetch fresh data. That produced the "webhook returns 200, site
-// still stale for 60s" symptom we hit in staging. `revalidatePath` busts
-// BOTH the router cache and the edge cache, so the next request to the
-// affected route is a cold miss that re-renders + repopulates both layers.
+// still stale for 60s" symptom observed in staging. `revalidatePath`
+// busts BOTH the router cache and the edge cache, so the next request
+// to the affected route is a cold miss that re-renders + repopulates
+// both layers.
 //
 // Next 16 note: `revalidateTag` takes a second argument now. For webhooks
-// that need immediate invalidation we pass `{ expire: 0 }` — the
-// stale-while-revalidate `"max"` profile is documented as the preferred
-// default for Server Actions, but for external-system-driven revalidation
-// the docs explicitly recommend `{ expire: 0 }` so the next page request
-// is a cold miss rather than serving stale content while the background
-// fetch runs. `revalidatePath(path, type?)` signature is unchanged in 16.
+// that need immediate invalidation the handler passes `{ expire: 0 }` —
+// the stale-while-revalidate `"max"` profile is documented as the
+// preferred default for Server Actions, but for external-system-driven
+// revalidation the docs explicitly recommend `{ expire: 0 }` so the
+// next page request is a cold miss rather than serving stale content
+// while the background fetch runs. `revalidatePath(path, type?)`
+// signature is unchanged in 16.
 //
 // ---------------------------------------------------------------------------
 // Setup
@@ -55,7 +57,7 @@
 // revalidation of arbitrary tags — the worst they can do is trigger 401s.
 // `revalidateTag` itself is idempotent + a no-op for tags nothing is keyed
 // on, so even a valid-but-spurious type (someone adds a new schema to
-// Sanity before we update the allowlist below) falls through harmlessly.
+// Sanity before the allowlist below is updated) falls through harmlessly.
 //
 // ---------------------------------------------------------------------------
 // Tag strategy — keep in sync with src/sanity/queries.ts
@@ -71,10 +73,10 @@
 //   - journalPost      → ["journalPost"]                    (index reads)
 //                      + ["journalPost:<slug>"]             (detail reads)
 //
-// On publish we revalidate the collection tag unconditionally, plus the
-// per-slug tag when the doc type has one. That way editing one service
-// busts `/services` (catalog consumers) AND `/services/<slug>` (detail)
-// without bothering the other 15 service detail pages.
+// On publish the handler revalidates the collection tag unconditionally,
+// plus the per-slug tag when the doc type has one. That way editing one
+// service busts `/services` (catalog consumers) AND `/services/<slug>`
+// (detail) without bothering the other 15 service detail pages.
 //
 // ---------------------------------------------------------------------------
 // Path strategy — edge-cache purge
@@ -92,7 +94,8 @@
 //                        + `/services/<slug>`, `/questionnaire/<slug>`
 //   - portfolioCategory→ `/`, `/portfolio`, `/sitemap.xml`,
 //                        + `/portfolio/<slug>`
-//   - journalPost      → `/journal`, `/sitemap.xml`, + `/journal/<slug>`
+//   - journalPost      → `/` (featured-post section on home), `/journal`,
+//                        `/sitemap.xml`, + `/journal/<slug>`
 //
 // When you add a new schema or surface existing content on a new route,
 // update BOTH this map AND the tag strategy above, then ship. The e2e
@@ -106,10 +109,11 @@ import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { isValidSignature, SIGNATURE_HEADER_NAME } from "@sanity/webhook";
 
-// Doc types we accept for revalidation — mirrors the filter we set on the
-// Sanity side but also acts as a defensive allowlist: a typo in the Sanity
-// filter (or a new schema that hasn't been wired up here yet) shows up as
-// a 400 in the Sanity webhook log rather than silently no-op'ing.
+// Doc types accepted for revalidation — mirrors the filter set on the
+// Sanity side but also acts as a defensive allowlist: a typo in the
+// Sanity filter (or a new schema that hasn't been wired up here yet)
+// shows up as a 400 in the Sanity webhook log rather than silently
+// no-op'ing.
 const KNOWN_TYPES = new Set([
   "siteSettings",
   "aboutPage",
@@ -162,7 +166,12 @@ function pathsForType(type: string, slug?: string): string[] {
         ...(slug ? [`/portfolio/${slug}`] : []),
       ];
     case "journalPost":
+      // `/` surfaces the editor-flagged `featured` post via
+      // `getFeaturedPost()` in src/lib/content.ts, so editing/un-flagging
+      // a featured post has to purge home too — otherwise Julian sees the
+      // stale featured card for up to 60s after toggling the flag.
       return [
+        "/",
         "/journal",
         "/sitemap.xml",
         ...(slug ? [`/journal/${slug}`] : []),
@@ -232,7 +241,7 @@ export async function POST(req: Request) {
   }
 
   if (!KNOWN_TYPES.has(_type)) {
-    // Loud failure on a type we don't know how to revalidate. Most likely
+    // Loud failure on a type the handler can't revalidate. Most likely
     // cause: a new schema landed in Studio without the corresponding
     // handler + queries.ts update. Log so Vercel runtime logs surface it.
     console.warn(
@@ -282,10 +291,10 @@ export async function POST(req: Request) {
   return NextResponse.json({
     revalidated: true,
     tags,
-    // Echo what we actually purged so the Sanity webhook attempt log is
-    // useful for debugging stale-content reports ("which tag/path did you
-    // expect to invalidate?"). The layout sentinel is a string, not a
-    // path, so it's obvious what happened when reading the log.
+    // Echo what was actually purged so the Sanity webhook attempt log
+    // is useful for debugging stale-content reports ("which tag/path
+    // did you expect to invalidate?"). The layout sentinel is a string,
+    // not a path, so it's obvious what happened when reading the log.
     paths: revalidatedLayout ? ["layout:/"] : paths,
     now: Date.now(),
   });

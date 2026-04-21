@@ -5,9 +5,8 @@ import { test, expect } from "@playwright/test";
 // and the missing-field validation path — they don't try to render a
 // complete PDF (that would require fixturing the full 10-section form).
 //
-// The happy-path PDF render is covered by the manual verification in
-// the round 8 plan: submit a real wedding questionnaire in dev and
-// click "Preview my plan (PDF)".
+// The happy-path PDF render is covered by manual verification: submit
+// a real wedding questionnaire in dev and click "Preview my plan (PDF)".
 
 test("wedding-plan: rejects missing required fields with 400", async ({
   request,

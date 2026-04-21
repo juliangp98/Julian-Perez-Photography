@@ -97,8 +97,8 @@ export default async function JournalPostPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  // Preserve the coming-soon UX: if env is missing we don't 500, we 404 —
-  // the /journal index already explains what's happening.
+  // Preserve the coming-soon UX: when env is missing, 404 rather than
+  // 500 — the /journal index already explains what's happening.
   if (!isSanityConfigured()) notFound();
 
   const post = await getPostBySlug(slug);

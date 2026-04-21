@@ -24,10 +24,10 @@ const SITE_URL = "https://julianperezphotography.com";
 const DEFAULT_DESCRIPTION =
   "Julian Perez Photography — DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, concert, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
 
-// Round 14a: metadata is now async so Julian-edited values in Studio (site
-// name, etc.) flow through without a redeploy. The keyword list, alternates,
-// robots, and twitter fields are still constants since they're technical /
-// SEO concerns rather than editorial content.
+// `generateMetadata` is async so Julian-edited values in Studio (site
+// name, etc.) flow through without a redeploy. The keyword list,
+// alternates, robots, and twitter fields stay constants since they're
+// technical / SEO concerns rather than editorial content.
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   return {

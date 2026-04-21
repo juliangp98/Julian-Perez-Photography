@@ -54,9 +54,9 @@ export default async function ServiceCategoryPage({
   const { category } = await params;
   const s = await getService(category);
   if (!s) notFound();
-  // `getPortfolio` is async after round 14c — portfolios live in Sanity
-  // now. Parallelize with `getSiteSettings()` so we don't serialize two
-  // independent Sanity round-trips on each service detail render.
+  // `getPortfolio` is async — portfolios live in Sanity. Parallelized
+  // with `getSiteSettings()` so the service detail render doesn't
+  // serialize two independent Sanity round-trips.
   const questionnaire = getQuestionnaire(s.slug);
   const [portfolio, settings] = await Promise.all([
     getPortfolio(s.slug),

@@ -1,7 +1,7 @@
-// Hand-written shapes for the journal content model. We're skipping
-// sanity-codegen in this round — one schema doesn't earn the build step,
-// and codegen becomes useful only once round 14 lands and there are 4+
-// schemas in play. When that happens, swap these for generated types.
+// Hand-written shapes for the journal content model. sanity-codegen is
+// intentionally skipped — the hand-rolled types track the schema closely
+// enough, and the codegen step isn't worth the extra build dependency
+// until the content model grows substantially.
 //
 // All image-bearing shapes project the asset's `metadata.lqip` and
 // `metadata.dimensions` so pages can pass them straight to <Image>
@@ -47,7 +47,7 @@ export type JournalPostCard = {
 export type JournalPost = JournalPostCard & {
   // Sanity's inline images get transformed to `{ _type: "image", asset: {...}, alt, ... }`
   // alongside regular block content; PortableText's types call this union
-  // PortableTextBlock when typed loosely. Tightening later once we settle
-  // on a specific set of custom block types.
+  // PortableTextBlock when typed loosely. Tighten later once a specific
+  // set of custom block types is settled on.
   body: (PortableTextBlock | SanityImageAsset)[];
 };

@@ -18,13 +18,45 @@ import {
   getUmbrellasFromSanity,
   getPortfoliosFromSanity,
   getAboutPageFromSanity,
+  getFeaturedPostFromSanity,
   type PortfolioMetadata,
 } from "@/sanity/queries";
+import type { JournalPostCard } from "@/sanity/types";
 
+/**
+ * Wrap a Sanity fetch with a try/catch-to-fallback guard and React's
+ * request-scoped cache. Returns the fallback on any thrown error
+ * (network, auth, malformed response) or on a nullish result — callers
+ * should never see a Sanity outage propagate into a rendered 500.
+ *
+ * Every site-content getter in this file follows the same contract:
+ * "return the best-available value; degrade to hard-coded defaults
+ * before failing loudly." Centralizing that in one wrapper keeps the
+ * per-resource getters focused on their projection/merge logic instead
+ * of re-implementing the same try/catch + `cache()` boilerplate six
+ * times. The generic `T` can be nullable (see `getFeaturedPost`) — a
+ * nullish result and a thrown error both collapse to the fallback via
+ * `result ?? fallback`.
+ */
+function cacheSanityFetch<T>(
+  fetchFn: () => Promise<T | null | undefined>,
+  fallback: T,
+): () => Promise<T> {
+  return cache(async () => {
+    try {
+      const result = await fetchFn();
+      return result ?? fallback;
+    } catch {
+      return fallback;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Site-wide settings — hard-coded fallback + seed source.
 //
-// After round 14a, Sanity is the runtime source of truth for site
-// settings. `siteSettingsFallback` serves two roles:
+// Sanity is the runtime source of truth for site settings.
+// `siteSettingsFallback` serves two roles:
 //
 //   1. **Fallback** — every server consumer calls `getSiteSettings()`
 //      below, which fetches from Sanity when configured and returns the
@@ -34,8 +66,8 @@ import {
 //
 //   2. **Seed source** — `scripts/seed-sanity.ts` reads the fallback
 //      object directly and upserts it to the dataset. Editing the
-//      hard-coded values + re-running the seed is the documented path for
-//      "I want to change a default without touching Studio."
+//      hard-coded values + re-running the seed is the documented path
+//      for "change a default without touching Studio."
 //
 // The literal lives in `./site-settings-data.ts` (pure-data module, no
 // runtime imports) so the seed script can import it under `tsx` without
@@ -44,9 +76,10 @@ import {
 // at the import sites.
 //
 // Keep the object's shape in lockstep with `SiteSettings` in ./types.ts
-// AND the Sanity schema at `sanity/schemas/siteSettings.ts`. The type
-// system will catch drift on our side; schema drift will surface as
-// missing GROQ fields that fall back to these hard-coded values.
+// AND the Sanity schema at `sanity/schemas/siteSettings.ts`. The TS
+// compiler catches local drift; schema drift surfaces as missing GROQ
+// fields that fall back to these hard-coded values.
+// ---------------------------------------------------------------------------
 export { siteSettingsFallback };
 
 // Per-field merge: remote Sanity values overlay the fallback, but a
@@ -74,8 +107,9 @@ function mergeWithFallback(
       ...(remote.calls ?? {}),
     },
     // Testimonials are all-or-nothing — if the remote list is present
-    // (even empty), it wins; otherwise fall back. Mixing curated Julian
-    // testimonials with editor-added ones would create provenance ambiguity.
+    // (even empty), it wins; otherwise fall back. Mixing curated
+    // testimonials with editor-added ones would create provenance
+    // ambiguity.
     testimonials: remote.testimonials ?? siteSettingsFallback.testimonials,
   };
 }
@@ -85,29 +119,23 @@ function mergeWithFallback(
  * per-field on top of `siteSettingsFallback`) when Sanity is configured
  * and reachable; falls back to `siteSettingsFallback` otherwise.
  *
- * Wrapped in React's `cache()` so multiple call sites in a single
+ * Wrapped via `cacheSanityFetch` so multiple call sites in a single
  * request (layout + home + footer + GoogleReviews, etc.) share one
  * fetch. Across requests, Next's `fetch` cache handles deduplication
- * via the `["siteSettings"]` tag + 60s revalidate window.
+ * via the `["siteSettings"]` tag + 60s revalidate window, with webhook-
+ * driven invalidation from `/api/sanity-webhook` on publish.
  */
-export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
-  try {
-    const remote = await fetchSiteSettingsFromSanity();
-    return remote ? mergeWithFallback(remote) : siteSettingsFallback;
-  } catch {
-    // Transient Sanity outage shouldn't 500 the page — serve the
-    // hard-coded values. Next will retry on the next revalidate tick.
-    return siteSettingsFallback;
-  }
-});
+export const getSiteSettings = cacheSanityFetch<SiteSettings>(async () => {
+  const remote = await fetchSiteSettingsFromSanity();
+  return remote ? mergeWithFallback(remote) : null;
+}, siteSettingsFallback);
 
 // ---------------------------------------------------------------------------
-// Service categories + umbrellas (round 14b.2)
+// Service categories + umbrellas
 //
-// After round 14b.2, Sanity is the runtime source of truth for the 16
-// service categories and the 4 umbrella groupings. The hard-coded
-// `services` array + `UMBRELLAS` const serve the same dual role as
-// `siteSettingsFallback`:
+// Sanity is the runtime source of truth for the 16 service categories
+// and the 4 umbrella groupings. The hard-coded `services` array +
+// `UMBRELLAS` const serve the same dual role as `siteSettingsFallback`:
 //
 //   1. **Fallback** — every server consumer calls `getServices()` /
 //      `getService(slug)` / `getServicesByUmbrella()` / `getUmbrellas()`
@@ -127,7 +155,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
 // Client components (Nav megamenu, InquiryForm service select) can't
 // `await` an async fetch — they import the sync `services` /
 // `visibleServices` / `servicesByUmbrellaFallback()` exports instead.
-// The staleness tradeoff matches 14a's siteSettings approach: editor
+// The staleness tradeoff matches the siteSettings approach: editor
 // changes become visible to client-side UI at the next deploy, which
 // is acceptable for catalog-shape churn.
 //
@@ -143,7 +171,7 @@ export { services };
 
 // Visible-only sync fallback — used by client components and anywhere a
 // server component needs the hard-coded set without touching Sanity.
-// Hidden categories stay in the source array so we don't lose the content,
+// Hidden categories stay in the source array so the content isn't lost,
 // but they get excluded from anything indexable or user-facing.
 export const visibleServices = services.filter((s) => !s.hidden);
 
@@ -170,19 +198,15 @@ function normalizeRemoteServices(
  * Resolve the full service catalog (including hidden entries). Sanity-
  * backed with a fallback to the hard-coded `services` array.
  *
- * Wrapped in React's `cache()` so multiple call sites in a single
+ * Wrapped via `cacheSanityFetch` so multiple call sites in a single
  * request (server page + sitemap + generateStaticParams) share one
- * fetch. Next's 60s revalidate + `serviceCategory` cache tag handles
- * cross-request freshness until webhook-driven revalidation lands.
+ * fetch. Next's 60s revalidate + `serviceCategory` cache tag + webhook-
+ * driven invalidation handle cross-request freshness.
  */
-export const getServices = cache(async (): Promise<ServiceCategory[]> => {
-  try {
-    const remote = await getServicesFromSanity();
-    return normalizeRemoteServices(remote) ?? services;
-  } catch {
-    return services;
-  }
-});
+export const getServices = cacheSanityFetch<ServiceCategory[]>(async () => {
+  const remote = await getServicesFromSanity();
+  return normalizeRemoteServices(remote);
+}, services);
 
 export const getVisibleServices = cache(
   async (): Promise<ServiceCategory[]> => {
@@ -193,7 +217,7 @@ export const getVisibleServices = cache(
 
 /**
  * Look up one service by slug — respects the `hidden` flag so hidden
- * categories 404 for anonymous visitors. Async after round 14b.2.
+ * categories 404 for anonymous visitors.
  */
 export async function getService(
   slug: string,
@@ -204,23 +228,17 @@ export async function getService(
 
 /**
  * The four code-controlled umbrella groupings. Sanity-backed (editors
- * can rename the title/tagline without a deploy — see decision 2B in
- * the round-14 plan), with the hard-coded `UMBRELLAS` array as the
- * fallback + seed source.
+ * can rename the title/tagline without a deploy), with the hard-coded
+ * `UMBRELLAS` array as the fallback + seed source.
  *
  * The `id` field of each umbrella must still match the `Umbrella` union
  * in src/lib/types.ts — that's why the locked-set Studio config blocks
  * create/delete for this doc type.
  */
-export const getUmbrellas = cache(async (): Promise<UmbrellaGroup[]> => {
-  try {
-    const remote = await getUmbrellasFromSanity();
-    if (remote && remote.length > 0) return remote;
-    return UMBRELLAS;
-  } catch {
-    return UMBRELLAS;
-  }
-});
+export const getUmbrellas = cacheSanityFetch<UmbrellaGroup[]>(async () => {
+  const remote = await getUmbrellasFromSanity();
+  return remote && remote.length > 0 ? remote : null;
+}, UMBRELLAS);
 
 /**
  * Services grouped by umbrella — drives the /services index and the
@@ -239,15 +257,15 @@ export const getServicesByUmbrella = cache(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Portfolio categories (round 14c)
+// Portfolio categories
 //
-// After round 14c, Sanity is the runtime source of truth for portfolio
-// METADATA (title, description, umbrella, ordering, hidden flag). Image
-// binaries stay in /public under the Lightroom → `npm run import-photos`
-// workflow — decision 1A, same reasoning as `heroImage` on services. The
-// auto-generated `portfolio-manifest.ts` maps slug → {coverImage, images[]}
-// with real dimensions + LQIP, and we splice that over the Sanity metadata
-// at runtime to produce the full `PortfolioCategory`.
+// Sanity is the runtime source of truth for portfolio METADATA (title,
+// description, umbrella, ordering, hidden flag). Image binaries stay in
+// `/public` under the Lightroom → `npm run import-photos` workflow —
+// same rationale as `heroImage` on services. The auto-generated
+// `portfolio-manifest.ts` maps slug → {coverImage, images[]} with real
+// dimensions + LQIP, and `spliceManifest` unions that over the Sanity
+// metadata at runtime to produce the full `PortfolioCategory`.
 //
 // Same dual role as services:
 //   1. **Fallback** — every server consumer calls `getPortfolios()` /
@@ -266,9 +284,9 @@ export const getServicesByUmbrella = cache(async () => {
 // Apply the Lightroom manifest on top of a set of portfolio entries
 // (local fallback or Sanity-sourced metadata). Metadata-only shapes
 // (no `images[]`) get a default empty gallery; real images arrive via
-// the manifest splice. This is shared between the sync fallback and
-// the async getter so "manifest overrides placeholder coverImage +
-// supplies the gallery" behaves identically on both paths.
+// the manifest splice. Shared between the sync fallback and the async
+// getter so "manifest overrides placeholder coverImage + supplies the
+// gallery" behaves identically on both paths.
 function spliceManifest(
   entries: Array<PortfolioMetadata | PortfolioCategory>,
 ): PortfolioCategory[] {
@@ -283,9 +301,7 @@ function spliceManifest(
 
 // Sync fallback — used for the seed-data comparison, for the client-
 // facing Nav megamenu, and for anywhere a server component wants the
-// hard-coded list without touching Sanity. `portfolios` keeps the pre-
-// 14c name so existing imports (e.g. `src/lib/content.ts` re-export
-// chain) don't churn.
+// hard-coded list without touching Sanity.
 export const portfolios: PortfolioCategory[] = spliceManifest(portfoliosFallback);
 export const visiblePortfolios = portfolios.filter((p) => !p.hidden);
 
@@ -304,20 +320,14 @@ function normalizeRemotePortfolios(
 
 /**
  * Resolve the full portfolio catalog (including hidden entries). Sanity-
- * backed metadata with Lightroom manifest spliced in; falls back to the
- * hard-coded `portfoliosFallback` array on Sanity outage / missing env.
- *
- * Wrapped in React's `cache()` so multiple call sites in a single
- * request (portfolio index + home teaser + sitemap) share one fetch.
+ * backed metadata with the Lightroom manifest spliced in; falls back to
+ * the hard-coded `portfoliosFallback` array on Sanity outage / missing
+ * env.
  */
-export const getPortfolios = cache(async (): Promise<PortfolioCategory[]> => {
-  try {
-    const remote = await getPortfoliosFromSanity();
-    return normalizeRemotePortfolios(remote) ?? portfolios;
-  } catch {
-    return portfolios;
-  }
-});
+export const getPortfolios = cacheSanityFetch<PortfolioCategory[]>(async () => {
+  const remote = await getPortfoliosFromSanity();
+  return normalizeRemotePortfolios(remote);
+}, portfolios);
 
 export const getVisiblePortfolios = cache(
   async (): Promise<PortfolioCategory[]> => {
@@ -328,7 +338,7 @@ export const getVisiblePortfolios = cache(
 
 /**
  * Look up one portfolio by slug — respects the `hidden` flag so hidden
- * categories 404 for anonymous visitors. Async after round 14c.
+ * categories 404 for anonymous visitors.
  */
 export async function getPortfolio(
   slug: string,
@@ -354,19 +364,20 @@ export const getPortfoliosByUmbrella = cache(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// About page (round 14d)
+// About page
 //
-// After round 14d, Sanity is the runtime source of truth for the editable
-// /about surface: `heading` + `bio` paragraphs + optional `headshot` path.
-// Cross-page info (coverageArea, bookingStatus, contactEmail) continues to
-// live on siteSettings so the About, Inquire, and Footer pages all read a
-// single authoritative source.
+// Sanity is the runtime source of truth for the editable /about surface:
+// `heading` + `bio` paragraphs + optional `headshot` path. Cross-page
+// info (coverageArea, bookingStatus, contactEmail) continues to live on
+// siteSettings so the About, Inquire, and Footer pages all read a single
+// authoritative source.
 //
-// Same dual role + singleton pattern as siteSettings (14a):
-//   1. **Fallback** — `/about/page.tsx` calls `getAboutPage()` below, which
-//      fetches from Sanity when configured and returns the hard-coded
-//      `aboutPageFallback` otherwise. Per-field merge so a partially-filled
-//      Studio doc (editor cleared `headshot` but not `bio`) still renders.
+// Same dual role + singleton pattern as siteSettings:
+//   1. **Fallback** — `/about/page.tsx` calls `getAboutPage()` below,
+//      which fetches from Sanity when configured and returns the hard-
+//      coded `aboutPageFallback` otherwise. Per-field merge so a
+//      partially-filled Studio doc (editor cleared `headshot` but not
+//      `bio`) still renders.
 //   2. **Seed source** — `scripts/seed-sanity.ts` reads `aboutPageFallback`
 //      directly and upserts at `_id: "aboutPage"`.
 //
@@ -375,18 +386,19 @@ export const getPortfoliosByUmbrella = cache(async () => {
 // React, Next, or the Sanity client into scope. Everyday call sites keep
 // importing it from here via the re-export below.
 //
-// Headshot is a string path (Lightroom → `/public`, decision 1A), not a
-// Sanity image asset — parallel to `heroImage` on services and `coverImage`
-// on portfolios. Image binaries never round-trip through Sanity.
+// Headshot is a string path (Lightroom → `/public`), not a Sanity image
+// asset — parallel to `heroImage` on services and `coverImage` on
+// portfolios. Image binaries never round-trip through Sanity.
 // ---------------------------------------------------------------------------
 
 export { aboutPageFallback };
 
-// Per-field merge: remote Sanity values overlay the fallback, but a missing
-// or null remote `bio` collapses to the hard-coded paragraphs rather than
-// rendering an empty block. `headshot` is optional, so we take whatever the
-// spread produces (explicit-undefined from the remote wins only when it's
-// genuinely absent, which the query's `omitUndefined` seed already avoids).
+// Per-field merge: remote Sanity values overlay the fallback, but a
+// missing or null remote `bio` collapses to the hard-coded paragraphs
+// rather than rendering an empty block. `headshot` is optional, so the
+// spread passes through whatever the remote supplies (the query's
+// `omitUndefined` seed ensures absent values don't leak as literal
+// `undefined`).
 function mergeAboutWithFallback(remote: Partial<AboutPage>): AboutPage {
   return {
     ...aboutPageFallback,
@@ -400,21 +412,34 @@ function mergeAboutWithFallback(remote: Partial<AboutPage>): AboutPage {
  * of `aboutPageFallback`) when Sanity is configured and reachable; falls
  * back to the hard-coded values otherwise.
  *
- * Wrapped in React's `cache()` so `generateMetadata` and the page body
+ * Wrapped via `cacheSanityFetch` so `generateMetadata` and the page body
  * share one fetch per request. Next's 60s revalidate + `aboutPage` cache
- * tag handles cross-request freshness until webhook-driven revalidation
- * lands.
+ * tag + webhook-driven invalidation handle cross-request freshness.
  */
-export const getAboutPage = cache(async (): Promise<AboutPage> => {
-  try {
-    const remote = await getAboutPageFromSanity();
-    return remote ? mergeAboutWithFallback(remote) : aboutPageFallback;
-  } catch {
-    // Transient Sanity outage shouldn't 500 the About page — serve the
-    // hard-coded values. Next will retry on the next revalidate tick.
-    return aboutPageFallback;
-  }
-});
+export const getAboutPage = cacheSanityFetch<AboutPage>(async () => {
+  const remote = await getAboutPageFromSanity();
+  return remote ? mergeAboutWithFallback(remote) : null;
+}, aboutPageFallback);
+
+// ---------------------------------------------------------------------------
+// Featured journal post (home-page surfacing)
+//
+// Unlike every other getter in this file, there is NO hard-coded fallback:
+// if Sanity is unreachable or no post is flagged `featured`, the getter
+// returns `null` and the home page silently skips the section. That's
+// deliberate — the featured slot is editorially curated; showing a random
+// "fallback post" would defeat the point, and showing a stale hard-coded
+// one would require a code deploy to rotate. Silence is the right default.
+//
+// The generic `T` binds to `JournalPostCard | null`, so `cacheSanityFetch`'s
+// "nullish → fallback" branch simply returns `null` again. `/` is in the
+// webhook's `pathsForType("journalPost")` so a publish busts the edge
+// cache immediately (see src/app/api/sanity-webhook/route.tsx).
+// ---------------------------------------------------------------------------
+export const getFeaturedPost = cacheSanityFetch<JournalPostCard | null>(
+  async () => getFeaturedPostFromSanity(),
+  null,
+);
 
 /**
  * Sync services-grouped-by-umbrella for CLIENT components (Nav megamenu).
@@ -422,9 +447,9 @@ export const getAboutPage = cache(async (): Promise<AboutPage> => {
  * components should call the async `getServicesByUmbrella()` instead so
  * Sanity edits flow through without a redeploy.
  *
- * This is the services-side twin of `siteSettingsFallback` from 14a —
- * client bundles never await async content getters, so we accept the
- * "edit-catalog → redeploy-to-update-nav" cadence for client-side UI.
+ * Client bundles can't `await` async content getters, so this helper
+ * accepts the "edit-catalog → redeploy-to-update-nav" cadence for
+ * client-side UI — matching the pattern used by `siteSettingsFallback`.
  */
 export function servicesByUmbrellaFallback() {
   return UMBRELLAS.map((u) => ({

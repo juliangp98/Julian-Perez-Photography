@@ -15,15 +15,15 @@ export default function InquiryForm({
   defaultService?: string;
   // Discovery-call CTA on the success screen. Passed from the parent
   // server page so the client bundle doesn't need to pull siteSettings
-  // — after round 14a that value is Sanity-backed + async, which a
-  // client component can't await.
+  // — that value is Sanity-backed and async, which a client component
+  // can't await.
   discoveryCall: CallLink;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // Track referral selection so we can reveal a follow-up text field when
-  // the user picks "Other" — keeps the long tail of real sources visible
-  // without cluttering the dropdown.
+  // Track referral selection so the form can reveal a follow-up text
+  // field when the user picks "Other" — keeps the long tail of real
+  // sources visible without cluttering the dropdown.
   const [referral, setReferral] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {

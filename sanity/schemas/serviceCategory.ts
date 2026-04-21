@@ -4,20 +4,20 @@
 // `npm run seed:sanity`.
 //
 // Notes on field choices:
-//   - `umbrella` is a reference to `categoryUmbrella` (decision 2B for
-//     round 14) so restructuring the umbrella set is an editor action,
-//     not a code change. The referenced doc's `id` must still match the
-//     `Umbrella` union in types.ts — code still keys off that id.
+//   - `umbrella` is a reference to `categoryUmbrella` (decision 2B) so
+//     restructuring the umbrella set is an editor action, not a code
+//     change. The referenced doc's `id` must still match the `Umbrella`
+//     union in types.ts — code still keys off that id.
 //   - `heroImage` is a plain string (path to /public/<slug>/...)
 //     rather than a Sanity image asset. This keeps the Lightroom →
-//     public/ import workflow intact (decision 1A) — we don't want
-//     editors uploading hero images in Studio that diverge from the
-//     Lightroom-exported source of truth.
+//     public/ import workflow intact (decision 1A); editors uploading
+//     hero images in Studio would diverge from the Lightroom-exported
+//     source of truth.
 //   - `intro`, `comboNote`, and `faqs[].answer` allow markdown-flavored
 //     strings (used sparingly — e.g. one inline link in comboNote). The
 //     render layer (src/app/services/[category]/page.tsx) already parses
-//     a narrow markdown subset. We're not promoting to Portable Text
-//     here because the existing content is 99% plain paragraphs and
+//     a narrow markdown subset. Not promoted to Portable Text here
+//     because the existing content is 99% plain paragraphs and
 //     Portable Text is the wrong shape for "5–6 paragraphs + 1 link."
 //   - `hidden` mirrors the TS flag — hides the category from nav,
 //     listings, sitemap, and static-param generation without deleting.

@@ -1,20 +1,21 @@
-// Shared request-guard utilities for our public POST routes.
+// Shared request-guard utilities for public POST routes.
 //
-// Two concerns live here because both are request-gate checks you want to
-// run near the top of every route handler:
+// Two concerns live here because both are request-gate checks that run
+// near the top of every route handler:
 //
-//   1. Honeypot — a hidden `hp_company` field on every public form. Bots fill
-//      it; humans don't. We silently succeed when it's populated so the bot
-//      thinks the submission worked and moves on.
+//   1. Honeypot — a hidden `hp_company` field on every public form. Bots
+//      fill it; humans don't. Public routes silently succeed when it's
+//      populated so the bot thinks the submission worked and moves on.
 //   2. Rate limit — a per-IP token bucket, keyed by endpoint so a chatty
 //      uploader doesn't starve the inquiry form. In-memory only (not
 //      distributed); good enough for the current scale. Swap to
-//      `@upstash/ratelimit` if we outgrow it — keep this same signature.
+//      `@upstash/ratelimit` once this outgrows a single instance — keep
+//      the same signature.
 //
 // IP extraction uses `x-forwarded-for`, which Vercel sets to the real
 // client IP as the first entry. If it's missing (local dev, unusual
-// hosting), we fall back to a synthetic "unknown" bucket so the limiter
-// still caps abusive traffic in aggregate.
+// hosting), the limiter falls back to a synthetic "unknown" bucket so
+// abusive traffic is still capped in aggregate.
 
 import { NextResponse } from "next/server";
 
@@ -41,9 +42,9 @@ type Bucket = { count: number; resetAt: number };
 // fresh window. Different endpoints get different Maps via the `key` arg.
 const buckets = new Map<string, Bucket>();
 
-// Periodic cleanup so we don't leak memory on a long-lived instance.
-// Runs lazily on access — no setInterval, which would keep the process
-// alive on the edge runtime.
+// Periodic cleanup to keep the map from leaking memory on a long-lived
+// instance. Runs lazily on access — no setInterval, which would keep
+// the process alive on the edge runtime.
 let lastSweep = 0;
 function sweepExpired(now: number) {
   if (now - lastSweep < 60_000) return; // sweep at most once a minute

@@ -51,7 +51,7 @@ export default async function QuestionnairePage({
     getSiteSettings(),
   ]);
 
-  // Flatten any array query params to first value so we can pass a clean string map.
+  // Flatten any array query params to first value so prefill can be a clean string map.
   const prefill: Record<string, string> = {};
   for (const [k, v] of Object.entries(sp)) {
     if (typeof v === "string") prefill[k] = v;

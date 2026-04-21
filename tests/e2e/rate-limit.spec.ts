@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 // Hammer /api/inquire and expect a 429 once the per-IP bucket is full.
-// Limit is 5 per 10 min — we fire 6 and expect the last one to be
-// throttled. Uses request.post directly so we don't trigger the full
-// Resend send path (dev-mode fallback short-circuits anyway).
+// Limit is 5 per 10 min — the test fires 6 and expects the last one
+// to be throttled. Uses request.post directly to avoid triggering the
+// full Resend send path (dev-mode fallback short-circuits anyway).
 test("rate limit: /api/inquire 429s after the bucket is drained", async ({
   request,
 }) => {

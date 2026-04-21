@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
+  getFeaturedPost,
   getSiteSettings,
   getVisiblePortfolios,
   getVisibleServices,
 } from "@/lib/content";
 import GoogleReviews from "@/components/GoogleReviews";
+import FeaturedJournalPost from "@/components/FeaturedJournalPost";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -18,13 +20,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  // Settings + services + portfolios fetched in parallel — all three
-  // are React-cached so the layout / Footer / GoogleReviews components
-  // re-use the same resolved promise without re-hitting Sanity.
-  const [settings, services, portfolios] = await Promise.all([
+  // Settings + services + portfolios + featured post fetched in parallel
+  // — all four are React-cached so the layout / Footer / GoogleReviews
+  // components re-use the same resolved promises without re-hitting
+  // Sanity. Featured post can be null (no post flagged, or Sanity
+  // unreachable) — the section is then silently skipped.
+  const [settings, services, portfolios, featuredPost] = await Promise.all([
     getSiteSettings(),
     getVisibleServices(),
     getVisiblePortfolios(),
+    getFeaturedPost(),
   ]);
   return (
     <>
@@ -123,6 +128,9 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Featured journal post — null → section hidden, no empty shell */}
+      {featuredPost && <FeaturedJournalPost post={featuredPost} />}
 
       {/* Google Reviews */}
       <section className="border-t border-[var(--border)]">

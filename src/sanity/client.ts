@@ -1,30 +1,34 @@
-// Shared Sanity read client. Marketing pages (currently just /journal, more
-// coming in round 14) fetch through this so caching + API version stay uniform.
+// Shared Sanity read client. Every server-side fetch goes through this so
+// caching and API version stay uniform across the site.
 //
-// `useCdn: true` is correct for us even though we want fresh content: Next's
+// `useCdn: true` is correct here even when fresh content is desired: Next's
 // `fetch` layer holds the real freshness contract via `next: { revalidate }`
-// / `tags`, so the Sanity CDN is just a low-latency origin. Bypassing it only
-// buys us stale-reads-under-network-hiccup without any benefit.
+// / `tags`, so the Sanity CDN is just a low-latency origin. Bypassing it
+// only trades stale-reads-under-network-hiccup for no benefit.
 //
 // Why the placeholder projectId: `createClient({ projectId: "" })` throws
-// synchronously ("Configuration must contain `projectId`"), which breaks the
-// production build on fresh clones where env isn't set yet. Passing a
+// synchronously ("Configuration must contain `projectId`"), which breaks
+// the production build on fresh clones where env isn't set yet. Passing a
 // sentinel string keeps the client constructible, and every fetch path
 // gates on `isSanityConfigured()` before doing anything network-bound — so
 // the placeholder never leaks into an actual request. (An earlier version
 // used a lazy Proxy; @sanity/image-url reads projectId/dataset in a way
-// that didn't go through the Proxy, producing `cdn.sanity.io/images/undefined/undefined/...`
-// URLs. Eager construction with a placeholder sidesteps that entirely.)
+// that didn't go through the Proxy, producing
+// `cdn.sanity.io/images/undefined/undefined/...` URLs. Eager construction
+// with a placeholder sidesteps that entirely.)
 //
-// Draft-mode / preview token is deliberately NOT wired in this round — see the
-// round-13 plan at ~/.claude/plans/splendid-frolicking-journal.md ("Out of
-// scope"). When preview lands we'll create a second client here that takes
-// `perspective: 'previewDrafts'` + `token`.
+// Draft-mode / preview token is intentionally NOT wired here. Adding it
+// means a second `createClient()` that takes `perspective: 'previewDrafts'`
+// plus a read token read from `SANITY_API_READ_TOKEN`, and a small draft-
+// mode route pair (`/api/preview/enable` + `/api/preview/disable`) that
+// `cookies().set()` the draft-mode cookie. The Studio Presentation tool
+// would then point at those routes. Deferred until there's an editor
+// workflow that needs it.
 
 import { createClient } from "next-sanity";
 
-// apiVersion pinned to the date this round shipped so responses are stable
-// even if Sanity evolves defaults later. Bump intentionally, not on autopilot.
+// apiVersion pinned to a specific date so responses stay stable even if
+// Sanity evolves defaults later. Bump intentionally, not on autopilot.
 const API_VERSION = "2024-05-01";
 
 // Valid-shaped but obviously-not-real values used only when env is unset
@@ -36,9 +40,9 @@ const PLACEHOLDER_DATASET = "production";
 // Sanity validates projectId + dataset strings on `createClient()`
 // construction — if either fails, it throws synchronously and the Next
 // build crashes at module evaluation (every page that pulls in
-// src/lib/content.ts cascades here). We sanitize + validate first so a
-// misconfigured deploy env can't take the build down. Symptoms we've
-// seen in the wild:
+// src/lib/content.ts cascades here). The sanitize + validate pass
+// below runs first so a misconfigured deploy env can't take the build
+// down. Symptoms seen in the wild:
 //   - trailing whitespace from copy/paste
 //   - wrapping quotes (`"production"`) kept from a .env file when pasted
 //     into a deploy UI that treats them as literal
@@ -94,15 +98,15 @@ export const sanityClient = createClient({
   useCdn: true,
 });
 
-// Single truth for "do we have enough env to actually call Sanity?". The
-// journal pages consult this before fetching so a fresh clone without env
-// — or a deploy with a malformed env value — still builds + renders a
-// graceful placeholder instead of throwing. Same pattern we use for
-// Resend/Twilio in src/lib/mail.ts + src/lib/sms.ts.
+// Single truth for "is there enough env to actually call Sanity?". The
+// journal pages consult this before fetching so a fresh clone without
+// env — or a deploy with a malformed env value — still builds and
+// renders a graceful placeholder instead of throwing. Same pattern used
+// for Resend/Twilio in src/lib/mail.ts + src/lib/sms.ts.
 //
 // The `ok` flags come from the validator above: a projectId of
 // `PLACEHOLDER_PROJECT_ID` means either "unset" or "set-but-invalid" —
-// either way we shouldn't hit the network. Dataset validity matters
+// either way the client shouldn't hit the network. Dataset validity matters
 // because the image URL builder reads it directly and a bad value
 // produces `cdn.sanity.io/images/.../undefined/...` URLs downstream.
 export function isSanityConfigured(): boolean {

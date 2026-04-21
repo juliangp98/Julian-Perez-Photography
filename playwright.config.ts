@@ -1,12 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E smoke tests for the public-facing forms. These run against the
-// Next dev server (started by Playwright). We rely on the dev-mode
-// RESEND_API_KEY-absent fallback in the API routes so nothing is
-// actually emailed — the route returns `{ ok: true, dev: true }` and
-// logs the payload.
+// Next dev server (started by Playwright). The suite relies on the
+// dev-mode RESEND_API_KEY-absent fallback in the API routes so nothing
+// is actually emailed — the route returns `{ ok: true, dev: true }`
+// and logs the payload.
 //
-// If RESEND_API_KEY is set in your shell, the tests will send real
+// If RESEND_API_KEY is set in the shell, the tests will send real
 // emails. Unset it or use `.env.test` conventions before running.
 
 export default defineConfig({

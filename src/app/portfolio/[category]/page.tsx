@@ -8,10 +8,10 @@ import {
 } from "@/lib/content";
 import PortfolioGallery from "@/components/PortfolioGallery";
 
-// Async after round 14c — slugs come from Sanity when configured and
-// fall back to `portfoliosFallback` otherwise. Wrapped in try/catch so
-// a network hiccup at build time doesn't break the build; pages still
-// render on demand.
+// Slugs come from Sanity when configured and fall back to
+// `portfoliosFallback` otherwise. Wrapped in try/catch so a network
+// hiccup at build time doesn't break the build; pages still render
+// on demand.
 export async function generateStaticParams() {
   try {
     const portfolios = await getVisiblePortfolios();
@@ -38,12 +38,12 @@ export default async function PortfolioCategoryPage({
   params: Promise<{ category: string }>;
 }) {
   const { category } = await params;
-  // `getPortfolio` is async after round 14c — awaits the Sanity lookup.
+  // `getPortfolio` is async — awaits the Sanity lookup.
   const p = await getPortfolio(category);
   if (!p) notFound();
-  // `getService` is async after round 14b.2 — awaits the Sanity lookup
-  // so the pricing-page cross-link only renders if the service is
-  // currently visible in the catalog.
+  // `getService` is async — awaits the Sanity lookup so the pricing-
+  // page cross-link only renders if the service is currently visible
+  // in the catalog.
   const service = await getService(p.slug);
 
   return (

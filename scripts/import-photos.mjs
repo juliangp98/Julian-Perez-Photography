@@ -240,8 +240,8 @@ for (const slug of requestedSlugs) {
 }
 
 // ---------- preserve untouched slugs by reading their existing public dirs ----------
-// This makes single-slug imports safe — we don't want re-running with
-// --slug weddings to wipe the manifest entries for every other slug.
+// This makes single-slug imports safe — re-running with `--slug
+// weddings` should not wipe the manifest entries for every other slug.
 for (const slug of KNOWN_SLUGS) {
   if (processed[slug]) continue;
   const dir = join(publicPortfolio, slug);

@@ -8,8 +8,8 @@ export const metadata: Metadata = {
     "Wedding, engagement, family, portrait, brand, and event portfolios from across the DMV.",
 };
 
-// Async after round 14c — portfolios now live in Sanity with a 60s
-// revalidate + cache tag (same pattern as /services).
+// Async — portfolios live in Sanity with a 60s revalidate + cache tag
+// (same pattern as /services).
 export default async function PortfolioIndex() {
   const groups = (await getPortfoliosByUmbrella()).filter(
     (g) => g.items.length > 0,

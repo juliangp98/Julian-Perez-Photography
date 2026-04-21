@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ServicesIndex() {
-  // Async after round 14b.2 — `getServicesByUmbrella()` resolves from
-  // Sanity first (60s cached) and falls back to the hard-coded array
-  // when Sanity is unreachable or empty.
+  // Async getter — `getServicesByUmbrella()` resolves from Sanity first
+  // (60s cached) and falls back to the hard-coded array when Sanity is
+  // unreachable or empty.
   const groups = (await getServicesByUmbrella()).filter(
     (g) => g.items.length > 0,
   );

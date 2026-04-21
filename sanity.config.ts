@@ -1,14 +1,10 @@
 // Embedded Sanity Studio config — surfaces the Studio at /studio.
 //
-// Registered schemas grow one sub-round at a time. Rounds landed so far:
-//   - Round 13:    journalPost
-//   - Round 14a:   siteSettings (singleton)
-//   - Round 14b.1: categoryUmbrella + serviceCategory (+ pkg/addOn objects)
-//   - Round 14c:   portfolioCategory (metadata-only — binaries stay in /public)
-//   - Round 14d:   aboutPage (singleton)
-// With 14d landed, the full content graph is in Studio. Remaining work
-// is the webhook revalidation ticket (instant publish → site propagation)
-// and the deferred publish-then-assert e2e spec.
+// All schemas below are live in Studio: journalPost, siteSettings
+// (singleton), categoryUmbrella + serviceCategory (+ pkg/addOn inline
+// objects), portfolioCategory (metadata-only — binaries stay in
+// /public), and aboutPage (singleton). The full content graph is in
+// Studio; webhook revalidation wires publish → site propagation.
 
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
@@ -32,8 +28,9 @@ const SINGLETON_TYPES = new Set(["siteSettings", "aboutPage"]);
 
 // Locked-set types: fixed number of docs where the set is code-controlled
 // (e.g. categoryUmbrella mirrors the `Umbrella` union in src/lib/types.ts).
-// Editors can edit values but can't add or remove docs. Listed in the rail
-// normally (we want to see all 4 umbrellas); create/delete hidden below.
+// Editors can edit values but can't add or remove docs. Listed in the
+// rail normally (all 4 umbrellas stay visible); create/delete hidden
+// below.
 const LOCKED_SET_TYPES = new Set(["categoryUmbrella"]);
 
 // Union — both singletons and locked-sets get `+ New` hidden from the
@@ -90,9 +87,9 @@ export default defineConfig({
                   .documentId(SINGLETON_IDS.aboutPage),
               ),
             S.divider(),
-            // Services + Umbrellas — explicit list items so we can pin
-            // their ordering (lowest `order` first) rather than accept
-            // the default alphabetical sort.
+            // Services + Umbrellas — explicit list items so the rail
+            // pins their ordering (lowest `order` first) rather than
+            // accepting the default alphabetical sort.
             S.listItem()
               .title("Services")
               .id("serviceCategory")
@@ -120,7 +117,7 @@ export default defineConfig({
             S.divider(),
             // Auto-listed catalog for everything else (currently just
             // journalPost). Filter out the explicitly-listed types above
-            // and the singletons so we don't double-render.
+            // and the singletons to avoid double-rendering them.
             ...S.documentTypeListItems().filter((item) => {
               const id = item.getId() ?? "";
               return (
@@ -155,8 +152,8 @@ export default defineConfig({
         ? prev.filter((item) => !PROTECTED_TYPES.has(item.templateId))
         : prev,
     // Strip duplicate/delete/unpublish for protected types. Editors can
-    // still publish and discard draft changes, which is all we want them
-    // to do on these docs.
+    // still publish and discard draft changes, which is the intended
+    // surface for these docs.
     actions: (prev, { schemaType }) =>
       PROTECTED_TYPES.has(schemaType)
         ? prev.filter(

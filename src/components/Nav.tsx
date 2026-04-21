@@ -10,10 +10,10 @@ import {
 } from "@/lib/content";
 
 // Nav is a client component (it needs `usePathname()` to hide itself on
-// /studio) and can't `await` async content getters. We import the sync
-// *Fallback variants — `siteSettingsFallback` for `siteName` (14a),
-// `servicesByUmbrellaFallback()` for the Services megamenu (14b.2), and
-// `portfoliosByUmbrellaFallback()` for the Portfolio megamenu (14c).
+// /studio) and can't `await` async content getters. It imports the sync
+// *Fallback variants — `siteSettingsFallback` for `siteName`,
+// `servicesByUmbrellaFallback()` for the Services megamenu, and
+// `portfoliosByUmbrellaFallback()` for the Portfolio megamenu.
 // Staleness cadence across all three: "Julian restructures the catalog
 // → redeploy to update the nav," which matches the deploy cadence for
 // this class of change anyway.
@@ -40,10 +40,10 @@ export default function Nav() {
     };
   }, [mobileOpen]);
 
-  // Sanity Studio owns its own full-viewport UI; rendering our site chrome
-  // on /studio routes both steals vertical space and clashes with Studio's
-  // drag/drop + keyboard shortcuts. Must come AFTER hook declarations so
-  // React's hook-order invariant holds across renders.
+  // Sanity Studio owns its own full-viewport UI; rendering the site
+  // chrome on /studio routes both steals vertical space and clashes
+  // with Studio's drag/drop + keyboard shortcuts. Must come AFTER hook
+  // declarations so React's hook-order invariant holds across renders.
   if (pathname?.startsWith("/studio")) return null;
 
   return (
