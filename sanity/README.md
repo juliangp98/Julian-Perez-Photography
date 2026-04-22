@@ -2,7 +2,7 @@
 
 Sanity is the runtime source of truth for journal posts, site-wide settings, service categories (with their packages/add-ons/FAQs), the umbrella groupings that organize them, portfolio metadata, and the about-page copy. Every server-rendered page `await`s its content from `src/lib/content.ts`, which fetches from Sanity first and falls back to hard-coded defaults when unreachable. Client components (Nav megamenu, InquiryForm service select) keep using the sync `*Fallback` exports — catalog-shape churn flows into their bundles at the next deploy.
 
-Portfolio image binaries live in `/public` under the Lightroom → `npm run import-photos` workflow (decision 1A); Sanity stores metadata only and the manifest splice in `src/lib/content.ts` supplies real cover images + galleries at runtime. Publishes in Studio propagate to the site within one round-trip via `/api/sanity-webhook` → `revalidateTag(...)` + `revalidatePath(...)`; a 60s fetch-cache TTL is the fallback if the webhook is misconfigured.
+Portfolio image binaries live in `/public` under the Lightroom → `npm run import-photos` workflow; Sanity stores metadata only and the manifest splice in `src/lib/content.ts` supplies real cover images + galleries at runtime. Publishes in Studio propagate to the site within one round-trip via `/api/sanity-webhook` → `revalidateTag(...)` + `revalidatePath(...)`; a 60s fetch-cache TTL is the fallback if the webhook is misconfigured.
 
 ## Active schemas
 

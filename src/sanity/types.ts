@@ -47,7 +47,6 @@ export type JournalPostCard = {
 export type JournalPost = JournalPostCard & {
   // Sanity's inline images get transformed to `{ _type: "image", asset: {...}, alt, ... }`
   // alongside regular block content; PortableText's types call this union
-  // PortableTextBlock when typed loosely. Tighten later once a specific
-  // set of custom block types is settled on.
+  // PortableTextBlock when typed loosely.
   body: (PortableTextBlock | SanityImageAsset)[];
 };

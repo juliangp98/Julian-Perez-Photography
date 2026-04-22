@@ -5,18 +5,19 @@
 // HTML.
 //
 // Three groups of overrides:
-//  - `types.image`  → render inline images via next/image with LQIP blur
+//  - `types.image`  → render inline images via SafeImage (next/image +
+//    onError fallback) with LQIP blur
 //  - `block.h2/h3/blockquote` → brand typography (serif headings, accent rule)
 //  - `marks.link`  → external safety (noreferrer) + same-tab for internal
 //
 // Kept a plain component (no "use client") so it can be composed into the
-// journal detail page which is a server component. Next handles image
+// journal detail page which is a server component. The image serializer
+// renders as a client island via SafeImage; Next still handles the image
 // optimization server-side regardless.
 //
 // The same component can render About-page body content if that ever moves
 // to Portable Text — no changes expected.
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   PortableText as BasePortableText,
@@ -24,6 +25,7 @@ import {
   type PortableTextMarkComponentProps,
   type PortableTextTypeComponentProps,
 } from "@portabletext/react";
+import SafeImage from "@/components/SafeImage";
 import { urlFor } from "@/sanity/image";
 import type { SanityImageAsset } from "@/sanity/types";
 
@@ -44,7 +46,7 @@ function InlineImage({ value }: PortableTextTypeComponentProps<InlineImageValue>
   const src = urlFor(value).width(1600).fit("max").auto("format").url();
   return (
     <figure className="my-8">
-      <Image
+      <SafeImage
         src={src}
         alt={value.alt ?? ""}
         width={width}

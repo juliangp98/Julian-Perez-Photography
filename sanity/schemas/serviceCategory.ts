@@ -4,13 +4,13 @@
 // `npm run seed:sanity`.
 //
 // Notes on field choices:
-//   - `umbrella` is a reference to `categoryUmbrella` (decision 2B) so
+//   - `umbrella` is a reference to `categoryUmbrella` so
 //     restructuring the umbrella set is an editor action, not a code
 //     change. The referenced doc's `id` must still match the `Umbrella`
 //     union in types.ts — code still keys off that id.
 //   - `heroImage` is a plain string (path to /public/<slug>/...)
 //     rather than a Sanity image asset. This keeps the Lightroom →
-//     public/ import workflow intact (decision 1A); editors uploading
+//     public/ import workflow intact; editors uploading
 //     hero images in Studio would diverge from the Lightroom-exported
 //     source of truth.
 //   - `intro`, `comboNote`, and `faqs[].answer` allow markdown-flavored

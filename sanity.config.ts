@@ -46,10 +46,22 @@ const SINGLETON_IDS: Record<string, string> = {
   aboutPage: "aboutPage",
 };
 
+// Fail loud when the project id is missing instead of silently booting
+// Studio against an empty project. A blank id produces cryptic runtime
+// errors inside Studio (tokens mint, queries run, nothing ever comes
+// back) — a thrown error at module load surfaces the real problem.
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
+if (!projectId) {
+  throw new Error(
+    "NEXT_PUBLIC_SANITY_PROJECT_ID is required. " +
+      "Run `vercel env pull` or set it in .env.local.",
+  );
+}
+
 export default defineConfig({
   name: "julian-perez-photography",
   title: "Julian Perez Photography",
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "",
+  projectId,
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
   basePath: "/studio",
   plugins: [

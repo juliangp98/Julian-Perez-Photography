@@ -59,6 +59,11 @@ export default function QuestionnaireForm({
   const [hydrated, setHydrated] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // Displayed beneath the Download / Preview buttons on the success
+  // screen when a PDF generation attempt fails. Separate from the form's
+  // primary `errorMsg` so a post-submit PDF hiccup doesn't overwrite
+  // the submission's own status.
+  const [pdfErrorMsg, setPdfErrorMsg] = useState<string | null>(null);
   // Preserve submitted answers for the PDF download button after localStorage is cleared.
   const submittedAnswersRef = useRef<FormState | null>(null);
 
@@ -263,6 +268,9 @@ export default function QuestionnaireForm({
   const downloadPdf = useCallback(async () => {
     if (!submittedAnswersRef.current) return;
     setPdfDownloading(true);
+    // Clear any previous error message so a fresh attempt starts with a
+    // clean slate. The surfaced error below replaces whatever was there.
+    setPdfErrorMsg(null);
     try {
       const res = await fetch("/api/wedding-plan", {
         method: "POST",
@@ -272,7 +280,13 @@ export default function QuestionnaireForm({
           answers: submittedAnswersRef.current,
         }),
       });
-      if (!res.ok) throw new Error("PDF generation failed");
+      if (!res.ok) {
+        // Attempt to parse the JSON envelope (`{ error }`) for a
+        // server-supplied message; fall back to a generic line if the
+        // body isn't JSON or the key is missing.
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error ?? "PDF generation failed");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -282,6 +296,11 @@ export default function QuestionnaireForm({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("PDF download error:", err);
+      setPdfErrorMsg(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't generate the PDF. Please try again, or reply to the confirmation email and I'll send it over.",
+      );
     } finally {
       setPdfDownloading(false);
     }
@@ -312,6 +331,14 @@ export default function QuestionnaireForm({
                 ? "Generating PDF\u2026"
                 : "Download Wedding Day Plan (PDF)"}
             </button>
+            {pdfErrorMsg && (
+              <p
+                role="alert"
+                className="mt-3 text-sm text-red-700"
+              >
+                {pdfErrorMsg}
+              </p>
+            )}
           </div>
         )}
         {/* Call booking CTAs */}
@@ -833,13 +860,18 @@ function FileField({
     if (!selected || selected.length === 0) return;
     setMessage(null);
     setUploading(true);
-    // Dynamic import keeps @vercel/blob/client out of the initial client
-    // bundle for pages that don't use file fields.
-    const { upload } = await import("@vercel/blob/client");
-    const next = [...files];
-    const skipped: string[] = [];
-    let added = 0;
+    // The whole body runs inside try/catch/finally: the dynamic import
+    // below can throw on a chunk-load failure, and per-file uploads can
+    // throw on network errors. Either class of error should leave the
+    // UI in a consistent state (button re-enabled, message shown) rather
+    // than an unhandled rejection.
     try {
+      // Dynamic import keeps @vercel/blob/client out of the initial
+      // client bundle for pages that don't use file fields.
+      const { upload } = await import("@vercel/blob/client");
+      const next = [...files];
+      const skipped: string[] = [];
+      let added = 0;
       for (const file of Array.from(selected)) {
         if (next.length >= maxFiles) {
           skipped.push(`${file.name} (limit ${maxFiles})`);
@@ -871,6 +903,11 @@ function FileField({
       if (added > 0) parts.push(`Uploaded ${added} file${added === 1 ? "" : "s"}.`);
       if (skipped.length > 0) parts.push(`Skipped: ${skipped.join(", ")}`);
       setMessage(parts.length > 0 ? parts.join(" ") : null);
+    } catch (err) {
+      console.error("[questionnaire] file upload failed:", err);
+      setMessage(
+        "The uploader couldn't load. Please refresh and try again, or attach files to the confirmation email once it arrives.",
+      );
     } finally {
       setUploading(false);
     }

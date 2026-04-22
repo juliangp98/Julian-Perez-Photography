@@ -6,6 +6,14 @@
 // the sibling layout.tsx (server component) since client components can't
 // export those. The layout is what makes the Studio tab have the right
 // <title> and viewport scaling instead of inheriting the site defaults.
+//
+// The route is intentionally left publicly reachable. Sanity's own SSO
+// gates the content: an unauthenticated visitor sees the Studio shell and
+// a login prompt, nothing more. Wrapping the path in Vercel Authentication
+// would block Julian from reaching Studio on any browser he hasn't paired
+// with the Vercel team, which is worse than the "anyone can see the login
+// screen" baseline. `robots.ts` disallows the path so it stays out of
+// search indexes.
 
 "use client";
 

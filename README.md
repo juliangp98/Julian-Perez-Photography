@@ -246,6 +246,15 @@ The site is deployed to Vercel.
 - [ ] Run the photo importer for every slug with real galleries
 - [ ] Configure `SANITY_WEBHOOK_SECRET` and register the webhook in Sanity so publishes propagate instantly
 
+## Security
+
+Codebase protections (CSP, security headers, HMAC-verified webhook, XSS
+sanitization, origin checks, rate limiting) are enforced in the app itself.
+Credentials, dashboard configuration, and DNS posture — the bits that live
+outside the codebase — are tracked in `SECURITY.md` at the repo root. Walk
+through that checklist whenever an integration is added, a credential is
+suspected of being exposed, or on a quarterly cadence.
+
 ## Conventions
 
 This project targets Next.js 16 specifically. Read `AGENTS.md` before writing framework-touching code, and consult the matching doc under `node_modules/next/dist/docs/` if anything seems off — the conventions in 16 diverge from earlier majors.

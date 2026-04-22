@@ -12,9 +12,9 @@
 // OG image: when at least one post exists, use the latest post's cover so
 // social shares show something meaningful instead of the site default.
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
+import SafeImage from "@/components/SafeImage";
 import { getAllPosts } from "@/sanity/queries";
 import { isSanityConfigured } from "@/sanity/client";
 import { urlFor } from "@/sanity/image";
@@ -120,7 +120,7 @@ export default async function JournalIndex() {
             >
               <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
                 {cover.asset?.url && (
-                  <Image
+                  <SafeImage
                     src={urlFor(cover).width(900).height(1125).fit("crop").auto("format").url()}
                     alt={cover.alt ?? post.title}
                     width={dims?.width ?? 900}

@@ -1,8 +1,8 @@
-// Journal post — the editorial/behind-the-lens stories Julian publishes from
+// Journal post — the editorial/behind-the-lens stories I publish from
 // Sanity Studio. Intentionally minimal: title, slug, date, excerpt, cover,
 // body, tags, and a `featured` flag that surfaces one post on the home page.
 //
-// Images (cover + inline body images) use `hotspot: true` so Julian can
+// Images (cover + inline body images) use `hotspot: true` so I can
 // re-crop in Studio without re-uploading, and carry a required `alt` subfield
 // for accessibility — the rendering layer relies on this for <Image alt="…">.
 
@@ -83,13 +83,13 @@ export const journalPost = defineType({
       of: [{ type: "string" }],
       options: { layout: "tags" },
       description:
-        "Loose keywords (e.g. weddings, DMV, behind-the-scenes). Displayed on posts; tag-index pages come later.",
+        "Loose keywords (e.g. weddings, DMV, behind-the-scenes). Displayed on posts.",
     }),
     defineField({
       name: "featured",
       type: "boolean",
       initialValue: false,
-      description: "Reserved for home-page surfacing in a later round.",
+      description: "Reserved for home-page surfacing.",
     }),
   ],
   orderings: [

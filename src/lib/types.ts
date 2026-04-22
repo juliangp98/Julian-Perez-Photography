@@ -120,8 +120,8 @@ export type Testimonial = {
 //   - `heading`: top headline, e.g. "Hi, I'm Julian."
 //   - `bio`: array of plain-text paragraphs (not Portable Text — the
 //     copy is 3 plain paragraphs).
-//   - `headshot`: optional path to a /public image (Lightroom workflow,
-//     decision 1A). Not rendered yet; reserved for the feature landing.
+//   - `headshot`: optional path to a /public image (Lightroom workflow).
+//     Not rendered yet; reserved for the feature landing.
 // Cross-page info (coverage area, booking status, contact email) lives
 // on `SiteSettings` below — not duplicated here.
 export type AboutPage = {

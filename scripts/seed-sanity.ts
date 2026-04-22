@@ -27,7 +27,7 @@
  *
  *   Portfolios store metadata only — `coverImage` is a placeholder path
  *   overridden at runtime by src/lib/portfolio-manifest.ts (Lightroom
- *   workflow, decision 1A). Image binaries stay in /public and never
+ *   workflow). Image binaries stay in /public and never
  *   round-trip through Sanity.
  *
  * Why a standalone script and not a Studio "New document" action:

@@ -258,9 +258,18 @@ export function InquiryEmailTemplate({
 // Questionnaire email (sent to Julian)
 // ---------------------------------------------------------------------------
 
+// A field is either a plain `value` (string) or a `files` array for uploaded
+// attachments. Keeping the arms as discrete properties — rather than a single
+// HTML string — lets the renderer emit real `<a>` elements so React's
+// auto-escaping handles any filename characters safely. Filenames originate
+// from client uploads and must never be trusted as HTML.
+type EmailFieldValue =
+  | { label: string; value: string }
+  | { label: string; files: { url: string; name: string }[] };
+
 type SectionBlock = {
   title: string;
-  fields: { label: string; value: string; isFile?: boolean }[];
+  fields: EmailFieldValue[];
 };
 
 export function QuestionnaireEmailTemplate({
@@ -341,18 +350,30 @@ export function QuestionnaireEmailTemplate({
               >
                 {field.label}
               </Text>
-              {field.isFile ? (
-                <Text
+              {"files" in field ? (
+                // File-attachment fields render as real React links so the
+                // filename (which is user-supplied) is escaped by React
+                // rather than concatenated into an HTML string.
+                <div
                   style={{
                     fontSize: "14px",
                     color: FOREGROUND,
                     lineHeight: "22px",
                     margin: 0,
                   }}
-                  dangerouslySetInnerHTML={{
-                    __html: field.value,
-                  }}
-                />
+                >
+                  {field.files.map((file, i) => (
+                    <div key={i}>
+                      •{" "}
+                      <Link
+                        href={file.url}
+                        style={{ color: ACCENT, textDecoration: "underline" }}
+                      >
+                        {file.name}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <Text
                   style={{

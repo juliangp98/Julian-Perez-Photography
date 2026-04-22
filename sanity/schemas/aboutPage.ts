@@ -16,7 +16,7 @@
 //     contact email) lives on `siteSettings` and stays there — it's
 //     cross-page info, not about-specific.
 //   - `headshot` is a plain string path (same pattern as `heroImage` on
-//     services and `coverImage` on portfolios — decision 1A). The
+//     services and `coverImage` on portfolios). The
 //     /about page doesn't render a headshot yet; the field is here so
 //     editors can stage the path ahead of the feature landing.
 //   - Bio is `string[]` (plain paragraphs) rather than Portable Text.

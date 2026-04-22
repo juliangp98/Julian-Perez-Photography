@@ -12,9 +12,9 @@ import PackageCard from "@/components/PackageCard";
 import { renderInline } from "@/lib/inline";
 import { getQuestionnaire } from "@/lib/questionnaires";
 
-// Async after 14b.2 — slugs come from Sanity when configured and fall
-// back to the hard-coded array otherwise. Wrapped so a network hiccup
-// at build time doesn't break the build; pages still render on demand.
+// Slugs come from Sanity when configured and fall back to the
+// hard-coded array otherwise. Wrapped so a network hiccup at build
+// time doesn't break the build; pages still render on demand.
 export async function generateStaticParams() {
   try {
     const services = await getVisibleServices();

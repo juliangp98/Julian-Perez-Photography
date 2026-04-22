@@ -4,8 +4,8 @@
 // the portfolio index to cluster related categories together.
 //
 // Why this is a document type rather than a hard-coded enum:
-//   - Julian wants to be able to rename / restructure umbrellas without a
-//     code change (decision 2B). The machine `id` stays stable (it's
+//   - I am able to rename / restructure umbrellas without a
+//     code change. The machine `id` stays stable (it's
 //     referenced from code in generators and JSON-LD), but `title`,
 //     `tagline`, and `order` are editor-controlled.
 //   - Each serviceCategory holds a `reference → categoryUmbrella` so

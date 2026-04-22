@@ -275,8 +275,7 @@ export async function getServicesFromSanity(): Promise<
 // Individual fetch kept separate from `getServicesFromSanity()` so the
 // detail page doesn't pay to pull all 16 services just to render one.
 // Same projection, per-slug cache tag so a publish on a single service
-// only invalidates that page (once webhook revalidation lands in the
-// final round-14 ticket).
+// only invalidates that page.
 export async function getServiceBySlugFromSanity(
   slug: string,
 ): Promise<ServiceCategory | null> {
@@ -377,8 +376,7 @@ export async function getPortfoliosFromSanity(): Promise<
 
 // Individual fetch for the detail page — same pattern as
 // getServiceBySlugFromSanity. Per-slug cache tag so a publish on a
-// single portfolio only invalidates that page (once webhook
-// revalidation lands in the final round-14 ticket).
+// single portfolio only invalidates that page.
 export async function getPortfolioBySlugFromSanity(
   slug: string,
 ): Promise<PortfolioMetadata | null> {

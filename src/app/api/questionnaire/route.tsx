@@ -130,9 +130,15 @@ export async function POST(req: Request) {
 
   // ── Build structured sections for the branded email template ──
 
+  // Structured payload for the branded email renderer. The `fields` union
+  // mirrors the template's `EmailFieldValue` type — regular rows carry a
+  // string `value`, file-attachment rows carry a `files` array.
   const emailSections: {
     title: string;
-    fields: { label: string; value: string; isFile?: boolean }[];
+    fields: (
+      | { label: string; value: string }
+      | { label: string; files: { url: string; name: string }[] }
+    )[];
   }[] = [];
 
   // Also build a plain-text fallback alongside.
@@ -151,11 +157,13 @@ export async function POST(req: Request) {
     );
     if (populatedFields.length === 0) continue;
 
-    const emailFields: {
-      label: string;
-      value: string;
-      isFile?: boolean;
-    }[] = [];
+    // Accumulates one row per populated field. Regular answers carry a
+    // `value` string; file-attachment fields carry a `files` array so the
+    // email template can render React-escaped links rather than raw HTML.
+    const emailFields: (
+      | { label: string; value: string }
+      | { label: string; files: { url: string; name: string }[] }
+    )[] = [];
     lines.push(`── ${section.title.toUpperCase()} ──`);
 
     for (const f of populatedFields) {
@@ -177,11 +185,12 @@ export async function POST(req: Request) {
       }
       if (f.id === "referralOther") continue;
       if (f.type === "file") {
+        // File fields carry a structured `files` array so the email template
+        // can render real <a> elements. Never concatenate filenames into a
+        // raw HTML string — filenames are user-controlled and would bypass
+        // React's auto-escaping if passed through dangerouslySetInnerHTML.
         const files = parseFiles(v);
-        const htmlLinks = files
-          .map((file) => `• <a href="${file.url}">${file.name}</a>`)
-          .join("<br/>");
-        emailFields.push({ label: f.label, value: htmlLinks, isFile: true });
+        emailFields.push({ label: f.label, files });
         lines.push(`${f.label}:`);
         for (const file of files) {
           lines.push(`  • ${file.name} — ${file.url}`);

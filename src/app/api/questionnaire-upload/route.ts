@@ -18,6 +18,31 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/request-guard";
 
+// Origins that may legitimately request an upload token. The production
+// site, its www alias, local dev, and Vercel preview deployments. Anything
+// else is either a scripted probe from another origin or a misconfigured
+// client — returning 403 keeps a stray token from leaving the server while
+// the rate limit and MIME/size caps continue to protect the real flow.
+const ALLOWED_ORIGINS = new Set<string>([
+  "https://julianperezphotography.com",
+  "https://www.julianperezphotography.com",
+  "http://localhost:3000",
+]);
+
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  try {
+    const { hostname } = new URL(origin);
+    // Preview deployments rotate on every push; a static allowlist
+    // would reject them. Scope the wildcard to vercel.app so an
+    // attacker can't spoof it with an arbitrary subdomain of their own.
+    if (hostname.endsWith(".vercel.app")) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export async function POST(request: Request) {
   // Rate limit: 20 token requests / 10 min / IP. Each token = one file,
   // and the questionnaire's file field caps at 6 files so a real client
@@ -28,6 +53,16 @@ export async function POST(request: Request) {
     windowMs: 10 * 60 * 1000,
   });
   if (limited) return limited;
+
+  // Cross-origin guard. Browsers set `Origin` on every non-GET fetch,
+  // so a missing header generally means a non-browser caller (curl,
+  // server-to-server). Those are let through — the blob SDK itself
+  // calls this route from trusted Vercel infrastructure on upload
+  // completion, and rejecting them would break the upload handshake.
+  const origin = request.headers.get("origin");
+  if (origin && !isAllowedOrigin(origin)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let body: HandleUploadBody;
   try {

@@ -19,7 +19,7 @@
 // changes the metadata (title, description, umbrella). Changing an
 // actual image requires re-running `npm run import-photos`, not a
 // Sanity edit — the Lightroom workflow stays the source of truth for
-// binaries (decision 1A).
+// binaries.
 //
 // Every entry starts with `coverImage: "/portfolio/placeholder.svg"`
 // and `images: []`. The manifest replaces both at runtime for any

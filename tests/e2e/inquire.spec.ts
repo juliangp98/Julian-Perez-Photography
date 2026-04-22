@@ -21,7 +21,13 @@ test("inquiry form: fill required fields and submit → success screen", async (
 
   await page.getByRole("button", { name: /Send inquiry/i }).click();
 
+  // 30s (not 10s): the first POST to `/api/inquire` in a Playwright run
+  // triggers Turbopack's cold JIT compile of the route, which regularly
+  // takes ~9-10s before the handler even executes. A 10s assertion
+  // timeout races that compile step and flakes on first-start runs.
+  // 30s matches `actionTimeout` in `playwright.config.ts` and leaves
+  // headroom inside the test's 60s overall budget.
   await expect(page.getByRole("heading", { name: "Thank you." })).toBeVisible({
-    timeout: 10_000,
+    timeout: 30_000,
   });
 });

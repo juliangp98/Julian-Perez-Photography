@@ -19,8 +19,8 @@
 // "coming soon" placeholder) and keeps the component itself total about
 // rendering a present post.
 
-import Image from "next/image";
 import Link from "next/link";
+import SafeImage from "@/components/SafeImage";
 import { urlFor } from "@/sanity/image";
 import type { JournalPostCard } from "@/sanity/types";
 
@@ -70,7 +70,7 @@ export default function FeaturedJournalPost({
         >
           <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
             {coverUrl && (
-              <Image
+              <SafeImage
                 src={coverUrl}
                 alt={cover.alt ?? post.title}
                 width={dims?.width ?? 1200}

@@ -12,12 +12,12 @@
 // OG images go through `urlFor().width(1200).height(630)` so social shares
 // get a properly-sized crop rather than the asset's intrinsic dimensions.
 
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Script from "next/script";
 import type { Metadata } from "next";
 import { PortableText } from "@/components/PortableText";
+import SafeImage from "@/components/SafeImage";
 import { isSanityConfigured } from "@/sanity/client";
 import { urlFor } from "@/sanity/image";
 import {
@@ -163,7 +163,7 @@ export default async function JournalPostPage({
 
       {cover.asset?.url && (
         <figure className="mt-10 -mx-6 lg:mx-0">
-          <Image
+          <SafeImage
             src={urlFor(cover).width(1600).fit("max").auto("format").url()}
             alt={cover.alt ?? post.title}
             width={coverDims?.width ?? 1600}
@@ -228,7 +228,7 @@ export default async function JournalPostPage({
                 >
                   <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
                     {rCover.asset?.url && (
-                      <Image
+                      <SafeImage
                         src={urlFor(rCover)
                           .width(600)
                           .height(750)
