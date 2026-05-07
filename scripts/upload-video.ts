@@ -67,14 +67,32 @@ async function upload() {
   console.log(`✔ Uploaded.`);
   console.log(`  URL: ${result.url}`);
   console.log("");
+  console.log("  Next steps:");
   console.log(
-    "  Paste the URL above into the videoEntry's 'Blob URL' field in Sanity Studio,",
+    "    1. In Sanity Studio → Portfolios → Wedding Films → add a Video Entry.",
   );
   console.log(
-    "  set Source Kind to 'Self-hosted (Vercel Blob)', and remember to drop a",
+    "       Set Source Kind to 'Self-hosted (Vercel Blob)' and paste the URL",
+  );
+  console.log("       above into the Blob URL field.");
+  console.log(
+    "    2. Drop a thumbnail at /public/portfolio/wedding-films/thumbnails/<slug>.jpg",
   );
   console.log(
-    "  thumbnail at /public/portfolio/wedding-films/thumbnails/<slug>.jpg.",
+    "       (blob entries have no auto-thumbnail fallback — required).",
+  );
+  console.log("");
+  console.log(
+    "  Optional: also backfill the entry into wedding-films.videos[] in",
+  );
+  console.log(
+    "  src/lib/portfolios-data.ts so the film keeps rendering if Sanity is",
+  );
+  console.log(
+    "  ever unreachable. Studio is the source of truth for ongoing edits;",
+  );
+  console.log(
+    "  the data file is a fallback safety net.",
   );
 }
 

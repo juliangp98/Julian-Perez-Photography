@@ -168,12 +168,35 @@ export const portfoliosFallback: PortfolioCategory[] = [
     hidden: true,
   },
   // Wedding video archive. Lives at /portfolio/wedding-films and renders
-  // a video grid + lightbox instead of an image gallery. `videos` starts
-  // empty here — populated through Studio after seeding (or by editing
-  // this array and re-running `npm run seed:sanity`). `serviceSlug`
-  // points the "View pricing" cross-link at the wedding-video service
-  // page since the portfolio slug intentionally differs from the
-  // service slug.
+  // a video grid + lightbox instead of an image gallery.
+  //
+  // Editing model (Sanity-first, mirrors how services and photo
+  // portfolios already work):
+  //
+  //   - Day-to-day, add and edit videos directly in Sanity Studio. For
+  //     self-hosted (music-blocked) films, run `npm run upload-video --
+  //     ./path/to/film.mp4` first to push the file to Vercel Blob and
+  //     get a public URL, then paste that URL into the videoEntry's
+  //     "Blob URL" field in Studio. Studio is the source of truth for
+  //     ongoing edits.
+  //
+  //   - The `videos` array below is a fallback safety net. When Sanity
+  //     is unreachable the runtime falls through to this file wholesale
+  //     (all-or-nothing, same policy as services + photo portfolios),
+  //     so any entry that lives here keeps rendering during an outage.
+  //     Backfilling Studio-added films into this array is optional —
+  //     do it for the films you most want available offline (e.g. the
+  //     featured one, or anything actively driving inquiries).
+  //
+  //   - `npm run seed:sanity` is `createOrReplace` and overwrites the
+  //     wedding-films doc wholesale, including its videos array. Run
+  //     it on initial setup or when you intentionally want to reset
+  //     Sanity to match the code state — NOT for routine edits, since
+  //     it wipes any Studio-only films that aren't backfilled here.
+  //
+  // `serviceSlug` points the "View pricing" cross-link at the
+  // wedding-video service page since the portfolio slug intentionally
+  // differs from the service slug.
   {
     slug: "wedding-films",
     umbrella: "weddings-couples",
@@ -182,7 +205,41 @@ export const portfoliosFallback: PortfolioCategory[] = [
       "A small archive of recent wedding films — hybrid bookings where photo led, video-led ceremonies, and solo coverage.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
-    videos: [],
+    videos: [
+      // Optional fallback entries. Studio-managed by default; backfill
+      // here only for films that should keep rendering during a Sanity
+      // outage. Example shape (commented out — uncomment and fill in
+      // when backfilling, then re-run `npm run seed:sanity` only if
+      // you want to overwrite Studio with the code state):
+      //
+      // {
+      //   id: "sarah-marco-goodstone-2024",
+      //   title: "Sarah & Marco",
+      //   date: "2024-06-15",
+      //   venue: "Goodstone Inn, Middleburg VA",
+      //   description: "Outdoor ceremony with a candlelit reception.",
+      //   source: { kind: "youtube", videoId: "dQw4w9WgXcQ" },
+      //   // YouTube entries can leave thumbnail unset — the renderer
+      //   // falls back to maxresdefault.jpg from i.ytimg.com.
+      //   thumbnail: "/portfolio/wedding-films/thumbnails/sarah-marco.jpg",
+      //   durationSeconds: 612,
+      //   featured: true,
+      // },
+      // {
+      //   id: "alex-jordan-airlie-2024",
+      //   title: "Alex & Jordan",
+      //   date: "2024-09-21",
+      //   venue: "Airlie, Warrenton VA",
+      //   description: "Music-blocked highlight self-hosted on Vercel Blob.",
+      //   source: {
+      //     kind: "blob",
+      //     url: "https://abcd1234.public.blob.vercel-storage.com/wedding-films/alex-jordan.mp4",
+      //   },
+      //   // Blob entries MUST supply a thumbnail — there's no auto-fetch.
+      //   thumbnail: "/portfolio/wedding-films/thumbnails/alex-jordan.jpg",
+      //   durationSeconds: 540,
+      // },
+    ],
     serviceSlug: "wedding-video",
   },
 ];

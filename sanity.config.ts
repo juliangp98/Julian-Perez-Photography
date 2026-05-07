@@ -17,7 +17,10 @@ import {
   pkg,
   addOn,
 } from "./sanity/schemas/serviceCategory";
-import { portfolioCategory } from "./sanity/schemas/portfolioCategory";
+import {
+  portfolioCategory,
+  videoEntry,
+} from "./sanity/schemas/portfolioCategory";
 import { aboutPage } from "./sanity/schemas/aboutPage";
 
 // Singleton types: exactly one document of this type should exist in the
@@ -152,6 +155,7 @@ export default defineConfig({
       pkg,
       addOn,
       portfolioCategory,
+      videoEntry,
       aboutPage,
     ],
   },
