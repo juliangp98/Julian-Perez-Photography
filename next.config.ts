@@ -7,6 +7,7 @@ const SLUG_REDIRECTS: { from: string; to: string }[] = [
   { from: "family", to: "family-portraits" },
   { from: "promotional", to: "brand-commercial" },
   { from: "corporate-events", to: "corporate-community-events" },
+  { from: "wedding-video", to: "wedding-films" },
 ];
 
 // ---------------------------------------------------------------------------

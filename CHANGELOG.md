@@ -96,4 +96,4 @@ Tagged `journalPost` so the webhook's existing `revalidateTag("journalPost")` + 
 - `.ics` calendar attachment on the client inquiry-confirmation email
 - Client-facing inquiry status page (backlog #12)
 - Submission archive in a durable store (backlog #11) — unlocks follow-on analytics (#13) and SMS-nudge flows (#14)
-- Per-venue landing pages once ≥3 repeat shoots cluster at the same venue (backlog #7)
+- Per-venue landing pages once ≥3 repeat shoots cluster at the same venue (#7)

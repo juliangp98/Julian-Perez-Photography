@@ -72,7 +72,7 @@ export const pkg = defineType({
       name: "group",
       type: "string",
       description:
-        "Optional sub-section label — e.g. 'Solo' vs 'Group' for graduation packages, or 'Hybrid Photo + Video' vs 'Solo' for wedding-video tiers. Leave blank for most services.",
+        "Optional sub-section label — e.g. 'Solo' vs 'Group' for graduation packages, or 'Hybrid Photo + Video' vs 'Solo' for wedding-films tiers. Leave blank for most services.",
     }),
     defineField({
       name: "inclusions",
@@ -84,14 +84,14 @@ export const pkg = defineType({
       name: "crewSize",
       type: "string",
       description:
-        "Crew configuration for service categories where shooter count is part of the offer. Used by wedding-video tiers (e.g. 'Julian + 1 partner videographer'). Rendered as a small caption under the package name. Leave blank for photo packages where it does not apply.",
+        "Crew configuration for service categories where shooter count is part of the offer. Used by wedding-films tiers (e.g. 'Julian + 1 partner videographer'). Rendered as a small caption under the package name. Leave blank for photo packages where it does not apply.",
     }),
     defineField({
       name: "honestyNote",
       type: "text",
       rows: 3,
       description:
-        "Short disclosure paragraph rendered beneath the inclusions list, visually distinct from the bullet list. Used to name a tradeoff that the tier's price reflects (e.g. the gear-switch coverage gap on the wedding-video Solo Hybrid tier). Leave blank unless a tradeoff is worth disclosing publicly.",
+        "Short disclosure paragraph rendered beneath the inclusions list, visually distinct from the bullet list. Used to name a tradeoff that the tier's price reflects (e.g. the gear-switch coverage gap on the wedding-films Solo Hybrid tier). Leave blank unless a tradeoff is worth disclosing publicly.",
     }),
   ],
   preview: {

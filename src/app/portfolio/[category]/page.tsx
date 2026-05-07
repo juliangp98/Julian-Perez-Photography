@@ -43,10 +43,11 @@ export default async function PortfolioCategoryPage({
   const p = await getPortfolio(category);
   if (!p) notFound();
 
-  // Cross-link target. Falls back to the portfolio slug, which works for
-  // photo galleries that share a slug with their service. Video
-  // portfolios (wedding-films) override this so the link points at the
-  // matching service page (wedding-video).
+  // Cross-link target. Defaults to the portfolio's own slug — which
+  // works for every current portfolio, since each shares a slug with
+  // its matching service (photo galleries and the wedding-films video
+  // portfolio alike). The `serviceSlug` override exists for any future
+  // portfolio whose slug intentionally diverges from its service.
   const linkedServiceSlug = p.serviceSlug ?? (p.slug as string);
   // `getService` is async — awaits the Sanity lookup so the pricing-
   // page cross-link only renders if the service is currently visible

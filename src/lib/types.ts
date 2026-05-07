@@ -31,7 +31,7 @@ export const UMBRELLAS: { id: Umbrella; title: string; tagline: string }[] = [
 
 export type ServiceSlug =
   | "weddings"
-  | "wedding-video"
+  | "wedding-films"
   | "engagements-couples"
   | "graduation"
   | "portraiture"
@@ -48,11 +48,12 @@ export type ServiceSlug =
   | "brand-commercial"
   | "real-estate";
 
-// Portfolio slugs are mostly 1:1 with service slugs (every photo service has
-// a parallel gallery), but the wedding-films portfolio is its own category
-// — the underlying service is `wedding-video`. New portfolio-only slugs
-// extend this union without requiring a matching service entry.
-export type PortfolioSlug = ServiceSlug | "wedding-films";
+// Portfolio slugs are 1:1 with service slugs — every service has a
+// parallel portfolio category at the same slug. If a future portfolio
+// ever needs a slug that doesn't have a matching service, extend this
+// type with `| "<slug>"` and set the corresponding portfolioCategory's
+// `serviceSlug` field so the cross-link still resolves.
+export type PortfolioSlug = ServiceSlug;
 
 export type Package = {
   name: string;
@@ -64,14 +65,14 @@ export type Package = {
   featured?: boolean;
   group?: string; // Optional sub-section label (e.g. "Solo" vs "Group" for graduation).
   // Crew configuration string for service categories where the shooter
-  // count is part of the offer — currently used by wedding-video tiers
+  // count is part of the offer — currently used by wedding-films tiers
   // ("Julian + 1 partner videographer") and rendered as a small caption
   // under the package name. Other service categories leave this unset.
   crewSize?: string;
   // A short disclosure paragraph rendered beneath the inclusions list,
   // visually distinct from the bullet list. Used to name a tradeoff that
   // the tier's price reflects (e.g. the gear-switch coverage gap on the
-  // wedding-video Solo Hybrid tier). Optional everywhere; only populated
+  // wedding-films Solo Hybrid tier). Optional everywhere; only populated
   // where transparency about a tradeoff is part of the offering.
   honestyNote?: string;
 };
@@ -148,10 +149,10 @@ export type PortfolioCategory = {
   // whether `videos` is non-empty.
   videos?: VideoEntry[];
   // Optional override for the "View pricing" cross-link on the detail
-  // page. Defaults to `slug` when unset, which works for the photo
-  // galleries that share a slug with their service. The wedding-films
-  // portfolio sets this to "wedding-video" so the link points at the
-  // matching service page.
+  // page. Defaults to `slug` when unset, which works for every current
+  // portfolio (each shares a slug with its matching service). Set
+  // explicitly only if a future portfolio's slug intentionally diverges
+  // from its service's slug.
   serviceSlug?: ServiceSlug;
   hidden?: boolean;
 };

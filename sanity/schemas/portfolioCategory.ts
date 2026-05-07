@@ -204,7 +204,7 @@ export const portfolioCategory = defineType({
       name: "serviceSlug",
       type: "string",
       description:
-        "Optional override for the 'View pricing' cross-link on the detail page. Defaults to the portfolio's own slug, which works for galleries that share a slug with their service. Set this when the portfolio slug differs from the service slug — e.g., the wedding-films portfolio sets this to 'wedding-video' so the link points at the matching service page.",
+        "Optional override for the 'View pricing' cross-link on the detail page. Defaults to the portfolio's own slug, which works for every current portfolio (each shares a slug with its matching service). Set this only if a future portfolio's slug intentionally diverges from its service's slug.",
     }),
     defineField({
       name: "hidden",

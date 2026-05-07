@@ -1608,15 +1608,15 @@ export const services: ServiceCategory[] = [
     ],
   },
   // ==========================================================================
-  // WEDDING VIDEO (sibling to Weddings under the Weddings & Couples umbrella)
+  // WEDDING FILMS (sibling to Weddings under the Weddings & Couples umbrella)
   // ==========================================================================
   {
-    slug: "wedding-video",
+    slug: "wedding-films",
     umbrella: "weddings-couples",
-    title: "Wedding Video",
+    title: "Wedding Films",
     tagline: "Wedding films, told the way you'd tell the story yourself.",
     description:
-      "Wedding video coverage across the DMV — hybrid with photo or as a standalone film. Each booking configures around your priorities: photo-led with a partner videographer, video-led with a partner photographer, or solo coverage at lighter scopes.",
+      "Wedding film coverage across the DMV — hybrid with photo or as a standalone production. Each booking configures around your priorities: photo-led with a partner videographer, video-led with a partner photographer, or solo coverage at lighter scopes.",
     intro: [
       "A photo album captures the day. A wedding film captures how it felt. Photo is what I shoot most weekends, but for couples who want both — or who want video to be the centerpiece — I lead a small crew that produces cinematic, story-driven films alongside the photo work.",
       "Each booking, my crew configures around your priorities. If photo is the centerpiece of your day, I lead the photo side and bring a partner videographer to cover the film work. If video matters more — say, for a culturally significant ceremony, an out-of-town family member who can't attend, or a couple who values motion over stills — I'll lead the video team and bring a partner photographer. Same quality either way, single point of contact for both.",

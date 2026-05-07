@@ -194,9 +194,10 @@ export const portfoliosFallback: PortfolioCategory[] = [
   //     Sanity to match the code state — NOT for routine edits, since
   //     it wipes any Studio-only films that aren't backfilled here.
   //
-  // `serviceSlug` points the "View pricing" cross-link at the
-  // wedding-video service page since the portfolio slug intentionally
-  // differs from the service slug.
+  // The portfolio slug matches the matching service slug
+  // (`wedding-films` for both), so no `serviceSlug` override is needed
+  // — the page renderer's default `serviceSlug ?? slug` resolves the
+  // cross-link correctly.
   {
     slug: "wedding-films",
     umbrella: "weddings-couples",
@@ -240,6 +241,5 @@ export const portfoliosFallback: PortfolioCategory[] = [
       //   durationSeconds: 540,
       // },
     ],
-    serviceSlug: "wedding-video",
   },
 ];
