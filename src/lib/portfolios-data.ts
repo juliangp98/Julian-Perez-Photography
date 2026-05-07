@@ -167,4 +167,22 @@ export const portfoliosFallback: PortfolioCategory[] = [
     images: [],
     hidden: true,
   },
+  // Wedding video archive. Lives at /portfolio/wedding-films and renders
+  // a video grid + lightbox instead of an image gallery. `videos` starts
+  // empty here — populated through Studio after seeding (or by editing
+  // this array and re-running `npm run seed:sanity`). `serviceSlug`
+  // points the "View pricing" cross-link at the wedding-video service
+  // page since the portfolio slug intentionally differs from the
+  // service slug.
+  {
+    slug: "wedding-films",
+    umbrella: "weddings-couples",
+    title: "Wedding Films",
+    description:
+      "A small archive of recent wedding films — hybrid bookings where photo led, video-led ceremonies, and solo coverage.",
+    coverImage: "/portfolio/placeholder.svg",
+    images: [],
+    videos: [],
+    serviceSlug: "wedding-video",
+  },
 ];

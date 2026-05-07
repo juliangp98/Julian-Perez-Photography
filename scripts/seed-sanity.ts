@@ -177,6 +177,11 @@ async function seedServices() {
           featured: p.featured,
           group: p.group,
           inclusions: p.inclusions,
+          // Optional video-specific fields. Wedding-video tiers populate
+          // them; photo packages leave them undefined and `omitUndefined`
+          // strips them before upsert so the dataset stays clean.
+          crewSize: p.crewSize,
+          honestyNote: p.honestyNote,
         }),
       ),
       addOns: s.addOns?.map((a, idx) =>
@@ -209,6 +214,10 @@ async function seedPortfolios() {
   // `_id` at "portfolio-<slug>", array position seeds the `order`
   // field. `images[]` is intentionally NOT seeded — the manifest
   // owns that shape (see src/lib/portfolios-data.ts header comment).
+  // `videos[]` IS seeded when present — wedding-films starts empty
+  // and is populated through Studio after seeding. Each video's
+  // discriminated `source` is unpacked back into the flat
+  // sourceKind+youtubeId/blobUrl fields the schema expects.
   for (let i = 0; i < portfoliosFallback.length; i++) {
     const p = portfoliosFallback[i];
     const doc = omitUndefined({
@@ -222,6 +231,30 @@ async function seedPortfolios() {
       },
       description: p.description,
       coverImage: p.coverImage,
+      videos: p.videos?.map((v, idx) =>
+        omitUndefined({
+          _key: `video-${idx}`,
+          _type: "videoEntry",
+          id: v.id,
+          title: v.title,
+          date: v.date,
+          venue: v.venue,
+          description: v.description,
+          // Reverse the runtime discriminated union into the flat
+          // editor-friendly Studio fields. The query projection (in
+          // src/sanity/queries.ts) does the inverse on read.
+          sourceKind: v.source.kind,
+          youtubeId:
+            v.source.kind === "youtube" ? v.source.videoId : undefined,
+          blobUrl: v.source.kind === "blob" ? v.source.url : undefined,
+          thumbnail: v.thumbnail,
+          durationSeconds: v.durationSeconds,
+          featured: v.featured,
+          hidden: v.hidden,
+          order: v.order,
+        }),
+      ),
+      serviceSlug: p.serviceSlug,
       hidden: p.hidden,
       order: i,
     });

@@ -31,6 +31,7 @@ export const UMBRELLAS: { id: Umbrella; title: string; tagline: string }[] = [
 
 export type ServiceSlug =
   | "weddings"
+  | "wedding-video"
   | "engagements-couples"
   | "graduation"
   | "portraiture"
@@ -47,7 +48,11 @@ export type ServiceSlug =
   | "brand-commercial"
   | "real-estate";
 
-export type PortfolioSlug = ServiceSlug;
+// Portfolio slugs are mostly 1:1 with service slugs (every photo service has
+// a parallel gallery), but the wedding-films portfolio is its own category
+// — the underlying service is `wedding-video`. New portfolio-only slugs
+// extend this union without requiring a matching service entry.
+export type PortfolioSlug = ServiceSlug | "wedding-films";
 
 export type Package = {
   name: string;
@@ -58,6 +63,17 @@ export type Package = {
   inclusions: string[];
   featured?: boolean;
   group?: string; // Optional sub-section label (e.g. "Solo" vs "Group" for graduation).
+  // Crew configuration string for service categories where the shooter
+  // count is part of the offer — currently used by wedding-video tiers
+  // ("Julian + 1 partner videographer") and rendered as a small caption
+  // under the package name. Other service categories leave this unset.
+  crewSize?: string;
+  // A short disclosure paragraph rendered beneath the inclusions list,
+  // visually distinct from the bullet list. Used to name a tradeoff that
+  // the tier's price reflects (e.g. the gear-switch coverage gap on the
+  // wedding-video Solo Hybrid tier). Optional everywhere; only populated
+  // where transparency about a tradeoff is part of the offering.
+  honestyNote?: string;
 };
 
 export type AddOn = {
@@ -92,6 +108,34 @@ export type PortfolioImage = {
   blurDataURL: string;
 };
 
+// Discriminated source for a single portfolio video. YouTube entries embed
+// via iframe and can pull thumbnails automatically from i.ytimg.com; blob
+// entries play through an HTML5 <video> tag against a Vercel Blob URL and
+// require a manual thumbnail in /public.
+export type VideoSource =
+  | { kind: "youtube"; videoId: string }
+  | { kind: "blob"; url: string };
+
+export type VideoEntry = {
+  id: string; // slug-safe identifier; used as the React key + URL anchor
+  title: string;
+  date?: string; // ISO date "YYYY-MM-DD"; powers the natural-fill sort
+  venue?: string;
+  description?: string;
+  source: VideoSource;
+  // /public path to a manually-exported thumbnail. For YouTube entries
+  // this can be omitted — the renderer falls back to
+  // https://i.ytimg.com/vi/<videoId>/maxresdefault.jpg.
+  thumbnail?: string;
+  thumbnailWidth?: number;
+  thumbnailHeight?: number;
+  thumbnailBlurDataURL?: string;
+  durationSeconds?: number; // optional — rendered as M:SS overlay on the tile
+  featured?: boolean; // pin to the hero tile; most-recent-by-date wins ties
+  hidden?: boolean;
+  order?: number; // manual ordering in Studio; lower shows first
+};
+
 export type PortfolioCategory = {
   slug: PortfolioSlug;
   umbrella: Umbrella;
@@ -99,6 +143,16 @@ export type PortfolioCategory = {
   description: string;
   coverImage: string;
   images: PortfolioImage[];
+  // Optional video archive. Photo galleries leave this unset; the
+  // wedding-films portfolio populates it. The page renderer branches on
+  // whether `videos` is non-empty.
+  videos?: VideoEntry[];
+  // Optional override for the "View pricing" cross-link on the detail
+  // page. Defaults to `slug` when unset, which works for the photo
+  // galleries that share a slug with their service. The wedding-films
+  // portfolio sets this to "wedding-video" so the link points at the
+  // matching service page.
+  serviceSlug?: ServiceSlug;
   hidden?: boolean;
 };
 

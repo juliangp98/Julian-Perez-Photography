@@ -7,6 +7,7 @@ import {
   getVisiblePortfolios,
 } from "@/lib/content";
 import PortfolioGallery from "@/components/PortfolioGallery";
+import VideoGallery from "@/components/VideoGallery";
 
 // Slugs come from Sanity when configured and fall back to
 // `portfoliosFallback` otherwise. Wrapped in try/catch so a network
@@ -41,10 +42,22 @@ export default async function PortfolioCategoryPage({
   // `getPortfolio` is async — awaits the Sanity lookup.
   const p = await getPortfolio(category);
   if (!p) notFound();
+
+  // Cross-link target. Falls back to the portfolio slug, which works for
+  // photo galleries that share a slug with their service. Video
+  // portfolios (wedding-films) override this so the link points at the
+  // matching service page (wedding-video).
+  const linkedServiceSlug = p.serviceSlug ?? (p.slug as string);
   // `getService` is async — awaits the Sanity lookup so the pricing-
   // page cross-link only renders if the service is currently visible
   // in the catalog.
-  const service = await getService(p.slug);
+  const service = await getService(linkedServiceSlug);
+
+  // Video portfolios are identified by the presence of a `videos` array
+  // (regardless of length). Photo portfolios leave `videos` undefined.
+  // Empty video portfolios still render through VideoGallery so the
+  // user-facing "coming soon" copy stays domain-appropriate.
+  const isVideoPortfolio = p.videos !== undefined;
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
@@ -57,7 +70,7 @@ export default async function PortfolioCategoryPage({
         </Link>
         {service && (
           <Link
-            href={`/services/${p.slug}`}
+            href={`/services/${linkedServiceSlug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
             View <span className="hidden sm:inline">{p.title.toLowerCase()} </span>pricing →
@@ -67,18 +80,24 @@ export default async function PortfolioCategoryPage({
       <h1 className="mt-4 font-serif text-5xl">{p.title}</h1>
       <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
 
-      {p.images.length === 0 ? (
+      {isVideoPortfolio ? (
+        <div className="mt-12">
+          <VideoGallery videos={p.videos ?? []} />
+        </div>
+      ) : p.images.length === 0 ? (
         <div className="mt-16 p-10 border border-dashed border-[var(--border)] rounded-lg text-center">
           <p className="text-[var(--muted)]">
             Gallery coming soon — images will be added once exported from the
             previous site.
           </p>
-          <Link
-            href={`/services/${p.slug}`}
-            className="inline-block mt-6 px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-          >
-            View {p.title.toLowerCase()} pricing
-          </Link>
+          {service && (
+            <Link
+              href={`/services/${linkedServiceSlug}`}
+              className="inline-block mt-6 px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
+            >
+              View {p.title.toLowerCase()} pricing
+            </Link>
+          )}
         </div>
       ) : (
         <div className="mt-12">

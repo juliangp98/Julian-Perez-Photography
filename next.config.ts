@@ -50,17 +50,23 @@ const SECURITY_HEADERS = [
 
 // Content-Security-Policy directives. The allowlists mirror the third-
 // party origins actually in use: Sanity (CMS + CDN), Vercel (Analytics
-// + Speed Insights + Blob storage), Google (Analytics + Places review
-// avatars), Square Appointments (the `/book` iframe), and Pic-Time
-// (the `/client` gallery iframe).
+// + Speed Insights + Blob storage, including blob-hosted wedding
+// videos), Google (Analytics + Places review avatars), Square
+// Appointments (the `/book` iframe), Pic-Time (the `/client` gallery
+// iframe), and YouTube (wedding-films portfolio embeds + thumbnails
+// served from i.ytimg.com).
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.vercel-insights.com https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://cdn.sanity.io https://lh3.googleusercontent.com https://*.googleusercontent.com",
+  "img-src 'self' data: blob: https://cdn.sanity.io https://lh3.googleusercontent.com https://*.googleusercontent.com https://i.ytimg.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.sanity.io https://www.google-analytics.com https://*.vercel-insights.com https://*.vercel-scripts.com https://*.blob.vercel-storage.com",
-  "frame-src 'self' https://*.squareup.com https://*.pic-time.com",
+  // `media-src` governs <audio>/<video> sources. Blob-hosted wedding
+  // films play through Vercel Blob; without this directive, default-src
+  // 'self' blocks the cross-origin URL.
+  "media-src 'self' https://*.blob.vercel-storage.com",
+  "frame-src 'self' https://*.squareup.com https://*.pic-time.com https://www.youtube-nocookie.com https://www.youtube.com",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -73,12 +79,15 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Whitelist hostnames that next/image is allowed to optimize.
   // `cdn.sanity.io` is required for the journal — all coverImage +
-  // inline-image assets flow through that host. Without this,
-  // <Image src="https://cdn.sanity.io/..."> would throw at runtime
-  // with "hostname not configured".
+  // inline-image assets flow through that host. `i.ytimg.com` covers
+  // the auto-fetched YouTube thumbnails on the wedding-films portfolio
+  // for entries that don't supply a manual `/public` thumbnail. Without
+  // these, <Image src="..."> would throw at runtime with "hostname not
+  // configured".
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "cdn.sanity.io", pathname: "/**" },
+      { protocol: "https", hostname: "i.ytimg.com", pathname: "/vi/**" },
     ],
   },
   async redirects() {

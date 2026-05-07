@@ -243,7 +243,9 @@ const SERVICE_FIELDS = `
     duration,
     featured,
     group,
-    inclusions
+    inclusions,
+    crewSize,
+    honestyNote
   },
   addOns[] {
     name,
@@ -354,6 +356,27 @@ const PORTFOLIO_FIELDS = `
   "umbrella": umbrella->id,
   description,
   coverImage,
+  // GROQ select() collapses the flat sourceKind+youtubeId/blobUrl Studio
+  // shape back into the discriminated VideoSource union the renderer
+  // expects. Editors see two conditional fields; consumers see one
+  // structured object.
+  videos[] {
+    id,
+    title,
+    date,
+    venue,
+    description,
+    thumbnail,
+    durationSeconds,
+    featured,
+    hidden,
+    order,
+    "source": select(
+      sourceKind == "youtube" => { "kind": "youtube", "videoId": youtubeId },
+      sourceKind == "blob" => { "kind": "blob", "url": blobUrl }
+    )
+  },
+  serviceSlug,
   hidden,
   order
 `;

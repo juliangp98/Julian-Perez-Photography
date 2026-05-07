@@ -1607,4 +1607,230 @@ export const services: ServiceCategory[] = [
       },
     ],
   },
+  // ==========================================================================
+  // WEDDING VIDEO (sibling to Weddings under the Weddings & Couples umbrella)
+  // ==========================================================================
+  {
+    slug: "wedding-video",
+    umbrella: "weddings-couples",
+    title: "Wedding Video",
+    tagline: "Wedding films, told the way you'd tell the story yourself.",
+    description:
+      "Wedding video coverage across the DMV — hybrid with photo or as a standalone film. Each booking configures around your priorities: photo-led with a partner videographer, video-led with a partner photographer, or solo coverage at lighter scopes.",
+    intro: [
+      "A photo album captures the day. A wedding film captures how it felt. Photo is what I shoot most weekends, but for couples who want both — or who want video to be the centerpiece — I lead a small crew that produces cinematic, story-driven films alongside the photo work.",
+      "Each booking, my crew configures around your priorities. If photo is the centerpiece of your day, I lead the photo side and bring a partner videographer to cover the film work. If video matters more — say, for a culturally significant ceremony, an out-of-town family member who can't attend, or a couple who values motion over stills — I'll lead the video team and bring a partner photographer. Same quality either way, single point of contact for both.",
+      "I do the rough cut myself — culling, syncing, organizing footage, building the timeline — then a partner editor polishes from there: color, grade, audio mix, music sync. Two rounds of revisions are included on every tier.",
+      "Hybrid tiers are detailed first below. Solo tiers follow for couples who want only video coverage from me, or who want a single shooter who can switch into photography after the ceremony to keep the day-of cost down.",
+    ],
+    comboNote:
+      "Already have a photo package booked? Reach out and we'll talk through which video tier slots in — see the [Weddings page](/services/weddings) for photo tier inclusions. Hybrid bookings get a single contract and a single point of contact.",
+    packages: [
+      // Hybrid tiers — Julian + partner crew. Lead role decided on the
+      // consult call based on which craft is more central to the day.
+      {
+        name: "Documentary",
+        tagline: "Story-led record of the day, without a feature-length production",
+        price: "+$2,200 video over photo",
+        duration: "Up to 6 hr photo + up to 6 hr video",
+        group: "Hybrid Photo + Video",
+        crewSize: "Julian + 1 partner",
+        inclusions: [
+          "Photo gallery (per chosen photo tier)",
+          "4–6 minute highlight film",
+          "Multi-cam ceremony cut (30–60 min)",
+          "2 rounds of revisions",
+        ],
+      },
+      {
+        name: "Story Film",
+        tagline: "Full-day coverage with a deeper edit and pre-wedding interview",
+        price: "+$3,500 video over photo",
+        duration: "Full day photo + full day video",
+        group: "Hybrid Photo + Video",
+        featured: true,
+        crewSize: "Julian + 1 partner",
+        inclusions: [
+          "Photo gallery (per chosen photo tier)",
+          "6–9 minute highlight film",
+          "Multi-cam ceremony cut (30–60 min)",
+          "Multi-cam speeches cut",
+          "Multi-cam first dance cut",
+          "Couple sit-down interview (audio + video, ~30–45 min) cut into highlight as voiceover",
+          "2 rounds of revisions",
+        ],
+      },
+      {
+        name: "Cinematic",
+        tagline: "The full feature — two videographers, multi-cam coverage of every key moment",
+        price: "+$6,000 video over photo",
+        duration: "Full day + extended pre-event",
+        group: "Hybrid Photo + Video",
+        crewSize: "Julian + 2 partners",
+        inclusions: [
+          "Photo gallery (per chosen photo tier)",
+          "30–60 second social media teaser",
+          "9–13 minute highlight film",
+          "Multi-cam ceremony cut (30–60 min)",
+          "Multi-cam speeches cut",
+          "Multi-cam first dance cut",
+          "Multi-cam parent dances cut",
+          "Couple sit-down interview",
+          "Bridal party sit-down interview",
+          "Day-of run-and-gun guest interviews",
+          "Standalone 2–3 minute interview cut",
+          "Drone establishing shots (when conditions allow)",
+          "Engagement session b-roll capture",
+          "2 rounds of revisions",
+        ],
+      },
+      {
+        name: "Signature Film",
+        tagline: "Bespoke production for couples who want something specific",
+        price: "By Inquiry",
+        duration: "Custom",
+        group: "Hybrid Photo + Video",
+        inclusions: [
+          "Custom production scoped to your day",
+          "Extended interview work available",
+          "Multi-event coverage (rehearsal dinner, day-after brunch) available",
+          "Travel-heavy weddings — domestic and international",
+          "Reach out for a quote",
+        ],
+      },
+      // Solo tiers — Julian alone, or Julian + 1 partner videographer for the
+      // full-day variant. Standalone offerings for couples who don't want
+      // photo coverage from me, or who need a tighter budget.
+      {
+        name: "Solo Ceremony Film",
+        tagline: "Just the ceremony and a few key reception moments",
+        price: "Starting at $2,500",
+        duration: "Up to 4 hr",
+        group: "Solo",
+        crewSize: "Solo",
+        inclusions: [
+          "3–5 minute ceremony highlight",
+          "Multi-cam ceremony cut (2 cameras)",
+          "2 rounds of revisions",
+        ],
+      },
+      {
+        name: "Solo Hybrid",
+        tagline: "Ceremony video + rest-of-day photo, single shooter",
+        price: "Starting at $3,800",
+        duration: "Up to 4 hr video + up to 6 hr photo",
+        group: "Solo",
+        crewSize: "Solo",
+        honestyNote:
+          "The first 10–15 minutes after the recessional are gear-switch time — breaking down audio recorders, lav mics, and camera tripods, then reconfiguring to photo bodies. Immediately-post-ceremony candids will be limited. From cocktail hour onward, full photo coverage. If you want zero coverage gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
+        inclusions: [
+          "Photo gallery (matches Essentials photo package)",
+          "3–5 minute ceremony highlight",
+          "Multi-cam ceremony cut (2 cameras)",
+          "2 rounds of revisions",
+        ],
+      },
+      {
+        name: "Solo Story Film",
+        tagline: "Full-day video coverage with no photo from me",
+        price: "Starting at $5,000",
+        duration: "Full day",
+        group: "Solo",
+        crewSize: "Julian + 1 partner videographer",
+        inclusions: [
+          "6–9 minute highlight film",
+          "Full multi-cam ceremony cut",
+          "Key reception cuts (speeches + first dance)",
+          "2 rounds of revisions",
+        ],
+      },
+    ],
+    addOns: [
+      {
+        name: "Raw footage delivery",
+        price: "+$900",
+        description: "Full SD card download.",
+      },
+      {
+        name: "Social media teaser",
+        price: "+$400",
+        description:
+          "30–60 second teaser for sharing. Included at Cinematic.",
+      },
+      {
+        name: "Live-stream ceremony",
+        price: "+$1,200",
+        description: "Single-camera with audio. Requires venue Wi-Fi.",
+      },
+      {
+        name: "Additional hour of coverage",
+        price: "+$400/hr",
+        description: "Per shooter.",
+      },
+      {
+        name: "Additional videographer for the day",
+        price: "+$800/day",
+      },
+      {
+        name: "Engagement session b-roll capture",
+        price: "+$300",
+        description:
+          "Cutaway b-roll captured during the engagement session, used under interview voiceover in the highlight. Included at Cinematic.",
+      },
+      {
+        name: "Additional revision round",
+        price: "+$250/round",
+        description: "Beyond the 2 rounds included.",
+      },
+    ],
+    pricingNote:
+      "Travel mirrors photography travel fees. Paid in full at contract signing: free raw footage delivery + 10% off total package.",
+    faqs: [
+      {
+        question: "Why do you offer this if you're primarily a photographer?",
+        answer:
+          "Couples regularly ask for both, and the alternative — recommending two separate vendors — adds coordination work to a planning process that's already heavy. Hybrid coverage with a single point of contact is genuinely simpler.",
+      },
+      {
+        question: "How do you decide who leads photo vs. video?",
+        answer:
+          "On the consult call. Whichever craft is more central to your day is what I lead, and I bring a vetted partner for the other side.",
+      },
+      {
+        question: "Why is the multi-cam ceremony cut listed as 30–60 minutes?",
+        answer:
+          "Because ceremonies vary. A short courthouse-style ceremony might land closer to 30 minutes. A full Mass with Communion, multilingual readings, or extended cultural elements can run an hour or more. The cut covers what the ceremony actually was — start to finish, multi-cam.",
+      },
+      {
+        question: "Why is there a coverage gap in the Solo Hybrid tier?",
+        answer:
+          "Because I'm switching gear bags between ceremony and reception — breaking down audio recorders, lav mics, and camera tripods, and reconfiguring to photo bodies. Usually 10–15 minutes. If you want zero gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
+      },
+      {
+        question: "Can I add video to my existing photo booking?",
+        answer:
+          "Yes — reach out and we'll talk through which video tier slots into your existing package.",
+      },
+      {
+        question: "Who edits my video?",
+        answer:
+          "I do the initial cut — culling, syncing, organizing footage, assembling a rough timeline. A partner editor polishes from there: color, grade, audio mix, music sync. Two rounds of revisions are included; additional rounds are $250 each.",
+      },
+      {
+        question: "What's the turnaround on the final video?",
+        answer:
+          "Roughly 8–10 weeks for the highlight film and 10–12 weeks for the full multi-cam cuts. Specific dates land in the contract.",
+      },
+      {
+        question: "Do you do destination weddings?",
+        answer:
+          "Yes. Travel fees mirror the photography travel structure already published on the Weddings page.",
+      },
+      {
+        question: "What if I want a tier between Story Film and Cinematic?",
+        answer:
+          "Custom quotes are available — reach out and we'll talk through what would slot in. Most often this means Story Film with one or two Cinematic-tier add-ons (drone, social teaser, bridal party interviews) layered on top.",
+      },
+    ],
+  },
 ];

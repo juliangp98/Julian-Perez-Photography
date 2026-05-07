@@ -5,7 +5,7 @@ import {
   pkg,
   addOn,
 } from "./serviceCategory";
-import { portfolioCategory } from "./portfolioCategory";
+import { portfolioCategory, videoEntry } from "./portfolioCategory";
 import { aboutPage } from "./aboutPage";
 import { journalPost } from "./journalPost";
 
@@ -19,6 +19,7 @@ export const schemaTypes = [
   pkg,
   addOn,
   portfolioCategory,
+  videoEntry,
   aboutPage,
   journalPost,
 ];
@@ -30,5 +31,6 @@ export {
   pkg,
   addOn,
   portfolioCategory,
+  videoEntry,
   aboutPage,
 };
