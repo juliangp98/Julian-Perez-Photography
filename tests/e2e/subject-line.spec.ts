@@ -40,3 +40,25 @@ test("inquire: accepts a payload without eventDate", async ({ request }) => {
   });
   expect([200, 429]).toContain(res.status());
 });
+
+test("inquire: accepts a wedding-films service slug", async ({ request }) => {
+  // The wedding-films slug was added in the wedding-video → wedding-films
+  // rename. The handler resolves the service title via getService() and
+  // falls back to the raw slug when the catalog lookup misses. This test
+  // guards both the dropdown's slug (wedding-films) and the API's
+  // willingness to round-trip it.
+  const res = await request.post("/api/inquire", {
+    headers: { "x-forwarded-for": "10.99.4.1" },
+    data: {
+      name: "Wedding Films Test",
+      email: "films@example.com",
+      service: "wedding-films",
+      message: "Interested in the Story Film hybrid tier.",
+    },
+  });
+  expect([200, 429]).toContain(res.status());
+  if (res.status() === 200) {
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+  }
+});

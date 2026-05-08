@@ -32,6 +32,16 @@ export default function PackageCard({ pkg }: { pkg: Package }) {
         {pkg.duration && (
           <div className="text-sm text-[var(--muted)] mt-2">{pkg.duration}</div>
         )}
+        {/* Crew configuration sits adjacent to duration since both are
+            descriptive metadata about the offering. Photo packages leave
+            this unset; wedding-films hybrid + Solo Story Film tiers
+            populate it. */}
+        {pkg.crewSize && (
+          <div className="text-sm text-[var(--muted)] mt-1">
+            <span className="text-[var(--accent)] mr-2" aria-hidden>·</span>
+            {pkg.crewSize}
+          </div>
+        )}
       </div>
       <ul className="mt-5 space-y-2 text-sm flex-1">
         {pkg.inclusions.map((item) => (
@@ -41,6 +51,15 @@ export default function PackageCard({ pkg }: { pkg: Package }) {
           </li>
         ))}
       </ul>
+      {/* Honesty disclosure — surfaces a tradeoff that the tier's price
+          reflects (e.g. the gear-switch coverage gap on Solo Hybrid).
+          Visually distinct from the inclusions list above so it reads
+          as a disclosure rather than a feature bullet. */}
+      {pkg.honestyNote && (
+        <div className="mt-5 pt-4 border-t border-[var(--border)] text-xs leading-relaxed text-[var(--muted)] italic">
+          {pkg.honestyNote}
+        </div>
+      )}
     </div>
   );
 }

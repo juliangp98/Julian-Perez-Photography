@@ -49,3 +49,15 @@ test("a11y: /services/weddings has no violations", async ({ page }) => {
   const results = await runAxe(page);
   expect(results.violations).toEqual([]);
 });
+
+test("a11y: /services/wedding-films has no violations", async ({ page }) => {
+  await page.goto("/services/wedding-films");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});
+
+test("a11y: /portfolio/wedding-films has no violations", async ({ page }) => {
+  await page.goto("/portfolio/wedding-films");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});

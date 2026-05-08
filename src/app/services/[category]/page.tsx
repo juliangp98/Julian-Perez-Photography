@@ -9,6 +9,7 @@ import {
   getVisibleServices,
 } from "@/lib/content";
 import PackageCard from "@/components/PackageCard";
+import FeaturedReel from "@/components/FeaturedReel";
 import { renderInline } from "@/lib/inline";
 import { getQuestionnaire } from "@/lib/questionnaires";
 
@@ -148,6 +149,25 @@ export default async function ServiceCategoryPage({
         <p className="mt-5 text-lg text-[var(--muted)]">{s.description}</p>
       </div>
 
+      {(() => {
+        // Featured reel — pulls the `featured: true` video from the
+        // matching portfolio (currently only wedding-films populates a
+        // videos array). If multiple are featured, the most recent
+        // date wins. Hidden when no featured video exists; photo
+        // services have no `videos` array at all and never trigger it.
+        const featured = portfolio?.videos
+          ?.filter((v) => !v.hidden && v.featured)
+          .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
+        if (!featured) return null;
+        return (
+          <FeaturedReel
+            video={featured}
+            portfolioSlug={portfolio?.slug}
+            portfolioTitle={portfolio?.title}
+          />
+        );
+      })()}
+
       {s.intro && s.intro.length > 0 && (
         <div className="mt-12 max-w-3xl space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
           {s.intro.map((p, i) => (
@@ -230,6 +250,36 @@ export default async function ServiceCategoryPage({
         <p className="mt-10 text-sm text-[var(--muted)] italic max-w-2xl">
           {renderInline(s.pricingNote)}
         </p>
+      )}
+
+      {/* Visible FAQ block. The same FAQ array also feeds the FAQPage
+          JSON-LD above for Google rich results — Google's guidelines
+          require the structured-data content to be visible to users on
+          the page, so this section is the visible counterpart. Native
+          <details>/<summary> for keyboard + screen-reader accessibility
+          without a JS dependency. */}
+      {s.faqs && s.faqs.length > 0 && (
+        <div className="mt-20 max-w-3xl">
+          <h2 className="font-serif text-3xl">Frequently asked</h2>
+          <div className="mt-6 border-y border-[var(--border)] divide-y divide-[var(--border)]">
+            {s.faqs.map((faq) => (
+              <details key={faq.question} className="group py-5">
+                <summary className="flex justify-between items-baseline gap-6 cursor-pointer list-none font-medium text-base md:text-lg [&::-webkit-details-marker]:hidden">
+                  <span>{faq.question}</span>
+                  <span
+                    aria-hidden
+                    className="text-[var(--accent)] text-2xl leading-none transition-transform duration-200 group-open:rotate-45 shrink-0"
+                  >
+                    +
+                  </span>
+                </summary>
+                <div className="mt-3 text-[var(--muted)] leading-relaxed whitespace-pre-line">
+                  {faq.answer}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
       )}
 
       <div className="mt-16 max-w-3xl p-8 border border-[var(--accent)] rounded-lg bg-white">

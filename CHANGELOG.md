@@ -78,6 +78,36 @@ Tagged `journalPost` so the webhook's existing `revalidateTag("journalPost")` + 
 - **`/client`** — Pic-Time gallery portal embedded from `siteSettings.clientGalleryUrl`, same pattern as `/book`.
 - **Google Reviews** — `src/components/GoogleReviews.tsx` queries the Places API (New) on `GOOGLE_PLACES_API_KEY` + `GOOGLE_PLACE_ID` (both required), 24h fetch-cache. If unset or the call fails, manual testimonials from `siteSettings.testimonials` take over. If both are empty the component renders `null`.
 
+## Wedding films service
+
+A second wedding offering at `/services/wedding-films`, sibling to the existing `/services/weddings` photo service. Hybrid coverage (photo + video) decided per booking — Julian leads whichever craft is the centerpiece of the day, partner crew covers the other side. Three tier groups split via the `pkg.group` field rendered as labeled sub-sections on the service page:
+
+- **Hybrid Photo + Video tiers** — Documentary, Story Film, Cinematic, Signature Film. Prices are additive ("+$X added to your photo package") on top of whichever photo tier the couple picks. Single contract, single point of contact.
+- **Solo tiers** — Solo Ceremony Film, Solo Hybrid, Solo Story Film. Standalone offerings for couples who want only video coverage from Julian, or who want a single shooter who can switch into photography after the ceremony.
+- **A la carte** — raw footage, social teaser, live-stream, extra hour, extra videographer, engagement b-roll, additional revision rounds.
+
+`pkg.crewSize` renders as a small caption under each tier (e.g. "Julian + 1 partner"); `pkg.honestyNote` renders as a visually distinct disclosure block beneath the inclusions list — used on Solo Hybrid to name the 10–15 minute gear-switch coverage gap couples accept in exchange for the lower price.
+
+Editor model is Sanity-first with a code-side fallback: video entries are added through Studio (with `npm run upload-video` for music-blocked films that can't live on YouTube), and the hard-coded `services-data.ts` / `portfolios-data.ts` arrays serve both as the seed source and as the all-or-nothing fallback when Sanity is unreachable.
+
+## Wedding films portfolio
+
+Browsable archive at `/portfolio/wedding-films` rendering a video grid + lightbox. Each entry is a `videoEntry` sub-document on the parent `portfolioCategory` with a discriminated `source` union: YouTube embeds (auto-thumbnailed from `i.ytimg.com/vi/<id>/maxresdefault.jpg`) or self-hosted Vercel Blob videos (manual thumbnail at `/public/portfolio/wedding-films/thumbnails/<slug>.jpg`). The grid groups by featured-then-manual-order-then-date-descending; the featured entry spans 2×2 as a hero tile.
+
+Lightbox is `yet-another-react-lightbox`'s built-in Video plugin for HTML5 playback plus a custom `render.slide` for YouTube iframes via `youtube-nocookie.com`. The `videoEntry` schema includes conditional Studio fields — picking "YouTube" hides the Blob URL field and vice versa — so editors only see the relevant input.
+
+A `FeaturedReel` component pulls the same `featured: true` entry onto `/services/wedding-films` as a hero block above the tier grid, reusing the same lightbox shell so the playback experience is identical between the service and portfolio surfaces.
+
+CSP additions (Report-Only): `frame-src` += `youtube-nocookie.com` and `youtube.com`, new `media-src 'self' https://*.blob.vercel-storage.com` (governs `<video>` sources, doesn't fall back to default-src), `img-src` += `i.ytimg.com`. `next/image` `remotePatterns` likewise extended for `i.ytimg.com`.
+
+A YouTube ID normalizer in both `VideoGallery` and `FeaturedReel` accepts either a bare 11-char ID or any of the common pasted URL forms (watch, share, embed, shorts) so a quick paste from the address bar works without intermediate parsing.
+
+Visible FAQ accordion added to every service page — the existing `FAQPage` JSON-LD was emitted but had no on-page counterpart, which Google's rich-results guidelines technically require. Native `<details>`/`<summary>` for keyboard + screen-reader accessibility without a JS dependency.
+
+## Vercel Blob upload helper
+
+`npm run upload-video -- ./path/to/film.mp4` (`scripts/upload-video.ts`) pushes a local file to Vercel Blob with `access: "public"` and prints the URL ready for pasting into Studio. Uses the existing `BLOB_READ_WRITE_TOKEN` (same one already powering questionnaire uploads) — the token is safe to leave permanently in `.env.local`. Used for music-blocked films that YouTube would mute or block; YouTube-hosted entries don't need the script.
+
 ## Maintenance pass (this cleanup)
 
 - Removed orphaned Sanity-config files (`src/sanity/lib/`, `env.ts`, `structure.ts`, `schemaTypes/`) — zero runtime imports after verification.

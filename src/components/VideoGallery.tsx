@@ -153,6 +153,11 @@ export default function VideoGallery({ videos }: Props) {
                   }
                   placeholder={v.thumbnailBlurDataURL ? "blur" : "empty"}
                   blurDataURL={v.thumbnailBlurDataURL}
+                  // First tile is above the fold and is the LCP
+                  // candidate on the portfolio page. Eager-load it so
+                  // Next/Image doesn't lazy-load and delay the
+                  // largest contentful paint.
+                  priority={i === 0}
                   className="object-cover transition duration-500 group-hover:scale-[1.02]"
                 />
               ) : (
