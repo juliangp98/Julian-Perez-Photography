@@ -1620,17 +1620,16 @@ export const services: ServiceCategory[] = [
     intro: [
       "A photo album captures the day. A wedding film captures how it felt. Photo is what I shoot most weekends, but for couples who want both — or who want video to be the centerpiece — I lead a small crew that produces cinematic, story-driven films alongside the photo work.",
       "Each booking, my crew configures around your priorities. If photo is the centerpiece of your day, I lead the photo side and bring a partner videographer to cover the film work. If video matters more — say, for a culturally significant ceremony, an out-of-town family member who can't attend, or a couple who values motion over stills — I'll lead the video team and bring a partner photographer. Same quality either way, single point of contact for both.",
-      "I do the rough cut myself — culling, syncing, organizing footage, building the timeline — then a partner editor polishes from there: color, grade, audio mix, music sync. Two rounds of revisions are included on every tier.",
-      "Hybrid tiers are detailed first below. Solo tiers follow for couples who want only video coverage from me, or who want a single shooter who can switch into photography after the ceremony to keep the day-of cost down.",
+      "Solo tiers are detailed first for couples who want only video coverage from me, or who want a single shooter who can switch into photography after the ceremony to keep the day-of cost down. Hybrid tiers are detailed below that.",
     ],
     comboNote:
-      "Already have a photo package booked? Reach out and we'll talk through which video tier slots in — see the [Weddings page](/services/weddings) for photo tier inclusions. Hybrid bookings get a single contract and a single point of contact.",
+      "Already have a photo package booked? Reach out and we'll talk through which video tier slots in — see the [Weddings](/services/weddings) page for photo tier inclusions. Hybrid bookings get a single contract and a single point of contact.",
     packages: [
       // Hybrid tiers — Julian + partner crew. Lead role decided on the
       // consult call based on which craft is more central to the day.
       {
         name: "Documentary",
-        tagline: "Story-led record of the day, without a feature-length production",
+        tagline: "Story-led record of the day, with a short highlight film for easy sharing",
         price: "+$2,200 added to your photo package",
         duration: "Up to 6 hr photo + up to 6 hr video",
         group: "Hybrid Photo + Video",
