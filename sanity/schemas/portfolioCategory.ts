@@ -87,7 +87,7 @@ export const videoEntry = defineType({
       name: "youtubeId",
       type: "string",
       description:
-        "YouTube video ID — the part after `v=` in https://youtube.com/watch?v=... (e.g., 'dQw4w9WgXcQ').",
+        "Either the bare 11-character video ID (e.g. 'dQw4w9WgXcQ') or a full YouTube URL (watch, share, embed, or shorts) — the renderer extracts the ID automatically. The video must be Public or Unlisted; Private videos can't be embedded.",
       hidden: ({ parent }) =>
         (parent as { sourceKind?: string } | undefined)?.sourceKind !==
         "youtube",

@@ -1631,7 +1631,7 @@ export const services: ServiceCategory[] = [
       {
         name: "Documentary",
         tagline: "Story-led record of the day, without a feature-length production",
-        price: "+$2,200 video over photo",
+        price: "+$2,200 added to your photo package",
         duration: "Up to 6 hr photo + up to 6 hr video",
         group: "Hybrid Photo + Video",
         crewSize: "Julian + 1 partner",
@@ -1645,7 +1645,7 @@ export const services: ServiceCategory[] = [
       {
         name: "Story Film",
         tagline: "Full-day coverage with a deeper edit and pre-wedding interview",
-        price: "+$3,500 video over photo",
+        price: "+$3,500 added to your photo package",
         duration: "Full day photo + full day video",
         group: "Hybrid Photo + Video",
         featured: true,
@@ -1663,7 +1663,7 @@ export const services: ServiceCategory[] = [
       {
         name: "Cinematic",
         tagline: "The full feature — two videographers, multi-cam coverage of every key moment",
-        price: "+$6,000 video over photo",
+        price: "+$6,000 added to your photo package",
         duration: "Full day + extended pre-event",
         group: "Hybrid Photo + Video",
         crewSize: "Julian + 2 partners",

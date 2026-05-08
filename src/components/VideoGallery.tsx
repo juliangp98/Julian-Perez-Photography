@@ -29,11 +29,34 @@ import type { VideoEntry } from "@/lib/types";
 
 type Props = { videos: VideoEntry[] };
 
+// Tolerant parser for YouTube IDs. Studio's `youtubeId` field expects a
+// bare 11-char ID, but a quick paste from the address bar often lands a
+// full URL or a youtu.be short link in there instead. Accepts the most
+// common forms and returns just the ID; falls through unchanged when no
+// pattern matches so a malformed value still surfaces visibly in the
+// embed rather than getting silently coerced.
+function normalizeYouTubeId(input: string): string {
+  // Already a bare ID — YouTube IDs are 11 chars of [A-Za-z0-9_-].
+  if (/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
+  // youtu.be/<id>
+  const shortMatch = input.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+  // youtube.com/watch?...v=<id>
+  const watchMatch = input.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  if (watchMatch) return watchMatch[1];
+  // youtube.com/embed/<id> or youtube.com/shorts/<id>
+  const pathMatch = input.match(
+    /youtube\.com\/(?:embed|shorts|v)\/([A-Za-z0-9_-]{11})/,
+  );
+  if (pathMatch) return pathMatch[1];
+  return input;
+}
+
 // YouTube's auto-generated thumbnail. `maxresdefault.jpg` is the highest
 // resolution that's reliably available; some videos only have hqdefault
 // (480x360) so consumers should be tolerant of either size at render time.
 function youtubeThumbnail(videoId: string): string {
-  return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  return `https://i.ytimg.com/vi/${normalizeYouTubeId(videoId)}/maxresdefault.jpg`;
 }
 
 function formatDuration(seconds: number): string {
@@ -82,7 +105,7 @@ export default function VideoGallery({ videos }: Props) {
     if (v.source.kind === "youtube") {
       return {
         type: "youtube" as const,
-        videoId: v.source.videoId,
+        videoId: normalizeYouTubeId(v.source.videoId),
         title: v.title,
       };
     }
