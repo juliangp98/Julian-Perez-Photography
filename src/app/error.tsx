@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export default function RouteError({
   error,
@@ -21,10 +22,14 @@ export default function RouteError({
 }) {
   useEffect(() => {
     // `digest` is an opaque hash Next attaches so the client-side error
-    // can be correlated with the server log entry. Logging it here keeps
-    // a breadcrumb in the browser console until a structured reporter
-    // (Sentry, Axiom, etc.) is wired up.
+    // can be correlated with the server log entry. Logged to console
+    // for local dev visibility AND captured by Sentry — when a DSN is
+    // configured, the error lands in the project's Sentry org with the
+    // digest as a tag for cross-referencing with server logs.
     console.error("[route-error]", error.digest ?? "(no digest)", error);
+    Sentry.captureException(error, {
+      tags: { boundary: "route", digest: error.digest ?? "unknown" },
+    });
   }, [error]);
 
   return (

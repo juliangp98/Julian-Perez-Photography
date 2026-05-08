@@ -119,6 +119,12 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SANITY_DATASET` | no | Sanity dataset name — defaults to `production`. Change only if you provisioned a different dataset |
 | `SANITY_API_WRITE_TOKEN` | no (seed-only) | Editor-role token required **only** to run `npm run seed:sanity`. Create at sanity.io → Project → API → Tokens → +Add, seed, then delete from both `.env.local` and sanity.io — the runtime site never reads this value |
 | `SANITY_WEBHOOK_SECRET` | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup |
+| `BLOB_READ_WRITE_TOKEN` | yes (for blob uploads) | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads and by `npm run upload-video` for the wedding-films self-hosted path. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
+| `NEXT_PUBLIC_SENTRY_DSN` | no | Sentry DSN for error reporting. Without it the SDK is a no-op (no network calls, no console noise). Set in production for visibility into client + server failures. The DSN is public — exposing it in the client bundle is the intended path |
+| `SENTRY_DSN` | no | Server-runtime alias for `NEXT_PUBLIC_SENTRY_DSN`. The server config falls back to the public var when this is unset, so most setups only need the public one |
+| `SENTRY_ORG` | no (build-time) | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset |
+| `SENTRY_PROJECT` | no (build-time) | Sentry project slug. Build-time only — pairs with `SENTRY_ORG` |
+| `SENTRY_AUTH_TOKEN` | no (build-time) | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle |
 
 ## Scripts
 
@@ -130,6 +136,7 @@ cp .env.example .env.local
 | `npm run lint` | ESLint with `eslint.config.mjs` |
 | `npm run test:e2e` | Playwright smoke tests against a local dev server |
 | `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts` |
+| `npm run upload-video -- <path>` | Upload a local video file to Vercel Blob and print the public URL — used for music-blocked wedding films that can't live on YouTube |
 | `npm run seed:sanity` | Upsert the code-owned content graph into Sanity |
 
 ## Architecture notes
@@ -170,6 +177,63 @@ npm run import-photos -- --source ~/Desktop/lightroom-export --dry-run
 ```
 
 A file named `cover.jpg` or `hero.jpg` (any extension) is promoted to position 0 and used as the gallery's cover image. Re-running the script picks up new or removed images without touching Sanity or the portfolio fallback data.
+
+## Adding wedding films
+
+Wedding films land in two places: a Sanity-managed Video Entry on the `wedding-films` portfolio (canonical edit surface) and an optional code-side backfill in `src/lib/portfolios-data.ts` that keeps the entry available during a Sanity outage. Studio is the source of truth for routine edits; the data file is the safety net.
+
+Two upload paths depending on whether the soundtrack survives YouTube's audio-match scan.
+
+### YouTube path (preferred when the music isn't blocked)
+
+1. Upload the film to YouTube as Public or Unlisted (Private blocks embedding entirely; verify "Allow embedding" stays on under Edit video → Show more → Other options).
+2. In Sanity Studio → Portfolios → Wedding Films → add a Video Entry. Set Source Kind to "YouTube" and paste either the bare 11-character video ID or any URL form (watch, share, embed, shorts) — the renderer auto-extracts the ID.
+3. Thumbnail can be left blank — the renderer falls back to `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`.
+4. Fill title (couple's names), date, venue, optional description and duration. Set `featured: true` on the one film you want as the hero reel on `/services/wedding-films` (most recent featured wins if multiple are flagged).
+5. Publish in Studio. The webhook revalidates and the film appears on `/portfolio/wedding-films` within a second.
+
+### Self-hosted path (for music-blocked films)
+
+1. Re-encode to H.264 video + AAC audio in MP4 if the source isn't already (browsers won't play VP9/HEVC/AV1 from a `<video>` tag). One-liner:
+
+   ```bash
+   ffmpeg -i input.mp4 \
+     -c:v libx264 -preset slow -crf 22 \
+     -c:a aac -b:a 192k \
+     -movflags +faststart \
+     output-h264.mp4
+   ```
+
+   Or, when ripping with `yt-dlp`, pin the H.264 stream directly to skip the re-encode:
+
+   ```bash
+   yt-dlp -f 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]' \
+     --merge-output-format mp4 <url>
+   ```
+
+2. Upload to Vercel Blob:
+
+   ```bash
+   npm run upload-video -- ./path/to/output-h264.mp4
+   ```
+
+   The script reads `BLOB_READ_WRITE_TOKEN` from `.env.local`, uploads with `access: "public"`, and prints the public URL.
+
+3. Export a thumbnail frame to `public/portfolio/wedding-films/thumbnails/<slug>.jpg` (16:9, ~1280×720, JPEG quality ~80). One-liner with ffmpeg:
+
+   ```bash
+   ffmpeg -ss 00:01:30 -i ./path/to/output-h264.mp4 \
+     -vframes 1 -q:v 2 \
+     public/portfolio/wedding-films/thumbnails/<slug>.jpg
+   ```
+
+   Tune `-ss` to a representative timestamp. Blob entries don't have an auto-thumbnail fallback — the file is required.
+
+4. In Studio, add a Video Entry with Source Kind "Self-hosted (Vercel Blob)", paste the URL into Blob URL, and reference the thumbnail path (e.g. `/portfolio/wedding-films/thumbnails/<slug>.jpg`). Same metadata fields as the YouTube path.
+
+### Optional: backfill into the fallback array
+
+For any film that should keep rendering during a Sanity outage, append a matching `videoEntry` to `wedding-films.videos[]` in `src/lib/portfolios-data.ts` and re-run `npm run seed:sanity`. Otherwise the film lives only in Sanity. The seed script is `createOrReplace` — anything in Studio that isn't also in the data file gets wiped on the next seed run, so re-seed only when intentionally resetting.
 
 ## Embedded third-party tools
 

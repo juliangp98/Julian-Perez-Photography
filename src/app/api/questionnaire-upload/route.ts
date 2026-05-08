@@ -17,6 +17,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/request-guard";
+import * as Sentry from "@sentry/nextjs";
 
 // Origins that may legitimately request an upload token. The production
 // site, its www alias, local dev, and Vercel preview deployments. Anything
@@ -97,6 +98,9 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(jsonResponse);
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "questionnaire-upload" },
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Upload failed" },
       { status: 400 },

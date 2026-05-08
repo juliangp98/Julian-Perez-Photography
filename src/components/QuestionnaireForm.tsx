@@ -210,12 +210,52 @@ export default function QuestionnaireForm({
     }
   }
 
-  // Mid-form PDF preview for weddings. Validates required fields across
-  // every visible section (not just the current one, so clients don't
-  // get a half-empty plan), then opens the rendered PDF in a new tab.
-  // Pure read-side — no state mutation, no submission side-effects,
-  // and /api/wedding-plan never sends email.
+  // PDF generation is supported for the slugs that have a paired
+  // /api/<slug>-plan route + a React-PDF document component. Each entry
+  // maps a questionnaire slug to its route, output filename, and
+  // user-facing plan label. Adding a third PDF (e.g. cultural-milestones
+  // someday) is a one-line append plus a new route + component pair.
+  const PDF_PLANS: Record<
+    string,
+    { route: string; filename: string; label: string }
+  > = {
+    weddings: {
+      route: "/api/wedding-plan",
+      filename: "Wedding-Day-Plan.pdf",
+      label: "Wedding Day Plan",
+    },
+    "wedding-films": {
+      route: "/api/wedding-films-plan",
+      filename: "Wedding-Films-Plan.pdf",
+      label: "Wedding Films Plan",
+    },
+  };
+  const pdfPlan = PDF_PLANS[questionnaire.slug];
+
+  // Cross-prefill targets — the success screen surfaces a "continue
+  // planning the other side" button for hybrid-wedding couples. Maps
+  // the current slug to its complementary slug + a friendly label for
+  // the button. Hybrid bookings are the only current case; extending
+  // to other dual-form scenarios is a one-line addition.
+  const CROSS_PREFILL: Record<string, { slug: string; label: string }> = {
+    weddings: {
+      slug: "wedding-films",
+      label: "Continue planning the wedding films side",
+    },
+    "wedding-films": {
+      slug: "weddings",
+      label: "Continue planning the photo side",
+    },
+  };
+  const crossPrefill = CROSS_PREFILL[questionnaire.slug];
+
+  // Mid-form PDF preview. Validates required fields across every visible
+  // section (not just the current one, so clients don't get a half-empty
+  // plan), then opens the rendered PDF in a new tab. Pure read-side —
+  // no state mutation, no submission side-effects, and the PDF route
+  // never sends email.
   const previewPdf = useCallback(async () => {
+    if (!pdfPlan) return;
     // Build the same payload submit() would, but without side effects.
     const payload: Record<string, Value> = {};
     for (const sec of visibleSections) {
@@ -242,11 +282,11 @@ export default function QuestionnaireForm({
 
     setPreviewLoading(true);
     try {
-      const res = await fetch("/api/wedding-plan", {
+      const res = await fetch(pdfPlan.route, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service: "weddings",
+          service: questionnaire.slug,
           answers: payload,
         }),
       });
@@ -263,20 +303,20 @@ export default function QuestionnaireForm({
     } finally {
       setPreviewLoading(false);
     }
-  }, [visibleSections, state]);
+  }, [visibleSections, state, pdfPlan, questionnaire.slug]);
 
   const downloadPdf = useCallback(async () => {
-    if (!submittedAnswersRef.current) return;
+    if (!submittedAnswersRef.current || !pdfPlan) return;
     setPdfDownloading(true);
     // Clear any previous error message so a fresh attempt starts with a
     // clean slate. The surfaced error below replaces whatever was there.
     setPdfErrorMsg(null);
     try {
-      const res = await fetch("/api/wedding-plan", {
+      const res = await fetch(pdfPlan.route, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service: "weddings",
+          service: questionnaire.slug,
           answers: submittedAnswersRef.current,
         }),
       });
@@ -291,7 +331,7 @@ export default function QuestionnaireForm({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "Wedding-Day-Plan.pdf";
+      link.download = pdfPlan.filename;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -304,10 +344,34 @@ export default function QuestionnaireForm({
     } finally {
       setPdfDownloading(false);
     }
-  }, []);
+  }, [pdfPlan, questionnaire.slug]);
 
   if (status === "success") {
     const isWedding = questionnaire.slug === "weddings";
+    // Build the cross-prefill query string from shared field IDs that
+    // round-trip cleanly between weddings \u2194 wedding-films. Tier and
+    // package values intentionally don't propagate (the photo and video
+    // tiers don't share names); the receiving form's prefill mechanism
+    // ignores any unknown keys.
+    const SHARED_FIELDS = [
+      "fullName",
+      "email",
+      "phone",
+      "instagram",
+      "partnerFullName",
+      "partnerPronouns",
+      "bookingStatus",
+      "eventDate",
+    ];
+    let crossPrefillHref: string | null = null;
+    if (crossPrefill && submittedAnswersRef.current) {
+      const params = new URLSearchParams();
+      for (const id of SHARED_FIELDS) {
+        const v = submittedAnswersRef.current[id];
+        if (typeof v === "string" && v) params.set(id, v);
+      }
+      crossPrefillHref = `/questionnaire/${crossPrefill.slug}?${params.toString()}`;
+    }
     return (
       <div className="p-10 border border-[var(--accent)] rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
@@ -315,9 +379,9 @@ export default function QuestionnaireForm({
           Your answers are in my inbox. I&rsquo;ll review and reach out with next
           steps within 48 hours.
         </p>
-        {isWedding && submittedAnswersRef.current && (
+        {pdfPlan && submittedAnswersRef.current && (
           <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
-            <p className="text-sm font-medium">Your Wedding Day Plan</p>
+            <p className="text-sm font-medium">Your {pdfPlan.label}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
               A PDF copy was also sent to your email.
             </p>
@@ -329,7 +393,7 @@ export default function QuestionnaireForm({
             >
               {pdfDownloading
                 ? "Generating PDF\u2026"
-                : "Download Wedding Day Plan (PDF)"}
+                : `Download ${pdfPlan.label} (PDF)`}
             </button>
             {pdfErrorMsg && (
               <p
@@ -339,6 +403,21 @@ export default function QuestionnaireForm({
                 {pdfErrorMsg}
               </p>
             )}
+          </div>
+        )}
+        {crossPrefillHref && (
+          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+            <p className="text-sm font-medium">Booking hybrid coverage?</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              You can fill the matching questionnaire for the other side of
+              your booking \u2014 your basics will arrive prefilled.
+            </p>
+            <Link
+              href={crossPrefillHref}
+              className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+            >
+              {crossPrefill.label} \u2192
+            </Link>
           </div>
         )}
         {/* Call booking CTAs */}
@@ -510,13 +589,13 @@ export default function QuestionnaireForm({
             {status === "submitting" ? "Sending…" : "Submit questionnaire"}
           </button>
         )}
-        {isLast && questionnaire.slug === "weddings" && (
+        {isLast && pdfPlan && (
           <button
             type="button"
             onClick={previewPdf}
             disabled={previewLoading || status === "submitting"}
             className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm disabled:opacity-60"
-            title="Open a PDF preview of your Wedding Day Plan in a new tab"
+            title={`Open a PDF preview of your ${pdfPlan.label} in a new tab`}
           >
             {previewLoading ? "Generating preview…" : "Preview my plan (PDF)"}
           </button>

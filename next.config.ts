@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Permanent redirects from old service / portfolio slugs to the post-restructure
 // slugs. Keeps any existing inbound links and indexed search results from 404ing.
@@ -54,20 +55,26 @@ const SECURITY_HEADERS = [
 // + Speed Insights + Blob storage, including blob-hosted wedding
 // videos), Google (Analytics + Places review avatars), Square
 // Appointments (the `/book` iframe), Pic-Time (the `/client` gallery
-// iframe), and YouTube (wedding-films portfolio embeds + thumbnails
-// served from i.ytimg.com).
+// iframe), YouTube (wedding-films portfolio embeds + thumbnails served
+// from i.ytimg.com), and Sentry (error reporting — primary path is the
+// same-origin `/monitoring/sentry` tunnel, but direct ingest hosts are
+// allowlisted as a fallback for cases where the tunnel route is
+// unavailable).
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.vercel-insights.com https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://cdn.sanity.io https://lh3.googleusercontent.com https://*.googleusercontent.com https://i.ytimg.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.sanity.io https://www.google-analytics.com https://*.vercel-insights.com https://*.vercel-scripts.com https://*.blob.vercel-storage.com",
+  "connect-src 'self' https://*.sanity.io https://www.google-analytics.com https://*.vercel-insights.com https://*.vercel-scripts.com https://*.blob.vercel-storage.com https://*.sentry.io https://*.ingest.sentry.io",
   // `media-src` governs <audio>/<video> sources. Blob-hosted wedding
   // films play through Vercel Blob; without this directive, default-src
   // 'self' blocks the cross-origin URL.
   "media-src 'self' https://*.blob.vercel-storage.com",
   "frame-src 'self' https://*.squareup.com https://*.pic-time.com https://www.youtube-nocookie.com https://www.youtube.com",
+  // Sentry's SDK uses Web Workers for some replay / profiling paths —
+  // allow `blob:` workers so the SDK runs without violations.
+  "worker-src 'self' blob:",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -130,4 +137,34 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry's build-time integration so errors thrown by API
+// routes / server components / client components flow into the
+// project's Sentry org. The wrapper is a no-op at runtime when the
+// DSN is unset (see sentry.{client,server,edge}.config.ts); the
+// build-time source-map upload is gated separately on
+// `SENTRY_AUTH_TOKEN` being present, so local builds without that
+// token skip the upload step cleanly.
+export default withSentryConfig(nextConfig, {
+  // Build-time logging — silenced for clean CI output. Flip to false
+  // when debugging Sentry integration issues.
+  silent: true,
+  // Org + project are set from env so this file doesn't carry
+  // identity. Both come from the Sentry dashboard.
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Auth token is build-time only — never lives in Vercel's runtime
+  // env. Source maps upload only when this is present, which means
+  // local + preview builds without the token still succeed; only the
+  // production CI step ships symbolicated stack traces.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: {
+    // Remove source maps from the build output after they're uploaded
+    // to Sentry. Defends against the bundle leak that public source
+    // maps would otherwise create.
+    deleteSourcemapsAfterUpload: true,
+  },
+  // Tunnel Sentry traffic through a Next.js route so ad-blockers
+  // don't drop client-side error reports. Picks an obscure path so
+  // the tunnel itself isn't a crawl target.
+  tunnelRoute: "/monitoring/sentry",
+});

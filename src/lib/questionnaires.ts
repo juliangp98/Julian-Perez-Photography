@@ -2965,11 +2965,443 @@ const brandCommercialQuestionnaire: Questionnaire = {
 };
 
 // ----------------------------------------------------------------------------
+// Wedding-films questionnaire — parallel to the weddings questionnaire,
+// scoped to video-specific concerns (lead-role preference, ceremony
+// audio setup, drone permissions, pre-wedding interview prep, music
+// selections). Hybrid-tier couples typically fill both this and the
+// weddings questionnaire; the success-screen cross-prefill button
+// round-trips the shared fields (names, date, contact) so they don't
+// retype the basics.
+//
+// Field IDs that overlap with weddingQuestionnaire (`fullName`, `email`,
+// `phone`, `instagram`, `partnerFullName`, `partnerPronouns`,
+// `bookingStatus`, `package`, `eventDate`, `venueName`,
+// `venueAddress`, `ceremonyStart`, `anythingElse`) are intentional —
+// the cross-prefill mechanism relies on matching IDs to round-trip
+// values between the two forms.
+// ----------------------------------------------------------------------------
+
+const HYBRID_TIERS = [
+  "Documentary",
+  "Story Film",
+  "Cinematic",
+  "Signature Film",
+];
+const SOLO_TIERS = [
+  "Solo Ceremony Film",
+  "Solo Hybrid",
+  "Solo Story Film",
+];
+const TIERS_WITH_INTERVIEWS = ["Story Film", "Cinematic", "Signature Film"];
+const TIERS_WITH_ENGAGEMENT_BROLL = ["Story Film", "Cinematic"];
+const TIERS_WITH_DRONE = ["Cinematic", "Signature Film"];
+
+const weddingFilmsQuestionnaire: Questionnaire = {
+  slug: "wedding-films",
+  title: "Wedding films planning questionnaire",
+  intro:
+    "Welcome! This is the questionnaire I send to every booked wedding-films couple — it's how I learn the day inside and out so the crew shows up ready to roll camera. Hybrid couples (photo + video) fill this alongside the photo questionnaire; on the last screen I'll offer a one-click jump to the other side with your basics already filled in. Take your time. Answers autosave in your browser.",
+  audience: "Booked and prospective wedding-films couples",
+  estimatedMinutes: 20,
+  sections: [
+    yourDetailsSection,
+    {
+      title: "About the two of you",
+      fields: [
+        {
+          id: "partnerFullName",
+          label: "Your partner's full name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "partnerPronouns",
+          label: "Pronouns (yours and your partner's, optional)",
+          type: "text",
+          placeholder: "e.g. she/her & they/them",
+        },
+      ],
+    },
+    bookingStatusSection("wedding-films"),
+    {
+      title: "Lead-role preference",
+      description:
+        "Each booking, my crew configures around your priorities. Tell me which way you're leaning and we'll lock the call on our consult. Skip if you've booked a Solo tier — those are inherently solo coverage.",
+      showIf: { id: "package", notEqualsAny: SOLO_TIERS },
+      fields: [
+        {
+          id: "leadRolePreference",
+          label: "Who should lead photo vs. video on the day?",
+          type: "radio",
+          required: true,
+          options: [
+            "Photo led — I bring a partner videographer to cover film",
+            "Video led — I bring a partner photographer to cover photo",
+            "Defer to your recommendation on the consult call",
+          ],
+        },
+      ],
+    },
+    {
+      title: "The day",
+      description:
+        "Logistics that drive scheduling, crew positioning, and the multi-cam ceremony cut length.",
+      fields: [
+        {
+          id: "venueName",
+          label: "Venue name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "venueAddress",
+          label: "Venue address",
+          type: "textarea",
+          required: true,
+        },
+        {
+          id: "gettingReadyStart",
+          label: "What time do you start getting ready?",
+          type: "time",
+        },
+        {
+          id: "ceremonyStart",
+          label: "Ceremony start time",
+          type: "time",
+          required: true,
+        },
+        {
+          id: "receptionEnd",
+          label: "Reception end time",
+          type: "time",
+        },
+        {
+          id: "ceremonyType",
+          label: "Ceremony type",
+          type: "radio",
+          required: true,
+          options: [
+            "Religious",
+            "Civil",
+            "Cultural",
+            "Hybrid (religious + cultural / civil)",
+            "Other",
+          ],
+        },
+        {
+          id: "expectedCeremonyLength",
+          label: "Expected ceremony length",
+          type: "radio",
+          help:
+            "Drives the multi-cam ceremony cut length. Honest estimate is fine — we'll cover whatever the day actually runs.",
+          options: [
+            "Short — under 30 minutes (courthouse, civil)",
+            "Standard — 30–45 minutes",
+            "Full — 45 minutes to an hour",
+            "Extended — over an hour (full Mass, multilingual, cultural)",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Cultural and multilingual elements",
+      description:
+        "Anything in the ceremony or reception that affects runtime, crew positioning, or audio coverage. Weddings I love working hardest on are the ones where these traditions are central — tell me what matters.",
+      fields: [
+        {
+          id: "culturalElements",
+          label:
+            "Cultural traditions, religious sacraments, or multilingual readings to plan around",
+          type: "textarea",
+          help:
+            "E.g. Communion, multilingual vows, lasso ceremony, tea ceremony, baraat, garba, jumping the broom, etc.",
+        },
+      ],
+    },
+    {
+      title: "Audio setup",
+      description:
+        "Audio is the soul of a wedding film. The more I know up front, the cleaner the final mix.",
+      fields: [
+        {
+          id: "audioSetup",
+          label: "Which audio sources will be available on the day?",
+          type: "checkbox",
+          options: [
+            "Officiant available for a lapel mic",
+            "Groom / partner available for a lapel mic",
+            "DJ provides a board feed for reception speeches",
+            "Live band performing (will need a separate mic plan)",
+            "Acoustic ceremony only (no amplification)",
+            "Outdoor ceremony — wind / ambient noise considerations",
+          ],
+        },
+        {
+          id: "audioNotes",
+          label: "Anything else about audio at the venue?",
+          type: "textarea",
+          placeholder:
+            "Echo / reverb concerns, venue mic restrictions, prior couples' audio gotchas, etc.",
+        },
+      ],
+    },
+    {
+      title: "Drone footage",
+      description:
+        "Drone establishing shots are included at Cinematic and Signature when conditions allow. Verify with your venue ahead of time — many DMV-area venues restrict drones, and the FAA gates anything within 5 miles of an airport without a waiver.",
+      showIf: { id: "package", equalsAny: TIERS_WITH_DRONE },
+      fields: [
+        {
+          id: "droneAllowed",
+          label: "Does your venue allow drone use?",
+          type: "radio",
+          options: [
+            "Yes — venue confirmed in writing",
+            "Yes — verbal confirmation, will follow up before the day",
+            "No — venue or local ordinance restricts",
+            "Not sure yet — will verify",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Reception structure",
+      description:
+        "Speakers, dances, and any custom moments. Order matters — I plan multi-cam coverage around the run-of-show.",
+      fields: [
+        {
+          id: "speakers",
+          label: "Speakers and rough order",
+          type: "textarea",
+          placeholder:
+            "e.g. 1) Best man — toast, 2) Maid of honor — toast, 3) Father of the bride — speech, 4) Couple — thank-you",
+        },
+        {
+          id: "danceOrder",
+          label: "Dance order",
+          type: "textarea",
+          placeholder:
+            "First dance, parent dances (mother-son, father-daughter), anniversary dance, etc.",
+        },
+        {
+          id: "specialReceptionElements",
+          label:
+            "Other special reception moments to capture",
+          type: "textarea",
+          placeholder:
+            "Cake cutting, bouquet toss, late-night sparkler exit, surprise performances, anniversary dance, etc.",
+        },
+      ],
+    },
+    {
+      title: "Pre-wedding interview prep",
+      description:
+        "The interview is what turns a music montage into a documentary. We'll sit down for ~30–45 min in a quiet space ahead of the day; the audio cuts in as voiceover under highlight footage. Use the prompts below to start gathering your thoughts — no need to write polished answers, just bullet points work.",
+      showIf: { id: "package", equalsAny: TIERS_WITH_INTERVIEWS },
+      fields: [
+        {
+          id: "howWeMet",
+          label: "How did you two meet?",
+          type: "textarea",
+        },
+        {
+          id: "proposalStory",
+          label: "Tell me about the proposal",
+          type: "textarea",
+        },
+        {
+          id: "filmMessage",
+          label:
+            "What do you want said in the film that the day-of moments alone can't carry?",
+          type: "textarea",
+          help:
+            "Things you want preserved for your future selves to hear. Specific stories beat abstractions.",
+        },
+        {
+          id: "bridalPartyInterview",
+          label:
+            "Anyone in the bridal party you'd love to sit down with?",
+          type: "textarea",
+          showIf: { id: "package", equalsAny: ["Cinematic", "Signature Film"] },
+          help:
+            "Cinematic and Signature include bridal-party sit-down interviews. Names + relationship, plus any prompts you'd love them asked.",
+        },
+        {
+          id: "interviewSchedulingPreference",
+          label: "Scheduling preferences for the sit-down session",
+          type: "textarea",
+          placeholder:
+            "Date range, preferred location (home, my studio, neutral quiet space), time of day.",
+        },
+      ],
+    },
+    {
+      title: "Music and tone",
+      description:
+        "Music drives the highlight's emotional arc. I work with the editor to license tracks, but your input shapes the direction.",
+      fields: [
+        {
+          id: "musicLove",
+          label:
+            "Songs or artists you'd love to hear in the highlight",
+          type: "textarea",
+          help:
+            "Note: copyrighted commercial tracks usually can't be licensed for online distribution at our budget — we'll find similar-feel music from licensing-friendly catalogs. But knowing what moves you helps me direct the search.",
+        },
+        {
+          id: "musicAvoid",
+          label: "Songs or genres to avoid",
+          type: "textarea",
+        },
+        {
+          id: "moodKeywords",
+          label:
+            "Three words that describe the feeling you want the film to leave",
+          type: "text",
+          placeholder: "e.g. cinematic, intimate, joyful",
+        },
+      ],
+    },
+    {
+      title: "Engagement session b-roll",
+      description:
+        "Cinematic includes engagement-session b-roll capture; Story Film offers it as a $300 add-on. Cutaways from the engagement session intercut beautifully under interview voiceover.",
+      showIf: { id: "package", equalsAny: TIERS_WITH_ENGAGEMENT_BROLL },
+      fields: [
+        {
+          id: "engagementSessionDate",
+          label:
+            "Engagement session date (if scheduled)",
+          type: "date",
+        },
+        {
+          id: "engagementBRoll",
+          label:
+            "Want b-roll captured during the engagement session?",
+          type: "radio",
+          options: [
+            "Yes — bring a video body to the engagement session",
+            "No — keep the engagement session photo-only",
+            "Discuss on the consult call",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Live-stream coverage",
+      description:
+        "If you've added the live-stream a la carte, a few details to lock the setup ahead of the day.",
+      showIf: { id: "package", equalsAny: HYBRID_TIERS },
+      fields: [
+        {
+          id: "liveStreamPlanned",
+          label:
+            "Are you planning to add the ceremony live-stream a la carte?",
+          type: "radio",
+          options: ["Yes", "No", "Considering it"],
+        },
+        {
+          id: "liveStreamHeadcount",
+          label:
+            "Roughly how many remote viewers + locations?",
+          type: "textarea",
+          showIf: { id: "liveStreamPlanned", equals: "Yes" },
+          placeholder:
+            "e.g. ~30 viewers across grandparents in Spain, an aunt in Tokyo, a college friend in Australia.",
+        },
+        {
+          id: "liveStreamWifiCheck",
+          label: "Has the venue confirmed Wi-Fi reliability?",
+          type: "radio",
+          showIf: { id: "liveStreamPlanned", equals: "Yes" },
+          options: [
+            "Yes — confirmed adequate bandwidth",
+            "Not yet — will verify",
+            "No Wi-Fi at the venue (we'll need a hotspot)",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Sharing and delivery",
+      description:
+        "How you'd like the final film handled.",
+      fields: [
+        {
+          id: "sharingIntent",
+          label:
+            "How will you share the film?",
+          type: "radio",
+          options: [
+            "Publicly (social, YouTube, blog) — license music accordingly",
+            "Privately only (family + close friends)",
+            "Discuss case-by-case",
+          ],
+        },
+        {
+          id: "rawFootageDelivery",
+          label: "Want raw footage delivery?",
+          type: "radio",
+          help:
+            "Available as a $900 a la carte; free with paid-in-full at signing.",
+          options: [
+            "Yes — already in my package or I want to add it",
+            "No — the highlight + multi-cam cuts are enough",
+            "Discuss",
+          ],
+        },
+      ],
+    },
+    {
+      title: "Vendor coordination",
+      description:
+        "Other vendors I might need to pre-coordinate with.",
+      fields: [
+        {
+          id: "separatePhotographer",
+          label:
+            "Did you book a separate photographer for the day?",
+          type: "textarea",
+          showIf: { id: "package", equalsAny: SOLO_TIERS },
+          placeholder:
+            "Photographer name + contact, plus anything you'd like me to coordinate with them on.",
+        },
+        {
+          id: "plannerContact",
+          label: "Wedding planner / coordinator contact",
+          type: "textarea",
+          placeholder: "Name + email + phone",
+        },
+        {
+          id: "venueContact",
+          label: "Venue day-of contact",
+          type: "textarea",
+          placeholder: "Name + email + phone",
+        },
+      ],
+    },
+    {
+      title: "Anything else",
+      description:
+        "Anything I should know that wasn't in any of the boxes above.",
+      fields: [
+        {
+          id: "anythingElse",
+          label: "Anything else?",
+          type: "textarea",
+        },
+      ],
+    },
+  ],
+};
+
+// ----------------------------------------------------------------------------
 // Registry
 // ----------------------------------------------------------------------------
 
 export const QUESTIONNAIRES: Partial<Record<ServiceSlug, Questionnaire>> = {
   "weddings": weddingQuestionnaire,
+  "wedding-films": weddingFilmsQuestionnaire,
   "engagements-couples": engagementsCouplesQuestionnaire,
   "cultural-milestones": culturalMilestonesQuestionnaire,
   "family-portraits": familyPortraitsQuestionnaire,

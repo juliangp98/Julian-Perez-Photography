@@ -61,3 +61,11 @@ test("a11y: /portfolio/wedding-films has no violations", async ({ page }) => {
   const results = await runAxe(page);
   expect(results.violations).toEqual([]);
 });
+
+test("a11y: /questionnaire/wedding-films first section has no violations", async ({
+  page,
+}) => {
+  await page.goto("/questionnaire/wedding-films");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});

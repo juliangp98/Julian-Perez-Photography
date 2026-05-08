@@ -55,6 +55,13 @@ test("wedding-films service: page renders with grouped tiers and FAQ", async ({
   await expect(
     page.getByText(/Because I'm switching gear bags/i),
   ).toBeVisible();
+
+  // Once the wedding-films questionnaire is registered, the service
+  // page surfaces a "Start the questionnaire →" CTA. This guards the
+  // `getQuestionnaire(slug)` lookup against accidental regression.
+  await expect(
+    page.getByRole("link", { name: /Start the questionnaire/i }),
+  ).toBeVisible();
 });
 
 test("wedding-films legacy slug redirects", async ({ page }) => {

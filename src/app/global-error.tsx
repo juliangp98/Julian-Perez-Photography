@@ -10,6 +10,7 @@
 // this renders.
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export default function GlobalError({
   error,
@@ -20,6 +21,13 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("[global-error]", error.digest ?? "(no digest)", error);
+    // Capture root-layout failures with a higher-priority tag — these
+    // are catastrophic (the whole tree is unmountable) so they should
+    // be visible in Sentry separately from segment-level errors.
+    Sentry.captureException(error, {
+      tags: { boundary: "global", digest: error.digest ?? "unknown" },
+      level: "fatal",
+    });
   }, [error]);
 
   return (

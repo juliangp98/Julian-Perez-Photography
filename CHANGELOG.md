@@ -108,6 +108,34 @@ Visible FAQ accordion added to every service page — the existing `FAQPage` JSO
 
 `npm run upload-video -- ./path/to/film.mp4` (`scripts/upload-video.ts`) pushes a local file to Vercel Blob with `access: "public"` and prints the URL ready for pasting into Studio. Uses the existing `BLOB_READ_WRITE_TOKEN` (same one already powering questionnaire uploads) — the token is safe to leave permanently in `.env.local`. Used for music-blocked films that YouTube would mute or block; YouTube-hosted entries don't need the script.
 
+## Wedding films planning questionnaire
+
+A 16-section schema-driven planning questionnaire at `/questionnaire/wedding-films`, parallel to the existing weddings questionnaire and tailored to video-specific concerns: lead-role preference (photo-led vs. video-led), ceremony type and expected length, audio setup (lav mic availability, DJ board feed, live-band considerations), drone permissions at the venue, reception structure (speakers + dance order), pre-wedding interview prep prompts, music selections + tone keywords, engagement-session b-roll capture, live-stream coverage, sharing intent, and vendor coordination. Conditional `showIf` clauses scope sections by tier — drone questions appear only on Cinematic/Signature, interview-prep prompts on Story Film/Cinematic/Signature, the engagement-b-roll block on Story Film/Cinematic.
+
+The service-page CTA at `/services/wedding-films` ("Start the questionnaire →") auto-surfaces once the questionnaire is registered — no service-page change was required.
+
+## Wedding Films Plan PDF
+
+A `/api/wedding-films-plan` route mirrors `/api/wedding-plan` for the wedding-films questionnaire: same rate-limit + honeypot + required-field validation gates, same `apiError` envelope shape, same try/catch around `renderToBuffer`. The PDF document component (`src/lib/wedding-films-plan.tsx`) renders coverage overview + ceremony details + audio checklist + reception structure + interview prep + music/tone + sharing intent + vendor coordination, with conditional sections for drone (Cinematic/Signature only) and interviews (Story Film and up).
+
+The `QuestionnaireForm` component now picks the route + filename + label from a slug-keyed `PDF_PLANS` table instead of hard-coding `/api/wedding-plan` — adding a third PDF in the future is a one-line append plus a new route + component pair.
+
+## Cross-questionnaire prefill (hybrid bookings)
+
+Couples booking hybrid coverage (photo + video) ideally fill both `/questionnaire/weddings` and `/questionnaire/wedding-films`. The success screen on either now surfaces a "Continue planning the {other} side →" button that constructs a URL with the shared field values (`fullName`, `email`, `phone`, `instagram`, `partnerFullName`, `partnerPronouns`, `bookingStatus`, `eventDate`) URL-encoded as query params. The receiving form's existing prefill mechanism consumes those params automatically — no schema or component change to the receiving side. Tier and venue-specific fields intentionally don't propagate; the photo and video tier names diverge, and venue addresses live under different field IDs across the two forms.
+
+## Observability (Sentry)
+
+`@sentry/nextjs` is wired into the project. Three runtime config files (`sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) initialize the SDK when `NEXT_PUBLIC_SENTRY_DSN` (or the server-side `SENTRY_DSN`) is set, and no-op when unset so local dev without a DSN runs unchanged. `next.config.ts` is wrapped in `withSentryConfig` for build-time source-map upload (gated on `SENTRY_AUTH_TOKEN` so non-CI builds skip the upload step) and a same-origin tunnel route (`/monitoring/sentry`) that bypasses ad-blocker drops on client-side error reporting.
+
+`Sentry.captureException` calls land inside every existing API-route catch block (inquire, questionnaire, wedding-plan, wedding-films-plan, questionnaire-upload) plus the App Router error boundaries (`error.tsx`, `global-error.tsx`). Each call carries `tags: { route, stage }` so events group cleanly in the Sentry dashboard. Fire-and-forget side-effects (SMS, client confirmations) capture at `level: "warning"` to keep the primary failure dashboard signal-heavy.
+
+A `beforeSend` hook strips request body / headers / cookies from every captured event before send, leaving only the URL and method — questionnaire and inquiry payloads carry real client PII that should never leave the project's own infrastructure.
+
+CSP additions: `connect-src` += `*.sentry.io` + `*.ingest.sentry.io` (defensive; the same-origin tunnel route is the primary path), new `worker-src 'self' blob:` directive (Sentry's profiling features use Web Workers).
+
+A new `# Test + observability discipline` section in `AGENTS.md` codifies the standing requirement: every round of work that ships new code paths updates a smoke-level e2e test and adds Sentry instrumentation alongside the code.
+
 ## Maintenance pass (this cleanup)
 
 - Removed orphaned Sanity-config files (`src/sanity/lib/`, `env.ts`, `structure.ts`, `schemaTypes/`) — zero runtime imports after verification.

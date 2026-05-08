@@ -13,6 +13,7 @@ import {
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
+import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
 
 const schema = z.object({
@@ -135,6 +136,9 @@ export async function POST(req: Request) {
     if (error) throw error;
   } catch (err: unknown) {
     console.error("[inquire] Resend error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "inquire", stage: "owner-email" },
+    });
     const msg =
       err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
     const userMessage = msg.includes("valid")
@@ -161,6 +165,10 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[inquire] Client confirmation error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "inquire", stage: "client-confirmation" },
+      level: "warning",
+    });
   }
 
   // SMS confirmation — fire and forget. Only when the client supplied a
@@ -175,6 +183,10 @@ export async function POST(req: Request) {
       );
     } catch (err) {
       console.error("[inquire] SMS error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "inquire", stage: "sms" },
+        level: "warning",
+      });
     }
   }
 

@@ -18,6 +18,7 @@ import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
+import * as Sentry from "@sentry/nextjs";
 
 type Answers = Record<string, string | string[]>;
 
@@ -254,6 +255,9 @@ export async function POST(req: Request) {
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error("[questionnaire] PDF generation error:", detail);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "pdf-render" },
+      });
       warnings.push(`PDF generation failed: ${detail}`);
     }
   }
@@ -295,6 +299,9 @@ export async function POST(req: Request) {
     if (error) throw error;
   } catch (err: unknown) {
     console.error("[questionnaire] Resend error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "questionnaire", stage: "owner-email" },
+    });
     const msg =
       err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
     const userMessage = msg.includes("valid")
@@ -342,6 +349,10 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       console.error("[questionnaire] Client confirmation error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "client-confirmation" },
+        level: "warning",
+      });
     }
   }
 
@@ -359,6 +370,10 @@ export async function POST(req: Request) {
       );
     } catch (err) {
       console.error("[questionnaire] SMS error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "sms" },
+        level: "warning",
+      });
     }
   }
 

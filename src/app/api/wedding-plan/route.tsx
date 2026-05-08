@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 import { getQuestionnaire, visibleSectionsFor, evaluateShowIf } from "@/lib/questionnaires";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { apiError } from "@/lib/api-response";
+import * as Sentry from "@sentry/nextjs";
 
 type Answers = Record<string, string | string[]>;
 
@@ -79,6 +80,9 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[wedding-plan] PDF render failed:", err);
+    Sentry.captureException(err, {
+      tags: { route: "wedding-plan", stage: "pdf-render" },
+    });
     return apiError(500, "Could not generate the PDF. Please try again.");
   }
 }
