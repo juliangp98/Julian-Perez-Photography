@@ -15,13 +15,25 @@ Sentry.init({
     process.env.NODE_ENV !== "development" ||
     process.env.SENTRY_DEV === "1",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // 10% trace sampling in production — mirrors the Node server
+  // config so quota usage is predictable across runtimes.
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,
 
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  // PII off + request-stripping `beforeSend` — see the Node server
+  // config for the privacy rationale. Edge runtime has a narrower API
+  // surface (no `includeLocalVariables`) but the same data-flow stance
+  // applies.
+  sendDefaultPii: false,
+  beforeSend(event) {
+    if (event.request) {
+      event.request = {
+        url: event.request.url,
+        method: event.request.method,
+      };
+    }
+    return event;
+  },
 });

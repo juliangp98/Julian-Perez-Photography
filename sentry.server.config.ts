@@ -18,13 +18,38 @@ Sentry.init({
     process.env.NODE_ENV !== "development" ||
     process.env.SENTRY_DEV === "1",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // 10% trace sampling in production keeps event volume comfortably
+  // inside Sentry's Developer-tier quota (10k traces / month). The
+  // dev gate above means the higher dev-time sampling never fires
+  // outside of explicit `SENTRY_DEV=1` debugging.
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1,
+
+  // Attach captured local variable values to stack frames so a
+  // captured exception carries enough state to diagnose without a
+  // reproduction (e.g. which questionnaire field tripped the render).
+  // Node-only — not supported on the Edge runtime.
+  includeLocalVariables: true,
 
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  // PII off by default. Inquiry + questionnaire payloads carry real
+  // client names, emails, phone numbers, and free-form messages — the
+  // honeypot + rate-limit + HMAC chain everywhere else assumes that
+  // data stays inside this project's own infrastructure. The
+  // `beforeSend` strip below is a defense-in-depth backup in case
+  // Sentry's auto-attached request data still includes anything from
+  // headers / cookies.
+  sendDefaultPii: false,
+  beforeSend(event) {
+    // Drop request body / headers / cookies before send. Keep just
+    // the URL + method so events still group cleanly by route.
+    if (event.request) {
+      event.request = {
+        url: event.request.url,
+        method: event.request.method,
+      };
+    }
+    return event;
+  },
 });

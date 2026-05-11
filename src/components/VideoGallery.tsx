@@ -220,9 +220,31 @@ export default function VideoGallery({ videos }: Props) {
           // type: "video" natively, but YouTube embeds need an iframe.
           // Returning `undefined` falls through to the next renderer in
           // the chain (Video plugin or the lightbox's default).
-          slide: ({ slide }) => {
+          //
+          // The `offset` parameter is non-zero for pre-loaded
+          // neighbour slides that the lightbox mounts ahead of the
+          // user's swipe. Without gating on `offset === 0`, every
+          // mounted iframe carrying `autoplay=1` starts playing
+          // immediately — so opening one tile would kick off audio +
+          // tracking from every YouTube video in the gallery. Active
+          // slide gets the iframe; non-active slides render an empty
+          // placeholder, so each video only starts when it actually
+          // becomes the focused slide.
+          slide: ({ slide, offset }) => {
             const s = slide as { type?: string; videoId?: string };
             if (s.type !== "youtube" || !s.videoId) return undefined;
+            if (offset !== 0) {
+              return (
+                <div
+                  style={{
+                    width: "min(100%, 1200px)",
+                    aspectRatio: "16 / 9",
+                    margin: "0 auto",
+                    background: "rgba(0,0,0,0.4)",
+                  }}
+                />
+              );
+            }
             return (
               <div
                 style={{

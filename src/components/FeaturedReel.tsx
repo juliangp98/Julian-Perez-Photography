@@ -107,20 +107,27 @@ export default function FeaturedReel({
         <div className="absolute inset-0 flex items-center justify-center">
           <span
             aria-hidden
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm text-white text-3xl transition group-hover:bg-white/25"
+            className="flex h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 items-center justify-center rounded-full bg-white/15 backdrop-blur-sm text-white text-xl sm:text-2xl transition group-hover:bg-white/25"
           >
             ▶
           </span>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 p-6 text-left text-white">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-white/85">
+        {/* Overlay metadata sized to scale down with narrower tile
+            widths — the featured reel can land in a 2/5-column slot at
+            md+, so absolute sizes like `text-3xl` overflow before the
+            mobile-stack breakpoint kicks in. Padding + font ramps
+            mirror the tile's own width breakpoints. Title is clamped
+            to two lines so longer film names don't push the date row
+            below the play affordance. */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 lg:p-5 text-left text-white">
+          <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-white/85">
             Featured film
           </div>
-          <div className="mt-1 font-serif text-2xl md:text-3xl leading-tight">
+          <div className="mt-1 font-serif text-base sm:text-lg lg:text-xl leading-tight line-clamp-2">
             {video.title}
           </div>
           {(video.venue || video.date) && (
-            <div className="mt-1 text-xs uppercase tracking-[0.16em] text-white/80">
+            <div className="mt-1 text-[10px] sm:text-xs uppercase tracking-[0.16em] text-white/80 line-clamp-1">
               {[video.venue, video.date ? new Date(video.date).getFullYear() : null]
                 .filter(Boolean)
                 .join(" · ")}
