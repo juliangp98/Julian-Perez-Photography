@@ -145,31 +145,39 @@ const nextConfig: NextConfig = {
 // `SENTRY_AUTH_TOKEN` being present, so local builds without that
 // token skip the upload step cleanly.
 export default withSentryConfig(nextConfig, {
-  // Build-time logging — silenced for clean CI output. Flip to false
-  // when debugging Sentry integration issues.
-  silent: true,
-  // Org + project are set from env so this file doesn't carry
-  // identity. Both come from the Sentry dashboard.
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  // Auth token is build-time only — never lives in Vercel's runtime
-  // env. Source maps upload only when this is present, which means
-  // local + preview builds without the token still succeed; only the
-  // production CI step ships symbolicated stack traces.
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  sourcemaps: {
-    // Remove source maps from the build output after they're uploaded
-    // to Sentry. Defends against the bundle leak that public source
-    // maps would otherwise create.
-    deleteSourcemapsAfterUpload: true,
-  },
-  // Widen the set of client files included in the source-map upload so
-  // dynamically-imported chunks + middleware bundles get symbolicated
-  // too. Without it the bundler plugin defaults to a narrower file set
-  // that misses some App Router output.
+  // For all available options, see:
+  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
+
+  org: "julian-perez-photography",
+
+  project: "julian-perez-photography",
+
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
+
+  // For all available options, see:
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+  // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
-  // Tunnel Sentry traffic through a Next.js route so ad-blockers
-  // don't drop client-side error reports. Picks an obscure path so
-  // the tunnel itself isn't a crawl target.
-  tunnelRoute: "/monitoring/sentry",
+
+  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+  // This can increase your server load as well as your hosting bill.
+  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
+  // side errors will fail.
+  tunnelRoute: "/monitoring",
+
+  webpack: {
+    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
+    // See the following for more information:
+    // https://docs.sentry.io/product/crons/
+    // https://vercel.com/docs/cron-jobs
+    automaticVercelMonitors: true,
+
+    // Tree-shaking options for reducing bundle size
+    treeshake: {
+      // Automatically tree-shake Sentry logger statements to reduce bundle size
+      removeDebugLogging: true,
+    },
+  },
 });
