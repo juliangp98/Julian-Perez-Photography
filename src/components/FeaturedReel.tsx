@@ -79,7 +79,7 @@ export default function FeaturedReel({
         };
 
   return (
-    <div className="mt-12">
+    <div>
       <button
         type="button"
         onClick={() => setOpen(true)}

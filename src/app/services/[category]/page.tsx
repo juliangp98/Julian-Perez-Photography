@@ -150,31 +150,54 @@ export default async function ServiceCategoryPage({
       </div>
 
       {(() => {
-        // Featured reel — pulls the `featured: true` video from the
-        // matching portfolio (currently only wedding-films populates a
-        // videos array). If multiple are featured, the most recent
-        // date wins. Hidden when no featured video exists; photo
-        // services have no `videos` array at all and never trigger it.
+        // Featured reel + intro composition. Wedding-films populates a
+        // `videos` array and one entry may be `featured: true`; photo
+        // services have no `videos` so the reel is omitted.
+        //
+        // Layout rules:
+        //   - Reel + intro present  → two-column grid on md+ (intro 3/5,
+        //     reel 2/5). Stacked on mobile with the intro first so the
+        //     copy reads before the player.
+        //   - Intro only            → single column at the existing
+        //     prose width.
+        //   - Reel only             → reel renders alone at full
+        //     content width (rare; only if a service has zero intro
+        //     paragraphs).
         const featured = portfolio?.videos
           ?.filter((v) => !v.hidden && v.featured)
           .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
-        if (!featured) return null;
-        return (
+        const hasIntro = s.intro && s.intro.length > 0;
+        if (!featured && !hasIntro) return null;
+
+        const introBlock = hasIntro ? (
+          <div className="space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
+            {s.intro!.map((p, i) => (
+              <p key={i}>{renderInline(p)}</p>
+            ))}
+          </div>
+        ) : null;
+
+        const reelBlock = featured ? (
           <FeaturedReel
             video={featured}
             portfolioSlug={portfolio?.slug}
             portfolioTitle={portfolio?.title}
           />
-        );
-      })()}
+        ) : null;
 
-      {s.intro && s.intro.length > 0 && (
-        <div className="mt-12 max-w-3xl space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
-          {s.intro.map((p, i) => (
-            <p key={i}>{renderInline(p)}</p>
-          ))}
-        </div>
-      )}
+        if (reelBlock && introBlock) {
+          return (
+            <div className="mt-12 grid gap-8 lg:gap-12 md:grid-cols-5 md:items-start">
+              <div className="md:col-span-3 max-w-3xl">{introBlock}</div>
+              <div className="md:col-span-2">{reelBlock}</div>
+            </div>
+          );
+        }
+        if (introBlock) {
+          return <div className="mt-12 max-w-3xl">{introBlock}</div>;
+        }
+        return <div className="mt-12">{reelBlock}</div>;
+      })()}
 
       {s.comboNote && (
         <div className="mt-10 max-w-3xl p-5 border-l-2 border-[var(--accent)] bg-white rounded-r text-[var(--foreground)]/90 italic">
