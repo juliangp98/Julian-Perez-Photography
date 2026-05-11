@@ -15,6 +15,17 @@ if (dsn) {
   Sentry.init({
     dsn,
     tracesSampleRate: 0.1,
+    // Attach captured local variable values to stack frames so a
+    // captured exception carries enough state to diagnose without a
+    // reproduction (e.g. which questionnaire field tripped the
+    // render). Sentry redacts values that look like secrets server-
+    // side before display.
+    includeLocalVariables: true,
+    // Activate Sentry's Logs product so `Sentry.logger.*` calls land
+    // alongside captured exceptions. Useful for narrating non-error
+    // signals (e.g. webhook fired but skipped revalidation because
+    // the `_type` wasn't in the filter set).
+    enableLogs: true,
     enabled:
       process.env.NODE_ENV !== "development" ||
       process.env.SENTRY_DEV === "1",

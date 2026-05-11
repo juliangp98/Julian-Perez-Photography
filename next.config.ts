@@ -163,6 +163,11 @@ export default withSentryConfig(nextConfig, {
     // maps would otherwise create.
     deleteSourcemapsAfterUpload: true,
   },
+  // Widen the set of client files included in the source-map upload so
+  // dynamically-imported chunks + middleware bundles get symbolicated
+  // too. Without it the bundler plugin defaults to a narrower file set
+  // that misses some App Router output.
+  widenClientFileUpload: true,
   // Tunnel Sentry traffic through a Next.js route so ad-blockers
   // don't drop client-side error reports. Picks an obscure path so
   // the tunnel itself isn't a crawl target.

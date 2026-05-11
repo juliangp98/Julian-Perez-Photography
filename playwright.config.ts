@@ -11,7 +11,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 60_000,
+  // 120s ceiling per test. Plenty of headroom for the dev server's
+  // cold Turbopack compile of any single page, which can run 30-60s
+  // on a fresh suite start when the client bundle includes the
+  // Sentry SDK + Replay integration. Real submission round-trips are
+  // sub-second after warm-up.
+  timeout: 120_000,
   fullyParallel: false, // requests share in-memory rate-limit buckets
   reporter: [["list"]],
   use: {
