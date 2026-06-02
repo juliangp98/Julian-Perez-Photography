@@ -11,7 +11,15 @@ import { useState } from "react";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-export default function PortalLoginForm() {
+// Shared passwordless sign-in form. Defaults to the client portal endpoint;
+// the admin login reuses it with `endpoint="/api/admin/request-link"`.
+export default function PortalLoginForm({
+  endpoint = "/api/portal/request-link",
+  sentMessage = "Check your email — if that address matches a record, a secure sign-in link is on its way. It expires in 20 minutes.",
+}: {
+  endpoint?: string;
+  sentMessage?: string;
+} = {}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [devLink, setDevLink] = useState<string | null>(null);
@@ -21,7 +29,7 @@ export default function PortalLoginForm() {
     setStatus("sending");
     setDevLink(null);
     try {
-      const res = await fetch("/api/portal/request-link", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, hp_company: "" }),
@@ -39,10 +47,7 @@ export default function PortalLoginForm() {
   if (status === "sent") {
     return (
       <div className="p-6 border border-[var(--border)] rounded-lg bg-white">
-        <p className="text-sm leading-relaxed">
-          Check your email — if that address matches a record, a secure sign-in
-          link is on its way. It expires in 20 minutes.
-        </p>
+        <p className="text-sm leading-relaxed">{sentMessage}</p>
         {devLink && (
           <p className="mt-4 text-xs text-[var(--muted)] break-all">
             Dev link:{" "}

@@ -12,11 +12,12 @@ import { z } from "zod";
 import { Resend } from "resend";
 import { rateLimitResponse } from "@/lib/request-guard";
 import { getSession } from "@/lib/auth-cookies";
-import { updateClientFields } from "@/lib/clients";
+import { updateClientFields, getProjectForEmail } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
+  projectId: z.string().min(1),
   phone: z.string().max(50).optional(),
   partnerName: z.string().max(200).optional(),
   guestCount: z.coerce.number().int().min(0).max(100000).optional(),
@@ -50,8 +51,15 @@ export async function POST(req: Request) {
     );
   }
 
+  const { projectId, ...fields } = parsed.data;
+  // Ownership gate — the project must belong to the signed-in person.
+  const owned = await getProjectForEmail(projectId, session.email);
+  if (!owned) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   try {
-    await updateClientFields(session.recordId, parsed.data);
+    await updateClientFields(projectId, fields);
   } catch (err) {
     console.error("[portal] update error:", err);
     Sentry.captureException(err, {

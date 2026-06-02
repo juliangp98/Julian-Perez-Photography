@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/client", "/portal", "/studio", "/api/"],
+        disallow: ["/client", "/portal", "/admin", "/studio", "/api/"],
       },
     ],
     sitemap: "https://julianperezphotography.com/sitemap.xml",

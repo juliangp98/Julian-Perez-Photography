@@ -21,6 +21,16 @@ test("portal: protected page without a session redirects to login", async ({
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
+test("portal: a project detail page without a session redirects to login", async ({
+  page,
+}) => {
+  // Per-project routes live under /portal/projects/:id and are gated the same
+  // way as the dashboard — an unauthenticated visitor is bounced to /portal.
+  await page.goto("/portal/projects/any-id");
+  await expect(page).toHaveURL(/\/portal(\?.*)?$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
+
 test("portal: an invalid magic token redirects to login with an error", async ({
   page,
 }) => {

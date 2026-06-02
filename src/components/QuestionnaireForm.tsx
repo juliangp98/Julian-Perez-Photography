@@ -420,6 +420,20 @@ export default function QuestionnaireForm({
             </Link>
           </div>
         )}
+        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          <p className="text-sm font-medium">Track your project</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Everything you just shared is saved to your project. Sign in to your
+            client portal anytime to check your status, add more detail, and
+            find your documents \u2014 same email, no password.
+          </p>
+          <Link
+            href="/portal"
+            className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+          >
+            Open your portal \u2192
+          </Link>
+        </div>
         {/* Call booking CTAs */}
         <div className="mt-6 p-5 border border-[var(--border)] rounded-lg space-y-4">
           <div>

@@ -1,17 +1,23 @@
 // Server-only helpers for the private client store (Supabase Postgres).
 //
-// Client PII lives in a free, private Postgres table (`client_records`) reached
-// only through the service-role key — never exposed to the browser. Every
+// One row = one PROJECT (a single service engagement); the email is the
+// PERSON. A person can have several projects (e.g. engagement + wedding, or
+// maternity + newborn), and two or more projects can be linked into a BUNDLE
+// via a shared `bundle_id` + `bundle_label`. Lead capture matches by
+// email + service so distinct services become distinct projects.
+//
+// PII is reached only through the service-role key — never the browser. Every
 // function gates on `isClientsStoreConfigured()` and no-ops when the store
-// isn't wired up, so lead capture + the portal degrade gracefully on a deploy
-// without the Supabase env.
+// isn't wired up, so capture + the portal degrade gracefully without env.
 //
 // Privacy boundary: `SAFE_SELECT` is the portal projection — it omits
 // `internal_notes`, `questionnaire_snapshot`, `status_history`, inquiry
-// context, and meta timestamps, so those never reach a client. Admin reads /
-// edits happen in the Supabase Table Editor, which sees the full row.
+// context, and meta timestamps, so those never reach a client. Portal reads
+// are additionally scoped to the signed-in person's email (ownership), and the
+// admin dashboard sees the full row.
 
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { statusRank, type ClientStatus } from "@/lib/client-status";
 
@@ -71,6 +77,8 @@ export type ClientRecordSafe = {
   planSummary?: string;
   documents?: ClientDocumentEntry[];
   lastClientUpdate?: string;
+  bundleId?: string;
+  bundleLabel?: string;
 };
 
 // Column projection for the portal. Columns are aliased snake_case → camelCase.
@@ -78,7 +86,7 @@ export type ClientRecordSafe = {
 // referral / source / created_at / updated_at are deliberately NOT selected —
 // this is the privacy boundary, enforced at the query.
 const SAFE_SELECT =
-  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update";
+  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update, bundleId:bundle_id, bundleLabel:bundle_label";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -102,6 +110,8 @@ export async function getClientById(
   return (data as unknown as ClientRecordSafe | null) ?? null;
 }
 
+// Existence check for the portal magic link — does this email have ANY
+// project? `limit(1)` because there may now be several rows per email.
 export async function findClientIdByEmail(
   email: string,
 ): Promise<string | null> {
@@ -110,16 +120,49 @@ export async function findClientIdByEmail(
     .from(TABLE)
     .select("id")
     .eq("email", normalizeEmail(email))
+    .limit(1);
+  if (error) throw error;
+  return (data?.[0]?.id as string | undefined) ?? null;
+}
+
+// All projects for a person — the portal menu lists these.
+export async function listProjectsByEmail(
+  email: string,
+): Promise<ClientRecordSafe[]> {
+  if (!isClientsStoreConfigured()) return [];
+  const { data, error } = await db()
+    .from(TABLE)
+    .select(SAFE_SELECT)
+    .eq("email", normalizeEmail(email))
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as ClientRecordSafe[]) ?? [];
+}
+
+// A single project, but ONLY if it belongs to this email — the ownership gate
+// for every portal project page + mutation (prevents IDOR across people).
+export async function getProjectForEmail(
+  id: string,
+  email: string,
+): Promise<ClientRecordSafe | null> {
+  if (!isClientsStoreConfigured()) return null;
+  const { data, error } = await db()
+    .from(TABLE)
+    .select(SAFE_SELECT)
+    .eq("id", id)
+    .eq("email", normalizeEmail(email))
     .maybeSingle();
   if (error) throw error;
-  return (data?.id as string | undefined) ?? null;
+  return (data as unknown as ClientRecordSafe | null) ?? null;
 }
 
 // ── Writes ──
 
-// Create or update a record from an inquiry. Matches by normalized email; on an
-// existing record we only fill blank fields + bump the timestamp (never clobber
-// a curated field or an advanced status). New records start at `new-inquiry`.
+// Create or update a project from an inquiry. Matches by email + service, so a
+// new service for an existing person becomes a separate project while a repeat
+// inquiry for the same service updates the existing one. On a match we only
+// fill blank fields + bump the timestamp (never clobber a curated field or an
+// advanced status). New projects start at `new-inquiry`.
 export async function upsertClientFromInquiry(input: {
   name: string;
   email: string;
@@ -135,12 +178,16 @@ export async function upsertClientFromInquiry(input: {
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
-  const { data: existing, error: selErr } = await db()
+  let match = db()
     .from(TABLE)
     .select("id, phone, service_type, event_date, budget, referral, inquiry_message")
-    .eq("email", email)
-    .maybeSingle();
+    .eq("email", email);
+  match = input.service
+    ? match.eq("service_type", input.service)
+    : match.is("service_type", null);
+  const { data: existingRows, error: selErr } = await match.limit(1);
   if (selErr) throw selErr;
+  const existing = existingRows?.[0];
 
   if (existing?.id) {
     const patch: Record<string, unknown> = { updated_at: ts };
@@ -198,12 +245,15 @@ export async function attachQuestionnaire(input: {
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
-  const { data: existing, error: selErr } = await db()
-    .from(TABLE)
-    .select("id, service_type")
-    .eq("email", email)
-    .maybeSingle();
+  // Match the project for this service (so an engagement questionnaire attaches
+  // to the engagement project, not a wedding one).
+  let match = db().from(TABLE).select("id, service_type").eq("email", email);
+  match = input.service
+    ? match.eq("service_type", input.service)
+    : match.is("service_type", null);
+  const { data: existingRows, error: selErr } = await match.limit(1);
   if (selErr) throw selErr;
+  const existing = existingRows?.[0];
 
   let id = (existing?.id as string | undefined) ?? null;
   if (!id) {
@@ -327,4 +377,196 @@ export async function updateClientFields(
   patch.last_client_update = ts;
   const { error } = await db().from(TABLE).update(patch).eq("id", id);
   if (error) throw error;
+}
+
+// ── Admin (owner-only) reads + writes ──
+//
+// These return / accept the FULL row, including internal fields. They are only
+// ever called from `/admin/*` pages + routes, which are gated by the admin
+// session.
+
+const FULL_SELECT =
+  SAFE_SELECT +
+  ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
+
+export type ClientStatusEntry = {
+  status?: string;
+  changedAt?: string;
+  note?: string;
+};
+export type ClientRecordFull = ClientRecordSafe & {
+  source?: string;
+  questionnaireSnapshot?: string;
+  inquiryMessage?: string;
+  referral?: string;
+  statusHistory?: ClientStatusEntry[];
+  internalNotes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export async function listClients(): Promise<ClientRecordFull[]> {
+  if (!isClientsStoreConfigured()) return [];
+  const { data, error } = await db()
+    .from(TABLE)
+    .select(FULL_SELECT)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as ClientRecordFull[];
+}
+
+export async function getClientFull(
+  id: string,
+): Promise<ClientRecordFull | null> {
+  if (!isClientsStoreConfigured()) return null;
+  const { data, error } = await db()
+    .from(TABLE)
+    .select(FULL_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as ClientRecordFull | null) ?? null;
+}
+
+const ADMIN_COLUMN: Record<string, string> = {
+  clientName: "client_name",
+  email: "email",
+  phone: "phone",
+  partnerName: "partner_name",
+  status: "status",
+  serviceType: "service_type",
+  package: "package",
+  eventDate: "event_date",
+  guestCount: "guest_count",
+  budget: "budget",
+  planSummary: "plan_summary",
+  internalNotes: "internal_notes",
+};
+
+export async function updateClientAdmin(
+  id: string,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const patch: Record<string, unknown> = {};
+  for (const [k, col] of Object.entries(ADMIN_COLUMN)) {
+    if (k in fields && fields[k] !== undefined) patch[col] = fields[k];
+  }
+  if (typeof patch.email === "string") patch.email = normalizeEmail(patch.email);
+  const ts = nowIso();
+  patch.updated_at = ts;
+
+  // Append a status-history entry when the status actually changes.
+  if ("status" in patch) {
+    const { data: row } = await db()
+      .from(TABLE)
+      .select("status, status_history")
+      .eq("id", id)
+      .maybeSingle();
+    if (row && row.status !== patch.status) {
+      const history = Array.isArray(row.status_history)
+        ? row.status_history
+        : [];
+      history.push({ status: patch.status, changedAt: ts, note: "Updated by admin" });
+      patch.status_history = history;
+    }
+  }
+
+  const { error } = await db().from(TABLE).update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+// List the full set of a person's projects (admin) — used to offer "link into
+// a bundle" choices on the project edit page.
+export async function listClientProjectsByEmailFull(
+  email: string,
+): Promise<ClientRecordFull[]> {
+  if (!isClientsStoreConfigured()) return [];
+  const { data, error } = await db()
+    .from(TABLE)
+    .select(FULL_SELECT)
+    .eq("email", normalizeEmail(email))
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as ClientRecordFull[]) ?? [];
+}
+
+// ── Bundles ──
+//
+// Projects sharing a `bundle_id` are bundled; `bundle_label` is the display
+// name (denormalized onto each row). Linking assigns a fresh shared id + label
+// to the selected projects; unlinking clears them on one project. Both the
+// client and admin paths enforce that every project in a bundle belongs to the
+// same person (same email), so a bundle can never span two clients.
+
+async function applyBundle(
+  ids: string[],
+  bundleId: string | null,
+  label: string | null,
+): Promise<void> {
+  const { error } = await db()
+    .from(TABLE)
+    .update({ bundle_id: bundleId, bundle_label: label, updated_at: nowIso() })
+    .in("id", ids);
+  if (error) throw error;
+}
+
+// Client: link 2+ of the signed-in person's own projects. Any id not owned by
+// `email` is silently dropped, so a client can't pull in someone else's row.
+export async function setBundleForEmail(
+  email: string,
+  projectIds: string[],
+  label: string,
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const { data: owned, error } = await db()
+    .from(TABLE)
+    .select("id")
+    .eq("email", normalizeEmail(email))
+    .in("id", projectIds);
+  if (error) throw error;
+  const ids = (owned ?? []).map((r) => r.id as string);
+  if (ids.length < 2) return;
+  await applyBundle(ids, randomUUID(), label.trim() || "Bundle");
+}
+
+export async function clearBundleForEmail(
+  email: string,
+  projectId: string,
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const { data: owned, error } = await db()
+    .from(TABLE)
+    .select("id")
+    .eq("email", normalizeEmail(email))
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!owned) return;
+  await applyBundle([projectId], null, null);
+}
+
+// Admin: link projects into a bundle. Enforces they all belong to one person.
+export async function setBundleAdmin(
+  projectIds: string[],
+  label: string,
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const { data: rows, error } = await db()
+    .from(TABLE)
+    .select("id, email")
+    .in("id", projectIds);
+  if (error) throw error;
+  const emails = new Set((rows ?? []).map((r) => r.email as string));
+  if (emails.size !== 1 || (rows ?? []).length < 2) return;
+  await applyBundle(
+    (rows ?? []).map((r) => r.id as string),
+    randomUUID(),
+    label.trim() || "Bundle",
+  );
+}
+
+export async function clearBundleAdmin(projectId: string): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  await applyBundle([projectId], null, null);
 }

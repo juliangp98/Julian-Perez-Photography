@@ -43,6 +43,11 @@ export default defineConfig({
     env: {
       RESEND_API_KEY: "",
       AUTH_SECRET: "e2e-test-secret-not-for-production-0123456789abcdef",
+      ADMIN_EMAIL: "admin@example.com",
+      // Blank the client store so the suite never reads or writes the real
+      // Supabase database — capture + portal cleanly no-op during tests.
+      SUPABASE_URL: "",
+      SUPABASE_SERVICE_ROLE_KEY: "",
     },
   },
 });

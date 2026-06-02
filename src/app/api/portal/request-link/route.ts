@@ -49,10 +49,11 @@ export async function POST(req: Request) {
   const email = parsed.data.email.trim().toLowerCase();
 
   try {
+    // Only issue a link if this email has at least one project.
     const recordId = await findClientIdByEmail(email);
     if (!recordId) return uniform;
 
-    const token = await signMagicToken({ recordId, email });
+    const token = await signMagicToken({ email });
     const origin = req.headers.get("origin") || new URL(req.url).origin;
     const link = `${origin}/portal/verify?token=${encodeURIComponent(token)}`;
 

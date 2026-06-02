@@ -75,3 +75,9 @@ test("a11y: /portal login page has no violations", async ({ page }) => {
   const results = await runAxe(page);
   expect(results.violations).toEqual([]);
 });
+
+test("a11y: /admin login page has no violations", async ({ page }) => {
+  await page.goto("/admin");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});

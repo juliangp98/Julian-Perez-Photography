@@ -12,12 +12,16 @@
 import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "jpp_portal_session";
+export const ADMIN_SESSION_COOKIE = "jpp_admin_session";
 
 // Magic links are short-lived and single-use-by-expiry; sessions are long.
 const MAGIC_TTL = "20m";
 const SESSION_TTL = "30d";
 
-export type SessionClaims = { recordId: string; email: string };
+// The portal session is keyed by the person's email. A person can have several
+// projects; the portal lists + authorizes them by this email (project ids come
+// from the DB scoped to the email, never from the token).
+export type SessionClaims = { email: string };
 
 function secretKey(): Uint8Array {
   const s = process.env.AUTH_SECRET;
@@ -51,13 +55,8 @@ async function verify(
   try {
     const { payload } = await jwtVerify(token, secretKey());
     if (payload.purpose !== purpose) return null;
-    if (
-      typeof payload.recordId !== "string" ||
-      typeof payload.email !== "string"
-    ) {
-      return null;
-    }
-    return { recordId: payload.recordId, email: payload.email };
+    if (typeof payload.email !== "string") return null;
+    return { email: payload.email };
   } catch {
     return null;
   }
@@ -68,3 +67,61 @@ export const verifyMagicToken = (t: string) => verify(t, "magic");
 export const signSessionToken = (c: SessionClaims) =>
   sign(c, "session", SESSION_TTL);
 export const verifySessionToken = (t: string) => verify(t, "session");
+
+// ── Admin auth ──
+//
+// The owner-only admin area (`/admin`) uses the same magic-link mechanism but a
+// distinct purpose + cookie, and is restricted to the configured `ADMIN_EMAIL`
+// (comma-separated for more than one). Admin tokens carry only the email — no
+// record id; the admin sees every record.
+
+export type AdminClaims = { email: string };
+
+export function isAdminEmail(email: string): boolean {
+  const allowed = (process.env.ADMIN_EMAIL || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.trim().toLowerCase());
+}
+
+export function isAdminConfigured(): boolean {
+  return isAuthConfigured() && (process.env.ADMIN_EMAIL || "").trim().length > 0;
+}
+
+async function signAdmin(
+  email: string,
+  purpose: "admin-magic" | "admin-session",
+  ttl: string,
+): Promise<string> {
+  return new SignJWT({ email, purpose })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(ttl)
+    .sign(secretKey());
+}
+
+async function verifyAdmin(
+  token: string,
+  purpose: "admin-magic" | "admin-session",
+): Promise<AdminClaims | null> {
+  try {
+    const { payload } = await jwtVerify(token, secretKey());
+    if (payload.purpose !== purpose) return null;
+    if (typeof payload.email !== "string") return null;
+    // Re-check the allowlist on every verify, so removing an email from
+    // ADMIN_EMAIL revokes access even on an unexpired token.
+    if (!isAdminEmail(payload.email)) return null;
+    return { email: payload.email };
+  } catch {
+    return null;
+  }
+}
+
+export const signAdminMagicToken = (email: string) =>
+  signAdmin(email, "admin-magic", MAGIC_TTL);
+export const verifyAdminMagicToken = (t: string) => verifyAdmin(t, "admin-magic");
+export const signAdminSessionToken = (email: string) =>
+  signAdmin(email, "admin-session", SESSION_TTL);
+export const verifyAdminSessionToken = (t: string) =>
+  verifyAdmin(t, "admin-session");

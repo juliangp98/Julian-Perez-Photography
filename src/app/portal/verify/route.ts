@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyMagicToken } from "@/lib/auth";
 import { setSessionCookie } from "@/lib/auth-cookies";
-import { getClientById } from "@/lib/clients";
+import { findClientIdByEmail } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
@@ -27,15 +27,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Confirm the record still exists (and the store is reachable) before
-    // issuing a session.
-    const record = await getClientById(claims.recordId);
-    if (!record) {
+    // Confirm the email still has at least one project (and the store is
+    // reachable) before issuing a session.
+    const anyProject = await findClientIdByEmail(claims.email);
+    if (!anyProject) {
       loginUrl.searchParams.set("error", "invalid-link");
       return NextResponse.redirect(loginUrl);
     }
 
-    await setSessionCookie({ recordId: claims.recordId, email: claims.email });
+    await setSessionCookie({ email: claims.email });
     return NextResponse.redirect(
       new URL("/portal/dashboard", req.nextUrl.origin),
     );

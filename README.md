@@ -122,7 +122,8 @@ cp .env.example .env.local
 | `SANITY_WEBHOOK_SECRET`         | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup                |
 | `SUPABASE_URL`                  | no (for the CRM)               | Supabase project URL (Settings → API). Holds the private `client_records` table used for lead capture + the portal. Without it, capture + portal no-op (inquiries still email). See "Client portal & CRM" below                                                                                                                                      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | no (for the CRM)               | Supabase **service-role** key — full DB access, **server-only**, never `NEXT_PUBLIC_`. The app is the access gatekeeper (the portal only reads the signed-in client's own row). Pairs with `SUPABASE_URL`                                                                                                                                            |
-| `AUTH_SECRET`                   | no (for the portal)            | Secret that signs the portal's magic-link tokens + session cookies (≥16 chars; `openssl rand -hex 32`). Without it, `/portal` shows the login page but can't issue links. Rotating it invalidates all active sessions                                                                                                                                |
+| `AUTH_SECRET`                   | no (for the portal/admin)      | Secret that signs the portal + admin magic-link tokens and session cookies (≥16 chars; `openssl rand -hex 32`). Without it, `/portal` and `/admin` show the login page but can't issue links. Rotating it invalidates all active sessions                                                                                                            |
+| `ADMIN_EMAIL`                   | no (for the admin area)        | Owner email(s) allowed into `/admin` (projects overview, direct record editing, external-links hub). Comma-separate for more than one. Only these addresses ever receive an admin sign-in link                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN`         | yes (for blob uploads)         | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads, by `npm run upload-video` for the wedding-films self-hosted path, and to store captured plan PDFs. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
 | `NEXT_PUBLIC_SENTRY_DSN`        | no                             | Sentry DSN for error reporting. Without it the SDK is a no-op (no network calls, no console noise). Set in production for visibility into client + server failures. The DSN is public — exposing it in the client bundle is the intended path                                                                                                        |
 | `SENTRY_DSN`                    | no                             | Server-runtime alias for `NEXT_PUBLIC_SENTRY_DSN`. The server config falls back to the public var when this is unset, so most setups only need the public one                                                                                                                                                                                        |
@@ -308,29 +309,51 @@ The site is deployed to Vercel.
 Inquiries and questionnaire submissions are captured as **client records** in a
 free, **private Supabase Postgres** table (`client_records`) — not Sanity,
 because client PII needs a private store and Sanity's private datasets are a
-paid feature. Julian manages records in the **Supabase Table Editor** (a
-spreadsheet-style admin view). Each client can sign in to a passwordless portal
-at `/portal` to see their own status, dates, locations, plan, and documents —
-and make limited edits / upload files.
+paid feature. Julian manages records in the **owner dashboard at `/admin`** (a
+status-grouped projects overview with direct per-record editing, plus an
+external-links hub) — the Supabase Table Editor stays available as a fallback
+for complex JSONB edits.
+
+**One row is one project; the email is the person.** A single client can hold
+several projects at once — an engagement and a wedding, a maternity and a
+newborn session, or a handful of unrelated shoots — so the portal opens to a
+**menu of that person's projects**, styled like the services / galleries index
+and grouped under Julian's photographic categories. Two or more related projects
+can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
+(from the admin project page) or the client (from their menu); bundled projects
+render together in their own accent-bordered group, labelled and tagged so the
+relationship is obvious at a glance. Clicking a project opens its detail view —
+status, dates, locations, plan, and documents — where the client can make
+limited edits, upload files, and jump into the matching planning questionnaire
+prefilled with their details.
+
+The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
+client portal, owner-only). Sign in at `/admin` with that email.
 
 How the pieces fit:
 
-- **Capture:** `/api/inquire` upserts a record (matched by email,
-status `new-inquiry`); `/api/questionnaire` attaches the answers snapshot,
-stores the generated plan PDF to Blob, links it, and advances status toward
-`planning`. Both are fire-and-forget and **no-op when the store isn't
-configured**, so the email flow is never affected.
+- **Capture:** `/api/inquire` upserts a record (matched by email **+ service**,
+so a second service for the same person opens a second project rather than
+overwriting the first; status `new-inquiry`); `/api/questionnaire` attaches the
+answers snapshot to the matching project, stores the generated plan PDF to Blob,
+links it, and advances status toward `planning`. Both are fire-and-forget and
+**no-op when the store isn't configured**, so the email flow is never affected.
 - **Privacy boundary:** the app reaches the table only through
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
 `SAFE_SELECT` — `internal_notes`, the questionnaire snapshot, status history,
 and inquiry context are never selected, so they can't reach a client. The
 table has Row-Level Security enabled (the service role bypasses it
 server-side; nothing else can read it).
-- **Auth:** magic link. The client enters their email at `/portal`,
+- **Auth & ownership:** magic link. The client enters their email at `/portal`,
 `/api/portal/request-link` emails a one-time signed link (20-min TTL), and
-`/portal/verify` sets an httpOnly session cookie. `middleware.ts` gates
-`/portal/`*. Records are always resolved from the verified session, never a
-URL — no IDOR. Tokens + cookies are signed with `AUTH_SECRET` via `jose`.
+`/portal/verify` sets an httpOnly session cookie carrying the **email** (the
+person), not a single record id. `middleware.ts` gates `/portal/`* and
+`/admin/`*. Every project read or write resolves the row by **(project id +
+session email)** — a project the URL names but the signed-in person doesn't own
+returns not-found — so listing and linking projects can never reach across
+people (no IDOR). Bundle writes apply the same gate: any project id not owned by
+the requester is dropped, and a bundle can never span two clients. Tokens +
+cookies are signed with `AUTH_SECRET` via `jose`.
 
 ### One-time setup
 
@@ -346,6 +369,8 @@ URL — no IDOR. Tokens + cookies are signed with `AUTH_SECRET` via `jose`.
      status text not null default 'new-inquiry',
      service_type text,
      package text,
+     bundle_id uuid,
+     bundle_label text,
      source text default 'manual',
      event_date text,
      secondary_dates jsonb not null default '[]'::jsonb,
@@ -363,11 +388,30 @@ URL — no IDOR. Tokens + cookies are signed with `AUTH_SECRET` via `jose`.
      created_at timestamptz not null default now(),
      updated_at timestamptz not null default now()
    );
-   create unique index if not exists client_records_email_idx
+   -- One row = one project; the email is the person. A single client can hold
+   -- several projects (e.g. an engagement and a wedding), so the email index is
+   -- NON-unique. Capture matches on email + service to decide insert vs. update.
+   create index if not exists client_records_email_idx
      on client_records (lower(email));
+   -- Bundle lookups (projects sharing a bundle_id render grouped).
+   create index if not exists client_records_bundle_idx
+     on client_records (bundle_id);
    -- Lock the table down: the app's service-role key bypasses RLS; with no
    -- policies, nothing else (including the anon key) can read it.
    alter table client_records enable row level security;
+  ```
+   _Already created the table from an earlier version (unique email index, no
+   bundle columns)? Run this once to migrate it in place — it converts the email
+   index to non-unique so a person can hold multiple projects, and adds the
+   bundle columns:_
+  ```sql
+   drop index if exists client_records_email_idx;
+   create index if not exists client_records_email_idx
+     on client_records (lower(email));
+   alter table client_records add column if not exists bundle_id uuid;
+   alter table client_records add column if not exists bundle_label text;
+   create index if not exists client_records_bundle_idx
+     on client_records (bundle_id);
   ```
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
    or use Project Settings (gear, bottom-left):
@@ -383,13 +427,17 @@ URL — no IDOR. Tokens + cookies are signed with `AUTH_SECRET` via `jose`.
    ```bash
    openssl rand -hex 32   # → AUTH_SECRET
    ```
-5. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `AUTH_SECRET` to
-   `.env.local` and to Vercel → Environment Variables (server scope; **no**
-   `NEXT_PUBLIC_` prefix on any of them).
+5. **Set the admin email** — `ADMIN_EMAIL=you@example.com` (the address you'll
+   sign into `/admin` with; comma-separate for more than one owner).
+6. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_SECRET`, and
+   `ADMIN_EMAIL` to `.env.local` and to Vercel → Environment Variables (server
+   scope; **no** `NEXT_PUBLIC_` prefix on any of them).
 
 After setting the env vars, restart `npm run dev`, submit a test inquiry on
-`/inquire`, and confirm a row appears in the Supabase Table Editor. Manage
-records (status, notes, documents, dates) directly in that editor. Until the
+`/inquire`, then sign in at `/admin` with your `ADMIN_EMAIL` and confirm the
+record shows up in the Projects overview. Manage records there (status, notes,
+contact, dates) — the Supabase Table Editor stays available for complex JSONB
+edits. Until the
 env is set, capture + portal cleanly no-op and the rest of the site is
 unaffected.
 
