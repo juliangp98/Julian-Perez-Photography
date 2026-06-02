@@ -10,11 +10,11 @@
 // function gates on `isClientsStoreConfigured()` and no-ops when the store
 // isn't wired up, so capture + the portal degrade gracefully without env.
 //
-// Privacy boundary: `SAFE_SELECT` is the portal projection — it omits
-// `internal_notes`, `questionnaire_snapshot`, `status_history`, inquiry
-// context, and meta timestamps, so those never reach a client. Portal reads
-// are additionally scoped to the signed-in person's email (ownership), and the
-// admin dashboard sees the full row.
+// Privacy boundary: the safe projection (`safeSelect()`) is what the portal
+// reads — it omits `internal_notes`, `questionnaire_snapshot`, `status_history`,
+// inquiry context, and meta timestamps, so those never reach a client. Portal
+// reads are additionally scoped to the signed-in person's email (ownership), and
+// the admin dashboard sees the full row (`fullSelect()`).
 
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -85,8 +85,52 @@ export type ClientRecordSafe = {
 // internal_notes / questionnaire_snapshot / status_history / inquiry_message /
 // referral / source / created_at / updated_at are deliberately NOT selected —
 // this is the privacy boundary, enforced at the query.
-const SAFE_SELECT =
-  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update, bundleId:bundle_id, bundleLabel:bundle_label";
+const SAFE_SELECT_BASE =
+  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update";
+// Bundle columns are appended only while the live table is known to have them.
+const BUNDLE_COLUMNS = ", bundleId:bundle_id, bundleLabel:bundle_label";
+// Admin-only columns, layered onto the safe projection for the full read.
+const FULL_SELECT_EXTRA =
+  ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
+
+// Schema-drift guard. A deploy can land before the bundle columns are added to
+// the table; the first read that asks for them then fails with PostgREST's
+// undefined-column error (SQLSTATE 42703). Rather than surface a 500 on every
+// portal + admin page, the reader notes their absence once, drops them for the
+// rest of the process, and retries — so everything keeps working without bundle
+// grouping until the migration is applied (a restart re-enables them).
+let bundleColumnsPresent = true;
+
+function safeSelect(): string {
+  return bundleColumnsPresent ? SAFE_SELECT_BASE + BUNDLE_COLUMNS : SAFE_SELECT_BASE;
+}
+function fullSelect(): string {
+  return safeSelect() + FULL_SELECT_EXTRA;
+}
+
+type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
+
+// Match the bundle columns specifically so an unrelated schema error is never
+// swallowed by the fallback.
+function isMissingBundleColumn(error: DbResult["error"]): boolean {
+  return (
+    !!error && error.code === "42703" && /bundle_(id|label)/.test(error.message ?? "")
+  );
+}
+
+// Run a projected read; on a missing-bundle-column error, remember it and retry
+// once with the reduced projection.
+async function readWithBundleFallback(
+  projection: () => string,
+  build: (select: string) => PromiseLike<DbResult>,
+): Promise<DbResult> {
+  const res = await build(projection());
+  if (isMissingBundleColumn(res.error) && bundleColumnsPresent) {
+    bundleColumnsPresent = false;
+    return build(projection());
+  }
+  return res;
+}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -101,13 +145,11 @@ export async function getClientById(
   id: string,
 ): Promise<ClientRecordSafe | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(SAFE_SELECT)
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+    db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
+  );
   if (error) throw error;
-  return (data as unknown as ClientRecordSafe | null) ?? null;
+  return (data as ClientRecordSafe | null) ?? null;
 }
 
 // Existence check for the portal magic link — does this email have ANY
@@ -130,13 +172,15 @@ export async function listProjectsByEmail(
   email: string,
 ): Promise<ClientRecordSafe[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(SAFE_SELECT)
-    .eq("email", normalizeEmail(email))
-    .order("updated_at", { ascending: false });
+  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+    db()
+      .from(TABLE)
+      .select(sel)
+      .eq("email", normalizeEmail(email))
+      .order("updated_at", { ascending: false }),
+  );
   if (error) throw error;
-  return (data as unknown as ClientRecordSafe[]) ?? [];
+  return (data as ClientRecordSafe[] | null) ?? [];
 }
 
 // A single project, but ONLY if it belongs to this email — the ownership gate
@@ -146,14 +190,16 @@ export async function getProjectForEmail(
   email: string,
 ): Promise<ClientRecordSafe | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(SAFE_SELECT)
-    .eq("id", id)
-    .eq("email", normalizeEmail(email))
-    .maybeSingle();
+  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+    db()
+      .from(TABLE)
+      .select(sel)
+      .eq("id", id)
+      .eq("email", normalizeEmail(email))
+      .maybeSingle(),
+  );
   if (error) throw error;
-  return (data as unknown as ClientRecordSafe | null) ?? null;
+  return (data as ClientRecordSafe | null) ?? null;
 }
 
 // ── Writes ──
@@ -385,10 +431,6 @@ export async function updateClientFields(
 // ever called from `/admin/*` pages + routes, which are gated by the admin
 // session.
 
-const FULL_SELECT =
-  SAFE_SELECT +
-  ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
-
 export type ClientStatusEntry = {
   status?: string;
   changedAt?: string;
@@ -407,25 +449,22 @@ export type ClientRecordFull = ClientRecordSafe & {
 
 export async function listClients(): Promise<ClientRecordFull[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(FULL_SELECT)
-    .order("updated_at", { ascending: false });
+  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+    db().from(TABLE).select(sel).order("updated_at", { ascending: false }),
+  );
   if (error) throw error;
-  return (data ?? []) as unknown as ClientRecordFull[];
+  return (data as ClientRecordFull[] | null) ?? [];
 }
 
 export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(FULL_SELECT)
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+    db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
+  );
   if (error) throw error;
-  return (data as unknown as ClientRecordFull | null) ?? null;
+  return (data as ClientRecordFull | null) ?? null;
 }
 
 const ADMIN_COLUMN: Record<string, string> = {
@@ -482,13 +521,15 @@ export async function listClientProjectsByEmailFull(
   email: string,
 ): Promise<ClientRecordFull[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await db()
-    .from(TABLE)
-    .select(FULL_SELECT)
-    .eq("email", normalizeEmail(email))
-    .order("updated_at", { ascending: false });
+  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+    db()
+      .from(TABLE)
+      .select(sel)
+      .eq("email", normalizeEmail(email))
+      .order("updated_at", { ascending: false }),
+  );
   if (error) throw error;
-  return (data as unknown as ClientRecordFull[]) ?? [];
+  return (data as ClientRecordFull[] | null) ?? [];
 }
 
 // ── Bundles ──

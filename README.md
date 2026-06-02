@@ -403,7 +403,10 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    _Already created the table from an earlier version (unique email index, no
    bundle columns)? Run this once to migrate it in place — it converts the email
    index to non-unique so a person can hold multiple projects, and adds the
-   bundle columns:_
+   bundle columns. (The app tolerates the columns being absent: until you run
+   this, the portal and admin pages still load — they just omit bundle grouping,
+   and a second service for one person can't open a separate project — so a
+   deploy can land ahead of the migration without taking the portals down.)_
   ```sql
    drop index if exists client_records_email_idx;
    create index if not exists client_records_email_idx
