@@ -24,7 +24,8 @@ Schema-driven planning forms at `/questionnaire/[service]`, defined by the `Ques
 
 - Drafts autosave to `localStorage` and clear on successful submit.
 - URL query-params prefill fields so clients can land on a partly-filled form from a post-booking email link.
-- Conditional `showIf` branches hide/show follow-up fields; the server validates against the same schema so anything hidden on the client is also optional on the server.
+- Conditional `showIf` branches hide/show follow-up fields; the server validates against the same schema so anything hidden on the client is also optional on the server. `showIf` matches against checkbox (array) values by membership, which lets a checked option reveal its own follow-up fields — the wedding questionnaire's "Vendors & coordination" section uses this so checking a vendor type opens a contact box for it.
+- The wedding questionnaire captures photography style preference (with an "Other" free-text branch), engagement-session preferences (shown only for packages that include one), an outdoor-ceremony weather-backup plan, vendor contacts by type, and photo-sharing consent (full / none / per-channel-and-type partial).
 - `/api/wedding-plan` renders a PDF preview of the wedding questionnaire for editor / client review.
 
 ## Journal (Sanity CMS)
@@ -140,6 +141,20 @@ CSP additions: `connect-src` += `*.sentry.io` + `*.ingest.sentry.io` (defensive;
 
 A new `# Test + observability discipline` section in `AGENTS.md` codifies the standing requirement: every round of work that ships new code paths updates a smoke-level e2e test and adds Sentry instrumentation alongside the code.
 
+## Client records & CRM
+
+Inquiries and questionnaire submissions are now captured as durable **client records** (closing the long-standing submission-archive gap) in a free, **private Supabase Postgres** table (`client_records`). Sanity isn't used for this: client records carry PII, a private store is required, and Sanity's private datasets are a paid feature — a free Postgres table keeps the data private at no cost. Julian manages records in the Supabase Table Editor (a spreadsheet-style admin view); a future round could add a bespoke in-app admin dashboard.
+
+The app reaches the table only through `src/lib/clients.ts` (server-only, Supabase service-role key). Reads use two projections: the full row for admin/server reads and `SAFE_SELECT` for the portal, which omits `internal_notes`, the questionnaire snapshot, status history, and inquiry context at the query layer so they can never reach a client. Row-Level Security is enabled on the table; the service role bypasses it server-side and nothing else can read it. The canonical pipeline statuses live in a dependency-free `src/lib/client-status.ts` shared by the helpers and the portal. Array fields (locations, dates, documents, status history) are JSONB columns.
+
+Capture is fire-and-forget and **no-ops when the store isn't configured**, so the email flow is untouched on a deploy without the Supabase env. `/api/inquire` upserts a record (matched by normalized email; status `new-inquiry`; never clobbers an advanced record). `/api/questionnaire` snapshots the answers, stores the generated plan PDF to Vercel Blob (`src/lib/blob.ts`), links it as a document, and advances status toward `planning` without regressing a further-along record.
+
+## Client portal
+
+A passwordless client portal at `/portal`. Magic-link auth via `jose`: `/api/portal/request-link` emails a one-time signed token (20-min TTL) through Resend with a uniform, rate-limited, anti-enumeration response; `/portal/verify` validates it, confirms the record still exists, and sets an httpOnly/Secure/SameSite session cookie. `middleware.ts` (Edge) gates `/portal/*` except the login + verify routes. Token + session signing share `AUTH_SECRET`; cookie helpers that use `next/headers` live in `auth-cookies.ts` (Node only) so middleware never pulls them into the Edge bundle.
+
+The portal dashboard renders the signed-in client's own record (resolved from the verified session — never a URL param, so no IDOR) via `CLIENT_SAFE_FIELDS`: friendly status label, dates, locations, plan, package/service, and document download links. Clients can make **limited edits** (`/api/portal/update` — a zod-whitelisted set: phone, partner name, guest count, notes) and **upload documents** (`/api/portal/upload` issues a session-gated Blob token; `/api/portal/attach-document` links the upload to their record with `uploadedBy: "client"`). Julian is emailed on client edits. All portal routes are Sentry-instrumented; `/portal` is disallowed in `robots.ts`.
+
 ## Maintenance pass (this cleanup)
 
 - Removed orphaned Sanity-config files (`src/sanity/lib/`, `env.ts`, `structure.ts`, `schemaTypes/`) — zero runtime imports after verification.
@@ -154,8 +169,8 @@ A new `# Test + observability discipline` section in `AGENTS.md` codifies the st
 - Draft previews via `SANITY_API_READ_TOKEN` + Next Draft Mode + Sanity Presentation Tool
 - `/journal/tag/[tag]` index pages
 - `/journal/rss.xml` feed
-- Publish-then-assert Sanity e2e spec (needs test-only token + scratch dataset before it can land without wiring credentials into CI)
+- Publish-then-assert Sanity e2e spec (needs test-only token + scratch dataset before it can land without wiring credentials into CI) — would also cover the end-to-end client-capture + magic-link happy path
 - `.ics` calendar attachment on the client inquiry-confirmation email
-- Client-facing inquiry status page (backlog #12)
-- Submission archive in a durable store (backlog #11) — unlocks follow-on analytics (#13) and SMS-nudge flows (#14)
+- Automated status-change notifications to clients (e.g. "You're booked!") now that the pipeline is in place
+- Follow-on analytics (#13) + SMS-nudge flows (#14), now unblocked by the durable client store
 - Per-venue landing pages once ≥3 repeat shoots cluster at the same venue (#7)

@@ -9,9 +9,13 @@ import { portfolioCategory, videoEntry } from "./portfolioCategory";
 import { aboutPage } from "./aboutPage";
 import { journalPost } from "./journalPost";
 
-// `schemaTypes` is the full catalog — the Studio config (sanity.config.ts) is
-// free to register a narrower set so dormant schemas stay invisible to editors
-// until their rendering side ships.
+// `schemaTypes` is the full content catalog — the Studio config
+// (sanity.config.ts) is free to register a narrower set so dormant schemas stay
+// invisible to editors until their rendering side ships.
+//
+// Client records (the CRM) intentionally do NOT live in Sanity: PII requires a
+// private dataset (a Sanity paid feature), so the client store is a free,
+// private Postgres table instead — see src/lib/clients.ts.
 export const schemaTypes = [
   siteSettings,
   categoryUmbrella,

@@ -355,6 +355,36 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
     }
   }
 
+  // Vendor contacts — render only the types the couple actually filled in.
+  const vendorEntries: [string, string][] = (
+    [
+      ["Planner / coordinator", a(answers, "plannerInfo")],
+      ["Videographer", a(answers, "videographerInfo")],
+      ["DJ / band", a(answers, "djInfo")],
+      ["Florist", a(answers, "floristInfo")],
+      ["Caterer", a(answers, "catererInfo")],
+      ["Hair & makeup", a(answers, "hmuaInfo")],
+      ["Officiant", a(answers, "officiantInfo")],
+      ["Venue coordinator", a(answers, "venueCoordinatorInfo")],
+      ["Other vendors", a(answers, "otherVendors")],
+    ] as [string, string][]
+  ).filter(([, v]) => v);
+
+  // Multi-select answers flattened to comma lists for display.
+  const weatherBackup = aList(answers, "weatherBackup").join(", ");
+  const sharingChannels = aList(answers, "sharingChannels").join(", ");
+  const sharingPhotoTypes = aList(answers, "sharingPhotoTypes").join(", ");
+
+  // Inspiration uploads land as a JSON-encoded file array; surface the
+  // count so Julian knows to check the email attachment / gallery.
+  let inspirationCount = 0;
+  try {
+    const parsed = JSON.parse(a(answers, "inspirationFiles") || "[]");
+    if (Array.isArray(parsed)) inspirationCount = parsed.length;
+  } catch {
+    inspirationCount = 0;
+  }
+
   return (
     <Document>
       {/* ── Page 1: Cover ── */}
@@ -365,6 +395,41 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
         <Text style={s.coverMeta}>{coupleName}</Text>
         {eventDate && <Text style={s.coverMeta}>{eventDate}</Text>}
         {ceremonyVenue && <Text style={s.coverMeta}>{ceremonyVenue}</Text>}
+      </Page>
+
+      {/* ── Couple, Style & Engagement ── */}
+      <Page size="LETTER" style={s.page}>
+        <SectionHeader title="The Couple" />
+        <Field label="Names" value={coupleName} />
+        <Field label="Pronouns" value={a(answers, "partnerPronouns")} />
+        <Field label="Email" value={a(answers, "email")} />
+        <Field label="Phone" value={a(answers, "phone")} />
+        <Field label="Instagram" value={a(answers, "instagram")} />
+
+        <SectionHeader title="Photography Style" />
+        <Field label="Preferred style" value={a(answers, "stylePreference")} />
+        <Field label="Style notes" value={a(answers, "stylePreferenceOther")} />
+        <Field label="Mood / vibe" value={a(answers, "moodVibe")} />
+
+        {a(answers, "engagementWanted") && (
+          <>
+            <SectionHeader title="Engagement Session" />
+            <Field
+              label="Using the session?"
+              value={a(answers, "engagementWanted")}
+            />
+            <Field
+              label="Location ideas"
+              value={a(answers, "engagementLocationIdeas")}
+            />
+            <Field
+              label="Preferred timeframe"
+              value={a(answers, "engagementTimeframe")}
+            />
+            <Field label="Notes" value={a(answers, "engagementNotes")} />
+          </>
+        )}
+        <PageFooter pageLabel="Couple & Style" />
       </Page>
 
       {/* ── Page 2: Timeline ── */}
@@ -412,6 +477,15 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
           value={a(answers, "ceremonyIndoorOutdoor")}
         />
         <Field
+          label="Expected ceremony length"
+          value={a(answers, "ceremonyLength")}
+        />
+        <Field label="Weather backup" value={weatherBackup} />
+        <Field
+          label="Weather backup notes"
+          value={a(answers, "weatherBackupOther")}
+        />
+        <Field
           label="Ceremony restrictions"
           value={a(answers, "ceremonyRestrictions")}
         />
@@ -455,6 +529,14 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
         <Field
           label="Getting-ready coverage"
           value={a(answers, "gettingReady")}
+        />
+        <Field
+          label="Partner getting-ready coverage"
+          value={a(answers, "partnerGettingReady")}
+        />
+        <Field
+          label="Essentials second shooter"
+          value={a(answers, "essentialsSecondShooter")}
         />
         <Field label="First look / first touch" value={a(answers, "firstLook")} />
         <Field label="First look with" value={a(answers, "firstLookWith")} />
@@ -521,6 +603,10 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
               value={a(answers, "sunsetPortraits")}
             />
             <Field label="Formal exit" value={a(answers, "formalExit")} />
+            <Field
+              label="Sendoff details"
+              value={a(answers, "formalExitDescription")}
+            />
           </>
         )}
 
@@ -551,6 +637,22 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
         </Page>
       )}
 
+      {/* ── Vendors & Coordination (skip if none provided) ── */}
+      {!isMini && vendorEntries.length > 0 && (
+        <Page size="LETTER" style={s.page}>
+          <SectionHeader title="Vendors & Coordination" />
+          {a(answers, "bookedVendors") && (
+            <Text style={{ fontSize: 9, color: MUTED, marginBottom: 12 }}>
+              Booked so far: {aList(answers, "bookedVendors").join(", ")}
+            </Text>
+          )}
+          {vendorEntries.map(([label, value]) => (
+            <Field key={label} label={label} value={value} />
+          ))}
+          <PageFooter pageLabel="Vendors & Coordination" />
+        </Page>
+      )}
+
       {/* ── Page 7: Notes & Special Requests ── */}
       <Page size="LETTER" style={s.page}>
         <SectionHeader title="Notes & Special Requests" />
@@ -559,6 +661,20 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
           value={a(answers, "additionalReception")}
         />
         <Field label="How they found me" value={a(answers, "referral")} />
+        <Field
+          label="Photo-sharing consent"
+          value={a(answers, "sharingConsent")}
+        />
+        <Field label="Sharing — channels OK" value={sharingChannels} />
+        <Field label="Sharing — photo types OK" value={sharingPhotoTypes} />
+        <Field label="Sharing — limits" value={a(answers, "sharingLimits")} />
+        <Field label="Sharing — notes" value={a(answers, "sharingNotes")} />
+        {inspirationCount > 0 && (
+          <Field
+            label="Inspiration files"
+            value={`${inspirationCount} uploaded (see email attachment / gallery)`}
+          />
+        )}
         <Field label="Anything else" value={a(answers, "anythingElse")} />
 
         {/* Elopement details for Mini */}

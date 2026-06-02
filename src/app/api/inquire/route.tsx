@@ -15,6 +15,7 @@ import { formatSubjectDate } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
+import { upsertClientFromInquiry } from "@/lib/clients";
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -188,6 +189,30 @@ export async function POST(req: Request) {
         level: "warning",
       });
     }
+  }
+
+  // Durable capture — upsert a client record so the inquiry isn't lost to the
+  // inbox (backlog #11). Fire-and-forget: the email has already succeeded, so a
+  // store failure (or an unconfigured store) must never fail the submission.
+  // `upsertClientFromInquiry` no-ops when the private store isn't configured.
+  try {
+    await upsertClientFromInquiry({
+      name: data.name,
+      email: data.email,
+      phone: data.phone || undefined,
+      service: data.service,
+      eventDate: data.eventDate || undefined,
+      location: data.location || undefined,
+      budget: data.budget || undefined,
+      referral: formatReferral(data.referral, data.referralOther) || undefined,
+      message: data.message,
+    });
+  } catch (err) {
+    console.error("[inquire] client-record upsert error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "inquire", stage: "client-record" },
+      level: "warning",
+    });
   }
 
   return NextResponse.json({ ok: true });
