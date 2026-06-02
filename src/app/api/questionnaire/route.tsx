@@ -18,6 +18,8 @@ import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
+import { attachQuestionnaire } from "@/lib/clients";
+import { storePdf } from "@/lib/blob";
 import * as Sentry from "@sentry/nextjs";
 
 type Answers = Record<string, string | string[]>;
@@ -129,6 +131,30 @@ export async function POST(req: Request) {
   });
   const isWedding = slug === "weddings";
 
+  // Durable capture into the private client store (backlog #11). Snapshots the
+  // answers and links the generated plan PDF when one exists. Fire-and-forget
+  // and a no-op when the store isn't configured, so it never changes the
+  // submission outcome. Called from both the dev-fallback and production paths
+  // so capture happens regardless of whether email is configured.
+  const captureRecord = async (pdfUrl?: string) => {
+    if (!clientEmail) return;
+    try {
+      await attachQuestionnaire({
+        name: clientName,
+        email: clientEmail,
+        service: slug,
+        answersJson: JSON.stringify(answers),
+        pdf: pdfUrl ? { label: `${serviceTitle} plan`, url: pdfUrl } : undefined,
+      });
+    } catch (err) {
+      console.error("[questionnaire] client-record capture error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "client-record" },
+        level: "warning",
+      });
+    }
+  };
+
   // ── Build structured sections for the branded email template ──
 
   // Structured payload for the branded email renderer. The `fields` union
@@ -227,9 +253,11 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    // Dev fallback
+    // Dev fallback — still capture the record (no PDF in this path) so local
+    // dev / e2e exercise the durable-store wiring.
     console.log("[questionnaire] RESEND_API_KEY not set — logging instead:");
     console.log(text);
+    await captureRecord();
     return NextResponse.json({ ok: true, dev: true });
   }
 
@@ -376,6 +404,26 @@ export async function POST(req: Request) {
       });
     }
   }
+
+  // Persist the generated plan PDF to Blob (when one exists) so it can be
+  // linked from the client record + portal, then capture the submission.
+  let planPdfUrl: string | undefined;
+  if (pdfBuffer) {
+    try {
+      planPdfUrl =
+        (await storePdf({
+          key: `client-plans/${slug}-day-plan.pdf`,
+          data: pdfBuffer,
+        })) || undefined;
+    } catch (err) {
+      console.error("[questionnaire] plan PDF store error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "store-pdf" },
+        level: "warning",
+      });
+    }
+  }
+  await captureRecord(planPdfUrl);
 
   return NextResponse.json({
     ok: true,

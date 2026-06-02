@@ -31,7 +31,7 @@ export default async function ClientGalleriesPage() {
         and I&rsquo;ll resend it.
       </p>
 
-      <div className="mt-10">
+      <div className="mt-10 flex flex-wrap gap-3">
         <a
           href={url}
           target="_blank"
@@ -40,7 +40,19 @@ export default async function ClientGalleriesPage() {
         >
           Open Pic-Time →
         </a>
+        <a
+          href="/portal"
+          className="inline-block px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+        >
+          Sign in to your project portal →
+        </a>
       </div>
+
+      <p className="mt-4 text-sm text-[var(--muted)] max-w-2xl">
+        Your project portal is where you can track the status of your booking,
+        review key dates and locations, and find your documents — sign in with
+        the email you used with me, no password needed.
+      </p>
 
       {/* Embedded Pic-Time portal. Pic-Time sets X-Frame-Options on some
           pages, so we give the iframe a reasonable height and fall back to

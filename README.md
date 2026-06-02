@@ -105,39 +105,46 @@ Copy `.env.example` to `.env.local` and fill in the values you need:
 cp .env.example .env.local
 ```
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `RESEND_API_KEY` | yes (for inquiries) | Resend API key — sends inquiry-form emails |
-| `RESEND_FROM` | yes (for inquiries) | Verified sender, e.g. `"Julian Perez Photography <hello@julianperezphotography.com>"` |
-| `INQUIRY_TO` | no | Where inquiries are delivered (defaults to `siteSettings.contactEmail`) |
-| `GOOGLE_PLACES_API_KEY` | no | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials` |
-| `GOOGLE_PLACE_ID` | no | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped |
-| `TWILIO_ACCOUNT_SID` | no | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires |
-| `TWILIO_AUTH_TOKEN` | no | Twilio Auth Token (from the dashboard) |
-| `TWILIO_PHONE_FROM` | no | Twilio-provisioned phone number in E.164 format (e.g. `+15555550123`). Must be SMS-capable for US numbers |
-| `NEXT_PUBLIC_SANITY_PROJECT_ID` | no | Sanity project ID (from Project → API). Without it, `/journal` shows a "coming soon" placeholder, `/studio` boots Sanity's project-connect screen, and every server page falls back to hard-coded defaults |
-| `NEXT_PUBLIC_SANITY_DATASET` | no | Sanity dataset name — defaults to `production`. Change only if you provisioned a different dataset |
-| `SANITY_API_WRITE_TOKEN` | no (seed-only) | Editor-role token required **only** to run `npm run seed:sanity`. Create at sanity.io → Project → API → Tokens → +Add, seed, then delete from both `.env.local` and sanity.io — the runtime site never reads this value |
-| `SANITY_WEBHOOK_SECRET` | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup |
-| `BLOB_READ_WRITE_TOKEN` | yes (for blob uploads) | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads and by `npm run upload-video` for the wedding-films self-hosted path. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
-| `NEXT_PUBLIC_SENTRY_DSN` | no | Sentry DSN for error reporting. Without it the SDK is a no-op (no network calls, no console noise). Set in production for visibility into client + server failures. The DSN is public — exposing it in the client bundle is the intended path |
-| `SENTRY_DSN` | no | Server-runtime alias for `NEXT_PUBLIC_SENTRY_DSN`. The server config falls back to the public var when this is unset, so most setups only need the public one |
-| `SENTRY_ORG` | no (build-time) | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset |
-| `SENTRY_PROJECT` | no (build-time) | Sentry project slug. Build-time only — pairs with `SENTRY_ORG` |
-| `SENTRY_AUTH_TOKEN` | no (build-time) | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle |
+
+| Variable                        | Required                       | Purpose                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`                | yes (for inquiries)            | Resend API key — sends inquiry-form emails                                                                                                                                                                                                                                                                                                           |
+| `RESEND_FROM`                   | yes (for inquiries)            | Verified sender, e.g. `"Julian Perez Photography <hello@julianperezphotography.com>"`                                                                                                                                                                                                                                                                |
+| `INQUIRY_TO`                    | no                             | Where inquiries are delivered (defaults to `siteSettings.contactEmail`)                                                                                                                                                                                                                                                                              |
+| `GOOGLE_PLACES_API_KEY`         | no                             | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials`                                                                                                                                                                                                                                   |
+| `GOOGLE_PLACE_ID`               | no                             | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped                                                                                                                      |
+| `TWILIO_ACCOUNT_SID`            | no                             | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires                                                                                                                                                                                                    |
+| `TWILIO_AUTH_TOKEN`             | no                             | Twilio Auth Token (from the dashboard)                                                                                                                                                                                                                                                                                                               |
+| `TWILIO_PHONE_FROM`             | no                             | Twilio-provisioned phone number in E.164 format (e.g. `+15555550123`). Must be SMS-capable for US numbers                                                                                                                                                                                                                                            |
+| `NEXT_PUBLIC_SANITY_PROJECT_ID` | no                             | Sanity project ID (from Project → API). Without it, `/journal` shows a "coming soon" placeholder, `/studio` boots Sanity's project-connect screen, and every server page falls back to hard-coded defaults                                                                                                                                           |
+| `NEXT_PUBLIC_SANITY_DATASET`    | no                             | Sanity dataset name — defaults to `production`. Change only if you provisioned a different dataset                                                                                                                                                                                                                                                   |
+| `SANITY_API_WRITE_TOKEN`        | no (seed-only)                 | Editor-role token required **only** to run `npm run seed:sanity`. Create at sanity.io → Project → API → Tokens → +Add, seed, then delete from both `.env.local` and sanity.io — the runtime site never reads this value                                                                                                                              |
+| `SANITY_WEBHOOK_SECRET`         | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup                |
+| `SUPABASE_URL`                  | no (for the CRM)               | Supabase project URL (Settings → API). Holds the private `client_records` table used for lead capture + the portal. Without it, capture + portal no-op (inquiries still email). See "Client portal & CRM" below                                                                                                                                      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | no (for the CRM)               | Supabase **service-role** key — full DB access, **server-only**, never `NEXT_PUBLIC_`. The app is the access gatekeeper (the portal only reads the signed-in client's own row). Pairs with `SUPABASE_URL`                                                                                                                                            |
+| `AUTH_SECRET`                   | no (for the portal)            | Secret that signs the portal's magic-link tokens + session cookies (≥16 chars; `openssl rand -hex 32`). Without it, `/portal` shows the login page but can't issue links. Rotating it invalidates all active sessions                                                                                                                                |
+| `BLOB_READ_WRITE_TOKEN`         | yes (for blob uploads)         | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads, by `npm run upload-video` for the wedding-films self-hosted path, and to store captured plan PDFs. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
+| `NEXT_PUBLIC_SENTRY_DSN`        | no                             | Sentry DSN for error reporting. Without it the SDK is a no-op (no network calls, no console noise). Set in production for visibility into client + server failures. The DSN is public — exposing it in the client bundle is the intended path                                                                                                        |
+| `SENTRY_DSN`                    | no                             | Server-runtime alias for `NEXT_PUBLIC_SENTRY_DSN`. The server config falls back to the public var when this is unset, so most setups only need the public one                                                                                                                                                                                        |
+| `SENTRY_ORG`                    | no (build-time)                | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset                                                                                                                                                                                                                      |
+| `SENTRY_PROJECT`                | no (build-time)                | Sentry project slug. Build-time only — pairs with `SENTRY_ORG`                                                                                                                                                                                                                                                                                       |
+| `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
+
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Start the Turbopack dev server at [http://localhost:3000](http://localhost:3000) |
-| `npm run build` | Production build (runs TypeScript + next build) |
-| `npm start` | Serve the production build locally |
-| `npm run lint` | ESLint with `eslint.config.mjs` |
-| `npm run test:e2e` | Playwright smoke tests against a local dev server |
-| `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts` |
-| `npm run upload-video -- <path>` | Upload a local video file to Vercel Blob and print the public URL — used for music-blocked wedding films that can't live on YouTube |
-| `npm run seed:sanity` | Upsert the code-owned content graph into Sanity |
+
+| Script                                    | Purpose                                                                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Start the Turbopack dev server at [http://localhost:3000](http://localhost:3000)                                                    |
+| `npm run build`                           | Production build (runs TypeScript + next build)                                                                                     |
+| `npm start`                               | Serve the production build locally                                                                                                  |
+| `npm run lint`                            | ESLint with `eslint.config.mjs`                                                                                                     |
+| `npm run test:e2e`                        | Playwright smoke tests against a local dev server                                                                                   |
+| `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts`                               |
+| `npm run upload-video -- <path>`          | Upload a local video file to Vercel Blob and print the public URL — used for music-blocked wedding films that can't live on YouTube |
+| `npm run seed:sanity`                     | Upsert the code-owned content graph into Sanity                                                                                     |
+
 
 ## Architecture notes
 
@@ -195,40 +202,26 @@ Two upload paths depending on whether the soundtrack survives YouTube's audio-ma
 ### Self-hosted path (for music-blocked films)
 
 1. Re-encode to H.264 video + AAC audio in MP4 if the source isn't already (browsers won't play VP9/HEVC/AV1 from a `<video>` tag). One-liner:
-
-   ```bash
+  ```bash
    ffmpeg -i input.mp4 \
      -c:v libx264 -preset slow -crf 22 \
      -c:a aac -b:a 192k \
      -movflags +faststart \
      output-h264.mp4
-   ```
-
+  ```
    Or, when ripping with `yt-dlp`, pin the H.264 stream directly to skip the re-encode:
-
-   ```bash
-   yt-dlp -f 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]' \
-     --merge-output-format mp4 <url>
-   ```
-
 2. Upload to Vercel Blob:
-
-   ```bash
+  ```bash
    npm run upload-video -- ./path/to/output-h264.mp4
-   ```
-
+  ```
    The script reads `BLOB_READ_WRITE_TOKEN` from `.env.local`, uploads with `access: "public"`, and prints the public URL.
-
 3. Export a thumbnail frame to `public/portfolio/wedding-films/thumbnails/<slug>.jpg` (16:9, ~1280×720, JPEG quality ~80). One-liner with ffmpeg:
-
-   ```bash
+  ```bash
    ffmpeg -ss 00:01:30 -i ./path/to/output-h264.mp4 \
      -vframes 1 -q:v 2 \
      public/portfolio/wedding-films/thumbnails/<slug>.jpg
-   ```
-
+  ```
    Tune `-ss` to a representative timestamp. Blob entries don't have an auto-thumbnail fallback — the file is required.
-
 4. In Studio, add a Video Entry with Source Kind "Self-hosted (Vercel Blob)", paste the URL into Blob URL, and reference the thumbnail path (e.g. `/portfolio/wedding-films/thumbnails/<slug>.jpg`). Same metadata fields as the YouTube path.
 
 ### Optional: backfill into the fallback array
@@ -237,8 +230,8 @@ For any film that should keep rendering during a Sanity outage, append a matchin
 
 ## Embedded third-party tools
 
-- **`/book`** — embeds `siteSettings.bookingUrl` (Square Appointments) in an iframe. The iframe **cannot** use the `sandbox` attribute — Square detects sandboxed contexts and silently no-ops on click. A fallback "Open in new tab" button is rendered for browsers that block the embed.
-- **`/client`** — embeds `siteSettings.clientGalleryUrl` (Pic-Time) the same way, with the same fallback.
+- `**/book**` — embeds `siteSettings.bookingUrl` (Square Appointments) in an iframe. The iframe **cannot** use the `sandbox` attribute — Square detects sandboxed contexts and silently no-ops on click. A fallback "Open in new tab" button is rendered for browsers that block the embed.
+- `**/client`** — embeds `siteSettings.clientGalleryUrl` (Pic-Time) the same way, with the same fallback.
 - **Google Reviews** — `src/components/GoogleReviews.tsx` tries the Places API first. If the call fails or env vars are unset, it renders manual testimonials from `siteSettings.testimonials`. If both are empty, the component renders `null` so the page degrades cleanly.
 
 ## Journal (Sanity CMS)
@@ -268,7 +261,7 @@ The seed uses `createOrReplace` at stable `_id`s, so it's idempotent. Any editor
 
 ## Planning questionnaires
 
-Schema-driven planning questionnaires live in **`src/lib/questionnaires.ts`**. Each questionnaire is a `Questionnaire` → `Section[]` → `Field[]` tree. Field types include `text`, `textarea`, `email`, `tel`, `date`, `time`, `number`, `select`, `radio`, `checkbox`, and `package` (the last one resolves at render-time from `services[slug].packages` so package lists never drift from pricing).
+Schema-driven planning questionnaires live in `**src/lib/questionnaires.ts`**. Each questionnaire is a `Questionnaire` → `Section[]` → `Field[]` tree. Field types include `text`, `textarea`, `email`, `tel`, `date`, `time`, `number`, `select`, `radio`, `checkbox`, and `package` (the last one resolves at render-time from `services[slug].packages` so package lists never drift from pricing).
 
 - **Routes**: `/questionnaire` is the index; `/questionnaire/[service]` renders the form for one service (statically generated per slug in `QUESTIONNAIRES`).
 - **Submissions**: posted to `/api/questionnaire`, validated against the schema (skipping fields hidden by `showIf`), and emailed via Resend reusing the same env vars as `/api/inquire`. Without `RESEND_API_KEY` set, submissions log to the dev console.
@@ -294,21 +287,111 @@ The site is deployed to Vercel.
 2. Set the environment variables above in **Project Settings → Environment Variables** (production + preview).
 3. Connect the custom domain `julianperezphotography.com` in **Project Settings → Domains**.
 4. Verify post-deploy:
-   - `/sitemap.xml` lists every visible service + portfolio
-   - `/robots.txt` is reachable
-   - The LocalBusiness JSON-LD in the `<head>` of `/` validates in [Google's Rich Results Test](https://search.google.com/test/rich-results)
-   - `/inquire` form delivers an email to `INQUIRY_TO`
-   - `/book` and `/client` iframes render and accept clicks
-   - Publishing in `/studio` propagates to the site in under a second (webhook wired)
+  - `/sitemap.xml` lists every visible service + portfolio
+  - `/robots.txt` is reachable
+  - The LocalBusiness JSON-LD in the `<head>` of `/` validates in [Google's Rich Results Test](https://search.google.com/test/rich-results)
+  - `/inquire` form delivers an email to `INQUIRY_TO`
+  - `/book` and `/client` iframes render and accept clicks
+  - Publishing in `/studio` propagates to the site in under a second (webhook wired)
 
 ### Pre-launch checklist
 
-- [ ] Verify a custom domain in Resend so inquiries don't ship from `onboarding@resend.dev`
-- [ ] Restrict the Google Places API key to Places API (New) + the Vercel server IP range
-- [ ] Confirm pricing, booking status, and contact info are current — either in Studio or in the hard-coded `src/lib/*-data.ts` defaults (re-seed if you edited the latter)
-- [ ] Replace `/public/og.jpg` with a final social-share image (1200×630)
-- [ ] Run the photo importer for every slug with real galleries
-- [ ] Configure `SANITY_WEBHOOK_SECRET` and register the webhook in Sanity so publishes propagate instantly
+- Verify a custom domain in Resend so inquiries don't ship from `onboarding@resend.dev`
+- Restrict the Google Places API key to Places API (New) + the Vercel server IP range
+- Confirm pricing, booking status, and contact info are current — either in Studio or in the hard-coded `src/lib/*-data.ts` defaults (re-seed if you edited the latter)
+- Replace `/public/og.jpg` with a final social-share image (1200×630)
+- Run the photo importer for every slug with real galleries
+- Configure `SANITY_WEBHOOK_SECRET` and register the webhook in Sanity so publishes propagate instantly
+
+## Client portal & CRM
+
+Inquiries and questionnaire submissions are captured as **client records** in a
+free, **private Supabase Postgres** table (`client_records`) — not Sanity,
+because client PII needs a private store and Sanity's private datasets are a
+paid feature. Julian manages records in the **Supabase Table Editor** (a
+spreadsheet-style admin view). Each client can sign in to a passwordless portal
+at `/portal` to see their own status, dates, locations, plan, and documents —
+and make limited edits / upload files.
+
+How the pieces fit:
+
+- **Capture:** `/api/inquire` upserts a record (matched by email,
+status `new-inquiry`); `/api/questionnaire` attaches the answers snapshot,
+stores the generated plan PDF to Blob, links it, and advances status toward
+`planning`. Both are fire-and-forget and **no-op when the store isn't
+configured**, so the email flow is never affected.
+- **Privacy boundary:** the app reaches the table only through
+`src/lib/clients.ts` (server-only, service-role key). The portal reads via
+`SAFE_SELECT` — `internal_notes`, the questionnaire snapshot, status history,
+and inquiry context are never selected, so they can't reach a client. The
+table has Row-Level Security enabled (the service role bypasses it
+server-side; nothing else can read it).
+- **Auth:** magic link. The client enters their email at `/portal`,
+`/api/portal/request-link` emails a one-time signed link (20-min TTL), and
+`/portal/verify` sets an httpOnly session cookie. `middleware.ts` gates
+`/portal/`*. Records are always resolved from the verified session, never a
+URL — no IDOR. Tokens + cookies are signed with `AUTH_SECRET` via `jose`.
+
+### One-time setup
+
+1. **Create a free Supabase project** at [supabase.com](https://supabase.com).
+2. **Create the table** — Supabase → SQL Editor → run:
+  ```sql
+   create table if not exists client_records (
+     id uuid primary key default gen_random_uuid(),
+     client_name text,
+     email text not null,
+     phone text,
+     partner_name text,
+     status text not null default 'new-inquiry',
+     service_type text,
+     package text,
+     source text default 'manual',
+     event_date text,
+     secondary_dates jsonb not null default '[]'::jsonb,
+     locations jsonb not null default '[]'::jsonb,
+     guest_count integer,
+     budget text,
+     plan_summary text,
+     questionnaire_snapshot text,
+     documents jsonb not null default '[]'::jsonb,
+     inquiry_message text,
+     referral text,
+     status_history jsonb not null default '[]'::jsonb,
+     last_client_update timestamptz,
+     internal_notes text,
+     created_at timestamptz not null default now(),
+     updated_at timestamptz not null default now()
+   );
+   create unique index if not exists client_records_email_idx
+     on client_records (lower(email));
+   -- Lock the table down: the app's service-role key bypasses RLS; with no
+   -- policies, nothing else (including the anon key) can read it.
+   alter table client_records enable row level security;
+  ```
+3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
+   or use Project Settings (gear, bottom-left):
+   - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.
+     `https://<ref>.supabase.co`).
+   - **Secret key** (`SUPABASE_SERVICE_ROLE_KEY`) — Settings → **API Keys**.
+     Newer projects show a **Secret** key (`sb_secret_…`); older ones have it
+     under the **Legacy API keys** tab as **`service_role`** (the long `eyJ…`
+     JWT). Either works — it's the full-access backend key. **Not** the
+     `anon` / publishable key.
+4. **Generate the portal secret** (this one is NOT a Supabase value — you make
+   it yourself; `openssl` is built into macOS):
+   ```bash
+   openssl rand -hex 32   # → AUTH_SECRET
+   ```
+5. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `AUTH_SECRET` to
+   `.env.local` and to Vercel → Environment Variables (server scope; **no**
+   `NEXT_PUBLIC_` prefix on any of them).
+
+After setting the env vars, restart `npm run dev`, submit a test inquiry on
+`/inquire`, and confirm a row appears in the Supabase Table Editor. Manage
+records (status, notes, documents, dates) directly in that editor. Until the
+env is set, capture + portal cleanly no-op and the rest of the site is
+unaffected.
 
 ## Security
 

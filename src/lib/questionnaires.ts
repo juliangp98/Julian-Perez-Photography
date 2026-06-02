@@ -168,7 +168,7 @@ const weddingQuestionnaire: Questionnaire = {
   intro:
     "Welcome! This is the questionnaire I send to every booked wedding couple — it's how I learn your day inside and out so I can show up prepared and stress-free. Take your time. You can save your answers and come back later.",
   audience: "Booked and prospective wedding couples",
-  estimatedMinutes: 25,
+  estimatedMinutes: 30,
   sections: [
     yourDetailsSection,
     {
@@ -189,6 +189,81 @@ const weddingQuestionnaire: Questionnaire = {
       ],
     },
     bookingStatusSection("weddings"),
+    {
+      title: "Your photography style",
+      description:
+        "How you want the day to feel when you look back at the gallery. There's no wrong answer — it just helps me lean the right direction.",
+      fields: [
+        {
+          id: "stylePreference",
+          label: "Which style speaks to you most?",
+          type: "radio",
+          required: true,
+          options: [
+            "Candid / photojournalistic — captured as it happens",
+            "Classic / posed — timeless, directed portraits",
+            "A blend of both — candid moments plus polished portraits",
+            "Editorial / fashion-forward — bold, styled, dramatic",
+            "Other",
+          ],
+        },
+        {
+          id: "stylePreferenceOther",
+          label: "Tell me more about the style you're picturing",
+          type: "textarea",
+          showIf: { id: "stylePreference", equals: "Other" },
+        },
+        {
+          id: "moodVibe",
+          label:
+            "Three words for the mood you want your photos to capture (optional)",
+          type: "text",
+          placeholder: "e.g. warm, joyful, candid",
+        },
+      ],
+    },
+    {
+      title: "Engagement session",
+      description:
+        "Your package includes an engagement session — a relaxed shoot before the wedding. It's a great way for us to get comfortable together, and perfect for save-the-dates.",
+      // Silver, Premium, and Platinum include a session. (On Premium it's
+      // the couple's choice of session vs. a heirloom album, handled by
+      // the help text on the field below.) Essentials and Mini don't, so
+      // the section stays hidden for them.
+      showIf: { id: "package", equalsAny: ["Silver", "Premium", "Platinum"] },
+      fields: [
+        {
+          id: "engagementWanted",
+          label: "Would you like to use your engagement session?",
+          type: "radio",
+          required: true,
+          options: ["Yes, let's do it!", "No, we'll skip it", "Not sure yet"],
+          help: "On Premium, the session is your choice vs. a heirloom album — pick 'No' here if you'd rather take the album.",
+        },
+        {
+          id: "engagementLocationIdeas",
+          label: "Any dream locations or a vibe you're picturing?",
+          type: "textarea",
+          placeholder:
+            "e.g. where we had our first date, downtown DC, a wooded trail, the beach at golden hour…",
+          showIf: { id: "engagementWanted", equals: "Yes, let's do it!" },
+        },
+        {
+          id: "engagementTimeframe",
+          label: "Roughly when would you like it?",
+          type: "text",
+          placeholder:
+            "e.g. fall 2026, ~6 months before the wedding, in time for save-the-dates",
+          showIf: { id: "engagementWanted", equals: "Yes, let's do it!" },
+        },
+        {
+          id: "engagementNotes",
+          label: "Anything else about the session? (optional)",
+          type: "textarea",
+          showIf: { id: "engagementWanted", equals: "Yes, let's do it!" },
+        },
+      ],
+    },
     {
       title: "Getting ready",
       description:
@@ -416,6 +491,28 @@ const weddingQuestionnaire: Questionnaire = {
           options: ["Indoor", "Outdoor", "Both", "Tented / covered outdoor"],
         },
         {
+          id: "weatherBackup",
+          label: "What's the rain / weather backup plan?",
+          type: "checkbox",
+          options: [
+            "Indoor backup space at the venue",
+            "Tent on standby",
+            "Other (I'll describe below)",
+            "No backup plan yet — open to suggestions",
+          ],
+          help: "Helps me scout and plan for either scenario so we're never caught off guard. Check any that apply.",
+          showIf: {
+            id: "ceremonyIndoorOutdoor",
+            equalsAny: ["Outdoor", "Both", "Tented / covered outdoor"],
+          },
+        },
+        {
+          id: "weatherBackupOther",
+          label: "Describe your backup plan",
+          type: "textarea",
+          showIf: { id: "weatherBackup", equals: "Other (I'll describe below)" },
+        },
+        {
           id: "ceremonyStartTime",
           label: "Ceremony start time",
           type: "time",
@@ -560,6 +657,96 @@ const weddingQuestionnaire: Questionnaire = {
       ],
     },
     {
+      title: "Vendors & coordination",
+      description:
+        "Your other vendors and key contacts. Check the ones you've booked and a box will open up for each — you can always send the rest later as you lock them in.",
+      showIf: { id: "package", notEquals: "Mini" },
+      fields: [
+        {
+          id: "bookedVendors",
+          label: "Which vendors have you booked so far?",
+          type: "checkbox",
+          options: [
+            "Planner / coordinator",
+            "Videographer",
+            "DJ / band",
+            "Florist",
+            "Caterer",
+            "Hair & makeup",
+            "Officiant",
+            "Venue coordinator (if separate)",
+          ],
+          help: "Check any that apply — a contact box appears below for each. One box per type; use the catch-all at the bottom for anyone else (or a second of the same kind).",
+        },
+        {
+          id: "plannerInfo",
+          label: "Planner / coordinator — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Planner / coordinator" },
+        },
+        {
+          id: "videographerInfo",
+          label: "Videographer — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Videographer" },
+        },
+        {
+          id: "djInfo",
+          label: "DJ / band — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "DJ / band" },
+        },
+        {
+          id: "floristInfo",
+          label: "Florist — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Florist" },
+        },
+        {
+          id: "catererInfo",
+          label: "Caterer — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Caterer" },
+        },
+        {
+          id: "hmuaInfo",
+          label: "Hair & makeup — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Hair & makeup" },
+        },
+        {
+          id: "officiantInfo",
+          label: "Officiant — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: { id: "bookedVendors", equals: "Officiant" },
+        },
+        {
+          id: "venueCoordinatorInfo",
+          label: "Venue coordinator — name + contact",
+          type: "textarea",
+          placeholder: "Name, email, phone",
+          showIf: {
+            id: "bookedVendors",
+            equals: "Venue coordinator (if separate)",
+          },
+        },
+        {
+          id: "otherVendors",
+          label: "Any other vendors or key contacts?",
+          type: "textarea",
+          placeholder:
+            "Anyone not listed above — baker, rentals, transportation, a second of any vendor type, etc.",
+        },
+      ],
+    },
+    {
       title: "Day-of timeline",
       description:
         "Fill in the times you know — leave blank any you haven't nailed down yet. This builds the schedule section of your wedding day plan.",
@@ -656,6 +843,56 @@ const weddingQuestionnaire: Questionnaire = {
           label: "How did you find me?",
           type: "text",
           placeholder: "Instagram, a friend, Google, vendor referral, etc.",
+        },
+        {
+          id: "sharingConsent",
+          label: "How do you feel about me sharing your photos?",
+          type: "radio",
+          required: true,
+          options: [
+            "Yes — share anywhere (website, social, blog, vendor features)",
+            "No — please keep all our photos private",
+            "Partial — I'll specify below",
+          ],
+          help: "This never affects your own gallery or print release — it's only about whether I feature your images in my portfolio and marketing.",
+        },
+        {
+          id: "sharingChannels",
+          label: "Where is sharing okay?",
+          type: "checkbox",
+          options: [
+            "Website / portfolio",
+            "Instagram / Facebook",
+            "Blog / vendor features",
+          ],
+          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+        },
+        {
+          id: "sharingPhotoTypes",
+          label: "Any limits on which photos?",
+          type: "checkbox",
+          options: [
+            "Posed portraits are fine",
+            "Candids are fine",
+            "Getting-ready photos are fine",
+            "Ceremony is fine",
+            "Reception is fine",
+            "Please avoid photos with our kids / specific guests",
+          ],
+          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+        },
+        {
+          id: "sharingLimits",
+          label: "Any limit on how many, or where? (optional)",
+          type: "text",
+          placeholder: "e.g. up to 15 on your site, 5 on social",
+          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+        },
+        {
+          id: "sharingNotes",
+          label: "Anything else about sharing? (optional)",
+          type: "textarea",
+          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
         },
         {
           id: "inspirationFiles",

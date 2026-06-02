@@ -19,6 +19,14 @@ suspected of being exposed, and as part of a quarterly audit.
 - [ ] Rotate `SANITY_WEBHOOK_SECRET` if it has been shared out-of-band or
       not rotated in more than 12 months. Generate via `openssl rand -hex 32`;
       update both the Sanity webhook config and the Vercel env var together.
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` (client-records CRM) is **server env only**
+      (no `NEXT_PUBLIC_`) — it grants full DB access and bypasses Row-Level
+      Security. Never expose it client-side. Rotate at Supabase → Settings →
+      API if it leaks. The `client_records` table has RLS enabled so nothing
+      but the service role can read it.
+- [ ] `AUTH_SECRET` (portal magic links + sessions) is ≥32 hex chars and server
+      env only. Rotating it invalidates all active portal sessions — harmless
+      (clients just request a fresh sign-in link). Rotate if exposed.
 - [ ] 2FA enabled on every account: Vercel, Sanity, Resend, Twilio, Google
       Cloud, GitHub, domain registrar.
 - [ ] Passwords stored in a password manager (1Password, Bitwarden, Apple
@@ -28,8 +36,10 @@ suspected of being exposed, and as part of a quarterly audit.
 
 - [ ] Project Settings → **Environment Variables** — production and preview
       scoped separately. Confirm `RESEND_API_KEY`, `RESEND_FROM`, the three
-      `TWILIO_*`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACE_ID`, and
-      `SANITY_WEBHOOK_SECRET` are all present in production.
+      `TWILIO_*`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACE_ID`,
+      `SANITY_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `SUPABASE_URL`,
+      `SUPABASE_SERVICE_ROLE_KEY`, and `AUTH_SECRET` are all present in
+      production (server scope; the latter three carry no `NEXT_PUBLIC_` prefix).
 - [ ] Settings → **Deployment Protection** — enable Vercel Authentication
       on Preview deployments so preview URLs aren't publicly crawlable.
       Previews share env vars with production, which makes them leak-prone
@@ -64,6 +74,25 @@ suspected of being exposed, and as part of a quarterly audit.
 - [ ] Dataset visibility — `production` is a public dataset. That is the
       correct setting (read-only public queries; no secrets stored in
       Sanity) but confirm it periodically.
+## Client portal & CRM
+
+- [ ] Client PII lives only in the private Supabase `client_records` table,
+      reached server-side via `src/lib/clients.ts` with the service-role key.
+      RLS is enabled on the table; confirm it stays on (Supabase → Auth →
+      Policies / table settings) so the anon key can't read it.
+- [ ] The portal selects `SAFE_SELECT` only — `internal_notes`, the
+      questionnaire snapshot, status history, and inquiry context are never
+      selected. Keep internal-only columns out of that projection when adding
+      fields.
+- [ ] Magic-link tokens are short-lived (20 min) and the login endpoint is
+      rate-limited + returns a uniform response (no account enumeration).
+      Session cookies are httpOnly/Secure/SameSite, signed with `AUTH_SECRET`.
+- [ ] Portal reads/writes always resolve the record id from the verified
+      session cookie, never from a URL or request body (no IDOR). Confirm any
+      new portal route follows this.
+- [ ] **Vercel Blob** lifecycle covers portal document uploads + captured plan
+      PDFs too (public, unguessable URLs). Fold these into the same purge
+      cadence as questionnaire uploads — they're PII.
 
 ## Resend
 
