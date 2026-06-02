@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import PortalLoginForm from "@/components/PortalLoginForm";
 
 // Portal login (public). Authenticated portal pages live under /portal/* and
-// are gated by middleware.ts. noindex — this is a private surface.
+// are gated by the proxy. noindex — this is a private surface.
 export const metadata: Metadata = {
   title: "Client portal",
   description: "Sign in to your Julian Perez Photography client portal.",

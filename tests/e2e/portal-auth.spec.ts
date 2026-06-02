@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // real link → verify → session) needs a configured `clients` dataset with a
 // seeded record, so it's exercised manually / deferred to a scratch-dataset
 // e2e. These cover everything reachable without the store: the login page, the
-// middleware gate, invalid-token handling, and the anti-enumeration response.
+// proxy gate, invalid-token handling, and the anti-enumeration response.
 
 test("portal: login page renders the email form", async ({ page }) => {
   await page.goto("/portal");
@@ -16,7 +16,7 @@ test("portal: protected page without a session redirects to login", async ({
   page,
 }) => {
   await page.goto("/portal/dashboard");
-  // Middleware bounces unauthenticated visitors back to /portal.
+  // The proxy bounces unauthenticated visitors back to /portal.
   await expect(page).toHaveURL(/\/portal(\?.*)?$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });

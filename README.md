@@ -347,8 +347,9 @@ server-side; nothing else can read it).
 - **Auth & ownership:** magic link. The client enters their email at `/portal`,
 `/api/portal/request-link` emails a one-time signed link (20-min TTL), and
 `/portal/verify` sets an httpOnly session cookie carrying the **email** (the
-person), not a single record id. `middleware.ts` gates `/portal/`* and
-`/admin/`*. Every project read or write resolves the row by **(project id +
+person), not a single record id. A Next.js 16 Proxy (`src/proxy.ts`, Node.js
+runtime) gates `/portal/`* and `/admin/`*. Every project read or write resolves
+the row by **(project id +
 session email)** — a project the URL names but the signed-in person doesn't own
 returns not-found — so listing and linking projects can never reach across
 people (no IDOR). Bundle writes apply the same gate: any project id not owned by

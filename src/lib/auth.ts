@@ -1,13 +1,14 @@
 // Pure JWT helpers for the client portal — magic-link tokens and session
-// tokens, both HS256-signed with `AUTH_SECRET`. Intentionally free of
-// `next/headers` so this module is safe to import from Edge middleware as well
-// as Node route handlers. Cookie read/write helpers live in `auth-cookies.ts`
-// (Node/server only) so middleware never pulls `cookies()` into the Edge
-// bundle.
+// tokens, both HS256-signed with `AUTH_SECRET`. Kept free of `next/headers` so
+// the token sign/verify logic stays a small, dependency-light unit usable from
+// the `proxy` gate and the route handlers alike. Cookie read/write helpers live
+// in `auth-cookies.ts` (they use `next/headers` `cookies()`), keeping this
+// module's concern limited to the tokens themselves.
 //
-// No `server-only` marker here: middleware runs in the Edge runtime and this
-// module must bundle there. `AUTH_SECRET` is a non-public env var, so it never
-// reaches the browser regardless; portal code never imports this client-side.
+// The `proxy` gate and the route handlers all run on the Node.js runtime, so
+// there's no Edge bundling constraint here. `AUTH_SECRET` is a non-public env
+// var — it never reaches the browser, and portal code never imports this
+// client-side.
 
 import { SignJWT, jwtVerify } from "jose";
 
