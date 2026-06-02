@@ -9,10 +9,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimitResponse } from "@/lib/request-guard";
 import { getSession } from "@/lib/auth-cookies";
-import { appendDocument } from "@/lib/clients";
+import { appendDocument, getProjectForEmail } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
+  projectId: z.string().min(1),
   url: z.string().url(),
   label: z.string().min(1).max(200),
 });
@@ -55,8 +56,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid URL." }, { status: 400 });
   }
 
+  // Ownership gate — the project must belong to the signed-in person.
+  const owned = await getProjectForEmail(parsed.data.projectId, session.email);
+  if (!owned) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   try {
-    await appendDocument(session.recordId, {
+    await appendDocument(parsed.data.projectId, {
       label: parsed.data.label,
       type: "other",
       url: parsed.data.url,

@@ -10,7 +10,11 @@ import { useRouter } from "next/navigation";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
-export default function PortalDocumentUpload() {
+export default function PortalDocumentUpload({
+  projectId,
+}: {
+  projectId: string;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>("idle");
@@ -29,7 +33,7 @@ export default function PortalDocumentUpload() {
       const res = await fetch("/api/portal/attach-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: blob.url, label: file.name }),
+        body: JSON.stringify({ projectId, url: blob.url, label: file.name }),
       });
       if (!res.ok) throw new Error("attach failed");
       setStatus("done");

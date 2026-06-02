@@ -2,71 +2,103 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
-import { getClientById } from "@/lib/clients";
+import { listProjectsByEmail, type ClientRecordSafe } from "@/lib/clients";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
 } from "@/lib/client-status";
-import PortalEditForm from "@/components/PortalEditForm";
-import PortalDocumentUpload from "@/components/PortalDocumentUpload";
+import { services } from "@/lib/content";
+import { UMBRELLAS, type Umbrella } from "@/lib/types";
+import PortalBundles from "@/components/PortalBundles";
 
-// Authenticated portal home. Renders ONLY the client-safe projection
-// (`SAFE_SELECT` in src/lib/clients.ts) — internal notes and admin columns are
-// excluded at the query layer and never reach this component. Gated by
-// middleware.ts; the getSession() check is defense-in-depth and supplies the
-// record id from the verified session cookie (never from the URL).
+// The portal home: a menu of the signed-in person's projects, grouped by
+// photographic category (umbrella) in the same card style as the services /
+// galleries pages. Bundled projects are pulled into their own accent group so
+// the linked relationship is obvious.
 export const metadata: Metadata = {
-  title: "Your project",
+  title: "Your projects",
   robots: { index: false, follow: false },
 };
 
-function formatDate(d?: string): string | null {
-  if (!d) return null;
-  const date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+const SERVICE_UMBRELLA: Record<string, Umbrella> = Object.fromEntries(
+  services.map((s) => [s.slug, s.umbrella]),
+);
+const UMBRELLA_TITLE: Record<string, string> = Object.fromEntries(
+  UMBRELLAS.map((u) => [u.id, u.title]),
+);
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-        {label}
-      </div>
-      <div className="mt-1">{value}</div>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  children,
+function ProjectCard({
+  p,
+  bundled,
 }: {
-  title: string;
-  children: React.ReactNode;
+  p: ClientRecordSafe;
+  bundled?: boolean;
 }) {
+  const title = p.serviceType
+    ? p.serviceType.replace(/-/g, " ")
+    : p.clientName || "Project";
   return (
-    <div className="mt-12">
-      <h2 className="font-serif text-2xl">{title}</h2>
-      <div className="mt-4">{children}</div>
-    </div>
+    <Link
+      href={`/portal/projects/${p.id}`}
+      className={`block rounded-lg border bg-white p-5 transition ${
+        bundled
+          ? "border-[var(--accent)] hover:border-[var(--foreground)]"
+          : "border-[var(--border)] hover:border-[var(--foreground)]"
+      }`}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-serif text-xl capitalize">{title}</div>
+        <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+          {CLIENT_STATUS_CLIENT_LABEL[p.status as ClientStatus] ?? "In progress"}
+        </span>
+      </div>
+      {p.eventDate && (
+        <div className="mt-2 text-sm text-[var(--muted)]">{p.eventDate}</div>
+      )}
+    </Link>
   );
 }
 
-export default async function PortalDashboardPage() {
+export default async function PortalProjectsMenuPage() {
   const session = await getSession();
   if (!session) redirect("/portal");
-  const record = await getClientById(session.recordId);
+  const projects = await listProjectsByEmail(session.email);
+
+  // Split bundled vs. loose. Bundles render first as their own accent groups;
+  // the rest group by photographic category.
+  const bundles = new Map<string, { label: string; items: ClientRecordSafe[] }>();
+  const loose: ClientRecordSafe[] = [];
+  for (const p of projects) {
+    if (p.bundleId) {
+      const b = bundles.get(p.bundleId) ?? {
+        label: p.bundleLabel || "Bundle",
+        items: [],
+      };
+      b.items.push(p);
+      bundles.set(p.bundleId, b);
+    } else {
+      loose.push(p);
+    }
+  }
+
+  // Group loose projects by umbrella, in the canonical umbrella order.
+  const byUmbrella = new Map<string, ClientRecordSafe[]>();
+  for (const p of loose) {
+    const u = (p.serviceType && SERVICE_UMBRELLA[p.serviceType]) || "other";
+    const arr = byUmbrella.get(u) ?? [];
+    arr.push(p);
+    byUmbrella.set(u, arr);
+  }
+  const orderedUmbrellas = [
+    ...UMBRELLAS.map((u) => u.id as string),
+    "other",
+  ].filter((u) => byUmbrella.has(u));
 
   return (
-    <section className="max-w-3xl mx-auto px-6 py-20">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
       <div className="flex items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Your project
+          Your projects
         </div>
         <Link
           href="/portal/logout"
@@ -75,146 +107,66 @@ export default async function PortalDashboardPage() {
           Sign out
         </Link>
       </div>
+      <h1 className="mt-2 font-serif text-4xl">Welcome back</h1>
+      <p className="mt-3 text-[var(--muted)]">
+        Pick a project to see its status, dates, documents, and to add details.
+      </p>
 
-      {!record ? (
-        <div className="mt-8 p-8 border border-dashed border-[var(--border)] rounded-lg">
-          <h1 className="font-serif text-3xl">Signed in</h1>
-          <p className="mt-3 text-[var(--muted)]">
-            I couldn&rsquo;t load your project details right now. Please email me
-            and I&rsquo;ll get it sorted.
-          </p>
+      {projects.length === 0 ? (
+        <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
+          Nothing here yet. Once you&rsquo;ve inquired or started a
+          questionnaire, your projects will show up here.
         </div>
       ) : (
-        <>
-          <h1 className="mt-2 font-serif text-4xl">
-            {record.clientName ?? "Your project"}
-          </h1>
-          <div className="mt-3">
-            <span className="inline-block px-3 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs uppercase tracking-[0.18em]">
-              {CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus] ??
-                "In progress"}
-            </span>
-          </div>
-
-          <div className="mt-10 grid sm:grid-cols-2 gap-6">
-            {record.serviceType && (
-              <Detail label="Service" value={record.serviceType} />
-            )}
-            {record.package && (
-              <Detail label="Package" value={record.package} />
-            )}
-            {formatDate(record.eventDate) && (
-              <Detail label="Event date" value={formatDate(record.eventDate)!} />
-            )}
-            {record.guestCount != null && (
-              <Detail label="Guest count" value={String(record.guestCount)} />
-            )}
-            {record.partnerName && (
-              <Detail label="Partner" value={record.partnerName} />
-            )}
-          </div>
-
-          {record.secondaryDates && record.secondaryDates.length > 0 && (
-            <Section title="Other dates">
-              <ul className="border-t border-[var(--border)]">
-                {record.secondaryDates.map((d, i) => (
-                  <li
-                    key={i}
-                    className="flex justify-between py-3 border-b border-[var(--border)] gap-4"
-                  >
-                    <span>{d.label ?? "Date"}</span>
-                    <span className="text-[var(--muted)]">
-                      {formatDate(d.date)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {record.locations && record.locations.length > 0 && (
-            <Section title="Locations">
-              <div className="space-y-4">
-                {record.locations.map((l, i) => (
-                  <div
-                    key={i}
-                    className="p-4 border border-[var(--border)] rounded-lg"
-                  >
-                    {l.label && <div className="font-medium">{l.label}</div>}
-                    {l.address && (
-                      <div className="mt-1 text-sm text-[var(--muted)] whitespace-pre-line">
-                        {l.address}
-                      </div>
-                    )}
-                    {l.notes && (
-                      <div className="mt-1 text-sm text-[var(--muted)]">
-                        {l.notes}
-                      </div>
-                    )}
-                  </div>
+        <div className="mt-10 space-y-14">
+          {/* Bundles */}
+          {[...bundles.values()].map((b, i) => (
+            <div
+              key={i}
+              className="rounded-lg border-2 border-[var(--accent)]/40 bg-[var(--accent)]/[0.03] p-5 lg:p-6"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--accent)]">↔</span>
+                <h2 className="font-serif text-2xl">{b.label}</h2>
+                <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Bundle
+                </span>
+              </div>
+              <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {b.items.map((p) => (
+                  <ProjectCard key={p.id} p={p} bundled />
                 ))}
               </div>
-            </Section>
-          )}
+            </div>
+          ))}
 
-          {record.planSummary && (
-            <Section title="Plan">
-              <p className="whitespace-pre-line leading-relaxed text-[var(--foreground)]/90">
-                {record.planSummary}
-              </p>
-            </Section>
-          )}
-
-          {record.documents && record.documents.length > 0 && (
-            <Section title="Documents">
-              <ul className="border-t border-[var(--border)]">
-                {record.documents.map((doc, i) => (
-                  <li key={i} className="border-b border-[var(--border)]">
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex justify-between items-baseline py-3 gap-4 hover:text-[var(--accent)] transition"
-                    >
-                      <span>{doc.label}</span>
-                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)] whitespace-nowrap">
-                        {doc.type ?? "file"} &#8599;
-                      </span>
-                    </a>
-                  </li>
+          {/* Loose projects, grouped by photographic category */}
+          {orderedUmbrellas.map((u) => (
+            <div key={u}>
+              <h2 className="font-serif text-2xl">
+                {UMBRELLA_TITLE[u] ?? "Other"}
+              </h2>
+              <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {byUmbrella.get(u)!.map((p) => (
+                  <ProjectCard key={p.id} p={p} />
                 ))}
-              </ul>
-            </Section>
-          )}
+              </div>
+            </div>
+          ))}
 
-          <Section title="Update your details">
-            <p className="text-sm text-[var(--muted)] mb-5">
-              Keep your contact info and notes current — I&rsquo;ll see any
-              changes you make here.
-            </p>
-            <PortalEditForm
-              initial={{
-                phone: record.phone,
-                partnerName: record.partnerName,
-                guestCount: record.guestCount,
-                planSummary: record.planSummary,
-              }}
+          {/* Link projects into a bundle */}
+          {projects.length >= 2 && (
+            <PortalBundles
+              projects={projects.map((p) => ({
+                id: p.id,
+                title: p.serviceType
+                  ? p.serviceType.replace(/-/g, " ")
+                  : p.clientName || "Project",
+                bundleLabel: p.bundleLabel,
+              }))}
             />
-          </Section>
-
-          <Section title="Upload a document">
-            <p className="text-sm text-[var(--muted)] mb-4">
-              Share anything useful — a venue floor plan, a timeline, an
-              inspiration PDF. I&rsquo;ll see it attached to your project.
-            </p>
-            <PortalDocumentUpload />
-          </Section>
-
-          <p className="mt-16 text-sm text-[var(--muted)]">
-            Something look off you can&rsquo;t change here? Just reply to any of
-            my emails and I&rsquo;ll update it.
-          </p>
-        </>
+          )}
+        </div>
       )}
     </section>
   );

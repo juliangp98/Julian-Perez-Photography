@@ -10,11 +10,35 @@
 // session themselves server-side.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import {
+  SESSION_COOKIE,
+  ADMIN_SESSION_COOKIE,
+  verifySessionToken,
+  verifyAdminSessionToken,
+} from "@/lib/auth";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ── Admin area (owner only) ──
+  if (pathname.startsWith("/admin")) {
+    // Login + magic-link landing are public.
+    if (pathname === "/admin" || pathname.startsWith("/admin/verify")) {
+      return NextResponse.next();
+    }
+    const adminToken = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    const adminSession = adminToken
+      ? await verifyAdminSessionToken(adminToken)
+      : null;
+    if (!adminSession) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  // ── Client portal ──
   // Public entry points within the portal.
   if (pathname === "/portal" || pathname.startsWith("/portal/verify")) {
     return NextResponse.next();
@@ -34,5 +58,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/portal/:path*"],
+  matcher: ["/portal/:path*", "/admin/:path*"],
 };

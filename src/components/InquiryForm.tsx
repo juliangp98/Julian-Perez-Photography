@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { visibleServices as services } from "@/lib/content";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
 
@@ -63,12 +64,12 @@ export default function InquiryForm({
         <p className="mt-5 text-sm text-[var(--muted)]">
           Once we&rsquo;re booked (or if you&rsquo;re seriously considering),
           the next step is a planning questionnaire so I can show up prepared.{" "}
-          <a
+          <Link
             href="/questionnaire"
             className="underline underline-offset-4 hover:text-[var(--foreground)]"
           >
             Browse planning questionnaires →
-          </a>
+          </Link>
         </p>
         <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
           <p className="text-sm font-medium">Want to chat first?</p>
@@ -84,6 +85,20 @@ export default function InquiryForm({
           >
             {discoveryCall.label} &rarr;
           </a>
+        </div>
+        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          <p className="text-sm font-medium">Track your project</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Sign in to your client portal anytime to check your status, add
+            details, and find your documents — just use this same email, no
+            password needed.
+          </p>
+          <Link
+            href="/portal"
+            className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+          >
+            Open your portal &rarr;
+          </Link>
         </div>
       </div>
     );

@@ -119,6 +119,11 @@ export default function Footer() {
           <div className="font-medium mb-3">For clients</div>
           <ul className="space-y-2 text-[var(--muted)]">
             <li>
+              <Link href="/portal" className="hover:text-[var(--foreground)]">
+                Project portal
+              </Link>
+            </li>
+            <li>
               <Link href="/client" className="hover:text-[var(--foreground)]">
                 Client galleries
               </Link>

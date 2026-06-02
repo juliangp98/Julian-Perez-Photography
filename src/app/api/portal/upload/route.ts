@@ -35,7 +35,9 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async () => {
-        // Only mint a token for a signed-in client.
+        // Only mint a token for a signed-in client. The uploaded file is linked
+        // to a specific project (with an ownership check) by the follow-up call
+        // to /api/portal/attach-document, so no record id is needed here.
         const session = await getSession();
         if (!session) throw new Error("Not authenticated");
         return {
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
           ],
           maximumSizeInBytes: 15 * 1024 * 1024, // 15 MB
           addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ recordId: session.recordId }),
+          tokenPayload: JSON.stringify({ email: session.email }),
         };
       },
       onUploadCompleted: async () => {

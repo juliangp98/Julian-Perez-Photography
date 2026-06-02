@@ -24,9 +24,13 @@ suspected of being exposed, and as part of a quarterly audit.
       Security. Never expose it client-side. Rotate at Supabase → Settings →
       API if it leaks. The `client_records` table has RLS enabled so nothing
       but the service role can read it.
-- [ ] `AUTH_SECRET` (portal magic links + sessions) is ≥32 hex chars and server
-      env only. Rotating it invalidates all active portal sessions — harmless
-      (clients just request a fresh sign-in link). Rotate if exposed.
+- [ ] `AUTH_SECRET` (portal + admin magic links + sessions) is ≥32 hex chars
+      and server env only. Rotating it invalidates all active sessions —
+      harmless (everyone just requests a fresh sign-in link). Rotate if exposed.
+- [ ] `ADMIN_EMAIL` is set to only the owner address(es). The `/admin`
+      dashboard (full record read/edit) is gated to these emails; the allowlist
+      is re-checked on every token verify, so removing an address revokes access
+      even on an unexpired session.
 - [ ] 2FA enabled on every account: Vercel, Sanity, Resend, Twilio, Google
       Cloud, GitHub, domain registrar.
 - [ ] Passwords stored in a password manager (1Password, Bitwarden, Apple
@@ -90,6 +94,10 @@ suspected of being exposed, and as part of a quarterly audit.
 - [ ] Portal reads/writes always resolve the record id from the verified
       session cookie, never from a URL or request body (no IDOR). Confirm any
       new portal route follows this.
+- [ ] The `/admin` area (owner-only) uses a separate session cookie + the
+      `ADMIN_EMAIL` allowlist. Admin write routes (`/api/admin/*`) verify the
+      admin session server-side, independent of the Edge middleware gate.
+      `/admin` is in `robots.ts` disallow.
 - [ ] **Vercel Blob** lifecycle covers portal document uploads + captured plan
       PDFs too (public, unguessable URLs). Fold these into the same purge
       cadence as questionnaire uploads — they're PII.

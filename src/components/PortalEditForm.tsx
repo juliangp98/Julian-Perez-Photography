@@ -19,7 +19,13 @@ const input =
   "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
 const label = "block text-sm font-medium mb-1.5";
 
-export default function PortalEditForm({ initial }: { initial: Initial }) {
+export default function PortalEditForm({
+  projectId,
+  initial,
+}: {
+  projectId: string;
+  initial: Initial;
+}) {
   const router = useRouter();
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [partnerName, setPartnerName] = useState(initial.partnerName ?? "");
@@ -37,6 +43,7 @@ export default function PortalEditForm({ initial }: { initial: Initial }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId,
           phone,
           partnerName,
           guestCount: guestCount === "" ? undefined : Number(guestCount),
