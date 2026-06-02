@@ -96,7 +96,7 @@ suspected of being exposed, and as part of a quarterly audit.
       new portal route follows this.
 - [ ] The `/admin` area (owner-only) uses a separate session cookie + the
       `ADMIN_EMAIL` allowlist. Admin write routes (`/api/admin/*`) verify the
-      admin session server-side, independent of the Edge middleware gate.
+      admin session server-side, independent of the proxy gate.
       `/admin` is in `robots.ts` disallow.
 - [ ] **Vercel Blob** lifecycle covers portal document uploads + captured plan
       PDFs too (public, unguessable URLs). Fold these into the same purge

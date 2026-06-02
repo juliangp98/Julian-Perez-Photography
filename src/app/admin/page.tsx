@@ -4,7 +4,7 @@ import { getAdminSession } from "@/lib/auth-cookies";
 import PortalLoginForm from "@/components/PortalLoginForm";
 
 // Admin login (public). The authenticated admin area lives under /admin/* and
-// is gated by middleware.ts + the ADMIN_EMAIL allowlist. noindex.
+// is gated by the proxy + the ADMIN_EMAIL allowlist. noindex.
 export const metadata: Metadata = {
   title: "Admin",
   robots: { index: false, follow: false },

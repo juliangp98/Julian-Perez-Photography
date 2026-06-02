@@ -1,5 +1,5 @@
 // GET /portal/logout — clears the session cookie and returns to the login
-// page. Reachable only with a valid session (middleware gates /portal/*).
+// page. Reachable only with a valid session (the proxy gates /portal/*).
 
 export const runtime = "nodejs";
 

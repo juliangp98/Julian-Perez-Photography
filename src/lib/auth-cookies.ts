@@ -1,7 +1,7 @@
-// Session-cookie helpers for the client portal (Node/server runtime only —
-// uses `next/headers` `cookies()`, which is unavailable in Edge middleware).
-// Middleware reads the cookie off `NextRequest` directly and verifies it with
-// the pure helpers in `auth.ts`.
+// Session-cookie helpers for the client portal. These use `next/headers`
+// `cookies()` to read/write the cookie jar from Server Components and route
+// handlers. The `proxy` gate instead reads the cookie off `NextRequest`
+// directly and verifies it with the pure helpers in `auth.ts`.
 
 import "server-only";
 import { cookies } from "next/headers";

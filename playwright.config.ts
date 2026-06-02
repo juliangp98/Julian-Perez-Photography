@@ -39,7 +39,7 @@ export default defineConfig({
     // Clear RESEND_API_KEY so the dev-mode fallback kicks in — tests
     // must not send real email. (Playwright merges into process.env.)
     // AUTH_SECRET is a throwaway test value so the portal auth routes +
-    // middleware function; it is never used outside the local test server.
+    // proxy function; it is never used outside the local test server.
     env: {
       RESEND_API_KEY: "",
       AUTH_SECRET: "e2e-test-secret-not-for-production-0123456789abcdef",
