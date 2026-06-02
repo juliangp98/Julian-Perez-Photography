@@ -115,12 +115,14 @@ export default async function PortalProjectPage({
         >
           ← Your projects
         </Link>
-        <Link
-          href="/portal/logout"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          Sign out
-        </Link>
+        <form action="/portal/logout" method="post">
+          <button
+            type="submit"
+            className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
 
       <h1 className="mt-4 font-serif text-4xl">

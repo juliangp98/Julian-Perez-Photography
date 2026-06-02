@@ -100,12 +100,14 @@ export default async function PortalProjectsMenuPage() {
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
           Your projects
         </div>
-        <Link
-          href="/portal/logout"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          Sign out
-        </Link>
+        <form action="/portal/logout" method="post">
+          <button
+            type="submit"
+            className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
       <h1 className="mt-2 font-serif text-4xl">Welcome back</h1>
       <p className="mt-3 text-[var(--muted)]">

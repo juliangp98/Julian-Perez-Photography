@@ -18,12 +18,14 @@ export default function AdminNav({ active }: { active: "projects" | "links" }) {
           External links
         </Link>
       </div>
-      <Link
-        href="/admin/logout"
-        className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-      >
-        Sign out
-      </Link>
+      <form action="/admin/logout" method="post">
+        <button
+          type="submit"
+          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
+        >
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }

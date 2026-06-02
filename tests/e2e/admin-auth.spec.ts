@@ -78,3 +78,42 @@ test("admin: full sign-in loop reaches the projects dashboard", async ({
     page.getByRole("heading", { name: "External links", level: 1 }),
   ).toBeVisible({ timeout: 30_000 });
 });
+
+test("admin: logout is POST-only — a prefetch GET cannot end the session", async ({
+  page,
+  request,
+}) => {
+  // Sign in.
+  const res = await request.post("/api/admin/request-link", {
+    headers: { "x-forwarded-for": "10.99.9.4" },
+    data: { email: "admin@example.com", hp_company: "" },
+  });
+  const { devLink } = await res.json();
+  await page.goto(devLink);
+  await expect(
+    page.getByRole("heading", { name: "Projects", level: 1 }),
+  ).toBeVisible();
+
+  // A GET to the logout route — exactly what a `<Link>` prefetch would send —
+  // must NOT clear the session. The route is POST-only, so it answers 405.
+  const getLogout = await page.request.get("/admin/logout", {
+    maxRedirects: 0,
+  });
+  expect(getLogout.status()).toBe(405);
+
+  // Still authenticated after the prefetch-style GET.
+  await page.goto("/admin/projects");
+  await expect(
+    page.getByRole("heading", { name: "Projects", level: 1 }),
+  ).toBeVisible();
+
+  // A deliberate POST actually signs out (303 back to the login).
+  const postLogout = await page.request.post("/admin/logout", {
+    maxRedirects: 0,
+  });
+  expect(postLogout.status()).toBe(303);
+
+  // Now unauthenticated — the dashboard bounces to the admin login.
+  await page.goto("/admin/projects");
+  await expect(page).toHaveURL(/\/admin$/);
+});
