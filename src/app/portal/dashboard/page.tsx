@@ -120,9 +120,9 @@ export default async function PortalProjectsMenuPage() {
       ) : (
         <div className="mt-10 space-y-14">
           {/* Bundles */}
-          {[...bundles.values()].map((b, i) => (
+          {[...bundles.entries()].map(([bundleId, b]) => (
             <div
-              key={i}
+              key={bundleId}
               className="rounded-lg border-2 border-[var(--accent)]/40 bg-[var(--accent)]/[0.03] p-5 lg:p-6"
             >
               <div className="flex items-center gap-2">
