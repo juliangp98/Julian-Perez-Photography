@@ -5,6 +5,8 @@ import { getSession } from "@/lib/auth-cookies";
 import { listProjectsByEmail, type ClientRecordSafe } from "@/lib/clients";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
+  CLIENT_MILESTONES,
+  clientMilestoneIndex,
   type ClientStatus,
 } from "@/lib/client-status";
 import { services } from "@/lib/content";
@@ -37,6 +39,7 @@ function ProjectCard({
   const title = p.serviceType
     ? p.serviceType.replace(/-/g, " ")
     : p.clientName || "Project";
+  const milestone = clientMilestoneIndex(p.status);
   return (
     <Link
       href={`/portal/projects/${p.id}`}
@@ -54,6 +57,18 @@ function ProjectCard({
       </div>
       {p.eventDate && (
         <div className="mt-2 text-sm text-[var(--muted)]">{p.eventDate}</div>
+      )}
+      {milestone >= 0 && (
+        <div className="mt-3 flex items-center gap-1" aria-hidden>
+          {CLIENT_MILESTONES.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1 flex-1 rounded-full ${
+                i <= milestone ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+              }`}
+            />
+          ))}
+        </div>
       )}
     </Link>
   );

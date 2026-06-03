@@ -54,11 +54,14 @@ export default async function PortfolioCategoryPage({
   // in the catalog.
   const service = await getService(linkedServiceSlug);
 
-  // Video portfolios are identified by the presence of a `videos` array
-  // (regardless of length). Photo portfolios leave `videos` undefined.
-  // Empty video portfolios still render through VideoGallery so the
-  // user-facing "coming soon" copy stays domain-appropriate.
-  const isVideoPortfolio = p.videos !== undefined;
+  // Video portfolios are identified by an actual `videos` array (regardless of
+  // length). Photo portfolios have no array: the local fallback omits the field
+  // (undefined) and the Sanity projection returns null for it, so `Array.isArray`
+  // is what distinguishes the two — a plain `!== undefined` check treats the
+  // Sanity null as a video portfolio and shows every photo gallery the wedding-
+  // films placeholder. An empty video archive still renders through VideoGallery
+  // so its "coming soon" copy stays domain-appropriate.
+  const isVideoPortfolio = Array.isArray(p.videos);
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
