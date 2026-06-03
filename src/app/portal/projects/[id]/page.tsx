@@ -10,6 +10,7 @@ import {
 import { getQuestionnaire } from "@/lib/questionnaires";
 import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
+import PortalStatusTimeline from "@/components/PortalStatusTimeline";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -141,6 +142,8 @@ export default async function PortalProjectPage({
           </span>
         )}
       </div>
+
+      <PortalStatusTimeline status={record.status} eventDate={record.eventDate} />
 
       {link && (
         <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
