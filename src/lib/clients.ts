@@ -515,6 +515,42 @@ export async function updateClientAdmin(
   if (error) throw error;
 }
 
+// Quick admin log entry from the projects overview: append a status-history note
+// and optionally change the status, without opening the full record. At least
+// one of `status` / `note` is expected (the route enforces this).
+export async function addAdminLog(
+  id: string,
+  input: { status?: string; note?: string },
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const { data: row, error } = await db()
+    .from(TABLE)
+    .select("status, status_history")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) return;
+
+  const ts = nowIso();
+  const statusChanged = !!input.status && input.status !== row.status;
+  const nextStatus = (input.status as string | undefined) ?? (row.status as string | undefined);
+  const note =
+    input.note?.trim() ||
+    (statusChanged ? "Status updated by admin" : "Note added by admin");
+
+  const history = Array.isArray(row.status_history) ? row.status_history : [];
+  history.push({ status: nextStatus, changedAt: ts, note });
+
+  const patch: Record<string, unknown> = {
+    status_history: history,
+    updated_at: ts,
+  };
+  if (statusChanged) patch.status = input.status;
+
+  const { error: upErr } = await db().from(TABLE).update(patch).eq("id", id);
+  if (upErr) throw upErr;
+}
+
 // List the full set of a person's projects (admin) — used to offer "link into
 // a bundle" choices on the project edit page.
 export async function listClientProjectsByEmailFull(

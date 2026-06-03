@@ -5,6 +5,7 @@ import { getAdminSession } from "@/lib/auth-cookies";
 import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import AdminNav from "@/components/AdminNav";
+import AdminQuickLog from "@/components/AdminQuickLog";
 
 export const metadata: Metadata = {
   title: "Projects — Admin",
@@ -39,54 +40,154 @@ const GROUPS: { key: string; title: string; statuses: string[] }[] = [
 
 function ProjectCard({ r }: { r: ClientRecordFull }) {
   return (
-    <Link
-      href={`/admin/projects/${r.id}`}
-      className="block rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition"
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="font-serif text-xl">{r.clientName || "(no name)"}</div>
-        <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
-          {STATUS_TITLE[r.status ?? ""] ?? r.status}
-        </span>
-      </div>
-      <div className="mt-2 text-sm text-[var(--muted)]">
-        {[r.serviceType, r.eventDate].filter(Boolean).join(" · ") || "—"}
-      </div>
-      {r.email && (
-        <div className="mt-1 text-xs text-[var(--muted)]">{r.email}</div>
-      )}
-      {r.bundleLabel && (
-        <div className="mt-2 inline-block px-2 py-0.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-[10px] uppercase tracking-widest">
-          ↔ {r.bundleLabel}
+    <div className="rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition">
+      <Link href={`/admin/projects/${r.id}`} className="block">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="font-serif text-xl">{r.clientName || "(no name)"}</div>
+          <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+            {STATUS_TITLE[r.status ?? ""] ?? r.status}
+          </span>
         </div>
-      )}
-    </Link>
+        <div className="mt-2 text-sm text-[var(--muted)]">
+          {[r.serviceType, r.eventDate].filter(Boolean).join(" · ") || "—"}
+        </div>
+        {r.email && (
+          <div className="mt-1 text-xs text-[var(--muted)]">{r.email}</div>
+        )}
+        {r.bundleLabel && (
+          <div className="mt-2 inline-block px-2 py-0.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-[10px] uppercase tracking-widest">
+            ↔ {r.bundleLabel}
+          </div>
+        )}
+      </Link>
+      <div className="mt-3 pt-3 border-t border-[var(--border)]">
+        <AdminQuickLog projectId={r.id} currentStatus={r.status} />
+      </div>
+    </div>
   );
 }
 
-export default async function AdminProjectsPage() {
+export default async function AdminProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; service?: string }>;
+}) {
   if (!(await getAdminSession())) redirect("/admin");
+
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const qLower = q.toLowerCase();
+  const statusFilter = sp.status ?? "";
+  const serviceFilter = sp.service ?? "";
+
   const all = await listClients();
+  // Service options for the dropdown — the distinct service types in play.
+  const services = [
+    ...new Set(all.map((r) => r.serviceType).filter(Boolean) as string[]),
+  ].sort();
+
+  const filtered = all.filter((r) => {
+    if (statusFilter && (r.status ?? "") !== statusFilter) return false;
+    if (serviceFilter && (r.serviceType ?? "") !== serviceFilter) return false;
+    if (qLower) {
+      const hay = [r.clientName, r.email, r.serviceType]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(qLower)) return false;
+    }
+    return true;
+  });
+
+  const hasFilters = !!(q || statusFilter || serviceFilter);
   const known = new Set(GROUPS.flatMap((g) => g.statuses));
-  const other = all.filter((r) => !known.has(r.status ?? ""));
+  const other = filtered.filter((r) => !known.has(r.status ?? ""));
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
       <AdminNav active="projects" />
       <h1 className="mt-8 font-serif text-4xl">Projects</h1>
       <p className="mt-2 text-[var(--muted)]">
-        {all.length} record{all.length === 1 ? "" : "s"} · grouped by status
+        {hasFilters
+          ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
+          : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
       </p>
+
+      {all.length > 0 && (
+        <form method="get" className="mt-6 flex flex-wrap items-center gap-3">
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Search name, email, service…"
+            aria-label="Search projects"
+            className="flex-1 min-w-[200px] px-4 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+          />
+          <select
+            name="status"
+            defaultValue={statusFilter}
+            aria-label="Filter by status"
+            className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+          >
+            <option value="">All statuses</option>
+            {CLIENT_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.title}
+              </option>
+            ))}
+          </select>
+          {services.length > 0 && (
+            <select
+              name="service"
+              defaultValue={serviceFilter}
+              aria-label="Filter by service"
+              className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] capitalize"
+            >
+              <option value="">All services</option>
+              {services.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/-/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            type="submit"
+            className="px-5 py-2 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
+          >
+            Filter
+          </button>
+          {hasFilters && (
+            <Link
+              href="/admin/projects"
+              className="text-xs uppercase tracking-widest text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              Clear
+            </Link>
+          )}
+        </form>
+      )}
 
       {all.length === 0 ? (
         <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
           No client records yet. Inquiries and questionnaire submissions appear
           here automatically once the Supabase store is configured.
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
+          No projects match your filters.{" "}
+          <Link
+            href="/admin/projects"
+            className="underline hover:text-[var(--foreground)]"
+          >
+            Clear filters
+          </Link>
+        </div>
       ) : (
         <div className="mt-10 space-y-14">
           {GROUPS.map((g) => {
-            const items = all.filter((r) => g.statuses.includes(r.status ?? ""));
+            const items = filtered.filter((r) =>
+              g.statuses.includes(r.status ?? ""),
+            );
             if (items.length === 0) return null;
             return (
               <div key={g.key}>
