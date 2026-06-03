@@ -25,7 +25,7 @@ const SERVICE_NOUN: Record<string, string> = {
   modeling: "Modeling Session",
 };
 
-function serviceNoun(serviceType?: string): string | null {
+export function serviceNoun(serviceType?: string): string | null {
   if (!serviceType) return null;
   return (
     SERVICE_NOUN[serviceType] ||
