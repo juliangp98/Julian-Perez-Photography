@@ -10,6 +10,8 @@ Next.js 16 + React 19 + Tailwind CSS v4, deployed to Vercel. App Router with per
 
 `/inquire` posts to `/api/inquire`. Resend sends the owner a structured inquiry email plus an auto-reply to the client. The handler writes the inquiry subject line with the event date formatted as `"Aug 15, 2027"`.
 
+**Every transactional email shares one branded layout.** The inquiry + auto-reply, questionnaire submissions, the portal and admin magic-link sign-in links, and the client-update notification to Julian all render through `BrandedEmailLayout` in `src/lib/email-templates.tsx` (React Email → HTML via `render()`, with a plain-text fallback always included) — so the login links and notifications match the inquiry/questionnaire look (serif header, accent rule, footer with contact + socials) instead of ad-hoc inline HTML. Reusable content templates: `MagicLinkEmailTemplate` (portal/admin sign-in) and `NotificationEmailTemplate` (generic heading + lines + optional CTA, ready for the planned client/admin notifications).
+
 Honeypot + in-memory per-IP rate limiting (`src/lib/request-guard.ts`) guard against basic abuse — 5 submissions per 10 minutes per IP, keyed per endpoint so the inquiry form and questionnaire limiters don't share a bucket.
 
 When `RESEND_API_KEY` is unset the handler logs the payload and returns `{ ok: true, dev: true }` so local development works without a Resend account.
