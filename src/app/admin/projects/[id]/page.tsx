@@ -6,6 +6,7 @@ import { getClientFull, listClientProjectsByEmailFull } from "@/lib/clients";
 import AdminNav from "@/components/AdminNav";
 import AdminProjectEditForm from "@/components/AdminProjectEditForm";
 import PortalBundles from "@/components/PortalBundles";
+import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 
 export const metadata: Metadata = {
   title: "Project — Admin",
@@ -54,13 +55,20 @@ export default async function AdminProjectDetailPage({
       ) : (
         <>
           <h1 className="mt-4 font-serif text-4xl">
-            {record.clientName || "(no name)"}
+            {projectDisplayName(record)}
           </h1>
+          {(record.clientName || record.email) && (
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              {[record.clientName, record.email].filter(Boolean).join(" · ")}
+            </p>
+          )}
 
           <div className="mt-10">
             <AdminProjectEditForm
               id={record.id}
+              namePlaceholder={autoProjectName(record)}
               initial={{
+                projectName: record.projectName,
                 clientName: record.clientName,
                 email: record.email,
                 phone: record.phone,
@@ -90,9 +98,7 @@ export default async function AdminProjectDetailPage({
                 endpoint="/api/admin/bundle"
                 projects={siblings.map((s) => ({
                   id: s.id,
-                  title: s.serviceType
-                    ? s.serviceType.replace(/-/g, " ")
-                    : s.clientName || "Project",
+                  title: projectDisplayName(s),
                   bundleLabel: s.bundleLabel,
                 }))}
               />

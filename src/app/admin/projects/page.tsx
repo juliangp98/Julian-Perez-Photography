@@ -6,6 +6,7 @@ import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import AdminNav from "@/components/AdminNav";
 import AdminQuickLog from "@/components/AdminQuickLog";
+import { projectDisplayName } from "@/lib/project-name";
 
 export const metadata: Metadata = {
   title: "Projects — Admin",
@@ -43,7 +44,7 @@ function ProjectCard({ r }: { r: ClientRecordFull }) {
     <div className="rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="font-serif text-xl">{r.clientName || "(no name)"}</div>
+          <div className="font-serif text-xl">{projectDisplayName(r)}</div>
           <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
             {STATUS_TITLE[r.status ?? ""] ?? r.status}
           </span>
@@ -90,7 +91,7 @@ export default async function AdminProjectsPage({
     if (statusFilter && (r.status ?? "") !== statusFilter) return false;
     if (serviceFilter && (r.serviceType ?? "") !== serviceFilter) return false;
     if (qLower) {
-      const hay = [r.clientName, r.email, r.serviceType]
+      const hay = [r.clientName, r.email, r.serviceType, r.projectName]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();

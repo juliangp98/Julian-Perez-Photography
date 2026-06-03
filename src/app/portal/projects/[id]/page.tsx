@@ -11,6 +11,7 @@ import { getQuestionnaire } from "@/lib/questionnaires";
 import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/PortalStatusTimeline";
+import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -127,9 +128,7 @@ export default async function PortalProjectPage({
       </div>
 
       <h1 className="mt-4 font-serif text-4xl">
-        {record.serviceType
-          ? record.serviceType.replace(/-/g, " ")
-          : record.clientName || "Your project"}
+        {projectDisplayName(record)}
       </h1>
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <span className="inline-block px-3 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs uppercase tracking-[0.18em]">
@@ -267,11 +266,13 @@ export default async function PortalProjectPage({
         </p>
         <PortalEditForm
           projectId={record.id}
+          namePlaceholder={autoProjectName(record)}
           initial={{
             phone: record.phone,
             partnerName: record.partnerName,
             guestCount: record.guestCount,
             planSummary: record.planSummary,
+            projectName: record.projectName,
           }}
         />
       </Section>

@@ -25,6 +25,7 @@ const schema = z.object({
     planSummary: z.string().max(10000).optional(),
     internalNotes: z.string().max(10000).optional(),
     galleryUrl: z.string().max(2000).optional(),
+    projectName: z.string().max(200).optional(),
   }),
 });
 

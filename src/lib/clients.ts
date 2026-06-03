@@ -80,6 +80,7 @@ export type ClientRecordSafe = {
   bundleId?: string;
   bundleLabel?: string;
   galleryUrl?: string;
+  projectName?: string;
 };
 
 // Column projection for the portal. Columns are aliased snake_case → camelCase.
@@ -91,7 +92,7 @@ const SAFE_SELECT_BASE =
 // Columns added by post-launch migrations (bundles, gallery URL) — appended
 // only while the live table is known to have them.
 const OPTIONAL_COLUMNS =
-  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url";
+  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
   ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
@@ -121,7 +122,7 @@ function isMissingOptionalColumn(error: DbResult["error"]): boolean {
   return (
     !!error &&
     error.code === "42703" &&
-    /(bundle_id|bundle_label|gallery_url)/.test(error.message ?? "")
+    /(bundle_id|bundle_label|gallery_url|project_name)/.test(error.message ?? "")
   );
 }
 
@@ -401,18 +402,26 @@ export async function appendDocument(
 
 // Whitelisted client-portal edits. Only these fields are ever writable from the
 // portal; status, package, pricing, and internal fields are never exposed.
-const CLIENT_EDITABLE = ["phone", "partnerName", "guestCount", "planSummary"] as const;
+const CLIENT_EDITABLE = [
+  "phone",
+  "partnerName",
+  "guestCount",
+  "planSummary",
+  "projectName",
+] as const;
 const EDITABLE_COLUMN: Record<(typeof CLIENT_EDITABLE)[number], string> = {
   phone: "phone",
   partnerName: "partner_name",
   guestCount: "guest_count",
   planSummary: "plan_summary",
+  projectName: "project_name",
 };
 export type ClientEditableFields = Partial<{
   phone: string;
   partnerName: string;
   guestCount: number;
   planSummary: string;
+  projectName: string;
 }>;
 
 export async function updateClientFields(
@@ -488,6 +497,7 @@ const ADMIN_COLUMN: Record<string, string> = {
   planSummary: "plan_summary",
   internalNotes: "internal_notes",
   galleryUrl: "gallery_url",
+  projectName: "project_name",
 };
 
 export async function updateClientAdmin(

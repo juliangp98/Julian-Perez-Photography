@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 
 type Initial = {
+  projectName?: string;
   clientName?: string;
   email?: string;
   phone?: string;
@@ -33,12 +34,15 @@ const label = "block text-sm font-medium mb-1.5";
 export default function AdminProjectEditForm({
   id,
   initial,
+  namePlaceholder,
 }: {
   id: string;
   initial: Initial;
+  namePlaceholder?: string;
 }) {
   const router = useRouter();
   const [v, setV] = useState({
+    projectName: initial.projectName ?? "",
     clientName: initial.clientName ?? "",
     email: initial.email ?? "",
     phone: initial.phone ?? "",
@@ -82,6 +86,21 @@ export default function AdminProjectEditForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      <div>
+        <label htmlFor="a-project-name" className={label}>
+          Project name{" "}
+          <span className="text-[var(--muted)] font-normal">
+            (leave blank for the auto name)
+          </span>
+        </label>
+        <input
+          id="a-project-name"
+          value={v.projectName}
+          onChange={set("projectName")}
+          placeholder={namePlaceholder}
+          className={input}
+        />
+      </div>
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="a-status" className={label}>

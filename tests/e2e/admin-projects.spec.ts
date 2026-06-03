@@ -67,17 +67,20 @@ test("admin projects: filter params render without error", async ({
   ).toBeVisible();
 });
 
-test("admin update: accepts a gallery URL when authenticated", async ({
+test("admin update: accepts a gallery URL and project name when authenticated", async ({
   request,
 }) => {
   await signInAsAdmin(request, "10.88.0.5");
   const res = await request.post("/api/admin/update", {
     data: {
       id: "p1",
-      fields: { galleryUrl: "https://gallery.pic-time.com/abc" },
+      fields: {
+        galleryUrl: "https://gallery.pic-time.com/abc",
+        projectName: "The Smiths' Wedding",
+      },
     },
   });
-  // Store blanked → no-op, but the route accepts the gallery field.
+  // Store blanked → no-op, but the route accepts the new fields.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });

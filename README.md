@@ -373,6 +373,7 @@ cookies are signed with `AUTH_SECRET` via `jose`.
      bundle_id uuid,
      bundle_label text,
      gallery_url text,
+     project_name text,
      source text default 'manual',
      event_date text,
      secondary_dates jsonb not null default '[]'::jsonb,
@@ -418,6 +419,7 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    create index if not exists client_records_bundle_idx
      on client_records (bundle_id);
    alter table client_records add column if not exists gallery_url text;
+   alter table client_records add column if not exists project_name text;
   ```
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
    or use Project Settings (gear, bottom-left):
