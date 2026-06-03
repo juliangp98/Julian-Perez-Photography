@@ -79,6 +79,7 @@ export type ClientRecordSafe = {
   lastClientUpdate?: string;
   bundleId?: string;
   bundleLabel?: string;
+  galleryUrl?: string;
 };
 
 // Column projection for the portal. Columns are aliased snake_case → camelCase.
@@ -87,22 +88,26 @@ export type ClientRecordSafe = {
 // this is the privacy boundary, enforced at the query.
 const SAFE_SELECT_BASE =
   "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update";
-// Bundle columns are appended only while the live table is known to have them.
-const BUNDLE_COLUMNS = ", bundleId:bundle_id, bundleLabel:bundle_label";
+// Columns added by post-launch migrations (bundles, gallery URL) — appended
+// only while the live table is known to have them.
+const OPTIONAL_COLUMNS =
+  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
   ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
 
-// Schema-drift guard. A deploy can land before the bundle columns are added to
-// the table; the first read that asks for them then fails with PostgREST's
+// Schema-drift guard. A deploy can land before a migration's columns are added
+// to the table; the first read that asks for them then fails with PostgREST's
 // undefined-column error (SQLSTATE 42703). Rather than surface a 500 on every
-// portal + admin page, the reader notes their absence once, drops them for the
-// rest of the process, and retries — so everything keeps working without bundle
-// grouping until the migration is applied (a restart re-enables them).
-let bundleColumnsPresent = true;
+// portal + admin page, the reader notes their absence once, drops the optional
+// columns for the rest of the process, and retries — so everything keeps working
+// (minus those fields) until the migration is applied (a restart re-enables them).
+let optionalColumnsPresent = true;
 
 function safeSelect(): string {
-  return bundleColumnsPresent ? SAFE_SELECT_BASE + BUNDLE_COLUMNS : SAFE_SELECT_BASE;
+  return optionalColumnsPresent
+    ? SAFE_SELECT_BASE + OPTIONAL_COLUMNS
+    : SAFE_SELECT_BASE;
 }
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA;
@@ -110,23 +115,25 @@ function fullSelect(): string {
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
 
-// Match the bundle columns specifically so an unrelated schema error is never
-// swallowed by the fallback.
-function isMissingBundleColumn(error: DbResult["error"]): boolean {
+// Match the known optional columns specifically so an unrelated schema error is
+// never swallowed by the fallback.
+function isMissingOptionalColumn(error: DbResult["error"]): boolean {
   return (
-    !!error && error.code === "42703" && /bundle_(id|label)/.test(error.message ?? "")
+    !!error &&
+    error.code === "42703" &&
+    /(bundle_id|bundle_label|gallery_url)/.test(error.message ?? "")
   );
 }
 
-// Run a projected read; on a missing-bundle-column error, remember it and retry
-// once with the reduced projection.
-async function readWithBundleFallback(
+// Run a projected read; on a missing optional-column error, remember it and
+// retry once with the reduced projection.
+async function readWithOptionalColumns(
   projection: () => string,
   build: (select: string) => PromiseLike<DbResult>,
 ): Promise<DbResult> {
   const res = await build(projection());
-  if (isMissingBundleColumn(res.error) && bundleColumnsPresent) {
-    bundleColumnsPresent = false;
+  if (isMissingOptionalColumn(res.error) && optionalColumnsPresent) {
+    optionalColumnsPresent = false;
     return build(projection());
   }
   return res;
@@ -145,7 +152,7 @@ export async function getClientById(
   id: string,
 ): Promise<ClientRecordSafe | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
   if (error) throw error;
@@ -172,7 +179,7 @@ export async function listProjectsByEmail(
   email: string,
 ): Promise<ClientRecordSafe[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
     db()
       .from(TABLE)
       .select(sel)
@@ -190,7 +197,7 @@ export async function getProjectForEmail(
   email: string,
 ): Promise<ClientRecordSafe | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await readWithBundleFallback(safeSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
     db()
       .from(TABLE)
       .select(sel)
@@ -449,7 +456,7 @@ export type ClientRecordFull = ClientRecordSafe & {
 
 export async function listClients(): Promise<ClientRecordFull[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
     db().from(TABLE).select(sel).order("updated_at", { ascending: false }),
   );
   if (error) throw error;
@@ -460,7 +467,7 @@ export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
   if (error) throw error;
@@ -480,6 +487,7 @@ const ADMIN_COLUMN: Record<string, string> = {
   budget: "budget",
   planSummary: "plan_summary",
   internalNotes: "internal_notes",
+  galleryUrl: "gallery_url",
 };
 
 export async function updateClientAdmin(
@@ -557,7 +565,7 @@ export async function listClientProjectsByEmailFull(
   email: string,
 ): Promise<ClientRecordFull[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await readWithBundleFallback(fullSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
     db()
       .from(TABLE)
       .select(sel)

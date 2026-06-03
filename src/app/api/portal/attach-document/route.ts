@@ -12,10 +12,21 @@ import { getSession } from "@/lib/auth-cookies";
 import { appendDocument, getProjectForEmail } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
 
+// Document kinds the client can label an upload with — surfaced as a badge in
+// the portal. "other" is the default when none is chosen.
+const DOC_KINDS = [
+  "other",
+  "contract",
+  "invoice",
+  "timeline",
+  "moodboard",
+] as const;
+
 const schema = z.object({
   projectId: z.string().min(1),
   url: z.string().url(),
   label: z.string().min(1).max(200),
+  type: z.enum(DOC_KINDS).optional(),
 });
 
 export async function POST(req: Request) {
@@ -65,7 +76,7 @@ export async function POST(req: Request) {
   try {
     await appendDocument(parsed.data.projectId, {
       label: parsed.data.label,
-      type: "other",
+      type: parsed.data.type ?? "other",
       url: parsed.data.url,
       uploadedBy: "client",
       uploadedAt: new Date().toISOString(),

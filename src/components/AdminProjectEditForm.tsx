@@ -22,6 +22,7 @@ type Initial = {
   budget?: string;
   planSummary?: string;
   internalNotes?: string;
+  galleryUrl?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
 
@@ -50,6 +51,7 @@ export default function AdminProjectEditForm({
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
     internalNotes: initial.internalNotes ?? "",
+    galleryUrl: initial.galleryUrl ?? "",
   });
   const [status, setStatus] = useState<Status>("idle");
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -158,6 +160,22 @@ export default function AdminProjectEditForm({
           Plan summary <span className="text-[var(--muted)] font-normal">(shown to the client)</span>
         </label>
         <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={input} />
+      </div>
+      <div>
+        <label htmlFor="a-gallery" className={label}>
+          Gallery URL{" "}
+          <span className="text-[var(--muted)] font-normal">
+            (Pic-Time link — shown to the client when set)
+          </span>
+        </label>
+        <input
+          id="a-gallery"
+          type="url"
+          value={v.galleryUrl}
+          onChange={set("galleryUrl")}
+          placeholder="https://…"
+          className={input}
+        />
       </div>
       <div>
         <label htmlFor="a-notes" className={label}>

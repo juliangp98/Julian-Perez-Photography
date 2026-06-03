@@ -145,6 +145,25 @@ export default async function PortalProjectPage({
 
       <PortalStatusTimeline status={record.status} eventDate={record.eventDate} />
 
+      {record.galleryUrl && (
+        <a
+          href={record.galleryUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-8 flex items-center justify-between gap-4 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/[0.04] p-5 hover:bg-[var(--accent)]/[0.08] transition"
+        >
+          <div>
+            <div className="font-serif text-xl">Your gallery is ready</div>
+            <div className="mt-1 text-sm text-[var(--muted)]">
+              View and download your photos.
+            </div>
+          </div>
+          <span className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm whitespace-nowrap">
+            View gallery →
+          </span>
+        </a>
+      )}
+
       {link && (
         <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
           <p className="text-sm font-medium">Add your event details</p>

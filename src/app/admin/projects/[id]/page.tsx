@@ -73,6 +73,7 @@ export default async function AdminProjectDetailPage({
                 budget: record.budget,
                 planSummary: record.planSummary,
                 internalNotes: record.internalNotes,
+                galleryUrl: record.galleryUrl,
               }}
             />
           </div>

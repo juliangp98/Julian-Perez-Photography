@@ -18,6 +18,7 @@ export default function PortalDocumentUpload({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>("idle");
+  const [kind, setKind] = useState("other");
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -33,7 +34,12 @@ export default function PortalDocumentUpload({
       const res = await fetch("/api/portal/attach-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, url: blob.url, label: file.name }),
+        body: JSON.stringify({
+          projectId,
+          url: blob.url,
+          label: file.name,
+          type: kind,
+        }),
       });
       if (!res.ok) throw new Error("attach failed");
       setStatus("done");
@@ -45,7 +51,20 @@ export default function PortalDocumentUpload({
   }
 
   return (
-    <div>
+    <div className="flex flex-wrap items-center gap-3">
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value)}
+        disabled={status === "uploading"}
+        aria-label="Document type"
+        className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+      >
+        <option value="other">General</option>
+        <option value="contract">Contract</option>
+        <option value="invoice">Invoice</option>
+        <option value="timeline">Timeline</option>
+        <option value="moodboard">Moodboard</option>
+      </select>
       <label
         htmlFor="portal-doc"
         className="inline-block px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full cursor-pointer hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
