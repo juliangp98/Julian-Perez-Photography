@@ -26,7 +26,7 @@ const GROUPS: {
     ],
   },
   {
-    title: "Content (Sanity)",
+    title: "Site Content (Sanity)",
     links: [
       {
         label: "Sanity — Manage",
@@ -96,7 +96,7 @@ const GROUPS: {
       },
       {
         label: "GitHub — Repository",
-        href: "https://github.com/juliangperez/Julian-Perez-Photography",
+        href: "https://github.com/juliangp98/Julian-Perez-Photography",
         desc: "Source, branches, pull requests, Actions, secrets.",
       },
     ],
