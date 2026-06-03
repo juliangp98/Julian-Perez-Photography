@@ -8,6 +8,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
+// Imported directly (not via @/lib/content) so this client component doesn't
+// pull the server-only content layer into the browser bundle.
+import { services } from "@/lib/services-data";
+
+// Coerce a stored event date into the `yyyy-MM-dd` a <input type="date"> needs.
+// An ISO calendar date is returned as-is (no timezone shift); other parseable
+// formats are reformatted; anything unparseable returns "" so the caller can
+// fall back to a free-text field rather than silently dropping the value.
+function toDateInput(s?: string): string {
+  const raw = (s ?? "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 
 type Initial = {
   projectName?: string;
@@ -41,6 +59,11 @@ export default function AdminProjectEditForm({
   namePlaceholder?: string;
 }) {
   const router = useRouter();
+  // A stored date that doesn't fit the native picker (legacy free text) falls
+  // back to an editable text field so the value is preserved, not dropped.
+  const isoEventDate = toDateInput(initial.eventDate);
+  const eventDateUnparseable =
+    !!(initial.eventDate ?? "").trim() && !isoEventDate;
   const [v, setV] = useState({
     projectName: initial.projectName ?? "",
     clientName: initial.clientName ?? "",
@@ -50,7 +73,9 @@ export default function AdminProjectEditForm({
     status: initial.status ?? "new-inquiry",
     serviceType: initial.serviceType ?? "",
     package: initial.package ?? "",
-    eventDate: initial.eventDate ?? "",
+    eventDate: eventDateUnparseable
+      ? (initial.eventDate ?? "").trim()
+      : isoEventDate,
     guestCount: initial.guestCount != null ? String(initial.guestCount) : "",
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
@@ -61,6 +86,21 @@ export default function AdminProjectEditForm({
   const [notifyClient, setNotifyClient] = useState(false);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value }));
+
+  // Changing the service clears a package that doesn't belong to the new
+  // service, so the package selection can never contradict the service.
+  function setService(e: React.ChangeEvent<HTMLSelectElement>) {
+    const serviceType = e.target.value;
+    setV((prev) => {
+      const svc = services.find((s) => s.slug === serviceType);
+      const keepPackage = !!svc?.packages.some((p) => p.name === prev.package);
+      return { ...prev, serviceType, package: keepPackage ? prev.package : "" };
+    });
+  }
+
+  // Packages offered by the currently-selected service drive the package list.
+  const currentService = services.find((s) => s.slug === v.serviceType);
+  const packageOptions = currentService?.packages ?? [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -123,9 +163,26 @@ export default function AdminProjectEditForm({
         </div>
         <div>
           <label htmlFor="a-service" className={label}>
-            Service type (slug)
+            Service
           </label>
-          <input id="a-service" value={v.serviceType} onChange={set("serviceType")} className={input} />
+          <select
+            id="a-service"
+            value={v.serviceType}
+            onChange={setService}
+            className={input}
+          >
+            <option value="">— Select a service —</option>
+            {services.map((s) => (
+              <option key={s.slug} value={s.slug}>
+                {s.title}
+              </option>
+            ))}
+            {/* Preserve an existing slug that isn't in the current catalog. */}
+            {v.serviceType &&
+              !services.some((s) => s.slug === v.serviceType) && (
+                <option value={v.serviceType}>{v.serviceType}</option>
+              )}
+          </select>
         </div>
         <div>
           <label htmlFor="a-name" className={label}>
@@ -149,19 +206,60 @@ export default function AdminProjectEditForm({
           <label htmlFor="a-phone" className={label}>
             Phone
           </label>
-          <input id="a-phone" value={v.phone} onChange={set("phone")} className={input} />
+          <input id="a-phone" type="tel" value={v.phone} onChange={set("phone")} className={input} />
         </div>
         <div>
           <label htmlFor="a-package" className={label}>
             Package
           </label>
-          <input id="a-package" value={v.package} onChange={set("package")} className={input} />
+          <select
+            id="a-package"
+            value={v.package}
+            onChange={set("package")}
+            disabled={!v.serviceType}
+            className={`${input} disabled:opacity-50`}
+          >
+            <option value="">
+              {v.serviceType ? "— Select a package —" : "Choose a service first"}
+            </option>
+            {packageOptions.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name} — {p.price}
+              </option>
+            ))}
+            {/* Preserve an existing package that isn't in the service's list. */}
+            {v.package &&
+              !packageOptions.some((p) => p.name === v.package) && (
+                <option value={v.package}>{v.package}</option>
+              )}
+          </select>
         </div>
         <div>
           <label htmlFor="a-date" className={label}>
             Event date
           </label>
-          <input id="a-date" value={v.eventDate} onChange={set("eventDate")} placeholder="e.g. 2027-06-12" className={input} />
+          {eventDateUnparseable ? (
+            <>
+              <input
+                id="a-date"
+                value={v.eventDate}
+                onChange={set("eventDate")}
+                placeholder="YYYY-MM-DD"
+                className={input}
+              />
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Re-enter as YYYY-MM-DD to use the date picker.
+              </p>
+            </>
+          ) : (
+            <input
+              id="a-date"
+              type="date"
+              value={v.eventDate}
+              onChange={set("eventDate")}
+              className={input}
+            />
+          )}
         </div>
         <div>
           <label htmlFor="a-guests" className={label}>

@@ -7,12 +7,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { updateClientAdmin, getClientFull } from "@/lib/clients";
-import {
-  CLIENT_STATUS_CLIENT_LABEL,
-  type ClientStatus,
-} from "@/lib/client-status";
 import { projectDisplayName } from "@/lib/project-name";
-import { sendClientUpdateEmail } from "@/lib/notify";
+import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -53,6 +49,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid input." }, { status: 400 });
   }
 
+  // Snapshot the record before the write so the client email can describe what
+  // actually changed (only fetched when a notification is requested).
+  const before = parsed.data.notifyClient
+    ? await getClientFull(parsed.data.id)
+    : null;
+
   try {
     await updateClientAdmin(parsed.data.id, parsed.data.fields);
   } catch (err) {
@@ -64,32 +66,34 @@ export async function POST(req: Request) {
     );
   }
 
-  // Optional: notify the client their project was updated (admin opt-in).
-  if (parsed.data.notifyClient) {
+  // Optional: notify the client their project was updated (admin opt-in). The
+  // email lists the specific changes (status, date, package, …) — never the
+  // internal note, budget, or raw service slug.
+  if (parsed.data.notifyClient && before?.email) {
     try {
-      const record = await getClientFull(parsed.data.id);
-      if (record?.email) {
-        const origin = req.headers.get("origin") || new URL(req.url).origin;
-        const name = projectDisplayName(record);
-        const statusLabel = parsed.data.fields.status
-          ? CLIENT_STATUS_CLIENT_LABEL[parsed.data.fields.status as ClientStatus]
-          : undefined;
-        await sendClientUpdateEmail({
-          to: record.email,
-          firstName: record.clientName?.split(" ")[0],
-          projectName: name,
-          portalUrl: `${origin}/portal`,
-          lines: statusLabel
-            ? [
-                `There's an update on ${name} — it's now marked "${statusLabel}".`,
-                "Sign in to your portal to see the latest.",
-              ]
-            : [
-                `There's a new update on ${name}.`,
-                "Sign in to your portal to see the latest.",
-              ],
-        });
-      }
+      const f = parsed.data.fields;
+      const origin = req.headers.get("origin") || new URL(req.url).origin;
+      // Name from the post-update view (a renamed/redated project reads right).
+      const name = projectDisplayName({
+        projectName: f.projectName ?? before.projectName,
+        clientName: f.clientName ?? before.clientName,
+        serviceType: f.serviceType ?? before.serviceType,
+        eventDate: f.eventDate ?? before.eventDate,
+      });
+      const changes = summarizeClientChanges(before, f);
+      await sendClientUpdateEmail({
+        to: before.email,
+        firstName: (f.clientName ?? before.clientName)?.split(" ")[0],
+        projectName: name,
+        portalUrl: `${origin}/portal`,
+        lines: changes.length
+          ? [`Here's the latest on ${name}:`]
+          : [
+              `There's a new update on ${name}.`,
+              "Sign in to your portal to see the latest.",
+            ],
+        changes,
+      });
     } catch (err) {
       console.error("[admin] update notify error:", err);
       Sentry.captureException(err, {

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
@@ -6,12 +7,32 @@ import { getClientFull, listClientProjectsByEmailFull } from "@/lib/clients";
 import AdminNav from "@/components/AdminNav";
 import AdminProjectEditForm from "@/components/AdminProjectEditForm";
 import PortalBundles from "@/components/PortalBundles";
-import { projectDisplayName, autoProjectName } from "@/lib/project-name";
+import ComposeEmail from "@/components/ComposeEmail";
+import { aiEnabled } from "@/lib/ai";
+import {
+  projectDisplayName,
+  autoProjectName,
+  serviceNoun,
+} from "@/lib/project-name";
 
 export const metadata: Metadata = {
   title: "Project — Admin",
   robots: { index: false, follow: false },
 };
+
+// "June 7, 2026" from an event-date string; leaves the raw value if unparseable,
+// undefined if absent — used to prefill email templates.
+function formatLongDate(d?: string): string | undefined {
+  if (!d) return undefined;
+  let date = new Date(`${d}T00:00:00`);
+  if (Number.isNaN(date.getTime())) date = new Date(d);
+  if (Number.isNaN(date.getTime())) return d;
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 function Read({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -37,6 +58,30 @@ export default async function AdminProjectDetailPage({
   const siblings = record?.email
     ? await listClientProjectsByEmailFull(record.email)
     : [];
+
+  // Absolute origin for links inside prefilled emails (the client opens them
+  // outside the app), and the fill context for the compose templates.
+  const h = await headers();
+  const host = h.get("host");
+  const origin = host
+    ? `${h.get("x-forwarded-proto") ?? "https"}://${host}`
+    : "";
+  const emailContext: Record<string, string | undefined> = record
+    ? {
+        firstName: record.clientName?.trim().split(/\s+/)[0],
+        clientName: record.clientName,
+        projectName: projectDisplayName(record),
+        serviceNoun: serviceNoun(record.serviceType)?.toLowerCase(),
+        eventDate: formatLongDate(record.eventDate),
+        venue: record.locations?.[0]?.label || record.locations?.[0]?.address,
+        galleryUrl: record.galleryUrl,
+        portalUrl: `${origin}/portal`,
+        bookingUrl: `${origin}/book`,
+        questionnaireUrl: record.serviceType
+          ? `${origin}/questionnaire/${record.serviceType}`
+          : undefined,
+      }
+    : {};
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-12">
@@ -83,6 +128,22 @@ export default async function AdminProjectDetailPage({
                 internalNotes: record.internalNotes,
                 galleryUrl: record.galleryUrl,
               }}
+            />
+          </div>
+
+          {/* Compose a pipeline email — pick a stage template, it prefills from
+              this project, edit, then send (branded) or copy. */}
+          <div className="mt-14 pt-8 border-t border-[var(--border)]">
+            <h2 className="font-serif text-2xl">Compose email</h2>
+            <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
+              Pick a template for where this client is in the pipeline — it
+              prefills from the project. Edit, then send or copy.
+            </p>
+            <ComposeEmail
+              projectId={record.id}
+              hasEmail={!!record.email}
+              context={emailContext}
+              aiEnabled={aiEnabled()}
             />
           </div>
 

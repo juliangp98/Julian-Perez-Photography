@@ -123,7 +123,7 @@ const yourDetailsSection: Section = {
 
 // Booking-status section — branches the form's tone. Every questionnaire uses
 // this as the second section.
-function bookingStatusSection(slug: ServiceSlug): Section {
+function bookingStatusSection(): Section {
   return {
     title: "Booking status",
     description:
@@ -142,10 +142,10 @@ function bookingStatusSection(slug: ServiceSlug): Section {
       {
         id: "package",
         label: "Which package are you booked into (or interested in)?",
-        type: "package", // resolved at render-time from services[slug].packages
+        // The renderer resolves the option list at render time from the
+        // packages of the questionnaire's own service (see resolvePackageOptions).
+        type: "package",
         required: true,
-        // The "package" field type is resolved by the renderer using this slug.
-        // We stash it here so the form knows which service to look up.
         help: `If you're not sure yet, pick "Still deciding" and we'll talk it through.`,
       },
       {
@@ -188,7 +188,7 @@ const weddingQuestionnaire: Questionnaire = {
         },
       ],
     },
-    bookingStatusSection("weddings"),
+    bookingStatusSection(),
     {
       title: "Your photography style",
       description:
@@ -925,7 +925,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
   estimatedMinutes: 15,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("cultural-milestones"),
+    bookingStatusSection(),
     {
       title: "About the celebration",
       fields: [
@@ -1106,7 +1106,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("family-celebrations"),
+    bookingStatusSection(),
     {
       title: "About the celebration",
       fields: [
@@ -1241,7 +1241,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
   estimatedMinutes: 10,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("corporate-community-events"),
+    bookingStatusSection(),
     {
       title: "About the event",
       fields: [
@@ -1438,7 +1438,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("concerts-performances"),
+    bookingStatusSection(),
     {
       title: "About the show",
       fields: [
@@ -1629,7 +1629,7 @@ const maternityQuestionnaire: Questionnaire = {
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("maternity"),
+    bookingStatusSection(),
     {
       title: "About the session",
       fields: [
@@ -1744,7 +1744,7 @@ const newbornQuestionnaire: Questionnaire = {
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("newborn"),
+    bookingStatusSection(),
     {
       title: "About the baby",
       fields: [
@@ -1853,7 +1853,7 @@ const portraitureQuestionnaire: Questionnaire = {
   estimatedMinutes: 7,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("portraiture"),
+    bookingStatusSection(),
     {
       title: "What the session is for",
       fields: [
@@ -2007,7 +2007,7 @@ const graduationQuestionnaire: Questionnaire = {
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("graduation"),
+    bookingStatusSection(),
     {
       title: "About the graduate",
       fields: [
@@ -2188,7 +2188,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
   estimatedMinutes: 6,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("corporate-headshots"),
+    bookingStatusSection(),
     {
       title: "Session type",
       fields: [
@@ -2369,7 +2369,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
   estimatedMinutes: 8,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("engagements-couples"),
+    bookingStatusSection(),
     {
       title: "About the two of you",
       fields: [
@@ -2623,7 +2623,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
   estimatedMinutes: 7,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("family-portraits"),
+    bookingStatusSection(),
     {
       title: "Your family",
       fields: [
@@ -2846,7 +2846,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
   estimatedMinutes: 9,
   sections: [
     yourDetailsSection,
-    bookingStatusSection("brand-commercial"),
+    bookingStatusSection(),
     {
       title: "About the brand",
       fields: [
@@ -3259,7 +3259,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
         },
       ],
     },
-    bookingStatusSection("wedding-films"),
+    bookingStatusSection(),
     {
       title: "Lead-role preference",
       description:

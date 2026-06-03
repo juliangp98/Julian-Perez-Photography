@@ -68,7 +68,6 @@ function validate(
 ): { value: string; ok: boolean } {
   if (value === undefined) return { value: fallback, ok: false };
   if (pattern.test(value)) return { value, ok: true };
-  // eslint-disable-next-line no-console
   console.warn(
     `[sanity/client] NEXT_PUBLIC_SANITY_${label}=${JSON.stringify(value)} is not a valid Sanity ${label.toLowerCase()} (expected ${pattern.source}). Falling back to ${JSON.stringify(fallback)}; fix the env var in your deploy settings to restore Sanity-backed content.`,
   );

@@ -1,0 +1,86 @@
+// Provider-agnostic text generation (server-only). A single `generateText`
+// call fronts any OpenAI-compatible chat-completions API; the default provider
+// is Groq, whose free tier is fast and — per their API policy — does not train
+// on submitted data, which is why it's the pick for anything carrying client
+// PII. Swappable to OpenAI / Together / Fireworks / any compatible endpoint by
+// pointing `AI_BASE_URL` (+ `AI_MODEL`) at it.
+//
+// The whole module no-ops (returns null) when `AI_API_KEY` is unset, so AI
+// features degrade to their static fallback instead of erroring — the same
+// optional-by-env posture as Resend and Twilio. The key is read server-side
+// only and must never be exposed as `NEXT_PUBLIC_`.
+
+const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const REQUEST_TIMEOUT_MS = 30_000;
+
+// Whether AI features are configured. UI uses this to decide whether to offer
+// the AI affordance at all (rather than show a button that no-ops).
+export function aiEnabled(): boolean {
+  return !!process.env.AI_API_KEY;
+}
+
+// The model in effect (default or env override) — handy for logs / tags.
+export function aiModel(): string {
+  return process.env.AI_MODEL || DEFAULT_MODEL;
+}
+
+export type GenerateTextOptions = {
+  system: string;
+  prompt: string;
+  maxTokens?: number;
+  temperature?: number;
+};
+
+// Generate a completion from the configured provider. Returns the trimmed text,
+// or null when no key is configured (caller falls back). Throws on a provider
+// error (non-2xx, timeout, malformed response) so the route can log it to
+// Sentry and surface a retry message — a thrown error is never a silent drop.
+export async function generateText(
+  opts: GenerateTextOptions,
+): Promise<string | null> {
+  const apiKey = process.env.AI_API_KEY;
+  if (!apiKey) return null;
+
+  const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(
+    /\/$/,
+    "",
+  );
+  const model = aiModel();
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.prompt },
+        ],
+        max_tokens: opts.maxTokens ?? 1024,
+        temperature: opts.temperature ?? 0.7,
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // Network failure or timeout — normalize to a single error shape.
+    throw new Error(
+      `AI request failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AI provider ${res.status}: ${detail.slice(0, 500)}`);
+  }
+
+  const json: unknown = await res.json().catch(() => null);
+  const content = (json as { choices?: { message?: { content?: unknown } }[] })
+    ?.choices?.[0]?.message?.content;
+  return typeof content === "string" ? content.trim() : null;
+}

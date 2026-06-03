@@ -561,10 +561,13 @@ export function MagicLinkEmailTemplate({
 export function NotificationEmailTemplate({
   heading,
   lines,
+  changes,
   cta,
 }: {
   heading: string;
   lines: string[];
+  // Optional structured list of what changed, rendered as an accent callout.
+  changes?: string[];
   cta?: { label: string; href: string };
 }) {
   return (
@@ -592,7 +595,78 @@ export function NotificationEmailTemplate({
           {line}
         </Text>
       ))}
+      {changes && changes.length > 0 && (
+        <Section
+          style={{
+            margin: "4px 0 20px 0",
+            padding: "6px 18px",
+            backgroundColor: "#f6f3ec",
+            border: `1px solid ${BORDER}`,
+            borderLeft: `3px solid ${ACCENT}`,
+            borderRadius: "4px",
+          }}
+        >
+          {changes.map((change, i) => (
+            <Text
+              key={i}
+              style={{
+                fontFamily: SANS,
+                fontSize: "15px",
+                color: FOREGROUND,
+                lineHeight: "22px",
+                margin: "8px 0",
+              }}
+            >
+              {change}
+            </Text>
+          ))}
+        </Section>
+      )}
       {cta && <PillButton href={cta.href} label={cta.label} />}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline email (a freeform, Julian-edited body — see email-pipeline.ts)
+// ---------------------------------------------------------------------------
+
+// Turn bare URLs in a paragraph into branded accent links.
+function linkify(text: string): ReactNode[] {
+  return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <Link
+        key={i}
+        href={part}
+        style={{ color: ACCENT, textDecoration: "underline" }}
+      >
+        {part}
+      </Link>
+    ) : (
+      part
+    ),
+  );
+}
+
+// Render the (edited) body as branded paragraphs with clickable links.
+// Paragraphs are blank-line separated; single newlines become line breaks.
+export function PipelineEmailTemplate({ body }: { body: string }) {
+  return (
+    <>
+      {body.split(/\n{2,}/).map((p, i) => (
+        <Text
+          key={i}
+          style={{
+            fontSize: "15px",
+            color: FOREGROUND,
+            lineHeight: "24px",
+            margin: "0 0 16px 0",
+            whiteSpace: "pre-line",
+          }}
+        >
+          {linkify(p)}
+        </Text>
+      ))}
     </>
   );
 }

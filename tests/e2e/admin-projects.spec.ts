@@ -89,3 +89,26 @@ test("admin update: accepts a gallery URL and project name when authenticated", 
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
+
+test("admin update: accepts the typed service/package/date values when authenticated", async ({
+  request,
+}) => {
+  await signInAsAdmin(request, "10.88.0.6");
+  // The locked-down edit form now emits a service slug, a package name, and an
+  // ISO event date — confirm those round-trip through the schema. notifyClient
+  // is on, exercising the change-summary path (no-op here without a record).
+  const res = await request.post("/api/admin/update", {
+    data: {
+      id: "p1",
+      notifyClient: true,
+      fields: {
+        serviceType: "weddings",
+        package: "Silver",
+        eventDate: "2027-06-12",
+        guestCount: 120,
+      },
+    },
+  });
+  expect(res.status()).toBe(200);
+  expect((await res.json()).ok).toBe(true);
+});
