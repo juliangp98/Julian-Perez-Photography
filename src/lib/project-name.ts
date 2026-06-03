@@ -47,7 +47,7 @@ function shortDate(d?: string): string | null {
   let date = new Date(`${d}T00:00:00`);
   if (Number.isNaN(date.getTime())) date = new Date(d);
   if (Number.isNaN(date.getTime())) return null;
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
 }
 
 export type NameableRecord = {
