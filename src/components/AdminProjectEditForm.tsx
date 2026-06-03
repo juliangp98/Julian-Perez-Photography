@@ -58,6 +58,7 @@ export default function AdminProjectEditForm({
     galleryUrl: initial.galleryUrl ?? "",
   });
   const [status, setStatus] = useState<Status>("idle");
+  const [notifyClient, setNotifyClient] = useState(false);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value }));
 
@@ -70,6 +71,7 @@ export default function AdminProjectEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
+          notifyClient,
           fields: {
             ...v,
             guestCount: v.guestCount === "" ? undefined : Number(v.guestCount),
@@ -202,6 +204,14 @@ export default function AdminProjectEditForm({
         </label>
         <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={input} />
       </div>
+      <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
+        <input
+          type="checkbox"
+          checked={notifyClient}
+          onChange={(e) => setNotifyClient(e.target.checked)}
+        />
+        Email the client about this update
+      </label>
       <div className="flex items-center gap-4">
         <button
           type="submit"

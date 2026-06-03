@@ -43,7 +43,11 @@ test("admin quick-log: accepts a note when authenticated", async ({
 }) => {
   await signInAsAdmin(request, "10.88.0.3");
   const res = await request.post("/api/admin/quick-log", {
-    data: { projectId: "p1", note: "Called, left a voicemail" },
+    data: {
+      projectId: "p1",
+      note: "Called, left a voicemail",
+      notifyClient: true,
+    },
   });
   // Store blanked → helper no-ops, but the route accepts it.
   expect(res.status()).toBe(200);
@@ -74,6 +78,7 @@ test("admin update: accepts a gallery URL and project name when authenticated", 
   const res = await request.post("/api/admin/update", {
     data: {
       id: "p1",
+      notifyClient: true,
       fields: {
         galleryUrl: "https://gallery.pic-time.com/abc",
         projectName: "The Smiths' Wedding",

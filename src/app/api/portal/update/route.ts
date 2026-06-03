@@ -19,6 +19,7 @@ import {
   BrandedEmailLayout,
   NotificationEmailTemplate,
 } from "@/lib/email-templates";
+import { clientEditNotifyEnabled } from "@/lib/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
   // Notify Julian (fire-and-forget) so he knows to review the change.
   try {
     const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey) {
+    if (apiKey && clientEditNotifyEnabled()) {
       const settings = await getSiteSettings();
       const to = process.env.INQUIRY_TO || settings.contactEmail;
       const from =
