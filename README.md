@@ -131,6 +131,9 @@ cp .env.example .env.local
 | `SENTRY_ORG`                    | no (build-time)                | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset                                                                                                                                                                                                                      |
 | `SENTRY_PROJECT`                | no (build-time)                | Sentry project slug. Build-time only — pairs with `SENTRY_ORG`                                                                                                                                                                                                                                                                                       |
 | `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
+| `AI_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor          |
+| `AI_MODEL`                      | no                             | Override the model (default `llama-3.3-70b-versatile`, a current Groq model). Set to match your provider when pointing `AI_BASE_URL` elsewhere                                                                                                                                                                                                       |
+| `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                       |
 
 
 ## Scripts
@@ -449,6 +452,44 @@ contact, dates) — the Supabase Table Editor stays available for complex JSONB
 edits. Until the
 env is set, capture + portal cleanly no-op and the rest of the site is
 unaffected.
+
+## AI email drafting
+
+The admin compose-email panel on a project (`/admin/projects/[id]`) has a
+**"Draft with AI"** button that turns a pipeline template + the project's real
+details into a personalized, on-brand draft. **Julian always reviews and edits
+before sending — the AI never sends.** The draft is built server-side from the
+minimal client-appropriate facts (name, service, stage, date, venue, package,
+guest count, plan summary, and the project's portal / booking / gallery /
+questionnaire links) — never the internal note or budget. A reusable brand-voice
+prompt (`src/lib/ai-voice.ts`) keeps drafts sounding like Julian and forbids
+inventing facts: a missing detail comes back as a `[bracket]` to fill in, not a
+guess.
+
+The feature is **optional and env-gated** — with no key set, the compose panel
+simply omits the AI button and stays a manual template editor. Nothing else
+changes.
+
+### One-time setup
+
+1. **Create a free Groq account** at
+   [console.groq.com](https://console.groq.com). Groq is the default because its
+   free tier is fast and, per their API policy, **does not train on submitted
+   data** — which is what makes it acceptable for prompts carrying client PII.
+2. **Create an API key** — Console → **API Keys** → **Create API Key**, then copy
+   the value (it's shown only once).
+3. **Add it to your env** — set `AI_API_KEY=<the key>` in `.env.local` and in
+   Vercel → Environment Variables (**server scope; never `NEXT_PUBLIC_`** — the
+   key must not reach the browser).
+4. Restart `npm run dev`, open any project at `/admin/projects/[id]`, pick a
+   template in the Compose panel, and click **✨ Draft with AI**.
+
+**Using a different provider.** `AI_API_KEY` works against any OpenAI-compatible
+chat-completions endpoint. To use OpenAI, Together, Fireworks, or similar, set
+`AI_BASE_URL` to the provider's base URL and `AI_MODEL` to one of its models
+(defaults: `https://api.groq.com/openai/v1` and `llama-3.3-70b-versatile`). Only
+switch to a provider that trains on inputs for non-PII uses — the client-drafting
+feature assumes a no-train provider.
 
 ## Security
 

@@ -8,13 +8,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { addAdminLog, getClientFull } from "@/lib/clients";
-import {
-  CLIENT_STATUS_OPTIONS,
-  CLIENT_STATUS_CLIENT_LABEL,
-  type ClientStatus,
-} from "@/lib/client-status";
+import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { projectDisplayName } from "@/lib/project-name";
-import { sendClientUpdateEmail } from "@/lib/notify";
+import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const STATUS_VALUES = CLIENT_STATUS_OPTIONS.map((s) => s.value) as [
@@ -49,6 +45,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // Snapshot before the write so the client email can name the status change.
+  const before = parsed.data.notifyClient
+    ? await getClientFull(parsed.data.projectId)
+    : null;
+
   try {
     await addAdminLog(parsed.data.projectId, {
       status: parsed.data.status,
@@ -64,32 +65,27 @@ export async function POST(req: Request) {
   }
 
   // Optional: notify the client (admin opt-in). The internal note is never
-  // shared — only a high-level "there's an update", with the new status label.
-  if (parsed.data.notifyClient) {
+  // shared — only the client-facing status change, when the status moved.
+  if (parsed.data.notifyClient && before?.email) {
     try {
-      const record = await getClientFull(parsed.data.projectId);
-      if (record?.email) {
-        const origin = req.headers.get("origin") || new URL(req.url).origin;
-        const name = projectDisplayName(record);
-        const statusLabel = parsed.data.status
-          ? CLIENT_STATUS_CLIENT_LABEL[parsed.data.status as ClientStatus]
-          : undefined;
-        await sendClientUpdateEmail({
-          to: record.email,
-          firstName: record.clientName?.split(" ")[0],
-          projectName: name,
-          portalUrl: `${origin}/portal`,
-          lines: statusLabel
-            ? [
-                `There's an update on ${name} — it's now marked "${statusLabel}".`,
-                "Sign in to your portal to see the latest.",
-              ]
-            : [
-                `There's a new update on ${name}.`,
-                "Sign in to your portal to see the latest.",
-              ],
-        });
-      }
+      const origin = req.headers.get("origin") || new URL(req.url).origin;
+      const name = projectDisplayName(before);
+      const changes = summarizeClientChanges(before, {
+        status: parsed.data.status,
+      });
+      await sendClientUpdateEmail({
+        to: before.email,
+        firstName: before.clientName?.split(" ")[0],
+        projectName: name,
+        portalUrl: `${origin}/portal`,
+        lines: changes.length
+          ? [`Here's the latest on ${name}:`]
+          : [
+              `There's a new update on ${name}.`,
+              "Sign in to your portal to see the latest.",
+            ],
+        changes,
+      });
     } catch (err) {
       console.error("[admin] quick-log notify error:", err);
       Sentry.captureException(err, {

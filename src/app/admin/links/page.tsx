@@ -67,6 +67,16 @@ const GROUPS: {
     ],
   },
   {
+    title: "AI",
+    links: [
+      {
+        label: "Groq — Console",
+        href: "https://console.groq.com",
+        desc: 'API keys + usage for the admin "Draft with AI" email drafting. Free, non-training tier (safe for client PII).',
+      },
+    ],
+  },
+  {
     title: "APIs & embedded tools",
     links: [
       {

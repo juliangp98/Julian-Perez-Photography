@@ -63,12 +63,17 @@ export default function ReviewsCarousel({
   useEffect(() => {
     const el = railRef.current;
     if (!el) return;
-    updateState();
     el.addEventListener("scroll", updateState, { passive: true });
-    window.addEventListener("resize", updateState);
+    // A ResizeObserver delivers an initial callback as soon as it observes the
+    // rail, which seeds the button state without a synchronous setState in the
+    // effect body. It then fires on any later size change (including viewport
+    // resizes that reflow the rail), so a separate window resize listener is
+    // unnecessary.
+    const observer = new ResizeObserver(updateState);
+    observer.observe(el);
     return () => {
       el.removeEventListener("scroll", updateState);
-      window.removeEventListener("resize", updateState);
+      observer.disconnect();
     };
   }, [updateState]);
 
