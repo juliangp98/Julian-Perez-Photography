@@ -14,6 +14,12 @@ import { rateLimitResponse } from "@/lib/request-guard";
 import { getSession } from "@/lib/auth-cookies";
 import { updateClientFields, getProjectForEmail } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
+import { render } from "@react-email/components";
+import {
+  BrandedEmailLayout,
+  NotificationEmailTemplate,
+} from "@/lib/email-templates";
+import { clientEditNotifyEnabled } from "@/lib/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -22,6 +28,7 @@ const schema = z.object({
   partnerName: z.string().max(200).optional(),
   guestCount: z.coerce.number().int().min(0).max(100000).optional(),
   planSummary: z.string().max(5000).optional(),
+  projectName: z.string().max(200).optional(),
 });
 
 export async function POST(req: Request) {
@@ -71,20 +78,35 @@ export async function POST(req: Request) {
     );
   }
 
-  // Notify Julian (fire-and-forget) so he knows to review the change in Studio.
+  // Notify Julian (fire-and-forget) so he knows to review the change.
   try {
     const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey) {
+    if (apiKey && clientEditNotifyEnabled()) {
       const settings = await getSiteSettings();
       const to = process.env.INQUIRY_TO || settings.contactEmail;
       const from =
         process.env.RESEND_FROM ||
         "Julian Perez Photography <onboarding@resend.dev>";
+      const origin = req.headers.get("origin") || new URL(req.url).origin;
+      const html = await render(
+        BrandedEmailLayout({
+          preview: "A client updated their portal details",
+          children: NotificationEmailTemplate({
+            heading: "Client details updated",
+            lines: [
+              `${session.email} just updated their details in the client portal.`,
+              "Open the admin dashboard to review the change.",
+            ],
+            cta: { label: "Open admin →", href: `${origin}/admin/projects` },
+          }),
+        }),
+      );
       await new Resend(apiKey).emails.send({
         from,
         to,
         subject: `Client updated their details — ${session.email}`,
-        text: `${session.email} updated their portal details. Review the record in the Clients Studio workspace.`,
+        html,
+        text: `${session.email} updated their portal details. Review it in your admin dashboard: ${origin}/admin/projects`,
       });
     }
   } catch (err) {

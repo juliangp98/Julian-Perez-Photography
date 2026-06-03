@@ -12,6 +12,7 @@ import {
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
 import PortalBundles from "@/components/PortalBundles";
+import { projectDisplayName } from "@/lib/project-name";
 
 // The portal home: a menu of the signed-in person's projects, grouped by
 // photographic category (umbrella) in the same card style as the services /
@@ -36,9 +37,7 @@ function ProjectCard({
   p: ClientRecordSafe;
   bundled?: boolean;
 }) {
-  const title = p.serviceType
-    ? p.serviceType.replace(/-/g, " ")
-    : p.clientName || "Project";
+  const title = projectDisplayName(p);
   const milestone = clientMilestoneIndex(p.status);
   return (
     <Link
@@ -50,7 +49,7 @@ function ProjectCard({
       }`}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <div className="font-serif text-xl capitalize">{title}</div>
+        <div className="font-serif text-xl">{title}</div>
         <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
           {CLIENT_STATUS_CLIENT_LABEL[p.status as ClientStatus] ?? "In progress"}
         </span>
@@ -176,9 +175,7 @@ export default async function PortalProjectsMenuPage() {
             <PortalBundles
               projects={projects.map((p) => ({
                 id: p.id,
-                title: p.serviceType
-                  ? p.serviceType.replace(/-/g, " ")
-                  : p.clientName || "Project",
+                title: projectDisplayName(p),
                 bundleLabel: p.bundleLabel,
               }))}
             />

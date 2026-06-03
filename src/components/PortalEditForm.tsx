@@ -12,6 +12,7 @@ type Initial = {
   partnerName?: string;
   guestCount?: number;
   planSummary?: string;
+  projectName?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
 
@@ -22,9 +23,11 @@ const label = "block text-sm font-medium mb-1.5";
 export default function PortalEditForm({
   projectId,
   initial,
+  namePlaceholder,
 }: {
   projectId: string;
   initial: Initial;
+  namePlaceholder?: string;
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState(initial.phone ?? "");
@@ -33,6 +36,7 @@ export default function PortalEditForm({
     initial.guestCount != null ? String(initial.guestCount) : "",
   );
   const [planSummary, setPlanSummary] = useState(initial.planSummary ?? "");
+  const [projectName, setProjectName] = useState(initial.projectName ?? "");
   const [status, setStatus] = useState<Status>("idle");
 
   async function submit(e: React.FormEvent) {
@@ -48,6 +52,7 @@ export default function PortalEditForm({
           partnerName,
           guestCount: guestCount === "" ? undefined : Number(guestCount),
           planSummary,
+          projectName,
         }),
       });
       if (!res.ok) throw new Error("save failed");
@@ -60,6 +65,22 @@ export default function PortalEditForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      <div>
+        <label htmlFor="pf-name" className={label}>
+          Project name{" "}
+          <span className="text-[var(--muted)] font-normal">
+            (leave blank for the default)
+          </span>
+        </label>
+        <input
+          id="pf-name"
+          type="text"
+          value={projectName}
+          onChange={(e) => setProjectName(e.target.value)}
+          placeholder={namePlaceholder}
+          className={input}
+        />
+      </div>
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="pf-phone" className={label}>

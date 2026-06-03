@@ -21,6 +21,7 @@ export default function AdminQuickLog({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [notifyClient, setNotifyClient] = useState(false);
 
   const statusChanged = !!status && status !== (currentStatus ?? "");
   const canSave = statusChanged || note.trim().length > 0;
@@ -37,6 +38,7 @@ export default function AdminQuickLog({
           projectId,
           status: statusChanged ? status : undefined,
           note: note.trim() || undefined,
+          notifyClient: notifyClient || undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -81,6 +83,14 @@ export default function AdminQuickLog({
         placeholder="Add a note…"
         className="w-full px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
       />
+      <label className="flex items-center gap-2 text-xs text-[var(--muted)] cursor-pointer">
+        <input
+          type="checkbox"
+          checked={notifyClient}
+          onChange={(e) => setNotifyClient(e.target.checked)}
+        />
+        Email the client
+      </label>
       <div className="flex items-center gap-2">
         <button
           type="button"

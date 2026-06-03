@@ -478,3 +478,121 @@ export function ClientConfirmationTemplate({
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Shared pill button
+// ---------------------------------------------------------------------------
+
+function PillButton({ href, label }: { href: string; label: string }) {
+  return (
+    <Section style={{ margin: "24px 0" }}>
+      <Link
+        href={href}
+        style={{
+          backgroundColor: FOREGROUND,
+          color: "#ffffff",
+          padding: "12px 24px",
+          borderRadius: "9999px",
+          textDecoration: "none",
+          fontSize: "14px",
+          display: "inline-block",
+        }}
+      >
+        {label}
+      </Link>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Magic-link sign-in email (portal client or admin)
+// ---------------------------------------------------------------------------
+
+export function MagicLinkEmailTemplate({
+  link,
+  kind,
+}: {
+  link: string;
+  kind: "portal" | "admin";
+}) {
+  const isAdmin = kind === "admin";
+  return (
+    <>
+      <Text
+        style={{
+          fontFamily: SERIF,
+          fontSize: "20px",
+          color: FOREGROUND,
+          margin: "0 0 16px 0",
+        }}
+      >
+        {isAdmin ? "Your admin sign-in link" : "Your sign-in link"}
+      </Text>
+      <Text
+        style={{
+          fontSize: "15px",
+          color: FOREGROUND,
+          lineHeight: "24px",
+          margin: "0 0 8px 0",
+        }}
+      >
+        {isAdmin
+          ? "Here's your secure link to the admin dashboard."
+          : "Here's your secure link to your client portal — no password needed."}
+      </Text>
+      <PillButton
+        href={link}
+        label={isAdmin ? "Open the admin dashboard →" : "Open your portal →"}
+      />
+      <Text
+        style={{ fontSize: "13px", color: MUTED, lineHeight: "20px", margin: 0 }}
+      >
+        This link expires in 20 minutes and can only be used once. If you
+        didn&rsquo;t request it, you can safely ignore this email.
+      </Text>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Generic notification email (sign-in-free updates to a client or to Julian)
+// ---------------------------------------------------------------------------
+
+export function NotificationEmailTemplate({
+  heading,
+  lines,
+  cta,
+}: {
+  heading: string;
+  lines: string[];
+  cta?: { label: string; href: string };
+}) {
+  return (
+    <>
+      <Text
+        style={{
+          fontFamily: SERIF,
+          fontSize: "20px",
+          color: FOREGROUND,
+          margin: "0 0 16px 0",
+        }}
+      >
+        {heading}
+      </Text>
+      {lines.map((line, i) => (
+        <Text
+          key={i}
+          style={{
+            fontSize: "15px",
+            color: FOREGROUND,
+            lineHeight: "24px",
+            margin: "0 0 12px 0",
+          }}
+        >
+          {line}
+        </Text>
+      ))}
+      {cta && <PillButton href={cta.href} label={cta.label} />}
+    </>
+  );
+}

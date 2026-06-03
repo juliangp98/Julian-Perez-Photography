@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 
 type Initial = {
+  projectName?: string;
   clientName?: string;
   email?: string;
   phone?: string;
@@ -22,6 +23,7 @@ type Initial = {
   budget?: string;
   planSummary?: string;
   internalNotes?: string;
+  galleryUrl?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
 
@@ -32,12 +34,15 @@ const label = "block text-sm font-medium mb-1.5";
 export default function AdminProjectEditForm({
   id,
   initial,
+  namePlaceholder,
 }: {
   id: string;
   initial: Initial;
+  namePlaceholder?: string;
 }) {
   const router = useRouter();
   const [v, setV] = useState({
+    projectName: initial.projectName ?? "",
     clientName: initial.clientName ?? "",
     email: initial.email ?? "",
     phone: initial.phone ?? "",
@@ -50,8 +55,10 @@ export default function AdminProjectEditForm({
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
     internalNotes: initial.internalNotes ?? "",
+    galleryUrl: initial.galleryUrl ?? "",
   });
   const [status, setStatus] = useState<Status>("idle");
+  const [notifyClient, setNotifyClient] = useState(false);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value }));
 
@@ -64,6 +71,7 @@ export default function AdminProjectEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
+          notifyClient,
           fields: {
             ...v,
             guestCount: v.guestCount === "" ? undefined : Number(v.guestCount),
@@ -80,6 +88,21 @@ export default function AdminProjectEditForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      <div>
+        <label htmlFor="a-project-name" className={label}>
+          Project name{" "}
+          <span className="text-[var(--muted)] font-normal">
+            (leave blank for the auto name)
+          </span>
+        </label>
+        <input
+          id="a-project-name"
+          value={v.projectName}
+          onChange={set("projectName")}
+          placeholder={namePlaceholder}
+          className={input}
+        />
+      </div>
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="a-status" className={label}>
@@ -160,11 +183,35 @@ export default function AdminProjectEditForm({
         <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={input} />
       </div>
       <div>
+        <label htmlFor="a-gallery" className={label}>
+          Gallery URL{" "}
+          <span className="text-[var(--muted)] font-normal">
+            (Pic-Time link — shown to the client when set)
+          </span>
+        </label>
+        <input
+          id="a-gallery"
+          type="url"
+          value={v.galleryUrl}
+          onChange={set("galleryUrl")}
+          placeholder="https://…"
+          className={input}
+        />
+      </div>
+      <div>
         <label htmlFor="a-notes" className={label}>
           Internal notes <span className="text-[var(--muted)] font-normal">(private — never shown to the client)</span>
         </label>
         <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={input} />
       </div>
+      <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
+        <input
+          type="checkbox"
+          checked={notifyClient}
+          onChange={(e) => setNotifyClient(e.target.checked)}
+        />
+        Email the client about this update
+      </label>
       <div className="flex items-center gap-4">
         <button
           type="submit"

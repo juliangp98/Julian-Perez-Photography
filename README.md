@@ -111,6 +111,7 @@ cp .env.example .env.local
 | `RESEND_API_KEY`                | yes (for inquiries)            | Resend API key — sends inquiry-form emails                                                                                                                                                                                                                                                                                                           |
 | `RESEND_FROM`                   | yes (for inquiries)            | Verified sender, e.g. `"Julian Perez Photography <hello@julianperezphotography.com>"`                                                                                                                                                                                                                                                                |
 | `INQUIRY_TO`                    | no                             | Where inquiries are delivered (defaults to `siteSettings.contactEmail`)                                                                                                                                                                                                                                                                              |
+| `NOTIFY_CLIENT_EDITS`           | no                             | Set to `false` to mute the "a client edited their portal details" email to Julian. Defaults on. (Admin-triggered client notifications are opt-in per update via a checkbox, not env-controlled.)                                                                                                                                                       |
 | `GOOGLE_PLACES_API_KEY`         | no                             | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials`                                                                                                                                                                                                                                   |
 | `GOOGLE_PLACE_ID`               | no                             | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped                                                                                                                      |
 | `TWILIO_ACCOUNT_SID`            | no                             | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires                                                                                                                                                                                                    |
@@ -372,6 +373,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
      package text,
      bundle_id uuid,
      bundle_label text,
+     gallery_url text,
+     project_name text,
      source text default 'manual',
      event_date text,
      secondary_dates jsonb not null default '[]'::jsonb,
@@ -416,6 +419,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    alter table client_records add column if not exists bundle_label text;
    create index if not exists client_records_bundle_idx
      on client_records (bundle_id);
+   alter table client_records add column if not exists gallery_url text;
+   alter table client_records add column if not exists project_name text;
   ```
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
    or use Project Settings (gear, bottom-left):

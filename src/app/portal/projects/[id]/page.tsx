@@ -11,6 +11,7 @@ import { getQuestionnaire } from "@/lib/questionnaires";
 import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/PortalStatusTimeline";
+import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -127,9 +128,7 @@ export default async function PortalProjectPage({
       </div>
 
       <h1 className="mt-4 font-serif text-4xl">
-        {record.serviceType
-          ? record.serviceType.replace(/-/g, " ")
-          : record.clientName || "Your project"}
+        {projectDisplayName(record)}
       </h1>
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <span className="inline-block px-3 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs uppercase tracking-[0.18em]">
@@ -144,6 +143,25 @@ export default async function PortalProjectPage({
       </div>
 
       <PortalStatusTimeline status={record.status} eventDate={record.eventDate} />
+
+      {record.galleryUrl && (
+        <a
+          href={record.galleryUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-8 flex items-center justify-between gap-4 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/[0.04] p-5 hover:bg-[var(--accent)]/[0.08] transition"
+        >
+          <div>
+            <div className="font-serif text-xl">Your gallery is ready</div>
+            <div className="mt-1 text-sm text-[var(--muted)]">
+              View and download your photos.
+            </div>
+          </div>
+          <span className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm whitespace-nowrap">
+            View gallery →
+          </span>
+        </a>
+      )}
 
       {link && (
         <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
@@ -248,11 +266,13 @@ export default async function PortalProjectPage({
         </p>
         <PortalEditForm
           projectId={record.id}
+          namePlaceholder={autoProjectName(record)}
           initial={{
             phone: record.phone,
             partnerName: record.partnerName,
             guestCount: record.guestCount,
             planSummary: record.planSummary,
+            projectName: record.projectName,
           }}
         />
       </Section>

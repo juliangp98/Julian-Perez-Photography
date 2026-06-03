@@ -12,6 +12,11 @@ import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { isAuthConfigured, signMagicToken } from "@/lib/auth";
 import { findClientIdByEmail } from "@/lib/clients";
+import { render } from "@react-email/components";
+import {
+  BrandedEmailLayout,
+  MagicLinkEmailTemplate,
+} from "@/lib/email-templates";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -72,15 +77,17 @@ export async function POST(req: Request) {
     const from =
       process.env.RESEND_FROM ||
       "Julian Perez Photography <onboarding@resend.dev>";
+    const html = await render(
+      BrandedEmailLayout({
+        preview: "Your secure sign-in link",
+        children: MagicLinkEmailTemplate({ link, kind: "portal" }),
+      }),
+    );
     await resend.emails.send({
       from,
       to: email,
       subject: "Your sign-in link — Julian Perez Photography",
-      html: `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#0e0e0e">
-  <p style="font-size:16px;line-height:1.6">Here's your secure sign-in link for your Julian Perez Photography client portal:</p>
-  <p style="margin:24px 0"><a href="${link}" style="background:#0e0e0e;color:#ffffff;padding:12px 22px;border-radius:9999px;text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:14px">Open your portal &rarr;</a></p>
-  <p style="font-size:13px;color:#6b6b6b;line-height:1.6">This link expires in 20 minutes and can only be used once. If you didn't request it, you can safely ignore this email.</p>
-</div>`,
+      html,
       text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes and can only be used once. If you didn't request it, ignore this email.`,
     });
   } catch (err) {

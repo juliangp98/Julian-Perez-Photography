@@ -13,6 +13,11 @@ import {
   isAdminEmail,
   signAdminMagicToken,
 } from "@/lib/auth";
+import { render } from "@react-email/components";
+import {
+  BrandedEmailLayout,
+  MagicLinkEmailTemplate,
+} from "@/lib/email-templates";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -66,15 +71,17 @@ export async function POST(req: Request) {
     const from =
       process.env.RESEND_FROM ||
       "Julian Perez Photography <onboarding@resend.dev>";
+    const html = await render(
+      BrandedEmailLayout({
+        preview: "Your admin sign-in link",
+        children: MagicLinkEmailTemplate({ link, kind: "admin" }),
+      }),
+    );
     await resend.emails.send({
       from,
       to: email,
       subject: "Admin sign-in link — Julian Perez Photography",
-      html: `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#0e0e0e">
-  <p style="font-size:16px;line-height:1.6">Your admin sign-in link:</p>
-  <p style="margin:24px 0"><a href="${link}" style="background:#0e0e0e;color:#ffffff;padding:12px 22px;border-radius:9999px;text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:14px">Open the admin dashboard &rarr;</a></p>
-  <p style="font-size:13px;color:#6b6b6b;line-height:1.6">Expires in 20 minutes. If you didn't request it, ignore this email.</p>
-</div>`,
+      html,
       text: `Your admin sign-in link:\n\n${link}\n\nExpires in 20 minutes. If you didn't request it, ignore this email.`,
     });
   } catch (err) {

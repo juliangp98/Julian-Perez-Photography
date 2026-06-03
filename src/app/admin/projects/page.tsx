@@ -6,6 +6,7 @@ import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import AdminNav from "@/components/AdminNav";
 import AdminQuickLog from "@/components/AdminQuickLog";
+import { projectDisplayName } from "@/lib/project-name";
 
 export const metadata: Metadata = {
   title: "Projects — Admin",
@@ -38,12 +39,34 @@ const GROUPS: { key: string; title: string; statuses: string[] }[] = [
   { key: "archived", title: "Archived & lost", statuses: ["archived", "lost"] },
 ];
 
+// Day delta from today for an event-date string (ISO / M/D/Y / "Mon D, YYYY");
+// null if unparseable, negative if past.
+function daysFromToday(d?: string): number | null {
+  if (!d) return null;
+  let date = new Date(`${d}T00:00:00`);
+  if (Number.isNaN(date.getTime())) date = new Date(d);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const t1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((t1.getTime() - t0.getTime()) / 86_400_000);
+}
+
+// Days elapsed since an ISO timestamp; null if unparseable. (Kept in a helper so
+// the "now" read stays out of the component render body.)
+function daysSince(iso?: string): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return (new Date().getTime() - t) / 86_400_000;
+}
+
 function ProjectCard({ r }: { r: ClientRecordFull }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="font-serif text-xl">{r.clientName || "(no name)"}</div>
+          <div className="font-serif text-xl">{projectDisplayName(r)}</div>
           <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
             {STATUS_TITLE[r.status ?? ""] ?? r.status}
           </span>
@@ -81,6 +104,20 @@ export default async function AdminProjectsPage({
   const serviceFilter = sp.service ?? "";
 
   const all = await listClients();
+
+  // Needs attention — computed from the full list, independent of filters.
+  const staleInquiries = all.filter(
+    (r) => r.status === "new-inquiry" && (daysSince(r.updatedAt) ?? 0) > 3,
+  );
+  const DONE_STATUSES = new Set(["delivered", "complete", "archived", "lost"]);
+  const upcomingShoots = all
+    .filter((r) => !DONE_STATUSES.has(r.status ?? ""))
+    .map((r) => ({ r, days: daysFromToday(r.eventDate) }))
+    .filter((x): x is { r: ClientRecordFull; days: number } =>
+      x.days !== null && x.days >= 0 && x.days <= 30,
+    )
+    .sort((a, b) => a.days - b.days);
+
   // Service options for the dropdown — the distinct service types in play.
   const services = [
     ...new Set(all.map((r) => r.serviceType).filter(Boolean) as string[]),
@@ -90,7 +127,7 @@ export default async function AdminProjectsPage({
     if (statusFilter && (r.status ?? "") !== statusFilter) return false;
     if (serviceFilter && (r.serviceType ?? "") !== serviceFilter) return false;
     if (qLower) {
-      const hay = [r.clientName, r.email, r.serviceType]
+      const hay = [r.clientName, r.email, r.serviceType, r.projectName]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -112,6 +149,64 @@ export default async function AdminProjectsPage({
           ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
           : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
       </p>
+
+      {(staleInquiries.length > 0 || upcomingShoots.length > 0) && (
+        <div className="mt-8 grid gap-5 md:grid-cols-2">
+          {staleInquiries.length > 0 && (
+            <div className="rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.04] p-5">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+                Awaiting a reply ({staleInquiries.length})
+              </div>
+              <ul className="mt-3 space-y-1.5">
+                {staleInquiries.slice(0, 5).map((r) => (
+                  <li key={r.id} className="text-sm">
+                    <Link
+                      href={`/admin/projects/${r.id}`}
+                      className="hover:text-[var(--accent)]"
+                    >
+                      {projectDisplayName(r)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {staleInquiries.length > 5 && (
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  + {staleInquiries.length - 5} more
+                </p>
+              )}
+            </div>
+          )}
+          {upcomingShoots.length > 0 && (
+            <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                Upcoming shoots ({upcomingShoots.length})
+              </div>
+              <ul className="mt-3 space-y-1.5">
+                {upcomingShoots.slice(0, 5).map(({ r, days }) => (
+                  <li
+                    key={r.id}
+                    className="flex justify-between gap-3 text-sm"
+                  >
+                    <Link
+                      href={`/admin/projects/${r.id}`}
+                      className="hover:text-[var(--accent)]"
+                    >
+                      {projectDisplayName(r)}
+                    </Link>
+                    <span className="whitespace-nowrap text-xs text-[var(--muted)]">
+                      {days === 0
+                        ? "today"
+                        : days === 1
+                          ? "tomorrow"
+                          : `in ${days} days`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {all.length > 0 && (
         <form method="get" className="mt-6 flex flex-wrap items-center gap-3">
