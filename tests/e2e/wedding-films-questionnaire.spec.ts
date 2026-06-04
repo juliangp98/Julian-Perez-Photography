@@ -60,3 +60,58 @@ test("wedding-films questionnaire: cross-prefill round-trips shared fields from 
   );
   await expect(page.getByLabel("Phone number")).toHaveValue("(703) 555-1234");
 });
+
+test("cross-prefill: the family bundle (e.g. newborn) prefills from URL params too", async ({
+  page,
+}) => {
+  // Cross-prefill is no longer wedding-only — the success screen now offers
+  // bundle siblings for any curated group (see questionnaire-bundles.ts), e.g.
+  // maternity → newborn → family-portraits. This verifies the receiving side
+  // works for a non-wedding bundle member, so the mechanism generalized.
+  const params = new URLSearchParams({
+    fullName: "Family Bundle",
+    email: "family-bundle@example.com",
+    phone: "(703) 555-4321",
+  });
+  await page.goto(`/questionnaire/newborn?${params.toString()}`);
+
+  await expect(page.getByLabel("Your full name")).toHaveValue("Family Bundle");
+  await expect(page.getByLabel("Email address")).toHaveValue(
+    "family-bundle@example.com",
+  );
+  await expect(page.getByLabel("Phone number")).toHaveValue("(703) 555-4321");
+});
+
+test("cross-prefill: multi-select (checkbox) answers round-trip via repeated params", async ({
+  page,
+}) => {
+  // A checkbox answer rides along as repeated query keys (?purpose=a&purpose=b);
+  // the receiving form must restore ALL of them, not just the first. Portraiture's
+  // "What are these photos for?" is the shallowest checkbox — prefill the earlier
+  // sections so we can advance straight to it.
+  const params = new URLSearchParams();
+  params.set("fullName", "Checkbox Test");
+  params.set("email", "checkbox@example.com");
+  params.set("phone", "(703) 555-2468");
+  params.set("bookingStatus", "I'm already booked — let's plan");
+  params.set("package", "Undecided");
+  params.set("eventDate", "2027-03-03");
+  params.append("purpose", "LinkedIn / professional");
+  params.append("purpose", "Print / wall art");
+  await page.goto(`/questionnaire/portraiture?${params.toString()}`);
+
+  // Advance: Your details → Booking status → What the session is for.
+  await page.getByRole("button", { name: /Next →/ }).click();
+  await page.getByRole("button", { name: /Next →/ }).click();
+
+  await expect(
+    page.getByRole("checkbox", { name: "LinkedIn / professional" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Print / wall art" }),
+  ).toBeChecked();
+  // A box that wasn't passed stays unchecked.
+  await expect(
+    page.getByRole("checkbox", { name: "Dating-app refresh" }),
+  ).not.toBeChecked();
+});

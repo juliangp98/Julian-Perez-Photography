@@ -8,6 +8,11 @@ import {
   resolvePackageOptions,
   visibleSectionsFor,
 } from "@/lib/questionnaires";
+import {
+  bundleSiblings,
+  prefillableFieldIds,
+} from "@/lib/questionnaire-bundles";
+import { serviceNoun } from "@/lib/project-name";
 import type { SiteSettings } from "@/lib/types";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
 
@@ -45,7 +50,7 @@ export default function QuestionnaireForm({
   calls,
 }: {
   questionnaire: Questionnaire;
-  prefill?: Record<string, string>;
+  prefill?: Record<string, string | string[]>;
   // Call-booking CTAs shown on the success screen. Passed from the
   // parent server page so the client bundle doesn't pull siteSettings
   // (Sanity-backed and async — not awaitable from a client component).
@@ -232,22 +237,8 @@ export default function QuestionnaireForm({
   };
   const pdfPlan = PDF_PLANS[questionnaire.slug];
 
-  // Cross-prefill targets — the success screen surfaces a "continue
-  // planning the other side" button for hybrid-wedding couples. Maps
-  // the current slug to its complementary slug + a friendly label for
-  // the button. Hybrid bookings are the only current case; extending
-  // to other dual-form scenarios is a one-line addition.
-  const CROSS_PREFILL: Record<string, { slug: string; label: string }> = {
-    weddings: {
-      slug: "wedding-films",
-      label: "Continue planning the wedding films side",
-    },
-    "wedding-films": {
-      slug: "weddings",
-      label: "Continue planning the photo side",
-    },
-  };
-  const crossPrefill = CROSS_PREFILL[questionnaire.slug];
+  // Cross-prefill into bundle siblings is computed in the success block below
+  // (see `src/lib/questionnaire-bundles.ts`).
 
   // Mid-form PDF preview. Validates required fields across every visible
   // section (not just the current one, so clients don't get a half-empty
@@ -348,30 +339,32 @@ export default function QuestionnaireForm({
 
   if (status === "success") {
     const isWedding = questionnaire.slug === "weddings";
-    // Build the cross-prefill query string from shared field IDs that
-    // round-trip cleanly between weddings \u2194 wedding-films. Tier and
-    // package values intentionally don't propagate (the photo and video
-    // tiers don't share names); the receiving form's prefill mechanism
-    // ignores any unknown keys.
-    const SHARED_FIELDS = [
-      "fullName",
-      "email",
-      "phone",
-      "instagram",
-      "partnerFullName",
-      "partnerPronouns",
-      "bookingStatus",
-      "eventDate",
-    ];
-    let crossPrefillHref: string | null = null;
-    if (crossPrefill && submittedAnswersRef.current) {
-      const params = new URLSearchParams();
-      for (const id of SHARED_FIELDS) {
-        const v = submittedAnswersRef.current[id];
-        if (typeof v === "string" && v) params.set(id, v);
-      }
-      crossPrefillHref = `/questionnaire/${crossPrefill.slug}?${params.toString()}`;
-    }
+    // Cross-prefill into bundle siblings: each sibling button carries every
+    // answer that sibling's form also asks for \u2014 the intersection of what was
+    // answered and what the target asks, matched by canonical field id. No
+    // per-pair field list; the harmonized IDs across questionnaires make it work
+    // (file uploads are excluded since they can't ride a query string).
+    const answers = submittedAnswersRef.current;
+    const siblingLinks = answers
+      ? bundleSiblings(questionnaire.slug).map((sib) => {
+          const fields = prefillableFieldIds(sib);
+          const params = new URLSearchParams();
+          for (const [id, value] of Object.entries(answers)) {
+            if (!fields.has(id)) continue;
+            if (typeof value === "string" && value) {
+              params.set(id, value);
+            } else if (Array.isArray(value)) {
+              // Multi-select answers ride along as repeated keys.
+              for (const item of value) if (item) params.append(id, item);
+            }
+          }
+          return {
+            slug: sib,
+            noun: serviceNoun(sib) ?? sib,
+            href: `/questionnaire/${sib}?${params.toString()}`,
+          };
+        })
+      : [];
     return (
       <div className="p-10 border border-[var(--accent)] rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
@@ -405,35 +398,40 @@ export default function QuestionnaireForm({
             )}
           </div>
         )}
-        {crossPrefillHref && (
-          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
-            <p className="text-sm font-medium">Booking hybrid coverage?</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              You can fill the matching questionnaire for the other side of
-              your booking \u2014 your basics will arrive prefilled.
-            </p>
-            <Link
-              href={crossPrefillHref}
-              className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-            >
-              {crossPrefill.label} \u2192
-            </Link>
-          </div>
-        )}
         <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
           <p className="text-sm font-medium">Track your project</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Everything you just shared is saved to your project. Sign in to your
             client portal anytime to check your status, add more detail, and
-            find your documents \u2014 same email, no password.
+            find your documents &mdash; same email, no password.
           </p>
           <Link
             href="/portal"
-            className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
           >
-            Open your portal \u2192
+            Open your portal &rarr;
           </Link>
         </div>
+        {siblingLinks.length > 0 && (
+          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+            <p className="text-sm font-medium">Booking more than one session?</p>
+            <p className="mt-1 mb-3 text-xs text-[var(--muted)]">
+              Continue into a matching questionnaire &mdash; the details you just
+              shared arrive prefilled, so you won&rsquo;t retype them.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {siblingLinks.map((s) => (
+                <Link
+                  key={s.slug}
+                  href={s.href}
+                  className="inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+                >
+                  Continue planning your {s.noun.toLowerCase()} &rarr;
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Call booking CTAs */}
         <div className="mt-6 p-5 border border-[var(--border)] rounded-lg space-y-4">
           <div>
@@ -837,7 +835,9 @@ function FieldRenderer({
         </div>
       );
     case "checkbox": {
-      const arr = Array.isArray(value) ? value : [];
+      // A single-checkbox URL prefill arrives as a lone string (Next returns a
+      // string, not an array, for a non-repeated key) — wrap it so it checks.
+      const arr = Array.isArray(value) ? value : value ? [value] : [];
       return (
         <div>
           {labelEl}

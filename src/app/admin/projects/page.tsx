@@ -7,6 +7,8 @@ import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import AdminNav from "@/components/AdminNav";
 import AdminQuickLog from "@/components/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
+import AdminSearch from "@/components/AdminSearch";
+import { aiEnabled } from "@/lib/ai";
 
 export const metadata: Metadata = {
   title: "Projects — Admin",
@@ -205,6 +207,12 @@ export default async function AdminProjectsPage({
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {aiEnabled() && all.length > 0 && (
+        <div className="mt-8">
+          <AdminSearch />
         </div>
       )}
 
