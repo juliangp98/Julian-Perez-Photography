@@ -5,7 +5,7 @@
 // PII. Swappable to OpenAI / Together / Fireworks / any compatible endpoint by
 // pointing `AI_BASE_URL` (+ `AI_MODEL`) at it.
 //
-// The whole module no-ops (returns null) when `AI_API_KEY` is unset, so AI
+// The whole module no-ops (returns null) when `GROQ_API_KEY` is unset, so AI
 // features degrade to their static fallback instead of erroring — the same
 // optional-by-env posture as Resend and Twilio. The key is read server-side
 // only and must never be exposed as `NEXT_PUBLIC_`.
@@ -17,7 +17,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 // Whether AI features are configured. UI uses this to decide whether to offer
 // the AI affordance at all (rather than show a button that no-ops).
 export function aiEnabled(): boolean {
-  return !!process.env.AI_API_KEY;
+  return !!process.env.GROQ_API_KEY;
 }
 
 // The model in effect (default or env override) — handy for logs / tags.
@@ -39,7 +39,7 @@ export type GenerateTextOptions = {
 export async function generateText(
   opts: GenerateTextOptions,
 ): Promise<string | null> {
-  const apiKey = process.env.AI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
 
   const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(
@@ -83,4 +83,21 @@ export async function generateText(
   const content = (json as { choices?: { message?: { content?: unknown } }[] })
     ?.choices?.[0]?.message?.content;
   return typeof content === "string" ? content.trim() : null;
+}
+
+// Pull a JSON object out of a model response, tolerating ```json code fences and
+// stray prose around it (models often wrap structured output). Returns the
+// parsed value, or null when nothing parseable is found — callers then validate
+// the shape (e.g. with zod) before trusting it.
+export function extractJsonObject(text: string): unknown | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1] : text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return null;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    return null;
+  }
 }

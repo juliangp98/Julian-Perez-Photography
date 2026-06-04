@@ -8,6 +8,9 @@ import AdminNav from "@/components/AdminNav";
 import AdminProjectEditForm from "@/components/AdminProjectEditForm";
 import PortalBundles from "@/components/PortalBundles";
 import ComposeEmail from "@/components/ComposeEmail";
+import InquiryTriage from "@/components/InquiryTriage";
+import PrepBrief from "@/components/PrepBrief";
+import NextActionNudge from "@/components/NextActionNudge";
 import { aiEnabled } from "@/lib/ai";
 import {
   projectDisplayName,
@@ -82,6 +85,7 @@ export default async function AdminProjectDetailPage({
           : undefined,
       }
     : {};
+  const ai = aiEnabled();
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-12">
@@ -108,9 +112,33 @@ export default async function AdminProjectDetailPage({
             </p>
           )}
 
+          {/* AI next-step nudge — on-demand, for any project. */}
+          {ai && (
+            <div className="mt-8 rounded-lg border border-[var(--border)] bg-white p-5">
+              <h2 className="font-serif text-xl">Suggested next step</h2>
+              <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+                An AI read on where this project stands and the best next move.
+              </p>
+              <NextActionNudge projectId={record.id} />
+            </div>
+          )}
+
+          {/* AI inquiry triage — on-demand, only when there's an inquiry to read. */}
+          {ai && record.inquiryMessage?.trim() && (
+            <div className="mt-8 rounded-lg border border-[var(--border)] bg-white p-5">
+              <h2 className="font-serif text-xl">Inquiry triage</h2>
+              <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+                A quick AI read on this inquiry — fit, urgency, key details, and a
+                suggested reply to start from.
+              </p>
+              <InquiryTriage projectId={record.id} />
+            </div>
+          )}
+
           <div className="mt-10">
             <AdminProjectEditForm
               id={record.id}
+              aiEnabled={ai}
               namePlaceholder={autoProjectName(record)}
               initial={{
                 projectName: record.projectName,
@@ -143,9 +171,21 @@ export default async function AdminProjectDetailPage({
               projectId={record.id}
               hasEmail={!!record.email}
               context={emailContext}
-              aiEnabled={aiEnabled()}
+              aiEnabled={ai}
             />
           </div>
+
+          {/* AI shoot-prep brief — only when there's a questionnaire to read. */}
+          {ai && record.questionnaireSnapshot?.trim() && (
+            <div className="mt-14 pt-8 border-t border-[var(--border)]">
+              <h2 className="font-serif text-2xl">Shoot prep brief</h2>
+              <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
+                Turn this client&rsquo;s planning questionnaire into a skimmable
+                prep brief — timeline, key people, must-have shots, logistics.
+              </p>
+              <PrepBrief projectId={record.id} />
+            </div>
+          )}
 
           {/* Bundle linking — this person's projects. */}
           {siblings.length >= 2 && (

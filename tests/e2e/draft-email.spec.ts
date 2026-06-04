@@ -5,7 +5,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // the project's server-side facts — which the owner reviews before sending (the
 // route never sends). It is admin-gated and rate-limited.
 //
-// AI is unconfigured in this environment (no AI_API_KEY), so a well-formed
+// AI is unconfigured in this environment (no GROQ_API_KEY), so a well-formed
 // authenticated request is accepted but no-ops (`drafted: false`) rather than
 // calling a provider — the compose UI falls back to the static template. The
 // auth guard, the schema, and the template-existence check are all reachable.
