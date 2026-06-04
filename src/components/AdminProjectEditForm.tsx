@@ -53,10 +53,13 @@ export default function AdminProjectEditForm({
   id,
   initial,
   namePlaceholder,
+  aiEnabled = false,
 }: {
   id: string;
   initial: Initial;
   namePlaceholder?: string;
+  // When true, offers a "Draft with AI" button on the client-facing plan summary.
+  aiEnabled?: boolean;
 }) {
   const router = useRouter();
   // A stored date that doesn't fit the native picker (legacy free text) falls
@@ -84,8 +87,39 @@ export default function AdminProjectEditForm({
   });
   const [status, setStatus] = useState<Status>("idle");
   const [notifyClient, setNotifyClient] = useState(false);
+  const [planStatus, setPlanStatus] = useState<
+    "idle" | "drafting" | "drafted" | "error"
+  >("idle");
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value }));
+
+  // Draft the client-facing plan summary with AI, into the editable field.
+  async function draftPlan() {
+    if (
+      v.planSummary.trim() &&
+      !window.confirm("Replace the current plan summary with an AI draft?")
+    ) {
+      return;
+    }
+    setPlanStatus("drafting");
+    try {
+      const res = await fetch("/api/admin/draft-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: id }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.drafted && typeof data.summary === "string") {
+        setV((prev) => ({ ...prev, planSummary: data.summary }));
+        setPlanStatus("drafted");
+      } else {
+        setPlanStatus("idle");
+      }
+    } catch {
+      setPlanStatus("error");
+    }
+  }
 
   // Changing the service clears a package that doesn't belong to the new
   // service, so the package selection can never contradict the service.
@@ -275,10 +309,35 @@ export default function AdminProjectEditForm({
         </div>
       </div>
       <div>
-        <label htmlFor="a-plan" className={label}>
-          Plan summary <span className="text-[var(--muted)] font-normal">(shown to the client)</span>
-        </label>
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+          <label htmlFor="a-plan" className="text-sm font-medium">
+            Plan summary{" "}
+            <span className="text-[var(--muted)] font-normal">
+              (shown to the client)
+            </span>
+          </label>
+          {aiEnabled && (
+            <button
+              type="button"
+              onClick={draftPlan}
+              disabled={planStatus === "drafting"}
+              className="text-xs rounded-full border border-[var(--foreground)] px-3 py-1 hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+            >
+              {planStatus === "drafting" ? "Drafting…" : "✨ Draft with AI"}
+            </button>
+          )}
+        </div>
         <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={input} />
+        {planStatus === "drafted" && (
+          <p className="mt-1 text-xs text-[var(--accent)]">
+            AI draft — review and edit before saving.
+          </p>
+        )}
+        {planStatus === "error" && (
+          <p className="mt-1 text-xs text-red-700">
+            Couldn&rsquo;t draft — please try again.
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor="a-gallery" className={label}>
