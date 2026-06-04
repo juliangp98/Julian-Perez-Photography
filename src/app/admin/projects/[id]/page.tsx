@@ -8,6 +8,7 @@ import AdminNav from "@/components/AdminNav";
 import AdminProjectEditForm from "@/components/AdminProjectEditForm";
 import PortalBundles from "@/components/PortalBundles";
 import ComposeEmail from "@/components/ComposeEmail";
+import InquiryTriage from "@/components/InquiryTriage";
 import { aiEnabled } from "@/lib/ai";
 import {
   projectDisplayName,
@@ -82,6 +83,7 @@ export default async function AdminProjectDetailPage({
           : undefined,
       }
     : {};
+  const ai = aiEnabled();
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-12">
@@ -106,6 +108,18 @@ export default async function AdminProjectDetailPage({
             <p className="mt-1 text-sm text-[var(--muted)]">
               {[record.clientName, record.email].filter(Boolean).join(" · ")}
             </p>
+          )}
+
+          {/* AI inquiry triage — on-demand, only when there's an inquiry to read. */}
+          {ai && record.inquiryMessage?.trim() && (
+            <div className="mt-8 rounded-lg border border-[var(--border)] bg-white p-5">
+              <h2 className="font-serif text-xl">Inquiry triage</h2>
+              <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+                A quick AI read on this inquiry — fit, urgency, key details, and a
+                suggested reply to start from.
+              </p>
+              <InquiryTriage projectId={record.id} />
+            </div>
           )}
 
           <div className="mt-10">
@@ -143,7 +157,7 @@ export default async function AdminProjectDetailPage({
               projectId={record.id}
               hasEmail={!!record.email}
               context={emailContext}
-              aiEnabled={aiEnabled()}
+              aiEnabled={ai}
             />
           </div>
 

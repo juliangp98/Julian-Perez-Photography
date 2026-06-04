@@ -111,7 +111,7 @@ cp .env.example .env.local
 | `RESEND_API_KEY`                | yes (for inquiries)            | Resend API key — sends inquiry-form emails                                                                                                                                                                                                                                                                                                           |
 | `RESEND_FROM`                   | yes (for inquiries)            | Verified sender, e.g. `"Julian Perez Photography <hello@julianperezphotography.com>"`                                                                                                                                                                                                                                                                |
 | `INQUIRY_TO`                    | no                             | Where inquiries are delivered (defaults to `siteSettings.contactEmail`)                                                                                                                                                                                                                                                                              |
-| `NOTIFY_CLIENT_EDITS`           | no                             | Set to `false` to mute the "a client edited their portal details" email to Julian. Defaults on. (Admin-triggered client notifications are opt-in per update via a checkbox, not env-controlled.)                                                                                                                                                       |
+| `NOTIFY_CLIENT_EDITS`           | no                             | Set to `false` to mute the "a client edited their portal details" email to Julian. Defaults on. (Admin-triggered client notifications are opt-in per update via a checkbox, not env-controlled.)                                                                                                                                                     |
 | `GOOGLE_PLACES_API_KEY`         | no                             | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials`                                                                                                                                                                                                                                   |
 | `GOOGLE_PLACE_ID`               | no                             | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped                                                                                                                      |
 | `TWILIO_ACCOUNT_SID`            | no                             | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires                                                                                                                                                                                                    |
@@ -131,9 +131,9 @@ cp .env.example .env.local
 | `SENTRY_ORG`                    | no (build-time)                | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset                                                                                                                                                                                                                      |
 | `SENTRY_PROJECT`                | no (build-time)                | Sentry project slug. Build-time only — pairs with `SENTRY_ORG`                                                                                                                                                                                                                                                                                       |
 | `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
-| `AI_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor          |
+| `GROQ_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor         |
 | `AI_MODEL`                      | no                             | Override the model (default `llama-3.3-70b-versatile`, a current Groq model). Set to match your provider when pointing `AI_BASE_URL` elsewhere                                                                                                                                                                                                       |
-| `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                       |
+| `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                      |
 
 
 ## Scripts
@@ -407,13 +407,13 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    -- policies, nothing else (including the anon key) can read it.
    alter table client_records enable row level security;
   ```
-   _Already created the table from an earlier version (unique email index, no
+   *Already created the table from an earlier version (unique email index, no
    bundle columns)? Run this once to migrate it in place — it converts the email
    index to non-unique so a person can hold multiple projects, and adds the
    bundle columns. (The app tolerates the columns being absent: until you run
    this, the portal and admin pages still load — they just omit bundle grouping,
    and a second service for one person can't open a separate project — so a
-   deploy can land ahead of the migration without taking the portals down.)_
+   deploy can land ahead of the migration without taking the portals down.)*
   ```sql
    drop index if exists client_records_email_idx;
    create index if not exists client_records_email_idx
@@ -426,23 +426,20 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    alter table client_records add column if not exists project_name text;
   ```
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
-   or use Project Settings (gear, bottom-left):
-   - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.
-     `https://<ref>.supabase.co`).
-   - **Secret key** (`SUPABASE_SERVICE_ROLE_KEY`) — Settings → **API Keys**.
-     Newer projects show a **Secret** key (`sb_secret_…`); older ones have it
-     under the **Legacy API keys** tab as **`service_role`** (the long `eyJ…`
-     JWT). Either works — it's the full-access backend key. **Not** the
-     `anon` / publishable key.
+  or use Project Settings (gear, bottom-left):
+  - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.
+  `https://<ref>.supabase.co`).
+  - **Secret key** (`SUPABASE_SERVICE_ROLE_KEY`) — Settings → **API Keys**.
+  Newer projects show a **Secret** key (`sb_secret_…`); older ones have it
+  under the **Legacy API keys** tab as `**service_role`** (the long `eyJ…`
+  JWT). Either works — it's the full-access backend key. **Not** the
+  `anon` / publishable key.
 4. **Generate the portal secret** (this one is NOT a Supabase value — you make
-   it yourself; `openssl` is built into macOS):
-   ```bash
-   openssl rand -hex 32   # → AUTH_SECRET
-   ```
+  it yourself; `openssl` is built into macOS):
 5. **Set the admin email** — `ADMIN_EMAIL=you@example.com` (the address you'll
-   sign into `/admin` with; comma-separate for more than one owner).
+  sign into `/admin` with; comma-separate for more than one owner).
 6. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_SECRET`, and
-   `ADMIN_EMAIL` to `.env.local` and to Vercel → Environment Variables (server
+  `ADMIN_EMAIL` to `.env.local` and to Vercel → Environment Variables (server
    scope; **no** `NEXT_PUBLIC_` prefix on any of them).
 
 After setting the env vars, restart `npm run dev`, submit a test inquiry on
@@ -473,18 +470,18 @@ changes.
 ### One-time setup
 
 1. **Create a free Groq account** at
-   [console.groq.com](https://console.groq.com). Groq is the default because its
+  [console.groq.com](https://console.groq.com). Groq is the default because its
    free tier is fast and, per their API policy, **does not train on submitted
    data** — which is what makes it acceptable for prompts carrying client PII.
 2. **Create an API key** — Console → **API Keys** → **Create API Key**, then copy
-   the value (it's shown only once).
-3. **Add it to your env** — set `AI_API_KEY=<the key>` in `.env.local` and in
-   Vercel → Environment Variables (**server scope; never `NEXT_PUBLIC_`** — the
+  the value (it's shown only once).
+3. **Add it to your env** — set `GROQ_API_KEY=<the key>` in `.env.local` and in
+  Vercel → Environment Variables (**server scope; never `NEXT_PUBLIC_`** — the
    key must not reach the browser).
 4. Restart `npm run dev`, open any project at `/admin/projects/[id]`, pick a
-   template in the Compose panel, and click **✨ Draft with AI**.
+  template in the Compose panel, and click **✨ Draft with AI**.
 
-**Using a different provider.** `AI_API_KEY` works against any OpenAI-compatible
+**Using a different provider.** `GROQ_API_KEY` works against any OpenAI-compatible
 chat-completions endpoint. To use OpenAI, Together, Fireworks, or similar, set
 `AI_BASE_URL` to the provider's base URL and `AI_MODEL` to one of its models
 (defaults: `https://api.groq.com/openai/v1` and `llama-3.3-70b-versatile`). Only
