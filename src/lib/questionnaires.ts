@@ -214,7 +214,7 @@ const weddingQuestionnaire: Questionnaire = {
           showIf: { id: "stylePreference", equals: "Other" },
         },
         {
-          id: "moodVibe",
+          id: "vibe",
           label:
             "Three words for the mood you want your photos to capture (optional)",
           type: "text",
@@ -478,8 +478,14 @@ const weddingQuestionnaire: Questionnaire = {
         "Coverage of the main event.",
       fields: [
         {
-          id: "ceremonyVenue",
-          label: "Ceremony venue name and full address",
+          id: "venueName",
+          label: "Ceremony venue name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "venueAddress",
+          label: "Ceremony venue full address",
           type: "textarea",
           required: true,
         },
@@ -519,11 +525,37 @@ const weddingQuestionnaire: Questionnaire = {
           required: true,
         },
         {
-          id: "ceremonyLength",
-          label: "Expected ceremony length",
-          type: "text",
+          id: "ceremonyType",
+          label: "Ceremony type",
+          type: "radio",
           required: true,
-          placeholder: "e.g. 30 minutes, 1 hour",
+          options: [
+            "Religious",
+            "Civil",
+            "Cultural",
+            "Hybrid (religious + cultural / civil)",
+            "Other",
+          ],
+        },
+        {
+          id: "expectedCeremonyLength",
+          label: "Expected ceremony length",
+          type: "radio",
+          required: true,
+          help: "An honest estimate is fine — I'll cover whatever the day actually runs.",
+          options: [
+            "Short — under 30 minutes (courthouse, civil)",
+            "Standard — 30–45 minutes",
+            "Full — 45 minutes to an hour",
+            "Extended — over an hour (full Mass, multilingual, cultural)",
+          ],
+        },
+        {
+          id: "culturalElements",
+          label:
+            "Cultural traditions, religious sacraments, or multilingual readings to plan around",
+          type: "textarea",
+          help: "E.g. Communion, multilingual vows, lasso ceremony, tea ceremony, baraat, garba, jumping the broom, etc. Helps me know what to be ready for and not miss.",
         },
         {
           id: "ceremonyMoments",
@@ -560,10 +592,10 @@ const weddingQuestionnaire: Questionnaire = {
       fields: [
         {
           id: "receptionVenue",
-          label: "Reception venue name and full address",
+          label: "Reception venue (if different) — name and full address",
           type: "textarea",
           required: true,
-          help: "Same as ceremony? Just write 'same as ceremony'.",
+          help: "Same as the ceremony venue? Just write 'same as ceremony'.",
         },
         {
           id: "guestCount",
@@ -977,8 +1009,14 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
           options: YES_NO,
         },
         {
-          id: "ceremonyVenue",
-          label: "Ceremony / church name and full address",
+          id: "venueName",
+          label: "Ceremony / church name",
+          type: "text",
+          showIf: { id: "religiousService", equals: "Yes" },
+        },
+        {
+          id: "venueAddress",
+          label: "Ceremony / church full address",
           type: "textarea",
           showIf: { id: "religiousService", equals: "Yes" },
         },
@@ -1138,8 +1176,14 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
           required: true,
         },
         {
-          id: "venue",
-          label: "Venue name and full address",
+          id: "venueName",
+          label: "Venue name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "venueAddress",
+          label: "Venue full address",
           type: "textarea",
           required: true,
           help: "Backyard, restaurant, event hall — wherever it's happening.",
@@ -1275,8 +1319,14 @@ const corporateEventsQuestionnaire: Questionnaire = {
           ],
         },
         {
-          id: "venue",
-          label: "Venue name and full address",
+          id: "venueName",
+          label: "Venue name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "venueAddress",
+          label: "Venue full address",
           type: "textarea",
           required: true,
         },
@@ -1450,8 +1500,14 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
           placeholder: "Headliner, openers, order of performance",
         },
         {
-          id: "venue",
-          label: "Venue name and full address",
+          id: "venueName",
+          label: "Venue name",
+          type: "text",
+          required: true,
+        },
+        {
+          id: "venueAddress",
+          label: "Venue full address",
           type: "textarea",
           required: true,
         },
@@ -2302,7 +2358,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
           help: "All packages include retouched final selects.",
         },
         {
-          id: "wardrobeGuidance",
+          id: "wardrobeHelp",
           label: "Want wardrobe guidance ahead of time?",
           type: "radio",
           required: true,
@@ -2374,7 +2430,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
       title: "About the two of you",
       fields: [
         {
-          id: "partnerName",
+          id: "partnerFullName",
           label: "Your partner's name",
           type: "text",
           required: true,
@@ -2387,7 +2443,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           placeholder: "e.g. 3 years, 8 months",
         },
         {
-          id: "howYouMet",
+          id: "howWeMet",
           label: "How did you two meet? (one or two lines)",
           type: "textarea",
         },
@@ -2509,7 +2565,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           placeholder: "e.g. mid-October, any weekend in May",
         },
         {
-          id: "timeOfDayPref",
+          id: "timeOfDay",
           label: "Time of day preference",
           type: "radio",
           required: true,
@@ -2653,7 +2709,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           type: "textarea",
         },
         {
-          id: "petsJoining",
+          id: "pets",
           label: "Will any pets be joining?",
           type: "radio",
           options: ["Yes", "No", "Maybe"],
@@ -2662,7 +2718,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           id: "petDetails",
           label: "Pet details (name, size, temperament around strangers)",
           type: "textarea",
-          showIf: { id: "petsJoining", equalsAny: ["Yes", "Maybe"] },
+          showIf: { id: "pets", equalsAny: ["Yes", "Maybe"] },
         },
       ],
     },
@@ -2720,7 +2776,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           help: "Premium is the only tier with two looks built in. Signature and Mini are single-outfit sessions.",
         },
         {
-          id: "wardrobeConsult",
+          id: "wardrobeHelp",
           label: "Want a wardrobe consult ahead of the session?",
           type: "radio",
           options: ["Yes please", "I've got it handled"],
@@ -3210,12 +3266,16 @@ const brandCommercialQuestionnaire: Questionnaire = {
 // round-trips the shared fields (names, date, contact) so they don't
 // retype the basics.
 //
-// Field IDs that overlap with weddingQuestionnaire (`fullName`, `email`,
-// `phone`, `instagram`, `partnerFullName`, `partnerPronouns`,
-// `bookingStatus`, `package`, `eventDate`, `venueName`,
-// `venueAddress`, `ceremonyStart`, `anythingElse`) are intentional —
-// the cross-prefill mechanism relies on matching IDs to round-trip
-// values between the two forms.
+// Field IDs shared with weddingQuestionnaire round-trip via cross-prefill so a
+// hybrid couple filling both forms never retypes them: the contact basics
+// (`fullName`, `email`, `phone`, `instagram`, `partnerFullName`,
+// `partnerPronouns`, `bookingStatus`, `eventDate`), the ceremony block
+// (`ceremonyType`, `expectedCeremonyLength`, `culturalElements`,
+// `ceremonyStartTime`, `gettingReadyTime`), and `anythingElse`. Keep these IDs
+// in sync with weddingQuestionnaire and with SHARED_FIELDS in
+// `QuestionnaireForm`. `package` is excluded on purpose (the photo and film
+// tiers don't share names); venue stays separate too, since this form has one
+// venue while the photo form splits ceremony + reception.
 // ----------------------------------------------------------------------------
 
 const HYBRID_TIERS = [
@@ -3297,12 +3357,12 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           required: true,
         },
         {
-          id: "gettingReadyStart",
+          id: "gettingReadyTime",
           label: "What time do you start getting ready?",
           type: "time",
         },
         {
-          id: "ceremonyStart",
+          id: "ceremonyStartTime",
           label: "Ceremony start time",
           type: "time",
           required: true,
@@ -3491,7 +3551,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           type: "textarea",
         },
         {
-          id: "moodKeywords",
+          id: "vibe",
           label:
             "Three words that describe the feeling you want the film to leave",
           type: "text",
@@ -3604,13 +3664,13 @@ const weddingFilmsQuestionnaire: Questionnaire = {
             "Photographer name + contact, plus anything you'd like me to coordinate with them on.",
         },
         {
-          id: "plannerContact",
+          id: "plannerInfo",
           label: "Wedding planner / coordinator contact",
           type: "textarea",
           placeholder: "Name + email + phone",
         },
         {
-          id: "venueContact",
+          id: "venueCoordinatorInfo",
           label: "Venue day-of contact",
           type: "textarea",
           placeholder: "Name + email + phone",

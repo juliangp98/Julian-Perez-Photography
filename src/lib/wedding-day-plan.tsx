@@ -293,7 +293,7 @@ function PageFooter({ pageLabel }: { pageLabel: string }) {
 export function WeddingDayPlan({ answers }: { answers: Answers }) {
   const coupleName = `${a(answers, "fullName")} & ${a(answers, "partnerFullName")}`;
   const eventDate = a(answers, "eventDate");
-  const ceremonyVenue = a(answers, "ceremonyVenue").split("\n")[0];
+  const ceremonyVenue = a(answers, "venueName");
   const isMini = a(answers, "package") === "Mini";
 
   // Timeline entries
@@ -409,7 +409,7 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
         <SectionHeader title="Photography Style" />
         <Field label="Preferred style" value={a(answers, "stylePreference")} />
         <Field label="Style notes" value={a(answers, "stylePreferenceOther")} />
-        <Field label="Mood / vibe" value={a(answers, "moodVibe")} />
+        <Field label="Mood / vibe" value={a(answers, "vibe")} />
 
         {a(answers, "engagementWanted") && (
           <>
@@ -471,14 +471,23 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
           label="Partner getting-ready"
           value={a(answers, "partnerGettingReadyAddress")}
         />
-        <Field label="Ceremony venue" value={a(answers, "ceremonyVenue")} />
+        <Field label="Ceremony venue" value={a(answers, "venueName")} />
+        <Field
+          label="Ceremony venue address"
+          value={a(answers, "venueAddress")}
+        />
         <Field
           label="Indoor / outdoor"
           value={a(answers, "ceremonyIndoorOutdoor")}
         />
+        <Field label="Ceremony type" value={a(answers, "ceremonyType")} />
         <Field
           label="Expected ceremony length"
-          value={a(answers, "ceremonyLength")}
+          value={a(answers, "expectedCeremonyLength")}
+        />
+        <Field
+          label="Cultural / religious elements"
+          value={a(answers, "culturalElements")}
         />
         <Field label="Weather backup" value={weatherBackup} />
         <Field

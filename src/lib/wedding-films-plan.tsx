@@ -270,11 +270,11 @@ export function WeddingFilmsPlan({ answers }: { answers: Answers }) {
         />
         <Field
           label="Getting ready start"
-          value={formatTime(a(answers, "gettingReadyStart"))}
+          value={formatTime(a(answers, "gettingReadyTime"))}
         />
         <Field
           label="Ceremony start"
-          value={formatTime(a(answers, "ceremonyStart"))}
+          value={formatTime(a(answers, "ceremonyStartTime"))}
         />
         <Field
           label="Reception end"
@@ -357,7 +357,7 @@ export function WeddingFilmsPlan({ answers }: { answers: Answers }) {
           value={a(answers, "musicLove")}
         />
         <Paragraph label="Songs to avoid" value={a(answers, "musicAvoid")} />
-        <Field label="Mood keywords" value={a(answers, "moodKeywords")} />
+        <Field label="Mood keywords" value={a(answers, "vibe")} />
 
         <SectionHeader title="Sharing and delivery" />
         <Field label="Sharing intent" value={a(answers, "sharingIntent")} />
@@ -373,11 +373,11 @@ export function WeddingFilmsPlan({ answers }: { answers: Answers }) {
         />
         <Paragraph
           label="Planner / coordinator"
-          value={a(answers, "plannerContact")}
+          value={a(answers, "plannerInfo")}
         />
         <Paragraph
           label="Venue day-of contact"
-          value={a(answers, "venueContact")}
+          value={a(answers, "venueCoordinatorInfo")}
         />
 
         {a(answers, "anythingElse") && (

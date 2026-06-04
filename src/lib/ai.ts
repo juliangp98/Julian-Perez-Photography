@@ -12,6 +12,9 @@
 
 const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+// The text default isn't multimodal — vision uses a separate, vision-capable
+// model (override with AI_VISION_MODEL; Groq's lineup changes over time).
+const DEFAULT_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 // Whether AI features are configured. UI uses this to decide whether to offer
@@ -23,6 +26,11 @@ export function aiEnabled(): boolean {
 // The model in effect (default or env override) — handy for logs / tags.
 export function aiModel(): string {
   return process.env.AI_MODEL || DEFAULT_MODEL;
+}
+
+// The vision model in effect (default or env override).
+export function visionModel(): string {
+  return process.env.AI_VISION_MODEL || DEFAULT_VISION_MODEL;
 }
 
 export type GenerateTextOptions = {
@@ -77,6 +85,72 @@ export async function generateText(
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`AI provider ${res.status}: ${detail.slice(0, 500)}`);
+  }
+
+  const json: unknown = await res.json().catch(() => null);
+  const content = (json as { choices?: { message?: { content?: unknown } }[] })
+    ?.choices?.[0]?.message?.content;
+  return typeof content === "string" ? content.trim() : null;
+}
+
+export type DescribeImageOptions = {
+  system: string;
+  prompt: string;
+  // A data URL (`data:image/jpeg;base64,…`) or a publicly reachable image URL.
+  imageDataUrl: string;
+  maxTokens?: number;
+  temperature?: number;
+};
+
+// Vision completion: describe an image for the given prompt (e.g. generate alt
+// text). Same posture as `generateText` — returns trimmed text, null without a
+// key, throws on a provider error — but sends a multimodal message and uses the
+// vision model (`AI_VISION_MODEL`), since the text default isn't multimodal.
+export async function describeImage(
+  opts: DescribeImageOptions,
+): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(
+    /\/$/,
+    "",
+  );
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: visionModel(),
+        messages: [
+          { role: "system", content: opts.system },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: opts.prompt },
+              { type: "image_url", image_url: { url: opts.imageDataUrl } },
+            ],
+          },
+        ],
+        max_tokens: opts.maxTokens ?? 300,
+        temperature: opts.temperature ?? 0.3,
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(
+      `AI vision request failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AI vision provider ${res.status}: ${detail.slice(0, 500)}`);
   }
 
   const json: unknown = await res.json().catch(() => null);

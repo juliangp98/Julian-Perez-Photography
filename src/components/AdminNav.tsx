@@ -1,8 +1,12 @@
 import Link from "next/link";
 
 // Sub-navigation shared across the admin area.
-export default function AdminNav({ active }: { active: "projects" | "links" }) {
-  const cls = (key: "projects" | "links") =>
+export default function AdminNav({
+  active,
+}: {
+  active: "projects" | "content" | "links";
+}) {
+  const cls = (key: "projects" | "content" | "links") =>
     `text-xs uppercase tracking-[0.2em] ${
       active === key
         ? "text-[var(--foreground)]"
@@ -13,6 +17,9 @@ export default function AdminNav({ active }: { active: "projects" | "links" }) {
       <div className="flex gap-6">
         <Link href="/admin/projects" className={cls("projects")}>
           Projects
+        </Link>
+        <Link href="/admin/content" className={cls("content")}>
+          Content
         </Link>
         <Link href="/admin/links" className={cls("links")}>
           External links
