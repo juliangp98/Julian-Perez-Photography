@@ -15,7 +15,7 @@ import {
   ClientConfirmationTemplate,
 } from "@/lib/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate } from "@/lib/email-helpers";
+import { formatSubjectDate, resendFrom } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
 import { attachQuestionnaire } from "@/lib/clients";
@@ -262,9 +262,7 @@ export async function POST(req: Request) {
   }
 
   const resend = new Resend(apiKey);
-  const fromAddress =
-    process.env.RESEND_FROM ||
-    "Julian Perez Photography <onboarding@resend.dev>";
+  const fromAddress = resendFrom();
   const settings = await getSiteSettings();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
@@ -367,6 +365,7 @@ export async function POST(req: Request) {
 
       await resend.emails.send({
         from: fromAddress,
+        replyTo: settings.contactEmail,
         to: clientEmail,
         subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
         html: confirmHtml,

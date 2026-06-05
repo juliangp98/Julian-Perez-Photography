@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import { resendFrom } from "@/lib/email-helpers";
 import {
   isAdminConfigured,
   isAdminEmail,
@@ -68,9 +69,7 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(apiKey);
-    const from =
-      process.env.RESEND_FROM ||
-      "Julian Perez Photography <onboarding@resend.dev>";
+    const from = resendFrom();
     const html = await render(
       BrandedEmailLayout({
         preview: "Your admin sign-in link",

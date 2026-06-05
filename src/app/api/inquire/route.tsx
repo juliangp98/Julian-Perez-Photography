@@ -11,7 +11,7 @@ import {
   ClientConfirmationTemplate,
 } from "@/lib/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate } from "@/lib/email-helpers";
+import { formatSubjectDate, resendFrom } from "@/lib/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
@@ -83,8 +83,7 @@ export async function POST(req: Request) {
   }
 
   const resend = new Resend(apiKey);
-  const fromAddress =
-    process.env.RESEND_FROM || "Julian Perez Photography <onboarding@resend.dev>";
+  const fromAddress = resendFrom();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
   // Resolve the curated referral value → friendly label, and fold in the
@@ -159,6 +158,7 @@ export async function POST(req: Request) {
     );
     await resend.emails.send({
       from: fromAddress,
+      replyTo: settings.contactEmail,
       to: data.email,
       subject: "Thanks for your inquiry — Julian Perez Photography",
       html: confirmHtml,

@@ -37,3 +37,18 @@ export function formatSubjectDate(value: unknown): string {
   });
   return ` — ${formatted}`;
 }
+
+/**
+ * The verified `from` for all Resend transactional mail. Defaults to the
+ * studio's own domain — not the shared `resend.dev` sandbox sender, which
+ * hurts deliverability — and is overridable with `RESEND_FROM` (set this in
+ * the environment once the domain is verified in Resend). Replies are routed
+ * to Julian's inbox via each sender's `replyTo`, so no domain mailbox is
+ * required to receive them.
+ */
+export function resendFrom(): string {
+  return (
+    process.env.RESEND_FROM ||
+    "Julian Perez Photography <noreply@julianperezphotography.com>"
+  );
+}

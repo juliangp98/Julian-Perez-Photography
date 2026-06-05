@@ -12,13 +12,8 @@ import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
 } from "./client-status";
-
-function resendFrom(): string {
-  return (
-    process.env.RESEND_FROM ||
-    "Julian Perez Photography <onboarding@resend.dev>"
-  );
-}
+import { resendFrom } from "./email-helpers";
+import { getSiteSettings } from "./content";
 
 // Notify a client that their project was updated. `lines` is the prose body;
 // `changes` (optional) renders as a compact bulleted list of what actually
@@ -53,8 +48,11 @@ export async function sendClientUpdateEmail(opts: {
     opts.changes && opts.changes.length
       ? `\n\n${opts.changes.map((c) => `• ${c}`).join("\n")}`
       : "";
+  // Replies go to Julian's real inbox, not the no-reply send domain.
+  const settings = await getSiteSettings();
   await new Resend(apiKey).emails.send({
     from: resendFrom(),
+    replyTo: settings.contactEmail,
     to: opts.to,
     subject: `An update on ${opts.projectName}`,
     html,
@@ -76,6 +74,7 @@ type ChangeableFields = {
   guestCount?: number;
   planSummary?: string;
   galleryUrl?: string;
+  clientNotesReply?: string;
 };
 
 function parseDay(d?: string): Date | null {
@@ -153,6 +152,14 @@ export function summarizeClientChanges(
     trimmed(fields.planSummary) !== trimmed(before.planSummary)
   ) {
     out.push("Plan details were updated");
+  }
+
+  if (
+    fields.clientNotesReply !== undefined &&
+    trimmed(fields.clientNotesReply) !== trimmed(before.clientNotesReply) &&
+    trimmed(fields.clientNotesReply)
+  ) {
+    out.push("I replied to your notes / questions");
   }
 
   if (

@@ -75,6 +75,10 @@ export type ClientRecordSafe = {
   guestCount?: number;
   budget?: string;
   planSummary?: string;
+  // Client-authored notes / questions, and Julian's reply to them. Distinct
+  // from `planSummary` (the admin-authored shoot plan).
+  clientNotes?: string;
+  clientNotesReply?: string;
   documents?: ClientDocumentEntry[];
   lastClientUpdate?: string;
   bundleId?: string;
@@ -92,7 +96,7 @@ const SAFE_SELECT_BASE =
 // Columns added by post-launch migrations (bundles, gallery URL) — appended
 // only while the live table is known to have them.
 const OPTIONAL_COLUMNS =
-  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name";
+  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name, clientNotes:client_notes, clientNotesReply:client_notes_reply";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
   ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
@@ -122,7 +126,9 @@ function isMissingOptionalColumn(error: DbResult["error"]): boolean {
   return (
     !!error &&
     error.code === "42703" &&
-    /(bundle_id|bundle_label|gallery_url|project_name)/.test(error.message ?? "")
+    /(bundle_id|bundle_label|gallery_url|project_name|client_notes_reply|client_notes)/.test(
+      error.message ?? "",
+    )
   );
 }
 
@@ -402,25 +408,28 @@ export async function appendDocument(
 
 // Whitelisted client-portal edits. Only these fields are ever writable from the
 // portal; status, package, pricing, and internal fields are never exposed.
+// Fields a signed-in client may edit on their own project. `planSummary` is
+// deliberately NOT here — the shoot plan is admin-authored; clients write
+// `clientNotes` (their notes / questions) instead.
 const CLIENT_EDITABLE = [
   "phone",
   "partnerName",
   "guestCount",
-  "planSummary",
+  "clientNotes",
   "projectName",
 ] as const;
 const EDITABLE_COLUMN: Record<(typeof CLIENT_EDITABLE)[number], string> = {
   phone: "phone",
   partnerName: "partner_name",
   guestCount: "guest_count",
-  planSummary: "plan_summary",
+  clientNotes: "client_notes",
   projectName: "project_name",
 };
 export type ClientEditableFields = Partial<{
   phone: string;
   partnerName: string;
   guestCount: number;
-  planSummary: string;
+  clientNotes: string;
   projectName: string;
 }>;
 
@@ -495,6 +504,7 @@ const ADMIN_COLUMN: Record<string, string> = {
   guestCount: "guest_count",
   budget: "budget",
   planSummary: "plan_summary",
+  clientNotesReply: "client_notes_reply",
   internalNotes: "internal_notes",
   galleryUrl: "gallery_url",
   projectName: "project_name",
@@ -664,4 +674,12 @@ export async function setBundleAdmin(
 export async function clearBundleAdmin(projectId: string): Promise<void> {
   if (!isClientsStoreConfigured()) return;
   await applyBundle([projectId], null, null);
+}
+
+// Permanently delete one project row (admin-only). No-ops cleanly when the
+// store isn't configured. Bundle siblings are unaffected — only this row goes.
+export async function deleteClient(id: string): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const { error } = await db().from(TABLE).delete().eq("id", id);
+  if (error) throw error;
 }

@@ -6,7 +6,7 @@
 // endpoints enforce that a bundle stays within a single person. Collapsed by
 // default to keep the surrounding page clean.
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 type Project = { id: string; title: string; bundleLabel?: string };
@@ -30,6 +30,18 @@ export default function PortalBundles({
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+
+  // Existing bundles among these projects, grouped by label — surfaced in the
+  // collapsed header so the grouping is visible without opening the panel.
+  const existingBundles = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const p of projects) {
+      if (!p.bundleLabel) continue;
+      if (!map.has(p.bundleLabel)) map.set(p.bundleLabel, []);
+      map.get(p.bundleLabel)!.push(p.title);
+    }
+    return [...map.entries()];
+  }, [projects]);
 
   function toggle(id: string) {
     setSelected((s) =>
@@ -68,12 +80,35 @@ export default function PortalBundles({
         aria-expanded={open}
       >
         <span className="text-sm font-medium">
-          Link projects into a bundle
+          {existingBundles.length > 0
+            ? "Bundles"
+            : "Link projects into a bundle"}
         </span>
         <span className="text-[var(--accent)] text-xl leading-none">
           {open ? "–" : "+"}
         </span>
       </button>
+
+      {/* Existing bundles, visible without expanding. */}
+      {existingBundles.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {existingBundles.map(([label, titles]) => (
+            <div key={label} className="text-sm flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+                ↔ {label}
+              </span>
+              <span className="capitalize text-[var(--muted)]">
+                {titles.join(", ")}
+              </span>
+            </div>
+          ))}
+          {!open && (
+            <p className="pt-1 text-xs text-[var(--muted)]">
+              Open to add more or unlink.
+            </p>
+          )}
+        </div>
+      )}
 
       {open && (
         <div className="mt-5">

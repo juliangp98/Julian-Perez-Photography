@@ -20,6 +20,7 @@ import {
   NotificationEmailTemplate,
 } from "@/lib/email-templates";
 import { clientEditNotifyEnabled } from "@/lib/notify";
+import { resendFrom } from "@/lib/email-helpers";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -27,7 +28,7 @@ const schema = z.object({
   phone: z.string().max(50).optional(),
   partnerName: z.string().max(200).optional(),
   guestCount: z.coerce.number().int().min(0).max(100000).optional(),
-  planSummary: z.string().max(5000).optional(),
+  clientNotes: z.string().max(5000).optional(),
   projectName: z.string().max(200).optional(),
 });
 
@@ -84,9 +85,7 @@ export async function POST(req: Request) {
     if (apiKey && clientEditNotifyEnabled()) {
       const settings = await getSiteSettings();
       const to = process.env.INQUIRY_TO || settings.contactEmail;
-      const from =
-        process.env.RESEND_FROM ||
-        "Julian Perez Photography <onboarding@resend.dev>";
+      const from = resendFrom();
       const origin = req.headers.get("origin") || new URL(req.url).origin;
       const html = await render(
         BrandedEmailLayout({
