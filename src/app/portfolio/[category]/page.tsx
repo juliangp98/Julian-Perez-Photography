@@ -6,6 +6,7 @@ import {
   getService,
   getVisiblePortfolios,
 } from "@/lib/content";
+import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
 import PortfolioGallery from "@/components/PortfolioGallery";
 import VideoGallery from "@/components/VideoGallery";
 
@@ -63,6 +64,19 @@ export default async function PortfolioCategoryPage({
   // so its "coming soon" copy stays domain-appropriate.
   const isVideoPortfolio = Array.isArray(p.videos);
 
+  // Persisted, admin-reviewed alt text wins over the manifest baseline. The
+  // lookup is request-cached and no-ops to {} when Supabase isn't configured,
+  // so galleries render fine on the manifest alt without it. Only photo
+  // galleries with images need it.
+  const altOverrides =
+    !isVideoPortfolio && p.images.length > 0
+      ? await getPortfolioAltOverrides()
+      : {};
+  const images = p.images.map((img) => ({
+    ...img,
+    alt: altOverrides[img.src] ?? img.alt,
+  }));
+
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -105,7 +119,7 @@ export default async function PortfolioCategoryPage({
         </div>
       ) : (
         <div className="mt-12">
-          <PortfolioGallery images={p.images} />
+          <PortfolioGallery images={images} />
         </div>
       )}
     </section>

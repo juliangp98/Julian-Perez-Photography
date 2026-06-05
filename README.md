@@ -133,6 +133,7 @@ cp .env.example .env.local
 | `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
 | `GROQ_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor         |
 | `AI_MODEL`                      | no                             | Override the model (default `llama-3.3-70b-versatile`, a current Groq model). Set to match your provider when pointing `AI_BASE_URL` elsewhere                                                                                                                                                                                                       |
+| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `meta-llama/llama-4-scout-17b-16e-instruct`, a current Groq vision model). Drives both `import-photos --alt` and the admin alt-text tool                                                                                                                                     |
 | `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                      |
 
 
@@ -186,9 +187,14 @@ npm run import-photos -- --source ~/Desktop/lightroom-export/weddings --slug wed
 
 # Preview the changes without writing files
 npm run import-photos -- --source ~/Desktop/lightroom-export --dry-run
+
+# Also generate descriptive AI alt text for new/placeholder images (needs GROQ_API_KEY)
+npm run import-photos -- --source ~/Desktop/lightroom-export --alt
 ```
 
 A file named `cover.jpg` or `hero.jpg` (any extension) is promoted to position 0 and used as the gallery's cover image. Re-running the script picks up new or removed images without touching Sanity or the portfolio fallback data.
+
+**Alt text.** Each image carries an `alt` string for accessibility and SEO. By default new images get a neutral `"<slug> photograph N"` placeholder; pass `--alt` (with `GROQ_API_KEY` set) to describe them with the vision model instead. Re-imports **preserve** any non-placeholder alt already in the manifest, so AI descriptions and hand edits survive. For per-image review after import, the admin **Content tools → Portfolio image alt text** panel generates, edits, and saves alt that overrides the manifest baseline (persisted in Supabase — see the `portfolio_image_alt` table below); the override wins at render and survives the next import.
 
 ## Adding wedding films
 
@@ -425,6 +431,21 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    alter table client_records add column if not exists gallery_url text;
    alter table client_records add column if not exists project_name text;
   ```
+   *Optional — portfolio alt-text overrides.* The admin **Content tools →
+   Portfolio image alt text** panel persists reviewed alt here; it overlays the
+   import-generated baseline at render and survives re-imports. The app no-ops
+   cleanly without this table (galleries just use the manifest alt), so it's
+   only needed if you want to save alt edits from the admin tool. Same project,
+   service-role only:
+  ```sql
+   create table if not exists portfolio_image_alt (
+     src text primary key,
+     alt text not null,
+     updated_at timestamptz not null default now()
+   );
+   -- Service-role only, same as client_records: RLS on, no policies.
+   alter table portfolio_image_alt enable row level security;
+  ```
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
   or use Project Settings (gear, bottom-left):
   - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.
@@ -487,6 +508,36 @@ chat-completions endpoint. To use OpenAI, Together, Fireworks, or similar, set
 (defaults: `https://api.groq.com/openai/v1` and `llama-3.3-70b-versatile`). Only
 switch to a provider that trains on inputs for non-PII uses — the client-drafting
 feature assumes a no-train provider.
+
+## Public concierge & FAQ
+
+`/faq` is a consolidated, **searchable and filterable** FAQ directory: free-text
+search plus a collection filter (a general bucket and each umbrella) with a
+per-service sub-filter. It's built from one shared source, `src/lib/faq.ts` — a
+curated general set (owned in code) merged with every visible service's
+`faqs[]` — and is plain content, so it works with or without AI configured. It's
+linked in the footer and the sitemap, and emits a consolidated `FAQPage` JSON-LD
+block.
+
+The same FAQ source grounds the **booking concierge** — a floating "Ask" chat
+widget shown site-wide (and docked on `/faq`) that answers questions about
+services, pricing, and booking and points visitors to the inquiry form. It's the
+only visitor-facing AI surface, so it's deliberately bounded:
+
+- **Grounded in public content only.** `POST /api/concierge` builds its context
+  (`src/lib/concierge-kb.ts`) from site settings, the service catalog, the FAQ
+  set, and the about bio. It **never** imports the client/CRM store, so no
+  private data can reach the model. The model has no tools; its reply is rendered
+  as plain text.
+- **Guardrailed.** The system prompt forbids inventing prices or availability,
+  keeps the scope to Julian's photography, ignores instructions embedded in
+  visitor messages, and routes booking actions to the inquiry form.
+- **Abuse-bounded.** Per-IP rate limit, a honeypot field, and capped message size
+  + history, mirroring the public inquiry route.
+- **Optional by env.** No new variable — it reuses `GROQ_API_KEY`. Without a key
+  the directory still works and the chat falls back to a static pointer to the
+  FAQ and inquiry form. The widget self-suppresses on `/faq` and on the studio /
+  admin / portal chrome.
 
 ## Security
 

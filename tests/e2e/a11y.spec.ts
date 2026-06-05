@@ -36,6 +36,14 @@ test("a11y: /inquire has no violations", async ({ page }) => {
   expect(results.violations).toEqual([]);
 });
 
+test("a11y: /faq directory + docked concierge has no violations", async ({
+  page,
+}) => {
+  await page.goto("/faq");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});
+
 test("a11y: /questionnaire/weddings first section has no violations", async ({
   page,
 }) => {

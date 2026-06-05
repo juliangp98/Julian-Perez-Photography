@@ -33,9 +33,15 @@ export function visionModel(): string {
   return process.env.AI_VISION_MODEL || DEFAULT_VISION_MODEL;
 }
 
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
 export type GenerateTextOptions = {
   system: string;
-  prompt: string;
+  // Most callers pass a single user `prompt`. Multi-turn callers (the public
+  // concierge) pass a `messages` transcript instead; when set it takes
+  // precedence over `prompt`.
+  prompt?: string;
+  messages?: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
 };
@@ -68,7 +74,9 @@ export async function generateText(
         model,
         messages: [
           { role: "system", content: opts.system },
-          { role: "user", content: opts.prompt },
+          ...(opts.messages?.length
+            ? opts.messages
+            : [{ role: "user" as const, content: opts.prompt ?? "" }]),
         ],
         max_tokens: opts.maxTokens ?? 1024,
         temperature: opts.temperature ?? 0.7,
