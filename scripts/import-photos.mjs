@@ -41,15 +41,18 @@
 //   - Metadata: Copyright + Contact only (strip GPS, camera serial, keywords)
 //   - File naming: anything sortable; the script renames on copy
 //
-// After running, alt text defaults to "<slug words> photograph N" — open
-// src/lib/portfolio-manifest.ts and override the alt strings before launch
-// for accessibility + SEO. (The manifest will be regenerated on the next
-// import, so consider keeping any hand-edited alt text in a follow-up
-// commit if you re-run this regularly.)
+// Alt text: by default each image gets a "<slug words> photograph N"
+// placeholder. Pass --alt (with GROQ_API_KEY in .env.local) to generate
+// descriptive alt text with AI vision instead. Either way, any existing
+// non-placeholder alt is PRESERVED across re-imports — so AI or hand-written
+// alt is never wiped (only placeholders get replaced). The admin Content tools
+// also let you generate + persist per-image alt overrides (stored in Supabase,
+// overlaid at render), which survive imports independently.
 
 import {
   copyFile,
   mkdir,
+  readFile,
   readdir,
   rm,
   writeFile,
@@ -85,14 +88,17 @@ const args = process.argv.slice(2);
 let source = null;
 let onlySlug = null;
 let dryRun = false;
+let altFlag = false;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === "--source") source = args[++i];
   else if (a === "--slug") onlySlug = args[++i];
   else if (a === "--dry-run") dryRun = true;
+  else if (a === "--alt") altFlag = true;
   else if (a === "--help" || a === "-h") {
     console.log(
-      "Usage: npm run import-photos -- --source <dir> [--slug <slug>] [--dry-run]",
+      "Usage: npm run import-photos -- --source <dir> [--slug <slug>] [--alt] [--dry-run]\n" +
+        "  --alt   generate descriptive alt text with AI vision (needs GROQ_API_KEY)",
     );
     process.exit(0);
   }
@@ -160,6 +166,109 @@ async function generateBlurData(filePath) {
   };
 }
 
+// ---------- alt text: env, preservation across regens, AI vision ----------
+async function readEnvVar(name) {
+  if (process.env[name]) return process.env[name];
+  try {
+    const env = await readFile(join(root, ".env.local"), "utf8");
+    const m = env.match(new RegExp(`^${name}=(.+)$`, "m"));
+    return m ? m[1].trim().replace(/^["']|["']$/g, "") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const groqKey = altFlag ? await readEnvVar("GROQ_API_KEY") : undefined;
+const visionModelName =
+  (await readEnvVar("AI_VISION_MODEL")) ||
+  "meta-llama/llama-4-scout-17b-16e-instruct";
+if (altFlag && !groqKey) {
+  console.warn(
+    "⚠  --alt set but no GROQ_API_KEY (.env.local or env) — using placeholder alt.",
+  );
+}
+
+// Existing alt per src, so descriptive alt survives manifest regeneration —
+// only the slug placeholders are replaced. (JSON.stringify writes the manifest,
+// so the value object is parseable JSON.)
+const existingAltBySrc = new Map();
+try {
+  const cur = await readFile(manifestPath, "utf8");
+  const start = cur.indexOf("= {");
+  const end = cur.lastIndexOf("};");
+  if (start !== -1 && end !== -1) {
+    const obj = JSON.parse(cur.slice(start + 2, end + 1));
+    for (const entry of Object.values(obj)) {
+      for (const img of entry.images ?? []) {
+        if (img?.src && img?.alt) existingAltBySrc.set(img.src, img.alt);
+      }
+    }
+  }
+} catch {
+  /* no existing manifest, or unparseable — start fresh */
+}
+
+function isPlaceholderAlt(alt, slug) {
+  const words = slugToWords(slug).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${words} photograph \\d+$`).test(alt);
+}
+
+async function generateAlt(filePath) {
+  if (!groqKey) return null;
+  try {
+    const buf = await readFile(filePath);
+    const dataUrl = `data:image/jpeg;base64,${buf.toString("base64")}`;
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: visionModelName,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You write concise image alt text for accessibility on a photographer's portfolio. Describe what is visibly in the photograph in one phrase, under 125 characters. No 'image of' / 'photo of' / 'picture of'.",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Write alt text for this photograph." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+        max_tokens: 120,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const t = j?.choices?.[0]?.message?.content;
+    return typeof t === "string" ? t.trim().replace(/^["']|["']$/g, "") : null;
+  } catch {
+    return null;
+  }
+}
+
+// Keep an existing descriptive alt; else generate one with vision (when --alt +
+// key + a real file); else fall back to the slug placeholder.
+async function resolveAlt({ src, slug, index, filePath, allowVision }) {
+  const existing = existingAltBySrc.get(src);
+  if (existing && !isPlaceholderAlt(existing, slug)) return existing;
+  if (allowVision && groqKey && filePath && !dryRun) {
+    const ai = await generateAlt(filePath);
+    if (ai) {
+      console.log(`    alt: ${ai}`);
+      return ai;
+    }
+  }
+  return `${slugToWords(slug)} photograph ${index + 1}`;
+}
+
 // ---------- discover slug folders in source ----------
 const sourceEntries = await readdir(source, { withFileTypes: true });
 const requestedSlugs = sourceEntries
@@ -222,11 +331,15 @@ for (const slug of requestedSlugs) {
     const blur = dryRun
       ? { width: 0, height: 0, blurDataURL: "" }
       : await generateBlurData(outPath);
-    newImages.push({
-      src: `/portfolio/${slug}/${outName}`,
-      alt: `${slugToWords(slug)} photograph ${i + 1}`,
-      ...blur,
+    const src = `/portfolio/${slug}/${outName}`;
+    const alt = await resolveAlt({
+      src,
+      slug,
+      index: i,
+      filePath: dryRun ? null : outPath,
+      allowVision: true,
     });
+    newImages.push({ src, alt, ...blur });
   }
 
   processed[slug] = {
@@ -258,11 +371,15 @@ for (const slug of KNOWN_SLUGS) {
   for (let i = 0; i < ordered.length; i++) {
     const f = ordered[i];
     const blur = await generateBlurData(join(dir, f));
-    images.push({
-      src: `/portfolio/${slug}/${f}`,
-      alt: `${slugToWords(slug)} photograph ${i + 1}`,
-      ...blur,
+    const src = `/portfolio/${slug}/${f}`;
+    const alt = await resolveAlt({
+      src,
+      slug,
+      index: i,
+      filePath: join(dir, f),
+      allowVision: false,
     });
+    images.push({ src, alt, ...blur });
   }
   processed[slug] = {
     coverImage: `/portfolio/${slug}/${ordered[0]}`,

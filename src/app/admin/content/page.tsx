@@ -6,7 +6,9 @@ import AdminNav from "@/components/AdminNav";
 import JournalDrafter from "@/components/JournalDrafter";
 import CopyPolisher, { type CopySubject } from "@/components/CopyPolisher";
 import MetaDrafter from "@/components/MetaDrafter";
+import AltDrafter, { type AltGallery } from "@/components/AltDrafter";
 import { getVisibleServices, getVisiblePortfolios } from "@/lib/content";
+import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
 import { aiEnabled } from "@/lib/ai";
 
 export const metadata: Metadata = {
@@ -20,10 +22,14 @@ export default async function AdminContentPage() {
 
   // The copy tool's dropdown is server-loaded from the live catalog.
   let subjects: CopySubject[] = [];
+  // The alt tool lists photo galleries with each image's current effective alt
+  // (persisted override when present, else the manifest baseline).
+  let galleries: AltGallery[] = [];
   if (ai) {
-    const [services, portfolios] = await Promise.all([
+    const [services, portfolios, altOverrides] = await Promise.all([
       getVisibleServices(),
       getVisiblePortfolios(),
+      getPortfolioAltOverrides(),
     ]);
     subjects = [
       ...services.map((s) => ({
@@ -37,6 +43,18 @@ export default async function AdminContentPage() {
         title: p.title,
       })),
     ];
+    // Photo galleries only — video portfolios carry a `videos` array and no
+    // alt-able stills.
+    galleries = portfolios
+      .filter((p) => !Array.isArray(p.videos))
+      .map((p) => ({
+        slug: p.slug,
+        title: p.title,
+        images: p.images.map((img) => ({
+          src: img.src,
+          alt: altOverrides[img.src] ?? img.alt,
+        })),
+      }));
   }
 
   return (
@@ -82,6 +100,15 @@ export default async function AdminContentPage() {
               apply to each page&rsquo;s metadata.
             </p>
             <MetaDrafter />
+          </div>
+          <div className="pt-8 border-t border-[var(--border)]">
+            <h2 className="font-serif text-2xl">Portfolio image alt text</h2>
+            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+              Describe gallery photos for screen readers and SEO. Generate,
+              edit, and save &mdash; saved text overrides the import baseline and
+              survives re-imports.
+            </p>
+            <AltDrafter galleries={galleries} />
           </div>
         </div>
       )}

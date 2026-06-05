@@ -6,7 +6,9 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import ConciergeWidget from "@/components/ConciergeWidget";
 import { getSiteSettings } from "@/lib/content";
+import { aiEnabled } from "@/lib/ai";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -182,6 +184,12 @@ export default async function RootLayout({
         <Nav />
         <main className="flex-1">{children}</main>
         <Footer />
+        {/* Public booking concierge — only when AI is configured. The widget
+            self-suppresses on /faq (chat is docked there) and on app chrome
+            (studio/admin/portal). */}
+        {aiEnabled() && (
+          <ConciergeWidget inquireHref="/inquire" faqHref="/faq" />
+        )}
         {ga4 && (
           <>
             <Script

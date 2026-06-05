@@ -104,6 +104,11 @@ export default function Footer() {
               </Link>
             </li>
             <li>
+              <Link href="/faq" className="hover:text-[var(--foreground)]">
+                FAQ
+              </Link>
+            </li>
+            <li>
               <Link href="/inquire" className="hover:text-[var(--foreground)]">
                 Inquire
               </Link>
