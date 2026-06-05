@@ -109,7 +109,7 @@ cp .env.example .env.local
 | Variable                        | Required                       | Purpose                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RESEND_API_KEY`                | yes (for inquiries)            | Resend API key — sends inquiry-form emails                                                                                                                                                                                                                                                                                                           |
-| `RESEND_FROM`                   | yes (for inquiries)            | Verified sender, e.g. `"Julian Perez Photography <hello@julianperezphotography.com>"`                                                                                                                                                                                                                                                                |
+| `RESEND_FROM`                   | no                             | Override the verified sender. Defaults to `Julian Perez Photography <noreply@julianperezphotography.com>`. The domain must be verified in Resend (Domains → add the SPF/DKIM/DMARC records) before mail delivers; replies route to your inbox via each email's reply-to, so no domain mailbox is needed                                                  |
 | `INQUIRY_TO`                    | no                             | Where inquiries are delivered (defaults to `siteSettings.contactEmail`)                                                                                                                                                                                                                                                                              |
 | `NOTIFY_CLIENT_EDITS`           | no                             | Set to `false` to mute the "a client edited their portal details" email to Julian. Defaults on. (Admin-triggered client notifications are opt-in per update via a checkbox, not env-controlled.)                                                                                                                                                     |
 | `GOOGLE_PLACES_API_KEY`         | no                             | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials`                                                                                                                                                                                                                                   |
@@ -391,6 +391,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
      guest_count integer,
      budget text,
      plan_summary text,
+     client_notes text,
+     client_notes_reply text,
      questionnaire_snapshot text,
      documents jsonb not null default '[]'::jsonb,
      inquiry_message text,
@@ -430,6 +432,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
      on client_records (bundle_id);
    alter table client_records add column if not exists gallery_url text;
    alter table client_records add column if not exists project_name text;
+   alter table client_records add column if not exists client_notes text;
+   alter table client_records add column if not exists client_notes_reply text;
   ```
    *Optional — portfolio alt-text overrides.* The admin **Content tools →
    Portfolio image alt text** panel persists reviewed alt here; it overlays the

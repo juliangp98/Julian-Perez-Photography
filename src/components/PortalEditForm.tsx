@@ -11,7 +11,8 @@ type Initial = {
   phone?: string;
   partnerName?: string;
   guestCount?: number;
-  planSummary?: string;
+  clientNotes?: string;
+  clientNotesReply?: string;
   projectName?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
@@ -35,7 +36,7 @@ export default function PortalEditForm({
   const [guestCount, setGuestCount] = useState(
     initial.guestCount != null ? String(initial.guestCount) : "",
   );
-  const [planSummary, setPlanSummary] = useState(initial.planSummary ?? "");
+  const [clientNotes, setClientNotes] = useState(initial.clientNotes ?? "");
   const [projectName, setProjectName] = useState(initial.projectName ?? "");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -51,7 +52,7 @@ export default function PortalEditForm({
           phone,
           partnerName,
           guestCount: guestCount === "" ? undefined : Number(guestCount),
-          planSummary,
+          clientNotes,
           projectName,
         }),
       });
@@ -121,14 +122,28 @@ export default function PortalEditForm({
         </div>
       </div>
       <div>
-        <label htmlFor="pf-plan" className={label}>
+        <label htmlFor="pf-notes" className={label}>
           Notes / questions for me
         </label>
+        <p className="text-xs text-[var(--muted)] mt-0.5 mb-2">
+          Anything you&rsquo;d like me to know, or questions you have — I&rsquo;ll
+          see these and reply here.
+        </p>
+        {initial.clientNotesReply && (
+          <div className="mb-3 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.05] p-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
+              Julian&rsquo;s reply
+            </div>
+            <p className="mt-1 text-sm whitespace-pre-line">
+              {initial.clientNotesReply}
+            </p>
+          </div>
+        )}
         <textarea
-          id="pf-plan"
+          id="pf-notes"
           rows={4}
-          value={planSummary}
-          onChange={(e) => setPlanSummary(e.target.value)}
+          value={clientNotes}
+          onChange={(e) => setClientNotes(e.target.value)}
           className={input}
         />
       </div>

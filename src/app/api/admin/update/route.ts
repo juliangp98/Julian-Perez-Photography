@@ -29,6 +29,9 @@ const schema = z.object({
     internalNotes: z.string().max(10000).optional(),
     galleryUrl: z.string().max(2000).optional(),
     projectName: z.string().max(200).optional(),
+    // Julian's reply to the client's notes/questions (shown to the client).
+    // The client's own `clientNotes` are not admin-writable.
+    clientNotesReply: z.string().max(10000).optional(),
   }),
 });
 

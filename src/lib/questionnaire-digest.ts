@@ -71,3 +71,56 @@ export function buildAnswerDigest(
     ? `${digest.slice(0, MAX_DIGEST_CHARS)}\n…(truncated)`
     : digest;
 }
+
+export type AnswerGroup = {
+  section: string;
+  items: { label: string; value: string }[];
+};
+
+// Same schema-resolution as `buildAnswerDigest`, but returns the answers as
+// structured groups for rich UI rendering (the admin project page) instead of a
+// flat string. Returns null when the snapshot has no usable answers.
+export function buildAnswerGroups(
+  serviceType: string | undefined,
+  snapshot: string,
+): AnswerGroup[] | null {
+  let answers: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    answers = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  const q = serviceType ? getQuestionnaire(serviceType) : undefined;
+  const used = new Set<string>();
+  const groups: AnswerGroup[] = [];
+
+  if (q) {
+    for (const section of q.sections) {
+      const items: { label: string; value: string }[] = [];
+      for (const field of section.fields) {
+        const val = formatVal(answers[field.id]);
+        if (!val) continue;
+        used.add(field.id);
+        items.push({ label: field.label, value: val });
+      }
+      if (items.length) groups.push({ section: section.title, items });
+    }
+  }
+
+  // Answers not covered by the schema (e.g. schema drift) — keep them by key.
+  const extras: { label: string; value: string }[] = [];
+  for (const [key, raw] of Object.entries(answers)) {
+    if (used.has(key)) continue;
+    const val = formatVal(raw);
+    if (!val) continue;
+    extras.push({ label: key, value: val });
+  }
+  if (extras.length) groups.push({ section: "Other", items: extras });
+
+  return groups.length ? groups : null;
+}

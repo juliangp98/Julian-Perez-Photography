@@ -12,6 +12,7 @@ import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { isAuthConfigured, signMagicToken } from "@/lib/auth";
 import { findClientIdByEmail } from "@/lib/clients";
+import { resendFrom } from "@/lib/email-helpers";
 import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
@@ -74,9 +75,7 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(apiKey);
-    const from =
-      process.env.RESEND_FROM ||
-      "Julian Perez Photography <onboarding@resend.dev>";
+    const from = resendFrom();
     const html = await render(
       BrandedEmailLayout({
         preview: "Your secure sign-in link",

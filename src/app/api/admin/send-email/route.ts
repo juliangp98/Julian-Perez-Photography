@@ -10,6 +10,8 @@ import { z } from "zod";
 import { Resend } from "resend";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull, addAdminLog } from "@/lib/clients";
+import { getSiteSettings } from "@/lib/content";
+import { resendFrom } from "@/lib/email-helpers";
 import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
@@ -56,11 +58,11 @@ export async function POST(req: Request) {
         children: PipelineEmailTemplate({ body: parsed.data.body }),
       }),
     );
-    const from =
-      process.env.RESEND_FROM ||
-      "Julian Perez Photography <onboarding@resend.dev>";
+    // Replies route to Julian's real inbox, not the no-reply send domain.
+    const settings = await getSiteSettings();
     await new Resend(apiKey).emails.send({
-      from,
+      from: resendFrom(),
+      replyTo: settings.contactEmail,
       to: record.email,
       subject: parsed.data.subject,
       html,
