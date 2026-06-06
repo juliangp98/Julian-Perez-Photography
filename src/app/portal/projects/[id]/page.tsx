@@ -12,6 +12,7 @@ import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/PortalStatusTimeline";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
+import { aiEnabled } from "@/lib/ai";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -234,6 +235,14 @@ export default async function PortalProjectPage({
             <PortalEditForm
               projectId={record.id}
               namePlaceholder={autoProjectName(record)}
+              aiEnabled={aiEnabled()}
+              projectContext={{
+                clientName: record.clientName,
+                service: record.serviceType?.replace(/-/g, " "),
+                eventDate: record.eventDate,
+                status:
+                  CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus],
+              }}
               initial={{
                 phone: record.phone,
                 partnerName: record.partnerName,

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AssistedTextarea, {
+  type AssistContext,
+} from "@/components/AssistedTextarea";
 import Link from "next/link";
 import type { Field, Questionnaire } from "@/lib/questionnaires";
 import {
@@ -49,6 +52,7 @@ export default function QuestionnaireForm({
   prefill,
   calls,
   projectId,
+  aiEnabled = false,
 }: {
   questionnaire: Questionnaire;
   prefill?: Record<string, string | string[]>;
@@ -59,6 +63,8 @@ export default function QuestionnaireForm({
   // Optional project id (from a completion link's `?project=`) so the
   // submission attaches to that exact project rather than matching by email.
   projectId?: string;
+  // Whether to offer the "Help me write this" assist on textarea fields.
+  aiEnabled?: boolean;
 }) {
   const draftKey = `questionnaire-draft-${questionnaire.slug}`;
   const [state, setState] = useState<FormState>(() => ({ ...(prefill || {}) }));
@@ -75,6 +81,26 @@ export default function QuestionnaireForm({
   const [pdfErrorMsg, setPdfErrorMsg] = useState<string | null>(null);
   // Preserve submitted answers for the PDF download button after localStorage is cleared.
   const submittedAnswersRef = useRef<FormState | null>(null);
+
+  // Build the assist context from answers given so far — excluding the field
+  // being drafted, file uploads, and empties — so the writing assistant is
+  // grounded in what the client already told us. Labels come from the schema so
+  // the model sees "Venue: The Manor", not a field id.
+  function assistContext(excludeId: string): AssistContext {
+    const details: { label: string; value: string }[] = [];
+    for (const section of questionnaire.sections) {
+      for (const f of section.fields) {
+        if (f.id === excludeId || f.type === "file") continue;
+        const v = state[f.id];
+        if (isFieldEmpty(f.type, v)) continue;
+        details.push({
+          label: f.label,
+          value: Array.isArray(v) ? v.join(", ") : String(v),
+        });
+      }
+    }
+    return { details };
+  }
 
   // Restore draft on mount, then layer prefill on top so query params always win.
   useEffect(() => {
@@ -564,6 +590,8 @@ export default function QuestionnaireForm({
               value={state[field.id]}
               onChange={(v) => update(field.id, v)}
               slug={questionnaire.slug}
+              aiEnabled={aiEnabled}
+              getAssistContext={() => assistContext(field.id)}
             />
           );
         })}
@@ -697,11 +725,15 @@ function FieldRenderer({
   value,
   onChange,
   slug,
+  aiEnabled,
+  getAssistContext,
 }: {
   field: Field;
   value: Value | undefined;
   onChange: (v: Value) => void;
   slug: string;
+  aiEnabled?: boolean;
+  getAssistContext?: () => AssistContext;
 }) {
   const input =
     "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
@@ -783,13 +815,20 @@ function FieldRenderer({
       return (
         <div>
           {labelEl}
-          <textarea
+          <AssistedTextarea
             id={field.id}
             rows={4}
             value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(v) => onChange(v)}
             placeholder={field.placeholder}
-            className={input}
+            textareaClassName={input}
+            assist={{
+              kind: "questionnaire",
+              question: field.label,
+              service: slug,
+              enabled: !!aiEnabled,
+              getContext: getAssistContext,
+            }}
           />
           {helpEl}
         </div>

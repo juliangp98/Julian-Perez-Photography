@@ -5,6 +5,7 @@ import {
   getQuestionnaire,
 } from "@/lib/questionnaires";
 import { getService, getSiteSettings } from "@/lib/content";
+import { aiEnabled } from "@/lib/ai";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
 import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 
@@ -85,6 +86,7 @@ export default async function QuestionnairePage({
           venueWalkthrough: settings.calls.venueWalkthrough,
         }}
         projectId={projectId}
+        aiEnabled={aiEnabled()}
       />
     </section>
   );

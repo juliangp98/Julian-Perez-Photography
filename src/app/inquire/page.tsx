@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import InquiryForm from "@/components/InquiryForm";
 import GoogleReviews from "@/components/GoogleReviews";
 import { getSiteSettings } from "@/lib/content";
+import { aiEnabled } from "@/lib/ai";
 import CalloutCard from "@/components/CalloutCard";
 import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 
@@ -57,6 +58,7 @@ export default async function InquirePage({
           defaultName={sp.fullName}
           defaultEmail={sp.email}
           defaultPhone={sp.phone}
+          aiEnabled={aiEnabled()}
         />
       </div>
       <div className="mt-20 pt-12 border-t border-[var(--border)]">
