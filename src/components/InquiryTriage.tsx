@@ -27,7 +27,7 @@ const FIT: Record<Triage["fit"], { label: string; cls: string }> = {
   },
   poor: {
     label: "Likely not a fit",
-    cls: "bg-stone-100 text-stone-600 border-stone-300",
+    cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]",
   },
 };
 
@@ -37,7 +37,7 @@ const URGENCY: Record<Triage["urgency"], { label: string; cls: string }> = {
     label: "Medium urgency",
     cls: "bg-amber-50 text-amber-800 border-amber-200",
   },
-  low: { label: "Low urgency", cls: "bg-stone-100 text-stone-600 border-stone-300" },
+  low: { label: "Low urgency", cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]" },
 };
 
 function Badge({ label, cls }: { label: string; cls: string }) {

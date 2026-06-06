@@ -3713,12 +3713,76 @@ export const QUESTIONNAIRES: Partial<Record<ServiceSlug, Questionnaire>> = {
   "corporate-headshots": corporateHeadshotsQuestionnaire,
 };
 
+// ----------------------------------------------------------------------------
+// Bundles — services a single client commonly books together. The same groups
+// drive the in-form "related sessions" prompt (injected by getQuestionnaire)
+// and the post-submission cross-prefill offer (questionnaire-bundles.ts).
+// ----------------------------------------------------------------------------
+
+export const QUESTIONNAIRE_BUNDLES: string[][] = [
+  // A couple's wedding coverage.
+  ["weddings", "wedding-films", "engagements-couples"],
+  // A growing family across the first year(s).
+  ["maternity", "newborn", "family-portraits", "family-celebrations"],
+];
+
+// Sibling slugs that share a bundle with `slug` and have their own
+// questionnaire. Existence is checked against the raw QUESTIONNAIRES map — NOT
+// getQuestionnaire — so this stays safe to call from inside getQuestionnaire's
+// bundle-section injection without recursing.
+export function bundleSiblings(slug: string): string[] {
+  const siblings = new Set<string>();
+  for (const group of QUESTIONNAIRE_BUNDLES) {
+    if (!group.includes(slug)) continue;
+    for (const other of group) {
+      if (other !== slug && QUESTIONNAIRES[other as ServiceSlug]) {
+        siblings.add(other);
+      }
+    }
+  }
+  return [...siblings];
+}
+
+// A standardized "want to pair this with a related session?" section, generated
+// from the bundle group so every applicable questionnaire asks it identically.
+// Returns null when the service has no questionnaire-backed siblings.
+function buildBundleInterestSection(slug: string): Section | null {
+  const sibs = bundleSiblings(slug);
+  if (sibs.length === 0) return null;
+  const options = sibs.map(
+    (s) => services.find((svc) => svc.slug === s)?.title ?? s,
+  );
+  return {
+    title: "Related sessions",
+    description:
+      "Many clients pair these sessions together, and bundling can save you. Ticking a box just tells me to include it in your quote — no commitment.",
+    fields: [
+      {
+        id: "bundleInterest",
+        label: "Interested in adding any of these?",
+        type: "checkbox",
+        options,
+        help: "Optional — leave unticked if it's just this session for now.",
+      },
+    ],
+  };
+}
+
 export function getQuestionnaire(slug: string): Questionnaire | undefined {
-  return QUESTIONNAIRES[slug as ServiceSlug];
+  const base = QUESTIONNAIRES[slug as ServiceSlug];
+  if (!base) return undefined;
+  const bundleSection = buildBundleInterestSection(slug);
+  return bundleSection
+    ? { ...base, sections: [...base.sections, bundleSection] }
+    : base;
 }
 
 export function listQuestionnaires(): Questionnaire[] {
-  return (Object.values(QUESTIONNAIRES) as Questionnaire[]).filter(Boolean);
+  // Resolve through getQuestionnaire so the index reflects the injected bundle
+  // section (section counts match what the form actually renders).
+  return (Object.keys(QUESTIONNAIRES) as ServiceSlug[])
+    .map((slug) => getQuestionnaire(slug))
+    .filter((q): q is Questionnaire => !!q);
 }
 
 // Resolve a "package" type field's options at runtime by reading the matching

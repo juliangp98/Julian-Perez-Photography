@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import InquiryForm from "@/components/InquiryForm";
 import GoogleReviews from "@/components/GoogleReviews";
 import { getSiteSettings } from "@/lib/content";
+import CalloutCard from "@/components/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Inquire",
@@ -12,7 +12,13 @@ export const metadata: Metadata = {
 export default async function InquirePage({
   searchParams,
 }: {
-  searchParams: Promise<{ service?: string }>;
+  searchParams: Promise<{
+    service?: string;
+    project?: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+  }>;
 }) {
   const [sp, settings] = await Promise.all([searchParams, getSiteSettings()]);
   return (
@@ -34,26 +40,24 @@ export default async function InquirePage({
         </a>
         .
       </p>
-      <div className="mt-10 max-w-3xl border border-[var(--border)] rounded-lg p-5 bg-white">
-        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-          Already booked or seriously considering?
-        </div>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Skip the back-and-forth and start your service-specific planning
-          questionnaire instead. It autosaves in your browser and gives me
-          everything I need to show up prepared.
-        </p>
-        <Link
-          href="/questionnaire"
-          className="mt-3 inline-block text-sm underline underline-offset-4 hover:text-[var(--foreground)]"
-        >
-          Browse planning questionnaires →
-        </Link>
+      <div className="mt-10 max-w-3xl">
+        <CalloutCard
+          eyebrow="Already booked or seriously considering?"
+          title="Skip the back-and-forth"
+          description="Start your service-specific planning questionnaire instead. It autosaves in your browser and gives me everything I need to show up prepared."
+          actions={[
+            { label: "Browse planning questionnaires →", href: "/questionnaire" },
+          ]}
+        />
       </div>
       <div className="mt-12 max-w-3xl">
         <InquiryForm
           defaultService={sp.service}
           discoveryCall={settings.calls.discoveryCall}
+          projectId={sp.project}
+          defaultName={sp.fullName}
+          defaultEmail={sp.email}
+          defaultPhone={sp.phone}
         />
       </div>
       <div className="mt-20 pt-12 border-t border-[var(--border)]">

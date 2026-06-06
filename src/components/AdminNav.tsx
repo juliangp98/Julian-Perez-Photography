@@ -9,7 +9,7 @@ export default function AdminNav({
   const cls = (key: "projects" | "content" | "links") =>
     `text-xs uppercase tracking-[0.2em] ${
       active === key
-        ? "text-[var(--foreground)]"
+        ? "text-[var(--accent)]"
         : "text-[var(--muted)] hover:text-[var(--foreground)]"
     }`;
   return (

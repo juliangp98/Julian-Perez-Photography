@@ -41,6 +41,29 @@ test("inquire: accepts a payload without eventDate", async ({ request }) => {
   expect([200, 429]).toContain(res.status());
 });
 
+test("inquire: accepts a payload carrying a project id (completion link)", async ({
+  request,
+}) => {
+  // A project completion link threads `?project=<id>` into the inquiry so the
+  // submission attaches to that exact project. The route must accept the field
+  // (the attach itself no-ops on the blanked test store).
+  const res = await request.post("/api/inquire", {
+    headers: { "x-forwarded-for": "10.99.24.5" },
+    data: {
+      name: "Attach Test",
+      email: "attach@example.com",
+      service: "weddings",
+      message: "From a project completion link.",
+      project: "00000000-0000-0000-0000-000000000000",
+    },
+  });
+  expect([200, 429]).toContain(res.status());
+  if (res.status() === 200) {
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+  }
+});
+
 test("inquire: accepts a wedding-films service slug", async ({ request }) => {
   // The wedding-films slug was added in the wedding-video → wedding-films
   // rename. The handler resolves the service title via getService() and

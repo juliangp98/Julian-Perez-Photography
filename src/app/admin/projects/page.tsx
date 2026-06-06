@@ -8,6 +8,7 @@ import AdminNav from "@/components/AdminNav";
 import AdminQuickLog from "@/components/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
 import AdminSearch from "@/components/AdminSearch";
+import NewProjectForm from "@/components/NewProjectForm";
 import { aiEnabled } from "@/lib/ai";
 
 export const metadata: Metadata = {
@@ -151,6 +152,10 @@ export default async function AdminProjectsPage({
           ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
           : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
       </p>
+
+      <div className="mt-6">
+        <NewProjectForm />
+      </div>
 
       {(staleInquiries.length > 0 || upcomingShoots.length > 0) && (
         <div className="mt-8 grid gap-5 md:grid-cols-2">

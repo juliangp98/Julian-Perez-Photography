@@ -9,6 +9,7 @@ import {
 import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
 import PortfolioGallery from "@/components/PortfolioGallery";
 import VideoGallery from "@/components/VideoGallery";
+import SubNav, { MAIN_TABS } from "@/components/SubNav";
 
 // Slugs come from Sanity when configured and fall back to
 // `portfoliosFallback` otherwise. Wrapped in try/catch so a network
@@ -79,22 +80,17 @@ export default async function PortfolioCategoryPage({
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <Link
-          href="/portfolio"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          ← All portfolios
-        </Link>
-        {service && (
+      <SubNav items={MAIN_TABS} />
+      {service && (
+        <div className="mt-4 flex justify-end">
           <Link
             href={`/services/${linkedServiceSlug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
             View <span className="hidden sm:inline">{p.title.toLowerCase()} </span>pricing →
           </Link>
-        )}
-      </div>
+        </div>
+      )}
       <h1 className="mt-4 font-serif text-5xl">{p.title}</h1>
       <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
 

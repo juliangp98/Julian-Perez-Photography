@@ -61,7 +61,12 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { service?: string; hp_company?: string; answers?: Answers };
+  let body: {
+    service?: string;
+    hp_company?: string;
+    answers?: Answers;
+    project?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -145,6 +150,7 @@ export async function POST(req: Request) {
         service: slug,
         answersJson: JSON.stringify(answers),
         pdf: pdfUrl ? { label: `${serviceTitle} plan`, url: pdfUrl } : undefined,
+        projectId: body.project || undefined,
       });
     } catch (err) {
       console.error("[questionnaire] client-record capture error:", err);

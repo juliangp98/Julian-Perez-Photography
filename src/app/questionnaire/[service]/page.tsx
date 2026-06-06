@@ -7,6 +7,7 @@ import {
 } from "@/lib/questionnaires";
 import { getService, getSiteSettings } from "@/lib/content";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
+import SubNav, { CLIENT_TABS } from "@/components/SubNav";
 
 export function generateStaticParams() {
   return Object.keys(QUESTIONNAIRES).map((service) => ({ service }));
@@ -56,28 +57,25 @@ export default async function QuestionnairePage({
   // single-value fields.
   const prefill: Record<string, string | string[]> = {};
   for (const [k, v] of Object.entries(sp)) {
+    if (k === "project") continue; // threaded separately as projectId
     if (typeof v === "string") prefill[k] = v;
     else if (Array.isArray(v)) prefill[k] = v;
   }
+  const projectId = typeof sp.project === "string" ? sp.project : undefined;
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <Link
-          href="/questionnaire"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          ← All questionnaires
-        </Link>
-        {svc && (
+      <SubNav items={CLIENT_TABS} />
+      {svc && (
+        <div className="mt-4 flex justify-end">
           <Link
             href={`/services/${svc.slug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
             View {svc.title.toLowerCase()} pricing →
           </Link>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="mt-6 mb-12">
         {svc && (
@@ -97,6 +95,7 @@ export default async function QuestionnairePage({
           weddingTimelineCall: settings.calls.weddingTimelineCall,
           venueWalkthrough: settings.calls.venueWalkthrough,
         }}
+        projectId={projectId}
       />
     </section>
   );

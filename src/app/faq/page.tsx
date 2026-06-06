@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import Link from "next/link";
+import Button from "@/components/Button";
 import { getAllFaqs } from "@/lib/faq";
 import { UMBRELLAS } from "@/lib/types";
 import { aiEnabled } from "@/lib/ai";
@@ -70,12 +70,9 @@ export default async function FaqPage() {
       )}
 
       <div className="mt-12">
-        <Link
-          href="/inquire"
-          className="inline-block px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        <Button href="/inquire" variant="secondary" size="lg">
           Send an inquiry
-        </Link>
+        </Button>
       </div>
     </section>
   );

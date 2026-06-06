@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServicesByUmbrella } from "@/lib/content";
+import SubNav, { MAIN_TABS } from "@/components/SubNav";
+import CalloutCard from "@/components/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Services & Pricing",
@@ -17,18 +19,8 @@ export default async function ServicesIndex() {
   );
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Services &amp; Pricing
-        </div>
-        <Link
-          href="/portfolio"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
-        >
-          View Portfolios →
-        </Link>
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">What I offer</h1>
+      <SubNav items={MAIN_TABS} />
+      <h1 className="mt-8 font-serif text-5xl">What I offer</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
         Every session starts with a conversation. Pick the service that fits
         and I&rsquo;ll walk you through the details on a quick call or email.
@@ -58,9 +50,8 @@ export default async function ServicesIndex() {
                 <h3 className="font-serif text-2xl">{s.title}</h3>
                 <p className="mt-2 text-sm text-[var(--muted)] flex-1">{s.tagline}</p>
                 
-                {/* Wrapped the bottom elements properly */}
                 <div className="mt-6 flex items-center justify-between">
-                  <div className="text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                  <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] group-hover:text-[var(--foreground)]">
                     View pricing →
                   </div>
                   <p className="text-xs text-[var(--muted)]">
@@ -74,29 +65,18 @@ export default async function ServicesIndex() {
         </div>
       ))}
 
-  <div className="mt-20 p-8 border border-[var(--border)] rounded-lg bg-white max-w-3xl">
-          <h2 className="font-serif text-2xl">Don&rsquo;t see your service?</h2>
-          <p className="mt-2 text-[var(--muted)]">
-            Some services need more of a custom fit. For those,
-            the inquiry form is your friend.
+      <div className="mt-20 max-w-3xl">
+        <CalloutCard
+          eyebrow="Need something custom?"
+          title="Don't see your service?"
+          description="Some sessions need more of a custom fit. For those, the inquiry form is your friend."
+          actions={[
+            { label: "Send an inquiry", href: "/inquire" },
+            { label: "Browse portfolio", href: "/portfolio", variant: "secondary" },
+          ]}
+        />
+      </div>
 
-          </p>
-          <div className="mt-5 flex gap-3 flex-wrap">
-            <Link
-              href="/inquire"
-              className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
-            >
-              Send an inquiry
-            </Link>
-            <Link
-              href="/portfolio"
-              className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-            >
-              Browse portfolio
-            </Link>
-          </div>
-        </div>
-        
     </section>
   );
 }

@@ -12,6 +12,10 @@ type Status = "idle" | "submitting" | "success" | "error";
 export default function InquiryForm({
   defaultService,
   discoveryCall,
+  projectId,
+  defaultName,
+  defaultEmail,
+  defaultPhone,
 }: {
   defaultService?: string;
   // Discovery-call CTA on the success screen. Passed from the parent
@@ -19,6 +23,12 @@ export default function InquiryForm({
   // — that value is Sanity-backed and async, which a client component
   // can't await.
   discoveryCall: CallLink;
+  // From a project completion link (`?project=…&fullName=…&email=…`): attach
+  // this inquiry to that exact project and prefill the basics.
+  projectId?: string;
+  defaultName?: string;
+  defaultEmail?: string;
+  defaultPhone?: string;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -119,13 +129,22 @@ export default function InquiryForm({
         className="hidden"
         aria-hidden="true"
       />
+      {projectId && (
+        <input type="hidden" name="project" defaultValue={projectId} />
+      )}
 
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="name" className={label}>
             Name
           </label>
-          <input id="name" name="name" required className={input} />
+          <input
+            id="name"
+            name="name"
+            required
+            defaultValue={defaultName}
+            className={input}
+          />
         </div>
         <div>
           <label htmlFor="email" className={label}>
@@ -136,6 +155,7 @@ export default function InquiryForm({
             type="email"
             name="email"
             required
+            defaultValue={defaultEmail}
             className={input}
           />
         </div>
@@ -146,7 +166,12 @@ export default function InquiryForm({
           <label htmlFor="phone" className={label}>
             Phone (optional)
           </label>
-          <input id="phone" name="phone" className={input} />
+          <input
+            id="phone"
+            name="phone"
+            defaultValue={defaultPhone}
+            className={input}
+          />
         </div>
         <div>
           <label htmlFor="service" className={label}>

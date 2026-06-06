@@ -1,6 +1,7 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getAboutPage, getSiteSettings } from "@/lib/content";
+import SubNav, { ABOUT_TABS } from "@/components/SubNav";
+import CalloutCard from "@/components/CalloutCard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -20,10 +21,8 @@ export default async function AboutPage() {
   ]);
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-24">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        About
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">{about.heading}</h1>
+      <SubNav items={ABOUT_TABS} />
+      <h1 className="mt-8 font-serif text-5xl">{about.heading}</h1>
       <div className="mt-8 space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
         {about.bio.map((paragraph, i) => (
           <p key={i}>{paragraph}</p>
@@ -43,19 +42,16 @@ export default async function AboutPage() {
         </div>
       </div>
 
-      <div className="mt-10 flex gap-3 flex-wrap">
-        <Link
-          href="/inquire"
-          className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-        >
-          Start an inquiry
-        </Link>
-        <Link
-          href="/portfolio"
-          className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
-          See recent work
-        </Link>
+      <div className="mt-12">
+        <CalloutCard
+          eyebrow="Let's work together"
+          title="Ready when you are"
+          description="Tell me about your shoot and I'll be in touch — or browse recent work to get a feel for my style first."
+          actions={[
+            { label: "Start an inquiry", href: "/inquire" },
+            { label: "See recent work", href: "/portfolio", variant: "secondary" },
+          ]}
+        />
       </div>
     </section>
   );

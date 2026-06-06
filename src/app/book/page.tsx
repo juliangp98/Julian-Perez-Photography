@@ -1,6 +1,7 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/content";
+import CalloutCard from "@/components/CalloutCard";
+import Button from "@/components/Button";
 
 export const metadata: Metadata = {
   title: "Book a Session",
@@ -85,20 +86,12 @@ export default async function BookPage() {
           some browsers block cross-site iframes by default.
         </p>
         <div className="flex flex-wrap gap-3">
-          <a
-            href={settings.bookingUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-          >
+          <Button href={settings.bookingUrl} external>
             Open in new tab →
-          </a>
-          <Link
-            href="/inquire"
-            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          </Button>
+          <Button href="/inquire" variant="secondary">
             Not sure yet? Inquire first
-          </Link>
+          </Button>
         </div>
       </div>
 
@@ -112,21 +105,13 @@ export default async function BookPage() {
         </a>
       </div>
 
-      <div className="mt-8 max-w-3xl border border-[var(--border)] rounded-lg p-5 bg-white">
-        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-          Already booked or seriously considering?
-        </div>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Start your service-specific planning questionnaire so I can show up
-          with everything I need on the day. It autosaves in your browser, so
-          you can fill it out in pieces.
-        </p>
-        <Link
-          href="/questionnaire"
-          className="mt-3 inline-block text-sm underline underline-offset-4 hover:text-[var(--foreground)]"
-        >
-          Plan your session →
-        </Link>
+      <div className="mt-8 max-w-3xl">
+        <CalloutCard
+          eyebrow="Already booked or seriously considering?"
+          title="Plan your session"
+          description="Start your service-specific planning questionnaire so I can show up with everything I need on the day. It autosaves in your browser, so you can fill it out in pieces."
+          actions={[{ label: "Plan your session →", href: "/questionnaire" }]}
+        />
       </div>
     </section>
   );

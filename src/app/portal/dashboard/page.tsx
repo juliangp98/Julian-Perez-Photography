@@ -12,6 +12,7 @@ import {
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
 import PortalBundles from "@/components/PortalBundles";
+import PortalNewProjectForm from "@/components/PortalNewProjectForm";
 import { projectDisplayName } from "@/lib/project-name";
 
 // The portal home: a menu of the signed-in person's projects, grouped by
@@ -127,6 +128,10 @@ export default async function PortalProjectsMenuPage() {
       <p className="mt-3 text-[var(--muted)]">
         Pick a project to see its status, dates, documents, and to add details.
       </p>
+
+      <div className="mt-8">
+        <PortalNewProjectForm />
+      </div>
 
       {projects.length === 0 ? (
         <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">

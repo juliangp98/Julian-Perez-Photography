@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listQuestionnaires } from "@/lib/questionnaires";
 import { getUmbrellas, getVisibleServices } from "@/lib/content";
+import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import CalloutCard from "@/components/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Planning questionnaires",
@@ -32,10 +34,8 @@ export default async function QuestionnaireIndexPage() {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        For booked & prospective clients
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">Planning questionnaires</h1>
+      <SubNav items={CLIENT_TABS} />
+      <h1 className="mt-8 font-serif text-5xl">Planning questionnaires</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
         These are for prospective and booked clients who already know which
         service they&rsquo;re interested in. Pick yours below and I&rsquo;ll
@@ -91,26 +91,16 @@ export default async function QuestionnaireIndexPage() {
               </div>
             ))}
 
-      <div className="mt-20 p-8 border border-[var(--border)] rounded-lg bg-white max-w-3xl">
-        <h2 className="font-serif text-2xl">Don&rsquo;t see your service?</h2>
-        <p className="mt-2 text-[var(--muted)]">
-          Some services don&rsquo;t need a long-form questionnaire — for those,
-          the inquiry form already covers what I need to know.
-        </p>
-        <div className="mt-5 flex gap-3 flex-wrap">
-          <Link
-            href="/inquire"
-            className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
-          >
-            Send an inquiry
-          </Link>
-          <Link
-            href="/services"
-            className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-          >
-            Browse services
-          </Link>
-        </div>
+      <div className="mt-20 max-w-3xl">
+        <CalloutCard
+          eyebrow="Need something custom?"
+          title="Don't see your service?"
+          description="Some services don't need a long-form questionnaire — for those, the inquiry form already covers what I need to know."
+          actions={[
+            { label: "Send an inquiry", href: "/inquire" },
+            { label: "Browse services", href: "/services", variant: "secondary" },
+          ]}
+        />
       </div>
     </section>
   );

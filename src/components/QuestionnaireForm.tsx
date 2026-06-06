@@ -48,6 +48,7 @@ export default function QuestionnaireForm({
   questionnaire,
   prefill,
   calls,
+  projectId,
 }: {
   questionnaire: Questionnaire;
   prefill?: Record<string, string | string[]>;
@@ -55,6 +56,9 @@ export default function QuestionnaireForm({
   // parent server page so the client bundle doesn't pull siteSettings
   // (Sanity-backed and async — not awaitable from a client component).
   calls: QuestionnaireCalls;
+  // Optional project id (from a completion link's `?project=`) so the
+  // submission attaches to that exact project rather than matching by email.
+  projectId?: string;
 }) {
   const draftKey = `questionnaire-draft-${questionnaire.slug}`;
   const [state, setState] = useState<FormState>(() => ({ ...(prefill || {}) }));
@@ -194,8 +198,11 @@ export default function QuestionnaireForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service: questionnaire.slug,
-          company: state["hp_company"] || "", // honeypot
+          // Honeypot — keyed `hp_company` to match the route + the inquiry
+          // convention (previously sent as `company`, which the route ignored).
+          hp_company: state["hp_company"] || "",
           answers: payload,
+          project: projectId,
         }),
       });
       if (!res.ok) {
