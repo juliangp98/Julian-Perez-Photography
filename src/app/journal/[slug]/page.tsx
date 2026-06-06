@@ -25,6 +25,7 @@ import {
   getPostSlugs,
   getRelatedPosts,
 } from "@/sanity/queries";
+import SubNav, { ABOUT_TABS } from "@/components/SubNav";
 
 const SITE_URL = "https://julianperezphotography.com";
 
@@ -143,11 +144,7 @@ export default async function JournalPostPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <nav className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        <Link href="/journal" className="hover:text-[var(--foreground)]">
-          ← Journal
-        </Link>
-      </nav>
+      <SubNav items={ABOUT_TABS} />
 
       <header className="mt-6">
         <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">

@@ -44,6 +44,14 @@ test("a11y: /faq directory + docked concierge has no violations", async ({
   expect(results.violations).toEqual([]);
 });
 
+test("a11y: /portfolio index (with section sub-nav) has no violations", async ({
+  page,
+}) => {
+  await page.goto("/portfolio");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});
+
 test("a11y: /questionnaire/weddings first section has no violations", async ({
   page,
 }) => {

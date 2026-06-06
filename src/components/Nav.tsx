@@ -196,6 +196,12 @@ export default function Nav() {
               <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-56">
                 <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-4 flex flex-col">
                   <Link
+                    href="/portal"
+                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                  >
+                    Client portal
+                  </Link>
+                  <Link
                     href="/client"
                     className="py-1.5 text-sm hover:text-[var(--accent)] transition"
                   >
@@ -333,6 +339,13 @@ export default function Nav() {
             <details>
               <summary className="cursor-pointer py-2">Clients</summary>
               <div className="flex flex-col pl-4 gap-2 mt-2">
+                <Link
+                  href="/portal"
+                  onClick={() => setMobileOpen(false)}
+                  className="py-1"
+                >
+                  Client portal
+                </Link>
                 <Link
                   href="/client"
                   onClick={() => setMobileOpen(false)}

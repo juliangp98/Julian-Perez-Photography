@@ -22,7 +22,10 @@ const URGENCY: Record<Action["urgency"], { label: string; cls: string }> = {
     label: "This week",
     cls: "bg-amber-50 text-amber-800 border-amber-200",
   },
-  low: { label: "No rush", cls: "bg-stone-100 text-stone-600 border-stone-300" },
+  low: {
+    label: "No rush",
+    cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]",
+  },
 };
 
 export default function NextActionNudge({ projectId }: { projectId: string }) {

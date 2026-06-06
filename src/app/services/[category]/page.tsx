@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Script from "next/script";
+import SubNav, { MAIN_TABS } from "@/components/SubNav";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -125,22 +126,17 @@ export default async function ServiceCategoryPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       )}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <Link
-          href="/services"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          ← All services
-        </Link>
-        {portfolio && (
+      <SubNav items={MAIN_TABS} />
+      {portfolio && (
+        <div className="mt-4 flex justify-end">
           <Link
             href={`/portfolio/${s.slug}`}
             className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
           >
             View <span className="hidden sm:inline">{s.title.toLowerCase()} </span>portfolio →
           </Link>
-        )}
-      </div>
+        </div>
+      )}
       <div className="mt-4 max-w-3xl">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
           {s.tagline}

@@ -15,6 +15,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import SafeImage from "@/components/SafeImage";
+import SubNav, { ABOUT_TABS } from "@/components/SubNav";
 import { getAllPosts } from "@/sanity/queries";
 import { isSanityConfigured } from "@/sanity/client";
 import { urlFor } from "@/sanity/image";
@@ -55,10 +56,8 @@ function JournalShell({
 }) {
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        Journal
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">{heading}</h1>
+      <SubNav items={ABOUT_TABS} />
+      <h1 className="mt-8 font-serif text-5xl">{heading}</h1>
       {children}
     </section>
   );

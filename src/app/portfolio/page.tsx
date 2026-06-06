@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getPortfoliosByUmbrella } from "@/lib/content";
+import SubNav, { MAIN_TABS } from "@/components/SubNav";
 
 export const metadata: Metadata = {
   title: "Portfolio",
@@ -16,18 +17,8 @@ export default async function PortfolioIndex() {
   );
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Portfolio
-        </div>
-        <Link
-          href="/services"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
-        >
-          View Services →
-        </Link>
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">Collections</h1>
+      <SubNav items={MAIN_TABS} />
+      <h1 className="mt-8 font-serif text-5xl">Collections</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
         Browse by category. Every gallery represents real clients and real
         sessions across the DMV.
