@@ -9,7 +9,7 @@ import {
 import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
 import PortfolioGallery from "@/components/PortfolioGallery";
 import VideoGallery from "@/components/VideoGallery";
-import SubNav, { MAIN_TABS } from "@/components/SubNav";
+import SubNav, { type SubNavItem } from "@/components/SubNav";
 
 // Slugs come from Sanity when configured and fall back to
 // `portfoliosFallback` otherwise. Wrapped in try/catch so a network
@@ -78,20 +78,26 @@ export default async function PortfolioCategoryPage({
     alt: altOverrides[img.src] ?? img.alt,
   }));
 
+  // Slug-scoped facet tabs: this category's portfolio + (when the matching
+  // service is visible) its pricing, with a way back up to the full index.
+  // Replaces the former top-right pricing cross-link.
+  const facetTabs: SubNavItem[] = [
+    { label: `${p.title} portfolio`, href: `/portfolio/${category}` },
+  ];
+  if (service) {
+    facetTabs.push({
+      label: `${p.title} pricing`,
+      href: `/services/${linkedServiceSlug}`,
+    });
+  }
+
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <SubNav items={MAIN_TABS} />
-      {service && (
-        <div className="mt-4 flex justify-end">
-          <Link
-            href={`/services/${linkedServiceSlug}`}
-            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            View <span className="hidden sm:inline">{p.title.toLowerCase()} </span>pricing →
-          </Link>
-        </div>
-      )}
-      <h1 className="mt-4 font-serif text-5xl">{p.title}</h1>
+      <SubNav
+        items={facetTabs}
+        back={{ label: "All portfolios", href: "/portfolio" }}
+      />
+      <h1 className="mt-6 font-serif text-5xl">{p.title}</h1>
       <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
 
       {isVideoPortfolio ? (

@@ -6,6 +6,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AssistedTextarea, {
+  type AssistContext,
+} from "@/components/AssistedTextarea";
 
 type Initial = {
   phone?: string;
@@ -25,10 +28,20 @@ export default function PortalEditForm({
   projectId,
   initial,
   namePlaceholder,
+  aiEnabled = false,
+  projectContext,
 }: {
   projectId: string;
   initial: Initial;
   namePlaceholder?: string;
+  aiEnabled?: boolean;
+  // Read-only project facts (from the server) used to ground the notes assist.
+  projectContext?: {
+    clientName?: string;
+    service?: string;
+    eventDate?: string;
+    status?: string;
+  };
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState(initial.phone ?? "");
@@ -39,6 +52,22 @@ export default function PortalEditForm({
   const [clientNotes, setClientNotes] = useState(initial.clientNotes ?? "");
   const [projectName, setProjectName] = useState(initial.projectName ?? "");
   const [status, setStatus] = useState<Status>("idle");
+
+  // Ground the notes assist in the project's known facts + the client's live
+  // edits, so a drafted question reads as theirs ("our June wedding at …").
+  function assistContext(): AssistContext {
+    const details: { label: string; value: string }[] = [];
+    const add = (label: string, value?: string | null) => {
+      const v = (value ?? "").trim();
+      if (v) details.push({ label, value: v });
+    };
+    add("Event date", projectContext?.eventDate);
+    add("Project status", projectContext?.status);
+    add("Project name", projectName);
+    add("Partner name", partnerName);
+    add("Guest count", guestCount);
+    return { clientName: projectContext?.clientName, details };
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -139,12 +168,19 @@ export default function PortalEditForm({
             </p>
           </div>
         )}
-        <textarea
+        <AssistedTextarea
           id="pf-notes"
           rows={4}
           value={clientNotes}
-          onChange={(e) => setClientNotes(e.target.value)}
-          className={input}
+          onChange={setClientNotes}
+          textareaClassName={input}
+          assist={{
+            kind: "portal-note",
+            question: "Notes or questions for your photographer",
+            service: projectContext?.service,
+            enabled: aiEnabled,
+            getContext: assistContext,
+          }}
         />
       </div>
       <div className="flex items-center gap-4">

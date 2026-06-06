@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { visibleServices as services } from "@/lib/content";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
+import AssistedTextarea, {
+  type AssistContext,
+} from "@/components/AssistedTextarea";
 
 type CallLink = { label: string; url: string };
 
@@ -16,6 +19,7 @@ export default function InquiryForm({
   defaultName,
   defaultEmail,
   defaultPhone,
+  aiEnabled = false,
 }: {
   defaultService?: string;
   // Discovery-call CTA on the success screen. Passed from the parent
@@ -29,6 +33,9 @@ export default function InquiryForm({
   defaultName?: string;
   defaultEmail?: string;
   defaultPhone?: string;
+  // Whether to offer the "Help me write this" assist (threaded from the server;
+  // the client can't read the AI key).
+  aiEnabled?: boolean;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -36,6 +43,33 @@ export default function InquiryForm({
   // field when the user picks "Other" — keeps the long tail of real
   // sources visible without cluttering the dropdown.
   const [referral, setReferral] = useState("");
+  const [message, setMessage] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Snapshot the sibling fields at draft time so the assist is grounded in what
+  // the visitor has already filled in (service, date, venue, budget, name).
+  function assistContext(): AssistContext {
+    const form = formRef.current;
+    if (!form) return {};
+    const fd = new FormData(form);
+    const str = (k: string) => {
+      const v = fd.get(k);
+      return typeof v === "string" ? v.trim() : "";
+    };
+    const details: { label: string; value: string }[] = [];
+    const serviceSlug = str("service");
+    const serviceTitle =
+      services.find((s) => s.slug === serviceSlug)?.title || serviceSlug;
+    if (serviceTitle) details.push({ label: "Service", value: serviceTitle });
+    const add = (k: string, lbl: string) => {
+      const v = str(k);
+      if (v) details.push({ label: lbl, value: v });
+    };
+    add("eventDate", "Event date");
+    add("location", "Location / venue");
+    add("budget", "Budget");
+    return { clientName: str("name") || undefined, details };
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -57,6 +91,7 @@ export default function InquiryForm({
       }
       setStatus("success");
       (e.target as HTMLFormElement).reset();
+      setMessage("");
     } catch (err) {
       setStatus("error");
       setErrorMsg(err instanceof Error ? err.message : "Unknown error");
@@ -119,7 +154,7 @@ export default function InquiryForm({
   const label = "block text-sm font-medium mb-1.5";
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-5" noValidate>
+    <form ref={formRef} onSubmit={onSubmit} className="grid gap-5" noValidate>
       {/* Honeypot */}
       <input
         type="text"
@@ -260,12 +295,20 @@ export default function InquiryForm({
         <label htmlFor="message" className={label}>
           Tell me about your vision
         </label>
-        <textarea
+        <AssistedTextarea
           id="message"
           name="message"
           rows={6}
           required
-          className={input}
+          value={message}
+          onChange={setMessage}
+          textareaClassName={input}
+          assist={{
+            kind: "inquiry",
+            question: "Tell me about your vision",
+            enabled: aiEnabled,
+            getContext: assistContext,
+          }}
         />
       </div>
 

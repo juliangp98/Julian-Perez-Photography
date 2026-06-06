@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // Smoke coverage for the wedding-films surfaces:
 //   - /services/wedding-films renders with grouped tier cards (Hybrid /
-//     Solo), the "View portfolio" cross-link, and the FAQ accordion
+//     Solo), the category facet tabs, and the FAQ accordion
 //   - /portfolio/wedding-films renders without errors (empty-state OK
 //     when no videos seeded)
 //   - The `/services/wedding-video` legacy URL 301-redirects to the
@@ -87,13 +87,14 @@ test("wedding-films portfolio: page renders", async ({ page }) => {
     page.getByRole("heading", { name: "Wedding Films", level: 1 }),
   ).toBeVisible();
 
-  // The top-of-page "View pricing" cross-link should resolve to the
-  // matching service page — guards the `serviceSlug ?? slug` default
-  // in the page renderer against regression. Anchored to the "View"
-  // verb so the nav and footer's "Services & Pricing" links don't
-  // collide.
+  // The category "pricing" facet tab resolves to the matching service page —
+  // guards the `serviceSlug ?? slug` default in the page renderer against
+  // regression. Scoped to the Section nav so the footer's "Services & Pricing"
+  // link doesn't collide.
   await expect(
-    page.getByRole("link", { name: /^view .*pricing/i }),
+    page
+      .getByRole("navigation", { name: "Section" })
+      .getByRole("link", { name: "Wedding Films pricing" }),
   ).toHaveAttribute("href", "/services/wedding-films");
 });
 

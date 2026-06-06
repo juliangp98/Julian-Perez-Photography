@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import PortalLoginForm from "@/components/PortalLoginForm";
+import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import { getSession } from "@/lib/auth-cookies";
 
 // Portal login (public). Authenticated portal pages live under /portal/* and
 // are gated by the proxy. noindex — this is a private surface.
@@ -15,6 +18,11 @@ export default async function PortalLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
+  // A signed-in visitor lands on their dashboard rather than the sign-in form,
+  // so the "Client portal" tab resolves correctly from both states.
+  const session = await getSession();
+  if (session) redirect("/portal/dashboard");
+
   const { error } = await searchParams;
   const errorMsg =
     error === "invalid-link"
@@ -25,10 +33,8 @@ export default async function PortalLoginPage({
 
   return (
     <section className="max-w-md mx-auto px-6 py-24">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        Client portal
-      </div>
-      <h1 className="mt-2 font-serif text-4xl">Sign in</h1>
+      <SubNav items={CLIENT_TABS} />
+      <h1 className="mt-6 font-serif text-4xl">Sign in</h1>
       <p className="mt-4 text-[var(--muted)] leading-relaxed">
         Enter the email you used with me and I&rsquo;ll send you a secure
         sign-in link — no password needed.
