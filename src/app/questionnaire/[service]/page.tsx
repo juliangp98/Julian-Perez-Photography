@@ -57,9 +57,11 @@ export default async function QuestionnairePage({
   // single-value fields.
   const prefill: Record<string, string | string[]> = {};
   for (const [k, v] of Object.entries(sp)) {
+    if (k === "project") continue; // threaded separately as projectId
     if (typeof v === "string") prefill[k] = v;
     else if (Array.isArray(v)) prefill[k] = v;
   }
+  const projectId = typeof sp.project === "string" ? sp.project : undefined;
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
@@ -93,6 +95,7 @@ export default async function QuestionnairePage({
           weddingTimelineCall: settings.calls.weddingTimelineCall,
           venueWalkthrough: settings.calls.venueWalkthrough,
         }}
+        projectId={projectId}
       />
     </section>
   );

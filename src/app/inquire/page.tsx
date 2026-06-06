@@ -12,7 +12,13 @@ export const metadata: Metadata = {
 export default async function InquirePage({
   searchParams,
 }: {
-  searchParams: Promise<{ service?: string }>;
+  searchParams: Promise<{
+    service?: string;
+    project?: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
+  }>;
 }) {
   const [sp, settings] = await Promise.all([searchParams, getSiteSettings()]);
   return (
@@ -48,6 +54,10 @@ export default async function InquirePage({
         <InquiryForm
           defaultService={sp.service}
           discoveryCall={settings.calls.discoveryCall}
+          projectId={sp.project}
+          defaultName={sp.fullName}
+          defaultEmail={sp.email}
+          defaultPhone={sp.phone}
         />
       </div>
       <div className="mt-20 pt-12 border-t border-[var(--border)]">

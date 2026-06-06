@@ -233,30 +233,63 @@ export async function upsertClientFromInquiry(input: {
   budget?: string;
   referral?: string;
   message?: string;
+  // When set (a manually-created project's completion link), attach to that
+  // exact project rather than matching by email+service.
+  projectId?: string;
 }): Promise<string | null> {
   if (!isClientsStoreConfigured()) return null;
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
-  let match = db()
-    .from(TABLE)
-    .select("id, phone, service_type, event_date, budget, referral, inquiry_message")
-    .eq("email", email);
-  match = input.service
-    ? match.eq("service_type", input.service)
-    : match.is("service_type", null);
-  const { data: existingRows, error: selErr } = await match.limit(1);
-  if (selErr) throw selErr;
-  const existing = existingRows?.[0];
+  const FILL =
+    "id, email, client_name, phone, service_type, event_date, budget, referral, inquiry_message";
+  type FillRow = {
+    id: string;
+    email?: string;
+    client_name?: string;
+    phone?: string;
+    service_type?: string;
+    event_date?: string;
+    budget?: string;
+    referral?: string;
+    inquiry_message?: string;
+  };
+  let existing: FillRow | undefined;
+
+  // Attach-by-id: only when the project is unclaimed or already this email's, so
+  // a leaked completion link can't write into someone else's record.
+  if (input.projectId) {
+    const { data: byId } = await db()
+      .from(TABLE)
+      .select(FILL)
+      .eq("id", input.projectId)
+      .maybeSingle();
+    const row = byId as FillRow | null;
+    if (row && (!row.email || normalizeEmail(row.email) === email)) existing = row;
+  }
+
+  // Otherwise dedup by email + service, as before.
+  if (!existing) {
+    let match = db().from(TABLE).select(FILL).eq("email", email);
+    match = input.service
+      ? match.eq("service_type", input.service)
+      : match.is("service_type", null);
+    const { data: existingRows, error: selErr } = await match.limit(1);
+    if (selErr) throw selErr;
+    existing = existingRows?.[0] as FillRow | undefined;
+  }
 
   if (existing?.id) {
     const patch: Record<string, unknown> = { updated_at: ts };
+    if (!existing.email) patch.email = email;
+    if (!existing.client_name && input.name) patch.client_name = input.name;
     if (!existing.phone && input.phone) patch.phone = input.phone;
     if (!existing.service_type && input.service) patch.service_type = input.service;
     if (!existing.event_date && input.eventDate) patch.event_date = input.eventDate;
     if (!existing.budget && input.budget) patch.budget = input.budget;
     if (!existing.referral && input.referral) patch.referral = input.referral;
-    if (!existing.inquiry_message && input.message) patch.inquiry_message = input.message;
+    if (!existing.inquiry_message && input.message)
+      patch.inquiry_message = input.message;
     const { error } = await db().from(TABLE).update(patch).eq("id", existing.id);
     if (error) throw error;
     return existing.id as string;
@@ -291,6 +324,67 @@ export async function upsertClientFromInquiry(input: {
   return data.id as string;
 }
 
+// Manually create a project stub (admin or client portal). No dedup here — the
+// caller decides "warn but allow"; the project starts at new-inquiry.
+export async function createProjectManual(input: {
+  email: string;
+  clientName?: string;
+  phone?: string;
+  serviceType?: string;
+  eventDate?: string;
+  package?: string;
+  source: "manual-admin" | "manual-client";
+}): Promise<string | null> {
+  if (!isClientsStoreConfigured()) return null;
+  const ts = nowIso();
+  const note =
+    input.source === "manual-admin" ? "Created by admin" : "Created by client";
+  const { data, error } = await db()
+    .from(TABLE)
+    .insert({
+      client_name: input.clientName || null,
+      email: normalizeEmail(input.email),
+      phone: input.phone || null,
+      status: "new-inquiry",
+      service_type: input.serviceType || null,
+      package: input.package || null,
+      event_date: input.eventDate || null,
+      source: input.source,
+      status_history: [{ status: "new-inquiry", changedAt: ts, note }],
+      created_at: ts,
+      updated_at: ts,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+// An existing project for this email + service — drives the "you already have a
+// … project" warning on manual creation (the user can still create a second).
+export async function findDuplicateProject(
+  email: string,
+  serviceType?: string,
+): Promise<{ id: string; clientName?: string; serviceType?: string } | null> {
+  if (!isClientsStoreConfigured()) return null;
+  let q = db()
+    .from(TABLE)
+    .select("id, client_name, service_type")
+    .eq("email", normalizeEmail(email));
+  q = serviceType
+    ? q.eq("service_type", serviceType)
+    : q.is("service_type", null);
+  const { data, error } = await q.limit(1);
+  if (error) throw error;
+  const row = data?.[0];
+  if (!row) return null;
+  return {
+    id: row.id as string,
+    clientName: (row.client_name as string) || undefined,
+    serviceType: (row.service_type as string) || undefined,
+  };
+}
+
 // Attach a questionnaire submission to the matching record (creating one if
 // none exists), snapshot the answers, link the generated PDF, and advance the
 // status toward "planning" without regressing a further-along record.
@@ -300,20 +394,40 @@ export async function attachQuestionnaire(input: {
   service?: string;
   answersJson: string;
   pdf?: { label: string; url: string };
+  // When set (a created project's completion link), attach to that exact
+  // project rather than matching by email+service.
+  projectId?: string;
 }): Promise<string | null> {
   if (!isClientsStoreConfigured()) return null;
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
-  // Match the project for this service (so an engagement questionnaire attaches
-  // to the engagement project, not a wedding one).
-  let match = db().from(TABLE).select("id, service_type").eq("email", email);
-  match = input.service
-    ? match.eq("service_type", input.service)
-    : match.is("service_type", null);
-  const { data: existingRows, error: selErr } = await match.limit(1);
-  if (selErr) throw selErr;
-  const existing = existingRows?.[0];
+  type QRow = { id: string; email?: string; service_type?: string; client_name?: string };
+  const SEL = "id, email, service_type, client_name";
+  let existing: QRow | undefined;
+
+  // Attach-by-id when the project is unclaimed or already this email's.
+  if (input.projectId) {
+    const { data: byId } = await db()
+      .from(TABLE)
+      .select(SEL)
+      .eq("id", input.projectId)
+      .maybeSingle();
+    const row = byId as QRow | null;
+    if (row && (!row.email || normalizeEmail(row.email) === email)) existing = row;
+  }
+
+  // Otherwise match the project for this service (so an engagement questionnaire
+  // attaches to the engagement project, not a wedding one).
+  if (!existing) {
+    let match = db().from(TABLE).select(SEL).eq("email", email);
+    match = input.service
+      ? match.eq("service_type", input.service)
+      : match.is("service_type", null);
+    const { data: existingRows, error: selErr } = await match.limit(1);
+    if (selErr) throw selErr;
+    existing = existingRows?.[0] as QRow | undefined;
+  }
 
   let id = (existing?.id as string | undefined) ?? null;
   if (!id) {
@@ -342,6 +456,8 @@ export async function attachQuestionnaire(input: {
       updated_at: ts,
     };
     if (!existing?.service_type && input.service) patch.service_type = input.service;
+    if (!existing?.email) patch.email = email;
+    if (!existing?.client_name && input.name) patch.client_name = input.name;
     const { error } = await db().from(TABLE).update(patch).eq("id", id);
     if (error) throw error;
     await advanceStatus(id, "planning", "Questionnaire submitted");

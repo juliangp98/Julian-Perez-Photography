@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import PortalLoginForm from "@/components/PortalLoginForm";
 
 // Portal login (public). Authenticated portal pages live under /portal/* and
@@ -40,6 +41,15 @@ export default async function PortalLoginPage({
       <div className="mt-8">
         <PortalLoginForm />
       </div>
+      <p className="mt-6 text-sm text-[var(--muted)]">
+        New here, or no project yet?{" "}
+        <Link
+          href="/inquire"
+          className="underline underline-offset-4 hover:text-[var(--foreground)]"
+        >
+          Start with an inquiry →
+        </Link>
+      </p>
     </section>
   );
 }

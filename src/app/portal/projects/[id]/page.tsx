@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 };
 
 function questionnaireLinkFor(record: {
+  id: string;
   serviceType?: string;
   clientName?: string;
   email?: string;
@@ -34,6 +35,8 @@ function questionnaireLinkFor(record: {
   const q = getQuestionnaire(record.serviceType);
   if (!q) return null;
   const params = new URLSearchParams();
+  // Attach the submission to THIS project (not a fresh email+service match).
+  params.set("project", record.id);
   if (record.clientName) params.set("fullName", record.clientName);
   if (record.email) params.set("email", record.email);
   if (record.phone) params.set("phone", record.phone);
@@ -108,6 +111,15 @@ export default async function PortalProjectPage({
   }
 
   const link = questionnaireLinkFor(record);
+  // A service-undecided project (created without a service) has no questionnaire
+  // yet — point the client at the inquiry, threaded so it attaches here.
+  const inquireParams = new URLSearchParams({ project: record.id });
+  if (record.email) inquireParams.set("email", record.email);
+  if (record.clientName) inquireParams.set("fullName", record.clientName);
+  if (record.phone) inquireParams.set("phone", record.phone);
+  const inquireLink = !record.serviceType
+    ? `/inquire?${inquireParams.toString()}`
+    : null;
   const hasGlance =
     !!record.package ||
     !!formatDate(record.eventDate) ||
@@ -181,6 +193,22 @@ export default async function PortalProjectPage({
             className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
           >
             Open your {record.serviceType?.replace(/-/g, " ")} questionnaire →
+          </a>
+        </div>
+      )}
+
+      {inquireLink && (
+        <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
+          <p className="text-sm font-medium">Tell me what you&rsquo;re planning</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            You started this project without picking a service. Send a quick note
+            and I&rsquo;ll get it set up — it stays attached to this project.
+          </p>
+          <a
+            href={inquireLink}
+            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
+          >
+            Tell me what you&rsquo;re thinking →
           </a>
         </div>
       )}

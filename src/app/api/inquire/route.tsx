@@ -28,6 +28,9 @@ const schema = z.object({
   referral: z.string().max(100).optional().or(z.literal("")),
   referralOther: z.string().max(200).optional().or(z.literal("")),
   message: z.string().min(1).max(5000),
+  // Optional id of a manually-created project this inquiry should attach to
+  // (from a completion link). Validated against the email server-side.
+  project: z.string().max(100).optional().or(z.literal("")),
   // Honeypot — should be empty (named hp_company to avoid collision with
   // legitimate "company" fields in questionnaires like corporate-headshots)
   hp_company: z.string().max(0).optional().or(z.literal("")),
@@ -206,6 +209,7 @@ export async function POST(req: Request) {
       budget: data.budget || undefined,
       referral: formatReferral(data.referral, data.referralOther) || undefined,
       message: data.message,
+      projectId: data.project || undefined,
     });
   } catch (err) {
     console.error("[inquire] client-record upsert error:", err);

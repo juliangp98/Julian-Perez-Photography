@@ -19,6 +19,7 @@ import {
 } from "@/lib/project-name";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import DeleteProjectButton from "@/components/DeleteProjectButton";
+import CopyField from "@/components/CopyField";
 
 export const metadata: Metadata = {
   title: "Project — Admin",
@@ -113,6 +114,21 @@ export default async function AdminProjectDetailPage({
   const answerGroups = record?.questionnaireSnapshot
     ? buildAnswerGroups(record.serviceType, record.questionnaireSnapshot)
     : null;
+
+  // A link to send the client so their questionnaire/inquiry attaches to THIS
+  // project (threading the id + prefilled basics). Service known → questionnaire;
+  // undecided → inquiry (which sets the service on submit).
+  let completionUrl = "";
+  if (record) {
+    const p = new URLSearchParams({ project: record.id });
+    if (record.clientName) p.set("fullName", record.clientName);
+    if (record.email) p.set("email", record.email);
+    if (record.phone) p.set("phone", record.phone);
+    if (record.eventDate) p.set("eventDate", record.eventDate);
+    completionUrl = record.serviceType
+      ? `${origin}/questionnaire/${record.serviceType}?${p.toString()}`
+      : `${origin}/inquire?${p.toString()}`;
+  }
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
@@ -278,6 +294,17 @@ export default async function AdminProjectDetailPage({
                   <NextActionNudge projectId={record.id} />
                 </RailCard>
               )}
+
+              <RailCard title="Client completion link">
+                <p className="mb-3 text-sm text-[var(--muted)]">
+                  Send this so the client{" "}
+                  {record.serviceType
+                    ? "fills the planning questionnaire"
+                    : "sends an inquiry that sets the service"}{" "}
+                  — it attaches to this project, no duplicate.
+                </p>
+                <CopyField label="Client link" value={completionUrl} />
+              </RailCard>
 
               <RailCard title="Details">
                 <div className="divide-y divide-[var(--border)]">
