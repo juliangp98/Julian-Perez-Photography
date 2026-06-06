@@ -14,6 +14,7 @@ import { UMBRELLAS, type Umbrella } from "@/lib/types";
 import PortalBundles from "@/components/PortalBundles";
 import PortalNewProjectForm from "@/components/PortalNewProjectForm";
 import { projectDisplayName } from "@/lib/project-name";
+import SubNav, { CLIENT_TABS } from "@/components/SubNav";
 
 // The portal home: a menu of the signed-in person's projects, grouped by
 // photographic category (umbrella) in the same card style as the services /
@@ -111,7 +112,8 @@ export default async function PortalProjectsMenuPage() {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
-      <div className="flex items-center justify-between gap-4">
+      <SubNav items={CLIENT_TABS} />
+      <div className="mt-8 flex items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
           Your projects
         </div>

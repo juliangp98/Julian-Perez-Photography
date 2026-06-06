@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Script from "next/script";
-import SubNav, { MAIN_TABS } from "@/components/SubNav";
+import SubNav, { type SubNavItem } from "@/components/SubNav";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -110,6 +110,18 @@ export default async function ServiceCategoryPage({
         }
       : null;
 
+  // Slug-scoped facet tabs: this category's pricing + (when a portfolio exists)
+  // its gallery, with a way back up to the full index. Replaces the former
+  // top-right portfolio cross-link.
+  const facetTabs: SubNavItem[] = [];
+  if (portfolio) {
+    facetTabs.push({
+      label: `${s.title} portfolio`,
+      href: `/portfolio/${s.slug}`,
+    });
+  }
+  facetTabs.push({ label: `${s.title} pricing`, href: `/services/${s.slug}` });
+
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <Script
@@ -126,18 +138,11 @@ export default async function ServiceCategoryPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       )}
-      <SubNav items={MAIN_TABS} />
-      {portfolio && (
-        <div className="mt-4 flex justify-end">
-          <Link
-            href={`/portfolio/${s.slug}`}
-            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            View <span className="hidden sm:inline">{s.title.toLowerCase()} </span>portfolio →
-          </Link>
-        </div>
-      )}
-      <div className="mt-4 max-w-3xl">
+      <SubNav
+        items={facetTabs}
+        back={{ label: "All services", href: "/services" }}
+      />
+      <div className="mt-6 max-w-3xl">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
           {s.tagline}
         </div>

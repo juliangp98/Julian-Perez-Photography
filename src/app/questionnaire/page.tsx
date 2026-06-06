@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listQuestionnaires } from "@/lib/questionnaires";
 import { getUmbrellas, getVisibleServices } from "@/lib/content";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 import CalloutCard from "@/components/CalloutCard";
 
 export const metadata: Metadata = {
@@ -34,7 +34,7 @@ export default async function QuestionnaireIndexPage() {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <SubNav items={CLIENT_TABS} />
+      <SubNav items={FUNNEL_TABS} />
       <h1 className="mt-8 font-serif text-5xl">Planning questionnaires</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
         These are for prospective and booked clients who already know which

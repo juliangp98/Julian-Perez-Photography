@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Tab-style section sub-nav above the page title across the public page groups,
 // with the active tab marked `aria-current="page"` (gold in the UI).
 
-test("subnav: Portfolio/Services group marks the active tab", async ({
+test("subnav: Portfolio/Services index marks the active tab", async ({
   page,
 }) => {
   await page.goto("/portfolio");
@@ -24,33 +24,83 @@ test("subnav: Portfolio/Services group marks the active tab", async ({
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("subnav: detail pages carry the section nav with the right active tab", async ({
+test("subnav: category detail pages scope their tabs to that category, with a way back", async ({
   page,
 }) => {
+  // A service detail page's tabs are that category's own portfolio + pricing
+  // (not the top-level index tabs), with pricing active and a back link up to
+  // the full services index. This replaced the old top-right cross-link.
   await page.goto("/services/weddings");
+  const svcNav = page.getByRole("navigation", { name: "Section" });
   await expect(
-    page
-      .getByRole("navigation", { name: "Section" })
-      .getByRole("link", { name: "Services & Pricing" }),
+    svcNav.getByRole("link", { name: "Weddings pricing" }),
   ).toHaveAttribute("aria-current", "page");
+  await expect(
+    svcNav.getByRole("link", { name: "Weddings portfolio" }),
+  ).toHaveAttribute("href", "/portfolio/weddings");
+  await expect(
+    page.getByRole("link", { name: "All services" }),
+  ).toHaveAttribute("href", "/services");
 
+  // The portfolio side mirrors it: portfolio active, pricing links across, and
+  // a back link up to the portfolio index.
   await page.goto("/portfolio/wedding-films");
+  const pfNav = page.getByRole("navigation", { name: "Section" });
   await expect(
-    page
-      .getByRole("navigation", { name: "Section" })
-      .getByRole("link", { name: "Portfolio", exact: true }),
+    pfNav.getByRole("link", { name: "Wedding Films portfolio" }),
   ).toHaveAttribute("aria-current", "page");
+  await expect(
+    pfNav.getByRole("link", { name: "Wedding Films pricing" }),
+  ).toHaveAttribute("href", "/services/wedding-films");
+  await expect(
+    page.getByRole("link", { name: "All portfolios" }),
+  ).toHaveAttribute("href", "/portfolio");
 });
 
-test("subnav: Clients group surfaces the Client portal tab", async ({
+test("subnav: the booking funnel runs Inquire → Plan → Book", async ({
   page,
 }) => {
+  // /inquire, the questionnaire, and /book share one funnel bar; the
+  // questionnaire is the middle "Plan your session" step.
   await page.goto("/questionnaire");
   const nav = page.getByRole("navigation", { name: "Section" });
   await expect(
-    nav.getByRole("link", { name: "Client portal" }),
-  ).toBeVisible();
-  await expect(
     nav.getByRole("link", { name: "Plan your session" }),
   ).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Inquire" })).toHaveAttribute(
+    "href",
+    "/inquire",
+  );
+  await expect(nav.getByRole("link", { name: "Book" })).toHaveAttribute(
+    "href",
+    "/book",
+  );
+
+  // /inquire flips the active tab to Inquire.
+  await page.goto("/inquire");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Section" })
+      .getByRole("link", { name: "Inquire" }),
+  ).toHaveAttribute("aria-current", "page");
+});
+
+test("subnav: the client surfaces share a Portal/Galleries bar (no Plan)", async ({
+  page,
+}) => {
+  // The portal sign-in page (unauthenticated in tests) carries the client bar:
+  // Client portal active, with a hop to the galleries. "Plan your session" is
+  // intentionally absent — it lives in the booking funnel, so no page sits in
+  // two bars.
+  await page.goto("/portal");
+  const nav = page.getByRole("navigation", { name: "Section" });
+  await expect(
+    nav.getByRole("link", { name: "Client portal" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    nav.getByRole("link", { name: "Client galleries" }),
+  ).toHaveAttribute("href", "/client");
+  await expect(
+    nav.getByRole("link", { name: "Plan your session" }),
+  ).toHaveCount(0);
 });

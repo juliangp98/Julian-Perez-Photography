@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/content";
 import CalloutCard from "@/components/CalloutCard";
 import Button from "@/components/Button";
+import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 
 export const metadata: Metadata = {
   title: "Book a Session",
@@ -12,10 +13,8 @@ export default async function BookPage() {
   const settings = await getSiteSettings();
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-        Book
-      </div>
-      <h1 className="mt-2 font-serif text-5xl">Book a session</h1>
+      <SubNav items={FUNNEL_TABS} />
+      <h1 className="mt-6 font-serif text-5xl">Book a session</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
         Pick a service and a time below — my Square calendar is live, so what
         you see is real availability. A small deposit holds the date.

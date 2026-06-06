@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   QUESTIONNAIRES,
@@ -7,7 +6,7 @@ import {
 } from "@/lib/questionnaires";
 import { getService, getSiteSettings } from "@/lib/content";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 
 export function generateStaticParams() {
   return Object.keys(QUESTIONNAIRES).map((service) => ({ service }));
@@ -65,17 +64,7 @@ export default async function QuestionnairePage({
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
-      <SubNav items={CLIENT_TABS} />
-      {svc && (
-        <div className="mt-4 flex justify-end">
-          <Link
-            href={`/services/${svc.slug}`}
-            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            View {svc.title.toLowerCase()} pricing →
-          </Link>
-        </div>
-      )}
+      <SubNav items={FUNNEL_TABS} />
 
       <div className="mt-6 mb-12">
         {svc && (
