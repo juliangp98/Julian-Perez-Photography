@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import PortalLoginForm from "@/components/PortalLoginForm";
+import CalloutCard from "@/components/CalloutCard";
 import SubNav, { CLIENT_TABS } from "@/components/SubNav";
 import { getSession } from "@/lib/auth-cookies";
 
@@ -48,15 +48,15 @@ export default async function PortalLoginPage({
         <div className="mt-8">
           <PortalLoginForm />
         </div>
-        <p className="mt-6 text-sm text-[var(--muted)]">
-          New here, or no project yet?{" "}
-          <Link
-            href="/inquire"
-            className="underline underline-offset-4 hover:text-[var(--foreground)]"
-          >
-            Start with an inquiry →
-          </Link>
-        </p>
+        <div className="mt-8">
+          <CalloutCard
+            tone="neutral"
+            eyebrow="New here, or no project yet?"
+            title="Start with an inquiry"
+            description="Your portal opens once you have a project with me. New to the studio? Send an inquiry and I'll get you started."
+            actions={[{ label: "Start an inquiry →", href: "/inquire" }]}
+          />
+        </div>
       </div>
     </section>
   );

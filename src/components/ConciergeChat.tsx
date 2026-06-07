@@ -181,7 +181,7 @@ export default function ConciergeChat({
                 send(input);
               }
             }}
-            rows={1}
+            rows={2}
             maxLength={800}
             placeholder="Ask about services, pricing, or booking…"
             className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[var(--foreground)] transition"

@@ -89,27 +89,31 @@ export default async function BookPage() {
         </Button>
       </div>
 
-      <div className="mt-10 max-w-3xl space-y-5">
+      <div className="mt-10 max-w-3xl">
         <CalloutCard
-          tone="neutral"
-          eyebrow="Not ready to book?"
-          title="Prefer to talk it through first"
-          description="No need to pick a time today. Send a note and I'll help you figure out the right fit — or email me directly."
-          actions={[
-            {
-              label: "Email me directly",
-              href: `mailto:${settings.contactEmail}`,
-              external: true,
-            },
-            { label: "Inquire first", href: "/inquire", variant: "secondary" },
-          ]}
-        />
-        <CalloutCard
-          eyebrow="Already booked or seriously considering?"
+          eyebrow="Booked or seriously considering?"
           title="Plan your session"
           description="Start your service-specific planning questionnaire so I can show up with everything I need on the day. It autosaves in your browser, so you can fill it out in pieces."
           actions={[{ label: "Plan your session →", href: "/questionnaire" }]}
-        />
+        >
+          <div className="mt-8 pt-8 border-t border-[var(--border)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              Or, prefer to talk first?
+            </div>
+            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
+              No need to pick a time today — send a note and I&rsquo;ll help you
+              figure out the right fit, or email me directly.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button href={`mailto:${settings.contactEmail}`} external>
+                Email me directly
+              </Button>
+              <Button href="/inquire" variant="secondary">
+                Inquire first
+              </Button>
+            </div>
+          </div>
+        </CalloutCard>
       </div>
     </section>
   );
