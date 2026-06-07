@@ -1833,3 +1833,17 @@ export const services: ServiceCategory[] = [
     ],
   },
 ];
+
+// Slug → catalog display title (e.g. "wedding-films" → "Wedding Films"), used
+// wherever the service is shown to a client or admin so it never appears as a
+// raw slug or dash-split. Falls back to title-casing an unknown slug.
+export function serviceTitle(slug?: string): string | undefined {
+  if (!slug) return undefined;
+  return (
+    services.find((s) => s.slug === slug)?.title ||
+    slug
+      .split("-")
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+      .join(" ")
+  );
+}

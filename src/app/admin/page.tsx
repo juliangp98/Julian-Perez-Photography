@@ -27,7 +27,7 @@ export default async function AdminLoginPage({
         : null;
 
   return (
-    <section className="max-w-md mx-auto px-6 py-24">
+    <section className="max-w-md mx-auto px-6 lg:px-10 py-12">
       <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
         Admin
       </div>

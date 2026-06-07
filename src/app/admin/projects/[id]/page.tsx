@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull, listClientProjectsByEmailFull } from "@/lib/clients";
-import AdminNav from "@/components/AdminNav";
+import SubNav, { ADMIN_TABS } from "@/components/SubNav";
 import AdminProjectEditForm from "@/components/AdminProjectEditForm";
 import PortalBundles from "@/components/PortalBundles";
 import ComposeEmail from "@/components/ComposeEmail";
@@ -20,6 +20,7 @@ import {
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import DeleteProjectButton from "@/components/DeleteProjectButton";
 import CopyField from "@/components/CopyField";
+import { RailCard, Detail } from "@/components/RailCard";
 
 export const metadata: Metadata = {
   title: "Project — Admin",
@@ -40,36 +41,10 @@ function formatLongDate(d?: string): string | undefined {
   });
 }
 
+// Admin rail field — the shared Detail with the admin list's spacing + newline
+// handling, so the call sites below stay terse. RailCard is the shared one.
 function Read({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
-  return (
-    <div className="py-2">
-      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-        {label}
-      </div>
-      <div className="mt-1 whitespace-pre-line text-sm">{value}</div>
-    </div>
-  );
-}
-
-// Card shell for a rail module.
-function RailCard({
-  title,
-  tone = "default",
-  children,
-}: {
-  title: string;
-  tone?: "default" | "danger";
-  children: React.ReactNode;
-}) {
-  const border = tone === "danger" ? "border-red-300" : "border-[var(--border)]";
-  const heading = tone === "danger" ? "text-red-700" : "";
-  return (
-    <div className={`rounded-lg border ${border} bg-white p-5`}>
-      <h2 className={`font-serif text-xl ${heading}`}>{title}</h2>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
+  return <Detail label={label} value={value} className="py-2" preLine />;
 }
 
 export default async function AdminProjectDetailPage({
@@ -132,7 +107,7 @@ export default async function AdminProjectDetailPage({
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
-      <AdminNav active="projects" />
+      <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <Link
         href="/admin/projects"
         className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"

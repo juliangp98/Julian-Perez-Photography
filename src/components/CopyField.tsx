@@ -37,7 +37,7 @@ export default function CopyField({
           {copied ? "Copied ✓" : "Copy"}
         </button>
       </div>
-      <p className="mt-1.5 whitespace-pre-line rounded border border-[var(--border)] bg-white p-3 text-sm leading-relaxed">
+      <p className="mt-1.5 whitespace-pre-line break-words rounded border border-[var(--border)] bg-white p-3 text-sm leading-relaxed">
         {value}
       </p>
     </div>

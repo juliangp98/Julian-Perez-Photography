@@ -15,7 +15,7 @@ export default async function ClientGalleriesPage() {
   const settings = await getSiteSettings();
   const url = settings.clientGalleryUrl;
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
       <SubNav items={CLIENT_TABS} />
       <h1 className="mt-8 font-serif text-5xl">Your gallery</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
-import AdminNav from "@/components/AdminNav";
+import SubNav, { ADMIN_TABS } from "@/components/SubNav";
 
 export const metadata: Metadata = {
   title: "External links — Admin",
@@ -138,7 +138,7 @@ export default async function AdminLinksPage() {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
-      <AdminNav active="links" />
+      <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">External links</h1>
       <p className="mt-2 text-[var(--muted)]">
         Every service this site connects to, in one place.

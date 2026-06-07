@@ -261,7 +261,7 @@ export default function AdminProjectEditForm({
             </option>
             {packageOptions.map((p) => (
               <option key={p.name} value={p.name}>
-                {p.name} — {p.price}
+                {p.name}
               </option>
             ))}
             {/* Preserve an existing package that isn't in the service's list. */}
