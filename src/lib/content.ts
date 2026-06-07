@@ -8,6 +8,7 @@ import {
   type Umbrella,
 } from "./types";
 import { portfolioManifest } from "./portfolio-manifest";
+import { aboutImages } from "./about-manifest";
 import { siteSettingsFallback } from "./site-settings-data";
 import { services } from "./services-data";
 import { portfoliosFallback } from "./portfolios-data";
@@ -416,10 +417,18 @@ function mergeAboutWithFallback(remote: Partial<AboutPage>): AboutPage {
  * share one fetch per request. Next's 60s revalidate + `aboutPage` cache
  * tag + webhook-driven invalidation handle cross-request freshness.
  */
+// Imported /about sidebar photos (public/about/, via the manifest) win over any
+// manually-set paths — the same source-of-truth posture as the portfolio
+// galleries. Left untouched when the manifest is empty.
+function withAboutImages(a: AboutPage): AboutPage {
+  return aboutImages.length ? { ...a, images: aboutImages } : a;
+}
+
 export const getAboutPage = cacheSanityFetch<AboutPage>(async () => {
   const remote = await getAboutPageFromSanity();
-  return remote ? mergeAboutWithFallback(remote) : null;
-}, aboutPageFallback);
+  const base = remote ? mergeAboutWithFallback(remote) : aboutPageFallback;
+  return withAboutImages(base);
+}, withAboutImages(aboutPageFallback));
 
 // ---------------------------------------------------------------------------
 // Featured journal post (home-page surfacing)

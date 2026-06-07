@@ -32,30 +32,32 @@ export default async function PortalLoginPage({
         : null;
 
   return (
-    <section className="max-w-md mx-auto px-6 py-24">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
-      <h1 className="mt-6 font-serif text-4xl">Sign in</h1>
-      <p className="mt-4 text-[var(--muted)] leading-relaxed">
-        Enter the email you used with me and I&rsquo;ll send you a secure
-        sign-in link — no password needed.
-      </p>
-      {errorMsg && (
-        <p role="alert" className="mt-4 text-sm text-red-700">
-          {errorMsg}
+      <div className="mx-auto mt-8 max-w-md">
+        <h1 className="font-serif text-4xl">Sign in</h1>
+        <p className="mt-4 text-[var(--muted)] leading-relaxed">
+          Enter the email you used with me and I&rsquo;ll send you a secure
+          sign-in link — no password needed.
         </p>
-      )}
-      <div className="mt-8">
-        <PortalLoginForm />
+        {errorMsg && (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {errorMsg}
+          </p>
+        )}
+        <div className="mt-8">
+          <PortalLoginForm />
+        </div>
+        <p className="mt-6 text-sm text-[var(--muted)]">
+          New here, or no project yet?{" "}
+          <Link
+            href="/inquire"
+            className="underline underline-offset-4 hover:text-[var(--foreground)]"
+          >
+            Start with an inquiry →
+          </Link>
+        </p>
       </div>
-      <p className="mt-6 text-sm text-[var(--muted)]">
-        New here, or no project yet?{" "}
-        <Link
-          href="/inquire"
-          className="underline underline-offset-4 hover:text-[var(--foreground)]"
-        >
-          Start with an inquiry →
-        </Link>
-      </p>
     </section>
   );
 }

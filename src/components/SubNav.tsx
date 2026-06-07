@@ -24,35 +24,43 @@ export default function SubNav({
   const pathname = usePathname();
   return (
     <div className="border-b border-[var(--border)] pb-4">
-      {back && (
-        <Link
-          href={back.href}
-          className="mb-3 inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
-        >
-          <span aria-hidden>←</span>
-          {back.label}
-        </Link>
-      )}
-      <nav aria-label="Section" className="flex flex-wrap gap-x-6 gap-y-2">
-        {items.map((it) => {
-          const active =
-            pathname === it.href || pathname?.startsWith(`${it.href}/`);
-          return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {back && (
+          <>
             <Link
-              key={it.href}
-              href={it.href}
-              aria-current={active ? "page" : undefined}
-              className={`text-xs uppercase tracking-[0.2em] transition ${
-                active
-                  ? "text-[var(--accent)]"
-                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
+              href={back.href}
+              className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
             >
-              {it.label}
+              <span aria-hidden>←</span>
+              {back.label}
             </Link>
-          );
-        })}
-      </nav>
+            <span
+              aria-hidden
+              className="h-4 w-px shrink-0 bg-[var(--border)]"
+            />
+          </>
+        )}
+        <nav aria-label="Section" className="flex flex-wrap gap-x-6 gap-y-2">
+          {items.map((it) => {
+            const active =
+              pathname === it.href || pathname?.startsWith(`${it.href}/`);
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                aria-current={active ? "page" : undefined}
+                className={`text-xs uppercase tracking-[0.2em] transition ${
+                  active
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {it.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </div>
   );
 }
@@ -82,4 +90,5 @@ export const FUNNEL_TABS: SubNavItem[] = [
   { label: "Inquire", href: "/inquire" },
   { label: "Plan your session", href: "/questionnaire" },
   { label: "Book", href: "/book" },
+  { label: "FAQ", href: "/faq" },
 ];

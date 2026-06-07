@@ -75,6 +75,10 @@ test("subnav: the booking funnel runs Inquire → Plan → Book", async ({
     "href",
     "/book",
   );
+  await expect(nav.getByRole("link", { name: "FAQ" })).toHaveAttribute(
+    "href",
+    "/faq",
+  );
 
   // /inquire flips the active tab to Inquire.
   await page.goto("/inquire");
@@ -82,6 +86,14 @@ test("subnav: the booking funnel runs Inquire → Plan → Book", async ({
     page
       .getByRole("navigation", { name: "Section" })
       .getByRole("link", { name: "Inquire" }),
+  ).toHaveAttribute("aria-current", "page");
+
+  // /faq is the final tab in the funnel and marks itself active.
+  await page.goto("/faq");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Section" })
+      .getByRole("link", { name: "FAQ" }),
   ).toHaveAttribute("aria-current", "page");
 });
 

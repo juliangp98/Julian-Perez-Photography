@@ -6,6 +6,7 @@ import { UMBRELLAS } from "@/lib/types";
 import { aiEnabled } from "@/lib/ai";
 import FaqBrowser from "@/components/FaqBrowser";
 import ConciergeChat from "@/components/ConciergeChat";
+import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -34,7 +35,7 @@ export default async function FaqPage() {
   };
 
   return (
-    <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <Script
         id="ld-faq-index"
         type="application/ld+json"
@@ -42,32 +43,40 @@ export default async function FaqPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
 
-      <h1 className="font-serif text-5xl">Frequently asked questions</h1>
+      <SubNav items={FUNNEL_TABS} />
+
+      <h1 className="mt-6 font-serif text-5xl">Frequently asked questions</h1>
       <p className="mt-3 text-[var(--muted)] max-w-2xl">
         Everything about services, pricing, booking, travel, and delivery.
         Search or filter to find your answer — and if it&rsquo;s not here, ask
         below or send an inquiry.
       </p>
 
-      <div className="mt-10">
-        <FaqBrowser
-          items={items}
-          umbrellas={UMBRELLAS.map(({ id, title }) => ({ id, title }))}
-        />
-      </div>
-
-      {ai && (
-        <div className="mt-16 border-t border-[var(--border)] pt-10">
-          <h2 className="font-serif text-2xl">Still have a question?</h2>
-          <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
-            Ask the studio assistant — it can help with services, pricing, and
-            booking.
-          </p>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] overflow-hidden">
-            <ConciergeChat variant="docked" inquireHref="/inquire" />
-          </div>
+      <div
+        className={`mt-10 ${
+          ai ? "lg:grid lg:grid-cols-3 lg:gap-12 lg:items-start" : ""
+        }`}
+      >
+        <div className={ai ? "lg:col-span-2" : undefined}>
+          <FaqBrowser
+            items={items}
+            umbrellas={UMBRELLAS.map(({ id, title }) => ({ id, title }))}
+          />
         </div>
-      )}
+
+        {ai && (
+          <aside className="mt-12 lg:mt-0 lg:sticky lg:top-24">
+            <h2 className="font-serif text-2xl">Still have a question?</h2>
+            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+              Ask the studio assistant — it can help with services, pricing, and
+              booking.
+            </p>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] overflow-hidden">
+              <ConciergeChat variant="docked" inquireHref="/inquire" />
+            </div>
+          </aside>
+        )}
+      </div>
 
       <div className="mt-12">
         <Button href="/inquire" variant="secondary" size="lg">

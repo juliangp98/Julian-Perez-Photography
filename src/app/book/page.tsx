@@ -84,27 +84,26 @@ export default async function BookPage() {
           Embed not loading? Use the &ldquo;Open in new tab&rdquo; button —
           some browsers block cross-site iframes by default.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <Button href={settings.bookingUrl} external>
-            Open in new tab →
-          </Button>
-          <Button href="/inquire" variant="secondary">
-            Not sure yet? Inquire first
-          </Button>
-        </div>
+        <Button href={settings.bookingUrl} external>
+          Open in new tab →
+        </Button>
       </div>
 
-      <div className="mt-10 text-sm text-[var(--muted)]">
-        Prefer to chat before booking?{" "}
-        <a
-          href={`mailto:${settings.contactEmail}`}
-          className="underline underline-offset-4"
-        >
-          Email me directly.
-        </a>
-      </div>
-
-      <div className="mt-8 max-w-3xl">
+      <div className="mt-10 max-w-3xl space-y-5">
+        <CalloutCard
+          tone="neutral"
+          eyebrow="Not ready to book?"
+          title="Prefer to talk it through first"
+          description="No need to pick a time today. Send a note and I'll help you figure out the right fit — or email me directly."
+          actions={[
+            {
+              label: "Email me directly",
+              href: `mailto:${settings.contactEmail}`,
+              external: true,
+            },
+            { label: "Inquire first", href: "/inquire", variant: "secondary" },
+          ]}
+        />
         <CalloutCard
           eyebrow="Already booked or seriously considering?"
           title="Plan your session"

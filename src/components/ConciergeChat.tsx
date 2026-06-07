@@ -38,11 +38,16 @@ export default function ConciergeChat({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
-  const endRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const hpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Keep the transcript pinned to the latest turn by scrolling the log
+    // container itself — never the page. Skip the initial empty state so the
+    // docked /faq variant doesn't yank the viewport down to the chat on load.
+    if (messages.length === 0) return;
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
 
   async function request(convo: Msg[]) {
@@ -89,6 +94,7 @@ export default function ConciergeChat({
     <div className={`flex flex-col ${rootHeight} min-h-0`}>
       {/* Conversation */}
       <div
+        ref={logRef}
         role="log"
         aria-live="polite"
         aria-label="Conversation with the booking assistant"
@@ -141,8 +147,6 @@ export default function ConciergeChat({
             </button>
           </div>
         )}
-
-        <div ref={endRef} />
       </div>
 
       {/* Composer */}

@@ -51,6 +51,13 @@ export const aboutPage = defineType({
       description:
         "Optional path to a headshot in /public (e.g. '/about/julian.jpg'). Follows the Lightroom export workflow — this field is just a path, not a Sanity-hosted image.",
     }),
+    defineField({
+      name: "images",
+      type: "array",
+      of: [{ type: "string" }],
+      description:
+        "Optional sidebar photos on /about — paths into /public/about/ (e.g. '/about/about-01.jpg'). The import script's `about/` folder populates these automatically; you can also set them by hand. Rendered in a column beside the bio.",
+    }),
   ],
   preview: {
     prepare: () => ({ title: "About Page" }),

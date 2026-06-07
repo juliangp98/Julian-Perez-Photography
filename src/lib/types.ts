@@ -183,6 +183,10 @@ export type AboutPage = {
   heading: string;
   bio: string[];
   headshot?: string;
+  // Optional sidebar photos on /about (paths into /public/about/...). Populated
+  // by the import script's `about/` manifest, or set by hand; rendered in a
+  // sticky column beside the bio.
+  images?: string[];
 };
 
 export type SiteSettings = {
