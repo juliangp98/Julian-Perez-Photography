@@ -429,6 +429,27 @@ export async function attachQuestionnaire(input: {
     existing = existingRows?.[0] as QRow | undefined;
   }
 
+  // Sync the structured answers the client gave back onto the record so the
+  // portal + admin reflect them without re-entry — one canonical value per
+  // field (the bare package name, etc.). Parsed defensively; a non-JSON
+  // snapshot just skips the sync.
+  const synced: Record<string, unknown> = {};
+  try {
+    const a = JSON.parse(input.answersJson) as Record<string, unknown>;
+    const str = (k: string) =>
+      typeof a[k] === "string" ? (a[k] as string).trim() : "";
+    const pkg = str("package");
+    if (pkg && pkg !== "Still deciding") synced.package = pkg;
+    const ed = str("eventDate");
+    if (ed) synced.event_date = ed;
+    const pn = str("partnerFullName");
+    if (pn) synced.partner_name = pn;
+    const gc = str("guestCount");
+    if (gc && !Number.isNaN(Number(gc))) synced.guest_count = Number(gc);
+  } catch {
+    /* snapshot isn't a JSON object — skip the structured sync */
+  }
+
   let id = (existing?.id as string | undefined) ?? null;
   if (!id) {
     const { data, error } = await db()
@@ -440,6 +461,7 @@ export async function attachQuestionnaire(input: {
         service_type: input.service || null,
         source: "questionnaire",
         questionnaire_snapshot: input.answersJson,
+        ...synced,
         status_history: [
           { status: "planning", changedAt: ts, note: "Questionnaire submitted" },
         ],
@@ -453,6 +475,7 @@ export async function attachQuestionnaire(input: {
   } else {
     const patch: Record<string, unknown> = {
       questionnaire_snapshot: input.answersJson,
+      ...synced,
       updated_at: ts,
     };
     if (!existing?.service_type && input.service) patch.service_type = input.service;

@@ -70,6 +70,15 @@ test("admin: full sign-in loop reaches the projects dashboard", async ({
     page.getByRole("heading", { name: "Projects", level: 1 }),
   ).toBeVisible();
 
+  // The admin area now uses the same unified portal nav as the client side: one
+  // Section bar with the admin tabs (Projects active) + an integrated Sign out.
+  await expect(
+    page
+      .getByRole("navigation", { name: "Section" })
+      .getByRole("link", { name: "Projects" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+
   // 4. External-links hub is reachable once authed. 30s timeout: the first
   //    navigation to this route triggers a cold Turbopack compile that can
   //    exceed the default 5s assertion window on a fresh suite run.

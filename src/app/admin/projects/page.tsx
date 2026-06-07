@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
-import AdminNav from "@/components/AdminNav";
+import { serviceTitle } from "@/lib/services-data";
+import SubNav, { ADMIN_TABS } from "@/components/SubNav";
 import AdminQuickLog from "@/components/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
 import AdminSearch from "@/components/AdminSearch";
@@ -145,7 +146,7 @@ export default async function AdminProjectsPage({
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
-      <AdminNav active="projects" />
+      <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">Projects</h1>
       <p className="mt-2 text-[var(--muted)]">
         {hasFilters
@@ -253,7 +254,7 @@ export default async function AdminProjectsPage({
               <option value="">All services</option>
               {services.map((s) => (
                 <option key={s} value={s}>
-                  {s.replace(/-/g, " ")}
+                  {serviceTitle(s)}
                 </option>
               ))}
             </select>

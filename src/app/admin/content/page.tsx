@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
-import AdminNav from "@/components/AdminNav";
+import SubNav, { ADMIN_TABS } from "@/components/SubNav";
 import JournalDrafter from "@/components/JournalDrafter";
 import CopyPolisher, { type CopySubject } from "@/components/CopyPolisher";
 import MetaDrafter from "@/components/MetaDrafter";
@@ -59,7 +59,7 @@ export default async function AdminContentPage() {
 
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-12">
-      <AdminNav active="content" />
+      <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">Content tools</h1>
       <p className="mt-2 text-[var(--muted)]">
         Draft journal posts and polish your page copy with AI, then review and

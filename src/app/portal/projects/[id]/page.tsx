@@ -11,7 +11,11 @@ import { getQuestionnaire } from "@/lib/questionnaires";
 import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/PortalStatusTimeline";
+import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import CalloutCard from "@/components/CalloutCard";
+import { RailCard, Detail } from "@/components/RailCard";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
+import { serviceTitle } from "@/lib/services-data";
 import { aiEnabled } from "@/lib/ai";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
@@ -58,33 +62,6 @@ function formatDate(d?: string): string | null {
   });
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-        {label}
-      </div>
-      <div className="mt-1 text-sm">{value}</div>
-    </div>
-  );
-}
-
-// Bordered rail module on the client project view.
-function RailCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5">
-      <h2 className="font-serif text-xl">{title}</h2>
-      <div className="mt-4">{children}</div>
-    </div>
-  );
-}
-
 export default async function PortalProjectPage({
   params,
 }: {
@@ -96,10 +73,11 @@ export default async function PortalProjectPage({
   const record = await getProjectForEmail(id, session.email);
   if (!record) {
     return (
-      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-24">
+      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+        <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
         <Link
           href="/portal/dashboard"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+          className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
         >
           ← Your projects
         </Link>
@@ -128,23 +106,14 @@ export default async function PortalProjectPage({
     !!record.partnerName;
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <Link
-          href="/portal/dashboard"
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
-        >
-          ← Your projects
-        </Link>
-        <form action="/portal/logout" method="post">
-          <button
-            type="submit"
-            className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
-          >
-            Sign out
-          </button>
-        </form>
-      </div>
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+      <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
+      <Link
+        href="/portal/dashboard"
+        className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+      >
+        ← Your projects
+      </Link>
 
       <h1 className="mt-4 font-serif text-4xl">{projectDisplayName(record)}</h1>
       <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -181,49 +150,31 @@ export default async function PortalProjectPage({
         </a>
       )}
 
-      {link && (
-        <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
-          <p className="text-sm font-medium">Add your event details</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Fill out your planning questionnaire so I show up fully prepared —
-            your details here are carried over, and anything you add flows
-            straight back to this project.
-          </p>
-          <a
-            href={link.href}
-            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
-          >
-            Open your {record.serviceType?.replace(/-/g, " ")} questionnaire →
-          </a>
-        </div>
-      )}
-
-      {inquireLink && (
-        <div className="mt-8 p-5 border border-[var(--accent)] rounded-lg bg-white">
-          <p className="text-sm font-medium">Tell me what you&rsquo;re planning</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            You started this project without picking a service. Send a quick note
-            and I&rsquo;ll get it set up — it stays attached to this project.
-          </p>
-          <a
-            href={inquireLink}
-            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
-          >
-            Tell me what you&rsquo;re thinking →
-          </a>
-        </div>
-      )}
-
-      {/* Interactive content (left) + reference info (right rail). */}
+      {/* Updates & submissions (left) + static project info (right rail). */}
       <div className="mt-10 grid lg:grid-cols-[1.6fr_1fr] gap-x-12 gap-y-10 items-start">
-        <div className="min-w-0 space-y-12">
-          {record.planSummary && (
-            <div>
-              <h2 className="font-serif text-2xl">Plan</h2>
-              <p className="mt-4 whitespace-pre-line leading-relaxed text-[var(--foreground)]/90">
-                {record.planSummary}
-              </p>
-            </div>
+        <div className="min-w-0 space-y-10">
+          {link && (
+            <CalloutCard
+              eyebrow="Add your event details"
+              title="Your planning questionnaire"
+              description="Fill it out so I show up fully prepared — your details here are carried over, and anything you add flows straight back to this project."
+              actions={[
+                {
+                  label: `Open your ${serviceTitle(record.serviceType)} questionnaire →`,
+                  href: link.href,
+                },
+              ]}
+            />
+          )}
+          {inquireLink && (
+            <CalloutCard
+              eyebrow="Tell me what you're planning"
+              title="Set up your service"
+              description="You started this project without picking a service. Send a quick note and I'll get it set up — it stays attached to this project."
+              actions={[
+                { label: "Tell me what you're thinking →", href: inquireLink },
+              ]}
+            />
           )}
 
           <div>
@@ -238,7 +189,7 @@ export default async function PortalProjectPage({
               aiEnabled={aiEnabled()}
               projectContext={{
                 clientName: record.clientName,
-                service: record.serviceType?.replace(/-/g, " "),
+                service: serviceTitle(record.serviceType),
                 eventDate: record.eventDate,
                 status:
                   CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus],
@@ -324,6 +275,14 @@ export default async function PortalProjectPage({
                   </div>
                 ))}
               </div>
+            </RailCard>
+          )}
+
+          {record.planSummary && (
+            <RailCard title="Plan">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--foreground)]/90">
+                {record.planSummary}
+              </p>
             </RailCard>
           )}
 

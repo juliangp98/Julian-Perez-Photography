@@ -111,20 +111,10 @@ export default async function PortalProjectsMenuPage() {
   ].filter((u) => byUmbrella.has(u));
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-      <SubNav items={CLIENT_TABS} />
-      <div className="mt-8 flex items-center justify-between gap-4">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Your projects
-        </div>
-        <form action="/portal/logout" method="post">
-          <button
-            type="submit"
-            className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
-          >
-            Sign out
-          </button>
-        </form>
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+      <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
+      <div className="mt-8 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        Your projects
       </div>
       <h1 className="mt-2 font-serif text-4xl">Welcome back</h1>
       <p className="mt-3 text-[var(--muted)]">

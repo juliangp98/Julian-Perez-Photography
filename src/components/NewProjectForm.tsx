@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { services } from "@/lib/services-data";
+import { services, serviceTitle } from "@/lib/services-data";
 
 const input =
   "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
@@ -168,7 +168,7 @@ export default function NewProjectForm() {
         {dup && (
           <div className="rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.05] p-3 text-sm">
             A{" "}
-            {dup.serviceType ? `${dup.serviceType.replace(/-/g, " ")} ` : ""}
+            {dup.serviceType ? `${serviceTitle(dup.serviceType)} ` : ""}
             project already exists for this email.
             <div className="mt-2 flex flex-wrap gap-4">
               <Link
