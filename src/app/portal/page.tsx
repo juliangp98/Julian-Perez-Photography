@@ -34,21 +34,23 @@ export default async function PortalLoginPage({
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
-      <div className="mx-auto mt-8 max-w-md">
-        <h1 className="font-serif text-4xl">Sign in</h1>
-        <p className="mt-4 text-[var(--muted)] leading-relaxed">
-          Enter the email you used with me and I&rsquo;ll send you a secure
-          sign-in link — no password needed.
-        </p>
-        {errorMsg && (
-          <p role="alert" className="mt-4 text-sm text-red-700">
-            {errorMsg}
+      <div className="mx-auto mt-8 max-w-4xl lg:grid lg:grid-cols-2 lg:gap-12 lg:items-start">
+        <div>
+          <h1 className="font-serif text-4xl">Sign in</h1>
+          <p className="mt-4 text-[var(--muted)] leading-relaxed">
+            Enter the email you used with me and I&rsquo;ll send you a secure
+            sign-in link — no password needed.
           </p>
-        )}
-        <div className="mt-8">
-          <PortalLoginForm />
+          {errorMsg && (
+            <p role="alert" className="mt-4 text-sm text-red-700">
+              {errorMsg}
+            </p>
+          )}
+          <div className="mt-8">
+            <PortalLoginForm />
+          </div>
         </div>
-        <div className="mt-8">
+        <aside className="mt-10 lg:mt-0 lg:sticky lg:top-24">
           <CalloutCard
             tone="neutral"
             eyebrow="New here, or no project yet?"
@@ -56,7 +58,7 @@ export default async function PortalLoginPage({
             description="Your portal opens once you have a project with me. New to the studio? Send an inquiry and I'll get you started."
             actions={[{ label: "Start an inquiry →", href: "/inquire" }]}
           />
-        </div>
+        </aside>
       </div>
     </section>
   );
