@@ -111,7 +111,7 @@ export default async function PortalProjectsMenuPage() {
   ].filter((u) => byUmbrella.has(u));
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
       <div className="mt-8 flex items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">

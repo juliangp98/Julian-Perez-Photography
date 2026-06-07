@@ -52,3 +52,21 @@ test("faq page: filtering to General hides service-only questions", async ({
     page.getByText(/do you include a second photographer/i),
   ).toHaveCount(0);
 });
+
+test("faq page: loads at the top (no auto-scroll to the chat)", async ({
+  page,
+}) => {
+  // The docked concierge previously pulled the viewport down to itself on
+  // mount. The page should load at the very top regardless of whether the chat
+  // is rendered (the fix scrolls the chat's own log container, not the page).
+  await page.goto("/faq");
+  await expect(
+    page.getByRole("heading", {
+      name: /frequently asked questions/i,
+      level: 1,
+    }),
+  ).toBeVisible();
+  await page.waitForTimeout(500);
+  const scrollY = await page.evaluate(() => window.scrollY);
+  expect(scrollY).toBeLessThan(50);
+});
