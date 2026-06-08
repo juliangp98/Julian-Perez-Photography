@@ -10,6 +10,7 @@ import PortalBundles from "@/components/PortalBundles";
 import ComposeEmail from "@/components/ComposeEmail";
 import InquiryTriage from "@/components/InquiryTriage";
 import PrepBrief from "@/components/PrepBrief";
+import QuestionnaireCallout from "@/components/QuestionnaireCallout";
 import NextActionNudge from "@/components/NextActionNudge";
 import { aiEnabled } from "@/lib/ai";
 import {
@@ -180,43 +181,16 @@ export default async function AdminProjectDetailPage({
                 </div>
               )}
 
-              {/* Questionnaire read-out + its AI prep brief, together. */}
-              {answerGroups && (
+              {/* Collapsible questionnaire read-out + its AI prep brief. The
+                  callout starts collapsed (it's reference once filed); the
+                  interactive prep brief sits outside it. */}
+              {record.questionnaireSnapshot && (
                 <div className="pt-8 border-t border-[var(--border)]">
-                  <h2 className="font-serif text-2xl">Questionnaire</h2>
-                  <div className="mt-4 space-y-5">
-                    {answerGroups.map((g) => (
-                      <div key={g.section}>
-                        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                          {g.section}
-                        </div>
-                        <dl className="mt-2 divide-y divide-[var(--border)]">
-                          {g.items.map((it, i) => (
-                            <div
-                              key={i}
-                              className="py-2 sm:grid sm:grid-cols-[12rem_1fr] sm:gap-4"
-                            >
-                              <dt className="text-sm text-[var(--muted)]">
-                                {it.label}
-                              </dt>
-                              <dd className="mt-0.5 sm:mt-0 text-sm whitespace-pre-line">
-                                {it.value}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-xs text-[var(--muted)]">
-                      View raw JSON
-                    </summary>
-                    <pre className="mt-2 p-4 bg-[var(--border)]/30 rounded text-xs overflow-x-auto whitespace-pre-wrap">
-                      {record.questionnaireSnapshot}
-                    </pre>
-                  </details>
-                  {ai && record.questionnaireSnapshot?.trim() && (
+                  <QuestionnaireCallout
+                    groups={answerGroups}
+                    rawSnapshot={record.questionnaireSnapshot}
+                  />
+                  {ai && record.questionnaireSnapshot.trim() && (
                     <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--background)] p-5">
                       <h3 className="font-serif text-lg">Shoot prep brief</h3>
                       <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
@@ -226,19 +200,6 @@ export default async function AdminProjectDetailPage({
                       <PrepBrief projectId={record.id} />
                     </div>
                   )}
-                </div>
-              )}
-              {!answerGroups && record.questionnaireSnapshot && (
-                <div className="pt-8 border-t border-[var(--border)]">
-                  <h2 className="font-serif text-2xl">Questionnaire</h2>
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-sm font-medium">
-                      Questionnaire snapshot (raw)
-                    </summary>
-                    <pre className="mt-3 p-4 bg-[var(--border)]/30 rounded text-xs overflow-x-auto whitespace-pre-wrap">
-                      {record.questionnaireSnapshot}
-                    </pre>
-                  </details>
                 </div>
               )}
 
