@@ -85,12 +85,20 @@ export type ClientRecordSafe = {
   bundleLabel?: string;
   galleryUrl?: string;
   projectName?: string;
+  // The owner's own questionnaire answers (JSON keyed by field id). Selected
+  // ONLY by the single-project owner read (getProjectForEmail) so a client can
+  // review and resubmit their own submission — never in the list projection,
+  // never for anyone but the project's owner.
+  questionnaireSnapshot?: string;
 };
 
 // Column projection for the portal. Columns are aliased snake_case → camelCase.
-// internal_notes / questionnaire_snapshot / status_history / inquiry_message /
-// referral / source / created_at / updated_at are deliberately NOT selected —
-// this is the privacy boundary, enforced at the query.
+// internal_notes / status_history / inquiry_message / referral / source /
+// created_at / updated_at are deliberately NOT selected — this is the privacy
+// boundary, enforced at the query. questionnaire_snapshot is the one exception:
+// it stays out of this shared/list projection but is layered on by the
+// single-project owner read (projectForOwnerSelect → getProjectForEmail) so a
+// client can review their OWN answers — gated by id + email, never cross-client.
 const SAFE_SELECT_BASE =
   "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update";
 // Columns added by post-launch migrations (bundles, gallery URL) — appended
@@ -116,6 +124,12 @@ function safeSelect(): string {
 }
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA;
+}
+// The single-project owner read — the safe projection plus the questionnaire
+// snapshot, so a signed-in client can review (and resubmit) their own answers.
+// Owner-gated by id + email at the call site; never used for the list.
+function projectForOwnerSelect(): string {
+  return safeSelect() + ", questionnaireSnapshot:questionnaire_snapshot";
 }
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -198,19 +212,22 @@ export async function listProjectsByEmail(
 }
 
 // A single project, but ONLY if it belongs to this email — the ownership gate
-// for every portal project page + mutation (prevents IDOR across people).
+// for every portal project page + mutation (prevents IDOR across people). Uses
+// the owner projection so the client sees their own questionnaire snapshot.
 export async function getProjectForEmail(
   id: string,
   email: string,
 ): Promise<ClientRecordSafe | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
-    db()
-      .from(TABLE)
-      .select(sel)
-      .eq("id", id)
-      .eq("email", normalizeEmail(email))
-      .maybeSingle(),
+  const { data, error } = await readWithOptionalColumns(
+    projectForOwnerSelect,
+    (sel) =>
+      db()
+        .from(TABLE)
+        .select(sel)
+        .eq("id", id)
+        .eq("email", normalizeEmail(email))
+        .maybeSingle(),
   );
   if (error) throw error;
   return (data as ClientRecordSafe | null) ?? null;

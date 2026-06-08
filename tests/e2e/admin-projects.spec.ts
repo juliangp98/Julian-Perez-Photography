@@ -71,6 +71,23 @@ test("admin projects: filter params render without error", async ({
   ).toBeVisible();
 });
 
+test("admin project page: a missing project renders the not-found state, not a 500", async ({
+  page,
+  request,
+}) => {
+  const res = await request.post("/api/admin/request-link", {
+    headers: { "x-forwarded-for": "10.88.0.7" },
+    data: { email: "admin@example.com", hp_company: "" },
+  });
+  const { devLink } = await res.json();
+  await page.goto(devLink);
+  // The detail page server-renders its full tree — including the collapsible
+  // questionnaire callout path. With the store blanked the record is absent, so
+  // it must show the not-found copy rather than 500.
+  await page.goto("/admin/projects/no-such-project");
+  await expect(page.getByText(/couldn.t be found/i)).toBeVisible();
+});
+
 test("admin update: accepts a gallery URL and project name when authenticated", async ({
   request,
 }) => {

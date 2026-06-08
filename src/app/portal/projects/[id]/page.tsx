@@ -8,11 +8,13 @@ import {
   type ClientStatus,
 } from "@/lib/client-status";
 import { getQuestionnaire } from "@/lib/questionnaires";
+import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import PortalEditForm from "@/components/PortalEditForm";
 import PortalDocumentUpload from "@/components/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/PortalStatusTimeline";
 import SubNav, { CLIENT_TABS } from "@/components/SubNav";
 import CalloutCard from "@/components/CalloutCard";
+import QuestionnaireCallout from "@/components/QuestionnaireCallout";
 import { RailCard, Detail } from "@/components/RailCard";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { serviceTitle } from "@/lib/services-data";
@@ -90,6 +92,14 @@ export default async function PortalProjectPage({
   }
 
   const link = questionnaireLinkFor(record);
+  // The client's own questionnaire answers (owner-gated snapshot), grouped for
+  // the collapsible read-out — null until something's been submitted.
+  const answerGroups = record.questionnaireSnapshot
+    ? buildAnswerGroups(record.serviceType, record.questionnaireSnapshot)
+    : null;
+  const questionnaireSubmitted =
+    (!!answerGroups && answerGroups.length > 0) ||
+    !!record.questionnaireSnapshot?.trim();
   // A service-undecided project (created without a service) has no questionnaire
   // yet — point the client at the inquiry, threaded so it attaches here.
   const inquireParams = new URLSearchParams({ project: record.id });
@@ -153,19 +163,6 @@ export default async function PortalProjectPage({
       {/* Updates & submissions (left) + static project info (right rail). */}
       <div className="mt-10 grid lg:grid-cols-[1.6fr_1fr] gap-x-12 gap-y-10 items-start">
         <div className="min-w-0 space-y-10">
-          {link && (
-            <CalloutCard
-              eyebrow="Add your event details"
-              title="Your planning questionnaire"
-              description="Fill it out so I show up fully prepared — your details here are carried over, and anything you add flows straight back to this project."
-              actions={[
-                {
-                  label: `Open your ${serviceTitle(record.serviceType)} questionnaire →`,
-                  href: link.href,
-                },
-              ]}
-            />
-          )}
           {inquireLink && (
             <CalloutCard
               eyebrow="Tell me what you're planning"
@@ -284,6 +281,23 @@ export default async function PortalProjectPage({
                 {record.planSummary}
               </p>
             </RailCard>
+          )}
+
+          {/* Planning questionnaire — collapsed once submitted (shows your own
+              answers + resubmit), open as a prompt when not yet started. Only
+              for service-set projects; the service-undecided inquiry prompt
+              lives in the left column. */}
+          {link && (
+            <QuestionnaireCallout
+              groups={answerGroups}
+              description="Fill it out so I show up fully prepared — your details here are carried over, and anything you add flows straight back to this project."
+              action={{
+                label: questionnaireSubmitted
+                  ? "Resubmit to update →"
+                  : `Open your ${serviceTitle(record.serviceType)} questionnaire →`,
+                href: link.href,
+              }}
+            />
           )}
 
           {record.documents && record.documents.length > 0 && (
