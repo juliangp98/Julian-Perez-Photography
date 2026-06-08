@@ -157,7 +157,7 @@ export default function ComposeEmail({
       {templateId && (
         <>
           {aiEnabled && (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4 space-y-3">
+            <div className="rounded-lg border border-[var(--border)] bg-white p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-medium">
                   Personalize this with AI

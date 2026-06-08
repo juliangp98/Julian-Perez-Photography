@@ -42,6 +42,8 @@ export default function AssistedTextarea({
   required,
   placeholder,
   textareaClassName = INPUT,
+  invalid,
+  errorId,
   assist,
 }: {
   id: string;
@@ -52,6 +54,10 @@ export default function AssistedTextarea({
   required?: boolean;
   placeholder?: string;
   textareaClassName?: string;
+  // Validation hooks the caller wires to its own error state, so the field
+  // announces itself as invalid and points at the message.
+  invalid?: boolean;
+  errorId?: string;
   assist: AssistConfig;
 }) {
   const [open, setOpen] = useState(false);
@@ -136,6 +142,8 @@ export default function AssistedTextarea({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-invalid={invalid || undefined}
+        aria-describedby={errorId}
         className={textareaClassName}
       />
 

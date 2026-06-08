@@ -12,6 +12,13 @@ type CallLink = { label: string; url: string };
 
 type Status = "idle" | "submitting" | "success" | "error";
 
+// The four fields the server requires (mirrors the zod schema in
+// /api/inquire). Validated client-side so a bad submit points at the offending
+// field instead of bouncing off a generic server error.
+type FieldErrors = Partial<
+  Record<"name" | "email" | "service" | "message", string>
+>;
+
 export default function InquiryForm({
   defaultService,
   discoveryCall,
@@ -39,12 +46,24 @@ export default function InquiryForm({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
   // Track referral selection so the form can reveal a follow-up text
   // field when the user picks "Other" — keeps the long tail of real
   // sources visible without cluttering the dropdown.
   const [referral, setReferral] = useState("");
   const [message, setMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Clear a single field's error as the user edits it, so a corrected field
+  // stops showing red immediately.
+  function clearError(field: keyof FieldErrors) {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
 
   // Snapshot the sibling fields at draft time so the assist is grounded in what
   // the visitor has already filled in (service, date, venue, budget, name).
@@ -73,10 +92,46 @@ export default function InquiryForm({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
+    const val = (k: string) => {
+      const v = formData.get(k);
+      return typeof v === "string" ? v.trim() : "";
+    };
+
+    // Client-side validation: catch the required fields before the round-trip
+    // so the message points at the field, not the whole form.
+    const nextErrors: FieldErrors = {};
+    if (!val("name")) nextErrors.name = "Please enter your name.";
+    const email = val("email");
+    if (!email) nextErrors.email = "Please enter your email address.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      nextErrors.email = "Please enter a valid email address.";
+    if (!val("service")) nextErrors.service = "Please choose a service.";
+    if (!val("message"))
+      nextErrors.message = "Please tell me a little about your vision.";
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      setStatus("idle");
+      setErrorMsg(null);
+      const firstInvalid = (
+        ["name", "email", "service", "message"] as const
+      ).find((k) => nextErrors[k]);
+      if (firstInvalid) {
+        const el = formEl.querySelector<HTMLElement>(
+          `[name="${firstInvalid}"]`,
+        );
+        el?.focus();
+        el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      return;
+    }
+
+    setErrors({});
     setStatus("submitting");
     setErrorMsg(null);
 
-    const formData = new FormData(e.currentTarget);
     const payload = Object.fromEntries(formData.entries());
 
     try {
@@ -90,7 +145,7 @@ export default function InquiryForm({
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
       setStatus("success");
-      (e.target as HTMLFormElement).reset();
+      formEl.reset();
       setMessage("");
     } catch (err) {
       setStatus("error");
@@ -151,7 +206,18 @@ export default function InquiryForm({
 
   const input =
     "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
+  const inputError = "border-red-500 focus:border-red-500";
   const label = "block text-sm font-medium mb-1.5";
+  const fieldClass = (field: keyof FieldErrors) =>
+    `${input} ${errors[field] ? inputError : ""}`.trim();
+
+  // Red asterisk marking a required field; the visible legend below explains it.
+  const Req = () => (
+    <span className="text-red-600" aria-hidden="true">
+      {" "}
+      *
+    </span>
+  );
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="grid gap-5" noValidate>
@@ -168,22 +234,36 @@ export default function InquiryForm({
         <input type="hidden" name="project" defaultValue={projectId} />
       )}
 
+      <p className="text-xs text-[var(--muted)]">
+        <span className="text-red-600">*</span> Required
+      </p>
+
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="name" className={label}>
             Name
+            <Req />
           </label>
           <input
             id="name"
             name="name"
             required
             defaultValue={defaultName}
-            className={input}
+            onInput={() => clearError("name")}
+            aria-invalid={!!errors.name || undefined}
+            aria-describedby={errors.name ? "name-error" : undefined}
+            className={fieldClass("name")}
           />
+          {errors.name && (
+            <p id="name-error" className="mt-1 text-sm text-red-700">
+              {errors.name}
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="email" className={label}>
             Email
+            <Req />
           </label>
           <input
             id="email"
@@ -191,15 +271,23 @@ export default function InquiryForm({
             name="email"
             required
             defaultValue={defaultEmail}
-            className={input}
+            onInput={() => clearError("email")}
+            aria-invalid={!!errors.email || undefined}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            className={fieldClass("email")}
           />
+          {errors.email && (
+            <p id="email-error" className="mt-1 text-sm text-red-700">
+              {errors.email}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="phone" className={label}>
-            Phone (optional)
+            Phone
           </label>
           <input
             id="phone"
@@ -211,12 +299,16 @@ export default function InquiryForm({
         <div>
           <label htmlFor="service" className={label}>
             Service
+            <Req />
           </label>
           <select
             id="service"
             name="service"
             defaultValue={defaultService || ""}
-            className={input}
+            onChange={() => clearError("service")}
+            aria-invalid={!!errors.service || undefined}
+            aria-describedby={errors.service ? "service-error" : undefined}
+            className={fieldClass("service")}
             required
           >
             <option value="" disabled>
@@ -228,6 +320,11 @@ export default function InquiryForm({
               </option>
             ))}
           </select>
+          {errors.service && (
+            <p id="service-error" className="mt-1 text-sm text-red-700">
+              {errors.service}
+            </p>
+          )}
         </div>
       </div>
 
@@ -254,7 +351,7 @@ export default function InquiryForm({
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <label htmlFor="budget" className={label}>
-            Budget (optional)
+            Budget
           </label>
           <input
             id="budget"
@@ -294,6 +391,7 @@ export default function InquiryForm({
       <div>
         <label htmlFor="message" className={label}>
           Tell me about your vision
+          <Req />
         </label>
         <AssistedTextarea
           id="message"
@@ -301,8 +399,13 @@ export default function InquiryForm({
           rows={6}
           required
           value={message}
-          onChange={setMessage}
-          textareaClassName={input}
+          onChange={(v) => {
+            setMessage(v);
+            clearError("message");
+          }}
+          textareaClassName={fieldClass("message")}
+          invalid={!!errors.message}
+          errorId={errors.message ? "message-error" : undefined}
           assist={{
             kind: "inquiry",
             question: "Tell me about your vision",
@@ -310,6 +413,11 @@ export default function InquiryForm({
             getContext: assistContext,
           }}
         />
+        {errors.message && (
+          <p id="message-error" className="mt-1 text-sm text-red-700">
+            {errors.message}
+          </p>
+        )}
       </div>
 
       {/* role="alert" + aria-live so screen readers announce submission

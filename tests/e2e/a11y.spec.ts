@@ -15,11 +15,17 @@ import AxeBuilder from "@axe-core/playwright";
 
 const DISABLE_RULES = ["color-contrast", "region"];
 
-async function runAxe(page: import("@playwright/test").Page) {
-  return new AxeBuilder({ page })
+async function runAxe(
+  page: import("@playwright/test").Page,
+  exclude?: string,
+) {
+  let builder = new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
-    .disableRules(DISABLE_RULES)
-    .analyze();
+    .disableRules(DISABLE_RULES);
+  // Skip a selector's subtree — used to drop a cross-origin third-party embed
+  // we don't own from the scan.
+  if (exclude) builder = builder.exclude(exclude);
+  return builder.analyze();
 }
 
 test("a11y: home page has no violations (excluding documented rules)", async ({
@@ -89,6 +95,15 @@ test("a11y: /questionnaire/wedding-films first section has no violations", async
 test("a11y: /portal login page has no violations", async ({ page }) => {
   await page.goto("/portal");
   const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});
+
+test("a11y: /client galleries page has no violations", async ({ page }) => {
+  // The Pic-Time embed is a cross-origin third-party app we don't control (and
+  // axe descends into same-document iframes), so exclude it — the scan covers
+  // only our own markup around the embed.
+  await page.goto("/client");
+  const results = await runAxe(page, "iframe");
   expect(results.violations).toEqual([]);
 });
 

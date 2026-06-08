@@ -137,7 +137,7 @@ export default async function AdminLinksPage() {
   if (!(await getAdminSession())) redirect("/admin");
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">External links</h1>
       <p className="mt-2 text-[var(--muted)]">

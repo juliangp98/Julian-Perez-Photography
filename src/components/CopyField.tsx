@@ -9,9 +9,14 @@ import { useState } from "react";
 export default function CopyField({
   label,
   value,
+  href,
 }: {
   label: string;
   value: string;
+  // When set, render a compact hyperlink (label as the link text) next to the
+  // Copy button instead of the wrapped value box — for short, openable links
+  // (the client completion link) rather than long pasted text.
+  href?: string;
 }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
@@ -22,6 +27,27 @@ export default function CopyField({
     } catch {
       /* clipboard unavailable — no-op */
     }
+  }
+  if (href) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm underline underline-offset-4 hover:text-[var(--accent)]"
+        >
+          {label}
+        </a>
+        <button
+          type="button"
+          onClick={copy}
+          className="shrink-0 text-xs uppercase tracking-[0.15em] text-[var(--muted)] underline underline-offset-4 transition hover:text-[var(--accent)]"
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      </div>
+    );
   }
   return (
     <div>

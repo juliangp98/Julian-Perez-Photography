@@ -108,7 +108,7 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
       </div>
 
       {triage && (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-5 space-y-4">
+        <div className="rounded-lg border border-[var(--border)] bg-white p-5 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge label={FIT[triage.fit].label} cls={FIT[triage.fit].cls} />
             <Badge

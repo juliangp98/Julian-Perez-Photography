@@ -90,7 +90,7 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
       </div>
 
       {brief && (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-5 space-y-4">
+        <div className="rounded-lg border border-[var(--border)] bg-white p-5 space-y-4">
           {brief.headline && (
             <p className="font-serif text-lg leading-snug">{brief.headline}</p>
           )}

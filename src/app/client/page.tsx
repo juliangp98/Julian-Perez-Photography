@@ -15,7 +15,7 @@ export default async function ClientGalleriesPage() {
   const settings = await getSiteSettings();
   const url = settings.clientGalleryUrl;
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
       <h1 className="mt-8 font-serif text-5xl">Your gallery</h1>
       <p className="mt-4 text-[var(--muted)] max-w-2xl">
@@ -31,22 +31,6 @@ export default async function ClientGalleriesPage() {
         and I&rsquo;ll resend it.
       </p>
 
-      <div className="mt-10 max-w-2xl">
-        <CalloutCard
-          eyebrow="Access your photos"
-          title="Galleries & project portal"
-          description="Open Pic-Time to view and download your gallery. Or sign in to your project portal to track your booking, review key dates and locations, and find your documents — same email you used with me, no password needed."
-          actions={[
-            { label: "Open Pic-Time →", href: url, external: true },
-            {
-              label: "Sign in to your portal →",
-              href: "/portal",
-              variant: "secondary",
-            },
-          ]}
-        />
-      </div>
-
       {/* Embedded Pic-Time portal. Pic-Time sets X-Frame-Options on some
           pages, so we give the iframe a reasonable height and fall back to
           the link above if the embed can't render. */}
@@ -54,7 +38,7 @@ export default async function ClientGalleriesPage() {
         <iframe
           src={url}
           title="Pic-Time client galleries"
-          className="w-full h-[80vh] min-h-[600px]"
+          className="w-full h-[80vh] min-h-[800px]"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
@@ -69,6 +53,22 @@ export default async function ClientGalleriesPage() {
         <GoogleReviews
           heading="What past clients have said"
           variant="carousel"
+        />
+      </div>
+
+      <div className="mt-10 max-w-2xl">
+        <CalloutCard
+          eyebrow="Access your photos"
+          title="Galleries & project portal"
+          description="Open Pic-Time to view and download your gallery. Or sign in to your project portal to track your booking, review key dates and locations, and find your documents — same email you used with me, no password needed."
+          actions={[
+            { label: "Open Pic-Time →", href: url, external: true },
+            {
+              label: "Sign in to your portal →",
+              href: "/portal",
+              variant: "secondary",
+            },
+          ]}
         />
       </div>
     </section>

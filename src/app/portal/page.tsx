@@ -32,7 +32,7 @@ export default async function PortalLoginPage({
         : null;
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
       <div className="mx-auto mt-8 max-w-4xl lg:grid lg:grid-cols-2 lg:gap-12 lg:items-start">
         <div>

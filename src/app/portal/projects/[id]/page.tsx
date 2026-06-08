@@ -75,7 +75,7 @@ export default async function PortalProjectPage({
   const record = await getProjectForEmail(id, session.email);
   if (!record) {
     return (
-      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
         <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
         <Link
           href="/portal/dashboard"
@@ -109,14 +109,20 @@ export default async function PortalProjectPage({
   const inquireLink = !record.serviceType
     ? `/inquire?${inquireParams.toString()}`
     : null;
+  const hasOtherDates = !!record.secondaryDates && record.secondaryDates.length > 0;
+  const hasLocations = !!record.locations && record.locations.length > 0;
   const hasGlance =
+    !!record.serviceType ||
     !!record.package ||
     !!formatDate(record.eventDate) ||
     record.guestCount != null ||
-    !!record.partnerName;
+    !!record.partnerName ||
+    !!record.budget ||
+    hasOtherDates ||
+    hasLocations;
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
       <Link
         href="/portal/dashboard"
@@ -216,6 +222,12 @@ export default async function PortalProjectPage({
           {hasGlance && (
             <RailCard title="At a glance">
               <div className="grid grid-cols-2 gap-4">
+                {record.serviceType && (
+                  <Detail
+                    label="Service"
+                    value={serviceTitle(record.serviceType)}
+                  />
+                )}
                 {record.package && (
                   <Detail label="Package" value={record.package} />
                 )}
@@ -231,47 +243,63 @@ export default async function PortalProjectPage({
                 {record.partnerName && (
                   <Detail label="Partner" value={record.partnerName} />
                 )}
+                {record.budget && (
+                  <Detail label="Budget" value={record.budget} />
+                )}
               </div>
-            </RailCard>
-          )}
 
-          {record.secondaryDates && record.secondaryDates.length > 0 && (
-            <RailCard title="Other dates">
-              <ul className="divide-y divide-[var(--border)]">
-                {record.secondaryDates.map((d, i) => (
-                  <li
-                    key={i}
-                    className="flex justify-between py-2.5 gap-4 text-sm first:pt-0"
-                  >
-                    <span>{d.label ?? "Date"}</span>
-                    <span className="text-[var(--muted)]">
-                      {formatDate(d.date)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </RailCard>
-          )}
-
-          {record.locations && record.locations.length > 0 && (
-            <RailCard title="Locations">
-              <div className="space-y-4">
-                {record.locations.map((l, i) => (
-                  <div key={i} className={i > 0 ? "pt-4 border-t border-[var(--border)]" : ""}>
-                    {l.label && <div className="font-medium text-sm">{l.label}</div>}
-                    {l.address && (
-                      <div className="mt-1 text-sm text-[var(--muted)] whitespace-pre-line">
-                        {l.address}
-                      </div>
-                    )}
-                    {l.notes && (
-                      <div className="mt-1 text-sm text-[var(--muted)]">
-                        {l.notes}
-                      </div>
-                    )}
+              {hasOtherDates && (
+                <div className="mt-5 border-t border-[var(--border)] pt-5">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Other dates
                   </div>
-                ))}
-              </div>
+                  <ul className="mt-2 divide-y divide-[var(--border)]">
+                    {record.secondaryDates!.map((d, i) => (
+                      <li
+                        key={i}
+                        className="flex justify-between gap-4 py-2.5 text-sm first:pt-0"
+                      >
+                        <span>{d.label ?? "Date"}</span>
+                        <span className="text-[var(--muted)]">
+                          {formatDate(d.date)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {hasLocations && (
+                <div className="mt-5 border-t border-[var(--border)] pt-5">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Locations
+                  </div>
+                  <div className="mt-3 space-y-4">
+                    {record.locations!.map((l, i) => (
+                      <div
+                        key={i}
+                        className={
+                          i > 0 ? "border-t border-[var(--border)] pt-4" : ""
+                        }
+                      >
+                        {l.label && (
+                          <div className="text-sm font-medium">{l.label}</div>
+                        )}
+                        {l.address && (
+                          <div className="mt-1 whitespace-pre-line text-sm text-[var(--muted)]">
+                            {l.address}
+                          </div>
+                        )}
+                        {l.notes && (
+                          <div className="mt-1 text-sm text-[var(--muted)]">
+                            {l.notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </RailCard>
           )}
 
