@@ -136,7 +136,7 @@ export default async function JournalPostPage({
   };
 
   return (
-    <article className="max-w-3xl mx-auto px-6 lg:px-10 py-16">
+    <article className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
       <Script
         id={`ld-blogposting-${post.slug}`}
         type="application/ld+json"

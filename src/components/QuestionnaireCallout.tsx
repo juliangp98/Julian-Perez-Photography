@@ -1,18 +1,19 @@
 import Button from "./Button";
+import CalloutCard from "./CalloutCard";
 import type { AnswerGroup } from "@/lib/questionnaire-digest";
 
-// One collapsible "Planning questionnaire" callout, shared by the admin project
-// page and the client portal so both read identically. Built on native
-// <details>/<summary> (the FAQ-accordion pattern) — no JS, keyboard- and
-// screen-reader-accessible. The summary is the collapsed card: an accent
-// eyebrow, a state badge (Submitted / Not started yet), and a rotating chevron.
-// The body pops out to the grouped answer read-out when a questionnaire is on
-// file, or a short "what this covers" description when it isn't, plus an optional
-// primary action (open / resubmit) and an optional raw-JSON disclosure (admin).
+// One "Planning questionnaire" callout, shared by the admin project page and the
+// client portal so both read identically. Two states:
 //
-// Submitted state is derived from the presence of answers or a raw snapshot. By
-// default a submitted questionnaire starts collapsed (it's reference once filed)
-// and a not-started one starts open (so its prompt + action stay visible).
+// - Not started: a plain, prominent prompt via the shared CalloutCard — a clear
+//   "open your questionnaire" card with the primary action, no collapsible
+//   chrome (there's nothing to collapse yet).
+// - Submitted: a collapsible <details> (the FAQ-accordion pattern, no JS,
+//   keyboard- and screen-reader-accessible). Collapsed by default to a
+//   "✓ Submitted" card that pops out to the grouped answer read-out, an optional
+//   raw-JSON disclosure (admin), and an optional action (resubmit).
+//
+// Submitted state is derived from the presence of answers or a raw snapshot.
 
 export default function QuestionnaireCallout({
   groups,
@@ -31,13 +32,24 @@ export default function QuestionnaireCallout({
 }) {
   const hasGroups = !!groups && groups.length > 0;
   const submitted = hasGroups || !!rawSnapshot?.trim();
-  const open = defaultOpen ?? !submitted;
-  const heading =
-    title ?? (submitted ? "Your answers" : "Your planning questionnaire");
 
+  // Not started — a clear, non-collapsible prompt in the same slot the submitted
+  // card occupies, so the call to open the questionnaire is never hidden.
+  if (!submitted) {
+    return (
+      <CalloutCard
+        eyebrow="Planning questionnaire"
+        title={title ?? "Your planning questionnaire"}
+        description={description}
+        actions={action ? [{ label: action.label, href: action.href }] : undefined}
+      />
+    );
+  }
+
+  // Submitted — collapsible read-out.
   return (
     <details
-      open={open}
+      open={defaultOpen ?? false}
       className="group p-6 border border-[var(--accent)] rounded-lg bg-white"
     >
       <summary className="flex items-start justify-between gap-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -46,17 +58,11 @@ export default function QuestionnaireCallout({
             <span className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
               Planning questionnaire
             </span>
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.15em] ${
-                submitted
-                  ? "bg-[var(--accent)]/10 text-[var(--accent)]"
-                  : "border border-[var(--border)] text-[var(--muted)]"
-              }`}
-            >
-              {submitted ? "✓ Submitted" : "Not started yet"}
+            <span className="inline-block rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.15em] text-[var(--accent)]">
+              ✓ Submitted
             </span>
           </div>
-          <div className="mt-1.5 font-serif text-xl">{heading}</div>
+          <div className="mt-1.5 font-serif text-xl">{title ?? "Your answers"}</div>
         </div>
         <span
           aria-hidden
@@ -67,43 +73,33 @@ export default function QuestionnaireCallout({
       </summary>
 
       <div className="mt-5">
-        {submitted ? (
-          hasGroups ? (
-            <div className="space-y-5">
-              {groups!.map((g) => (
-                <div key={g.section}>
-                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
-                    {g.section}
-                  </div>
-                  <dl className="mt-2 divide-y divide-[var(--border)]">
-                    {g.items.map((it, i) => (
-                      <div
-                        key={i}
-                        className="py-2 sm:grid sm:grid-cols-[12rem_1fr] sm:gap-4"
-                      >
-                        <dt className="text-sm text-[var(--muted)]">
-                          {it.label}
-                        </dt>
-                        <dd className="mt-0.5 text-sm whitespace-pre-line sm:mt-0">
-                          {it.value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+        {hasGroups ? (
+          <div className="space-y-5">
+            {groups!.map((g) => (
+              <div key={g.section}>
+                <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                  {g.section}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--muted)]">
-              Your answers are saved to this project.
-            </p>
-          )
+                <dl className="mt-2 divide-y divide-[var(--border)]">
+                  {g.items.map((it, i) => (
+                    <div
+                      key={i}
+                      className="py-2 sm:grid sm:grid-cols-[12rem_1fr] sm:gap-4"
+                    >
+                      <dt className="text-sm text-[var(--muted)]">{it.label}</dt>
+                      <dd className="mt-0.5 text-sm whitespace-pre-line sm:mt-0">
+                        {it.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
         ) : (
-          description && (
-            <p className="text-sm leading-relaxed text-[var(--muted)]">
-              {description}
-            </p>
-          )
+          <p className="text-sm text-[var(--muted)]">
+            Your answers are saved to this project.
+          </p>
         )}
 
         {rawSnapshot?.trim() && (

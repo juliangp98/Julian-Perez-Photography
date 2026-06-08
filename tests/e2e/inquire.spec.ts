@@ -31,3 +31,34 @@ test("inquiry form: fill required fields and submit → success screen", async (
     timeout: 30_000,
   });
 });
+
+// A blank required field is caught client-side: the form points at the offending
+// field with an inline message and never submits (no success screen, no POST).
+test("inquiry form: a missing required field shows an inline error and blocks submit", async ({
+  page,
+}) => {
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": "10.99.3.2" });
+  await page.goto("/inquire");
+
+  // Everything except the email.
+  await page.getByLabel("Name").fill("E2E Test User");
+  await page.getByLabel("Service").selectOption({ index: 1 });
+  await page
+    .getByLabel("Tell me about your vision")
+    .fill("Automated test submission — please ignore.");
+
+  await page.getByRole("button", { name: /Send inquiry/i }).click();
+
+  // Field-level error surfaces and the email field is flagged for assistive tech.
+  await expect(
+    page.getByText("Please enter your email address."),
+  ).toBeVisible();
+  await expect(page.getByLabel("Email")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  // Validation blocked the submit — the success screen never appears.
+  await expect(page.getByRole("heading", { name: "Thank you." })).toHaveCount(
+    0,
+  );
+});

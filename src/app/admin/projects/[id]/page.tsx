@@ -107,7 +107,7 @@ export default async function AdminProjectDetailPage({
   }
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+    <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <Link
         href="/admin/projects"
@@ -137,29 +137,36 @@ export default async function AdminProjectDetailPage({
           <div className="mt-8 grid lg:grid-cols-[1.7fr_1fr] gap-x-12 gap-y-10 items-start">
             {/* ---- Main column ---- */}
             <div className="min-w-0 space-y-12">
-              <AdminProjectEditForm
-                id={record.id}
-                aiEnabled={ai}
-                namePlaceholder={autoProjectName(record)}
-                initial={{
-                  projectName: record.projectName,
-                  clientName: record.clientName,
-                  email: record.email,
-                  phone: record.phone,
-                  partnerName: record.partnerName,
-                  status: record.status,
-                  serviceType: record.serviceType,
-                  package: record.package,
-                  eventDate: record.eventDate,
-                  guestCount: record.guestCount,
-                  budget: record.budget,
-                  planSummary: record.planSummary,
-                  clientNotes: record.clientNotes,
-                  clientNotesReply: record.clientNotesReply,
-                  internalNotes: record.internalNotes,
-                  galleryUrl: record.galleryUrl,
-                }}
-              />
+              <div>
+                <h2 className="font-serif text-2xl">Project details</h2>
+                <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
+                  Edit contact info, status, service &amp; package, key dates,
+                  the shoot plan, and internal notes.
+                </p>
+                <AdminProjectEditForm
+                  id={record.id}
+                  aiEnabled={ai}
+                  namePlaceholder={autoProjectName(record)}
+                  initial={{
+                    projectName: record.projectName,
+                    clientName: record.clientName,
+                    email: record.email,
+                    phone: record.phone,
+                    partnerName: record.partnerName,
+                    status: record.status,
+                    serviceType: record.serviceType,
+                    package: record.package,
+                    eventDate: record.eventDate,
+                    guestCount: record.guestCount,
+                    budget: record.budget,
+                    planSummary: record.planSummary,
+                    clientNotes: record.clientNotes,
+                    clientNotesReply: record.clientNotesReply,
+                    internalNotes: record.internalNotes,
+                    galleryUrl: record.galleryUrl,
+                  }}
+                />
+              </div>
 
               {/* Inquiry + its AI triage, together. */}
               {record.inquiryMessage?.trim() && (
@@ -169,7 +176,7 @@ export default async function AdminProjectDetailPage({
                     {record.inquiryMessage}
                   </p>
                   {ai && (
-                    <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--background)] p-5">
+                    <div className="mt-5 rounded-lg border border-[var(--border)] bg-white p-5">
                       <h3 className="font-serif text-lg">Triage with AI</h3>
                       <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
                         Fit, urgency, key details, and a suggested reply to start
@@ -186,12 +193,13 @@ export default async function AdminProjectDetailPage({
                   interactive prep brief sits outside it. */}
               {record.questionnaireSnapshot && (
                 <div className="pt-8 border-t border-[var(--border)]">
+                  <h2 className="mb-4 font-serif text-2xl">Questionnaire</h2>
                   <QuestionnaireCallout
                     groups={answerGroups}
                     rawSnapshot={record.questionnaireSnapshot}
                   />
                   {ai && record.questionnaireSnapshot.trim() && (
-                    <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--background)] p-5">
+                    <div className="mt-5 rounded-lg border border-[var(--border)] bg-white p-5">
                       <h3 className="font-serif text-lg">Shoot prep brief</h3>
                       <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
                         Turn this questionnaire into a skimmable prep brief —
@@ -239,7 +247,15 @@ export default async function AdminProjectDetailPage({
                     : "sends an inquiry that sets the service"}{" "}
                   — it attaches to this project, no duplicate.
                 </p>
-                <CopyField label="Client link" value={completionUrl} />
+                <CopyField
+                  label={
+                    record.serviceType
+                      ? "Open the questionnaire link →"
+                      : "Open the inquiry link →"
+                  }
+                  value={completionUrl}
+                  href={completionUrl}
+                />
               </RailCard>
 
               <RailCard title="Details">
