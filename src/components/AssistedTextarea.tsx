@@ -12,6 +12,7 @@
 // threaded from the server, since the client can't read the API key).
 
 import { useState } from "react";
+import AiButton from "@/components/AiButton";
 
 export type AssistContext = {
   clientName?: string;
@@ -148,13 +149,11 @@ export default function AssistedTextarea({
       />
 
       {assist.enabled && !open && (
-        <button
-          type="button"
-          onClick={openPanel}
-          className="mt-2 text-xs uppercase tracking-[0.15em] text-[var(--accent)] hover:text-[var(--foreground)] transition"
-        >
-          ✨ Help me write this
-        </button>
+        <div className="mt-2">
+          <AiButton size="sm" onClick={openPanel}>
+            Help me write this
+          </AiButton>
+        </div>
       )}
 
       {assist.enabled && open && (
@@ -177,18 +176,14 @@ export default function AssistedTextarea({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
+            <AiButton
+              size="sm"
               onClick={runDraft}
-              disabled={status === "drafting"}
-              className="px-4 py-2 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+              loading={status === "drafting"}
+              loadingLabel="Drafting…"
             >
-              {status === "drafting"
-                ? "Drafting…"
-                : status === "drafted"
-                  ? "↻ Try again"
-                  : "✨ Draft this"}
-            </button>
+              {status === "drafted" ? "Try again" : "Draft this"}
+            </AiButton>
             <button
               type="button"
               onClick={closePanel}

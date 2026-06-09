@@ -9,6 +9,10 @@ import { useRouter } from "next/navigation";
 import AssistedTextarea, {
   type AssistContext,
 } from "@/components/AssistedTextarea";
+import TextField from "@/components/fields/TextField";
+import PhoneField from "@/components/fields/PhoneField";
+import NumberField from "@/components/fields/NumberField";
+import { formatPhone } from "@/lib/field-format";
 
 type Initial = {
   phone?: string;
@@ -44,7 +48,7 @@ export default function PortalEditForm({
   };
 }) {
   const router = useRouter();
-  const [phone, setPhone] = useState(initial.phone ?? "");
+  const [phone, setPhone] = useState(() => formatPhone(initial.phone ?? ""));
   const [partnerName, setPartnerName] = useState(initial.partnerName ?? "");
   const [guestCount, setGuestCount] = useState(
     initial.guestCount != null ? String(initial.guestCount) : "",
@@ -95,60 +99,35 @@ export default function PortalEditForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <div>
-        <label htmlFor="pf-name" className={label}>
-          Project name{" "}
-          <span className="text-[var(--muted)] font-normal">
-            (leave blank for the default)
-          </span>
-        </label>
-        <input
-          id="pf-name"
-          type="text"
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          placeholder={namePlaceholder}
-          className={input}
-        />
-      </div>
+      <TextField
+        id="pf-name"
+        label={
+          <>
+            Project name{" "}
+            <span className="font-normal text-[var(--muted)]">
+              (leave blank for the default)
+            </span>
+          </>
+        }
+        value={projectName}
+        onChange={setProjectName}
+        placeholder={namePlaceholder}
+      />
       <div className="grid sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="pf-phone" className={label}>
-            Phone
-          </label>
-          <input
-            id="pf-phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={input}
-          />
-        </div>
-        <div>
-          <label htmlFor="pf-partner" className={label}>
-            Partner name
-          </label>
-          <input
-            id="pf-partner"
-            type="text"
-            value={partnerName}
-            onChange={(e) => setPartnerName(e.target.value)}
-            className={input}
-          />
-        </div>
-        <div>
-          <label htmlFor="pf-guests" className={label}>
-            Guest count
-          </label>
-          <input
-            id="pf-guests"
-            type="number"
-            min={0}
-            value={guestCount}
-            onChange={(e) => setGuestCount(e.target.value)}
-            className={input}
-          />
-        </div>
+        <PhoneField id="pf-phone" value={phone} onChange={setPhone} />
+        <TextField
+          id="pf-partner"
+          label="Partner name"
+          value={partnerName}
+          onChange={setPartnerName}
+          autoComplete="name"
+        />
+        <NumberField
+          id="pf-guests"
+          label="Guest count"
+          value={guestCount}
+          onChange={setGuestCount}
+        />
       </div>
       <div>
         <label htmlFor="pf-notes" className={label}>

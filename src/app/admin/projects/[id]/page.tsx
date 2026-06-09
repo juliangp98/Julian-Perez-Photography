@@ -164,6 +164,7 @@ export default async function AdminProjectDetailPage({
                     clientNotesReply: record.clientNotesReply,
                     internalNotes: record.internalNotes,
                     galleryUrl: record.galleryUrl,
+                    locations: record.locations,
                   }}
                 />
               </div>

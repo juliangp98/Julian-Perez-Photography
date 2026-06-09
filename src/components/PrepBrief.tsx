@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // On-demand AI shoot-prep brief. A button calls /api/admin/prep-brief, which
 // reads the project's submitted questionnaire server-side and returns a
@@ -61,18 +62,13 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <AiButton
           onClick={run}
-          disabled={status === "loading"}
-          className="px-4 py-2 text-sm rounded-full border border-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+          loading={status === "loading"}
+          loadingLabel="Reading the questionnaire…"
         >
-          {status === "loading"
-            ? "Reading the questionnaire…"
-            : brief
-              ? "✨ Re-generate brief"
-              : "✨ Generate prep brief"}
-        </button>
+          {brief ? "Re-generate brief" : "Generate prep brief"}
+        </AiButton>
         {brief && (
           <button
             type="button"

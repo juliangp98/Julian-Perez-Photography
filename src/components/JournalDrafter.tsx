@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // Draft a journal post with AI from a topic/brief. Calls /api/admin/draft-journal
 // and shows the title, excerpt, tags, and body — each copyable — for Julian to
@@ -96,14 +97,14 @@ export default function JournalDrafter() {
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <AiButton
           onClick={draft}
-          disabled={status === "drafting" || !topic.trim()}
-          className="px-6 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
+          loading={status === "drafting"}
+          loadingLabel="Drafting…"
+          disabled={!topic.trim()}
         >
-          {status === "drafting" ? "Drafting…" : "✨ Draft post"}
-        </button>
+          Draft post
+        </AiButton>
         {status === "error" && (
           <span role="alert" className="text-sm text-red-700">
             Couldn&rsquo;t draft — please try again.

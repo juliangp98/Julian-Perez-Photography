@@ -8,10 +8,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { services, serviceTitle } from "@/lib/services-data";
+import Field, { controlClass } from "@/components/fields/Field";
+import TextField from "@/components/fields/TextField";
+import EmailField from "@/components/fields/EmailField";
+import PhoneField from "@/components/fields/PhoneField";
+import DateField from "@/components/fields/DateField";
 
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-const label = "block text-sm font-medium mb-1.5";
 const primary =
   "px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50";
 
@@ -34,6 +36,10 @@ export default function NewProjectForm() {
     (k: keyof typeof v) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setV((p) => ({ ...p, [k]: e.target.value }));
+  const setStr =
+    (k: keyof typeof v) =>
+    (val: string) =>
+      setV((p) => ({ ...p, [k]: val }));
 
   async function create(force: boolean) {
     if (!v.email.trim()) return;
@@ -97,51 +103,27 @@ export default function NewProjectForm() {
         className="mt-4 space-y-4"
       >
         <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="np-name" className={label}>
-              Client name
-            </label>
-            <input
-              id="np-name"
-              value={v.clientName}
-              onChange={set("clientName")}
-              className={input}
-            />
-          </div>
-          <div>
-            <label htmlFor="np-email" className={label}>
-              Email <span className="text-[var(--accent)]">*</span>
-            </label>
-            <input
-              id="np-email"
-              type="email"
-              required
-              value={v.email}
-              onChange={set("email")}
-              className={input}
-            />
-          </div>
-          <div>
-            <label htmlFor="np-phone" className={label}>
-              Phone
-            </label>
-            <input
-              id="np-phone"
-              type="tel"
-              value={v.phone}
-              onChange={set("phone")}
-              className={input}
-            />
-          </div>
-          <div>
-            <label htmlFor="np-service" className={label}>
-              Service
-            </label>
+          <TextField
+            id="np-name"
+            label="Client name"
+            value={v.clientName}
+            onChange={setStr("clientName")}
+            autoComplete="name"
+          />
+          <EmailField
+            id="np-email"
+            label="Email"
+            required
+            value={v.email}
+            onChange={setStr("email")}
+          />
+          <PhoneField id="np-phone" value={v.phone} onChange={setStr("phone")} />
+          <Field id="np-service" label="Service">
             <select
               id="np-service"
               value={v.serviceType}
               onChange={set("serviceType")}
-              className={input}
+              className={controlClass(false)}
             >
               <option value="">Not sure yet</option>
               {services.map((s) => (
@@ -150,19 +132,13 @@ export default function NewProjectForm() {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label htmlFor="np-date" className={label}>
-              Event date
-            </label>
-            <input
-              id="np-date"
-              type="date"
-              value={v.eventDate}
-              onChange={set("eventDate")}
-              className={input}
-            />
-          </div>
+          </Field>
+          <DateField
+            id="np-date"
+            label="Event date"
+            value={v.eventDate}
+            onChange={setStr("eventDate")}
+          />
         </div>
 
         {dup && (

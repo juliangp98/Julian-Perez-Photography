@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AssistedTextarea, {
   type AssistContext,
 } from "@/components/AssistedTextarea";
+import TextField from "@/components/fields/TextField";
+import EmailField from "@/components/fields/EmailField";
+import PhoneField from "@/components/fields/PhoneField";
+import NumberField from "@/components/fields/NumberField";
+import DateField from "@/components/fields/DateField";
+import LocationField from "@/components/fields/LocationField";
 import Link from "next/link";
 import type { Field, Questionnaire } from "@/lib/questionnaires";
 import {
@@ -30,6 +36,18 @@ type QuestionnaireCalls = Pick<
 type Status = "idle" | "submitting" | "success" | "error";
 type Value = string | string[];
 type FormState = Record<string, Value>;
+
+// Canonical venue/address field ids that render with Google-Places autocomplete
+// (free text retained). Matched by id so the harmonized venue fields across
+// every questionnaire pick it up without retyping each schema entry; an explicit
+// `type: "location"` works too.
+const LOCATION_FIELD_IDS = new Set([
+  "venueName",
+  "venueAddress",
+  "gettingReadyAddress",
+  "partnerGettingReadyAddress",
+  "receptionVenue",
+]);
 
 // Shared emptiness check — file fields store a JSON array as a string, so a
 // raw empty-string check isn't enough and `"[]"` also counts as empty.
@@ -749,53 +767,84 @@ function FieldRenderer({
     <p className="mt-1.5 text-xs text-[var(--muted)]">{field.help}</p>
   ) : null;
 
+  const str = (value as string) || "";
+
+  // Address / venue fields → Places autocomplete (free text retained). Matched
+  // by explicit type or canonical id.
+  if (field.type === "location" || LOCATION_FIELD_IDS.has(field.id)) {
+    return (
+      <LocationField
+        id={field.id}
+        label={field.label}
+        required={field.required}
+        help={field.help}
+        value={str}
+        onChange={(v) => onChange(v)}
+        valueKind={field.id === "venueName" ? "name" : "address"}
+        placeholder={field.placeholder ?? "Search a venue or address…"}
+      />
+    );
+  }
+
   switch (field.type) {
     case "text":
+      return (
+        <TextField
+          id={field.id}
+          label={field.label}
+          required={field.required}
+          help={field.help}
+          value={str}
+          onChange={(v) => onChange(v)}
+          placeholder={field.placeholder}
+        />
+      );
     case "email":
+      return (
+        <EmailField
+          id={field.id}
+          label={field.label}
+          required={field.required}
+          help={field.help}
+          value={str}
+          onChange={(v) => onChange(v)}
+          placeholder={field.placeholder}
+        />
+      );
     case "tel":
       return (
-        <div>
-          {labelEl}
-          <input
-            id={field.id}
-            type={field.type === "text" ? "text" : field.type}
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder}
-            className={input}
-          />
-          {helpEl}
-        </div>
+        <PhoneField
+          id={field.id}
+          label={field.label}
+          required={field.required}
+          help={field.help}
+          value={str}
+          onChange={(v) => onChange(v)}
+          placeholder={field.placeholder}
+        />
       );
     case "number":
       return (
-        <div>
-          {labelEl}
-          <input
-            id={field.id}
-            type="number"
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder}
-            min={0}
-            className={input}
-          />
-          {helpEl}
-        </div>
+        <NumberField
+          id={field.id}
+          label={field.label}
+          required={field.required}
+          help={field.help}
+          value={str}
+          onChange={(v) => onChange(v)}
+          placeholder={field.placeholder}
+        />
       );
     case "date":
       return (
-        <div>
-          {labelEl}
-          <input
-            id={field.id}
-            type="date"
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className={input}
-          />
-          {helpEl}
-        </div>
+        <DateField
+          id={field.id}
+          label={field.label}
+          required={field.required}
+          help={field.help}
+          value={str}
+          onChange={(v) => onChange(v)}
+        />
       );
     case "time":
       return (

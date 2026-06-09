@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // Natural-language search over the client projects. Posts a plain-English query
 // to /api/admin/search, which the AI turns into a structured filter applied
@@ -67,13 +68,14 @@ export default function AdminSearch() {
           aria-label="Search projects in plain English"
           className="flex-1 min-w-[16rem] px-4 py-2.5 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition"
         />
-        <button
+        <AiButton
           type="submit"
-          disabled={status === "searching" || !query.trim()}
-          className="px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
+          loading={status === "searching"}
+          loadingLabel="Searching…"
+          disabled={!query.trim()}
         >
-          {status === "searching" ? "Searching…" : "✨ Search"}
-        </button>
+          Search
+        </AiButton>
         {matches && (
           <button
             type="button"

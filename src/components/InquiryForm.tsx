@@ -7,17 +7,21 @@ import { REFERRAL_OPTIONS } from "@/lib/referral";
 import AssistedTextarea, {
   type AssistContext,
 } from "@/components/AssistedTextarea";
+import Field, { controlClass } from "@/components/fields/Field";
+import TextField from "@/components/fields/TextField";
+import EmailField from "@/components/fields/EmailField";
+import PhoneField from "@/components/fields/PhoneField";
+import DateField from "@/components/fields/DateField";
+import BudgetField from "@/components/fields/BudgetField";
+import LocationField from "@/components/fields/LocationField";
+import { formatPhone, isValidEmail } from "@/lib/field-format";
 
 type CallLink = { label: string; url: string };
-
 type Status = "idle" | "submitting" | "success" | "error";
 
-// The four fields the server requires (mirrors the zod schema in
-// /api/inquire). Validated client-side so a bad submit points at the offending
-// field instead of bouncing off a generic server error.
-type FieldErrors = Partial<
-  Record<"name" | "email" | "service" | "message", string>
->;
+// The four fields the server requires (mirrors the zod schema in /api/inquire).
+type FieldKey = "name" | "email" | "service" | "message";
+type FieldErrors = Partial<Record<FieldKey, string>>;
 
 export default function InquiryForm({
   defaultService,
@@ -29,34 +33,36 @@ export default function InquiryForm({
   aiEnabled = false,
 }: {
   defaultService?: string;
-  // Discovery-call CTA on the success screen. Passed from the parent
-  // server page so the client bundle doesn't need to pull siteSettings
-  // — that value is Sanity-backed and async, which a client component
-  // can't await.
   discoveryCall: CallLink;
-  // From a project completion link (`?project=…&fullName=…&email=…`): attach
-  // this inquiry to that exact project and prefill the basics.
   projectId?: string;
   defaultName?: string;
   defaultEmail?: string;
   defaultPhone?: string;
-  // Whether to offer the "Help me write this" assist (threaded from the server;
-  // the client can't read the AI key).
   aiEnabled?: boolean;
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
-  // Track referral selection so the form can reveal a follow-up text
-  // field when the user picks "Other" — keeps the long tail of real
-  // sources visible without cluttering the dropdown.
-  const [referral, setReferral] = useState("");
+  const [v, setV] = useState({
+    name: defaultName ?? "",
+    email: defaultEmail ?? "",
+    phone: formatPhone(defaultPhone ?? ""),
+    service: defaultService ?? "",
+    eventDate: "",
+    location: "",
+    budget: "",
+    referral: "",
+    referralOther: "",
+  });
   const [message, setMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Clear a single field's error as the user edits it, so a corrected field
-  // stops showing red immediately.
-  function clearError(field: keyof FieldErrors) {
+  const set =
+    <K extends keyof typeof v>(k: K) =>
+    (val: string) =>
+      setV((prev) => ({ ...prev, [k]: val }));
+
+  function clearError(field: FieldKey) {
     setErrors((prev) => {
       if (!prev[field]) return prev;
       const next = { ...prev };
@@ -65,63 +71,49 @@ export default function InquiryForm({
     });
   }
 
-  // Snapshot the sibling fields at draft time so the assist is grounded in what
-  // the visitor has already filled in (service, date, venue, budget, name).
+  // Snapshot the sibling fields so the writing assistant is grounded in what the
+  // visitor already filled in.
   function assistContext(): AssistContext {
-    const form = formRef.current;
-    if (!form) return {};
-    const fd = new FormData(form);
-    const str = (k: string) => {
-      const v = fd.get(k);
-      return typeof v === "string" ? v.trim() : "";
-    };
     const details: { label: string; value: string }[] = [];
-    const serviceSlug = str("service");
     const serviceTitle =
-      services.find((s) => s.slug === serviceSlug)?.title || serviceSlug;
+      services.find((s) => s.slug === v.service)?.title || v.service;
     if (serviceTitle) details.push({ label: "Service", value: serviceTitle });
-    const add = (k: string, lbl: string) => {
-      const v = str(k);
-      if (v) details.push({ label: lbl, value: v });
-    };
-    add("eventDate", "Event date");
-    add("location", "Location / venue");
-    add("budget", "Budget");
-    return { clientName: str("name") || undefined, details };
+    if (v.eventDate) details.push({ label: "Event date", value: v.eventDate });
+    if (v.location)
+      details.push({ label: "Location / venue", value: v.location });
+    if (v.budget) details.push({ label: "Budget", value: v.budget });
+    return { clientName: v.name || undefined, details };
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formEl = e.currentTarget;
-    const formData = new FormData(formEl);
-    const val = (k: string) => {
-      const v = formData.get(k);
-      return typeof v === "string" ? v.trim() : "";
-    };
 
-    // Client-side validation: catch the required fields before the round-trip
-    // so the message points at the field, not the whole form.
-    const nextErrors: FieldErrors = {};
-    if (!val("name")) nextErrors.name = "Please enter your name.";
-    const email = val("email");
-    if (!email) nextErrors.email = "Please enter your email address.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      nextErrors.email = "Please enter a valid email address.";
-    if (!val("service")) nextErrors.service = "Please choose a service.";
-    if (!val("message"))
-      nextErrors.message = "Please tell me a little about your vision.";
+    // Client-side validation: catch the required fields before the round-trip so
+    // the message points at the field, not the whole form.
+    const next: FieldErrors = {};
+    if (!v.name.trim()) next.name = "Please enter your name.";
+    if (!v.email.trim()) next.email = "Please enter your email address.";
+    else if (!isValidEmail(v.email))
+      next.email = "Please enter a valid email address.";
+    if (!v.service.trim()) next.service = "Please choose a service.";
+    if (!message.trim())
+      next.message = "Please tell me a little about your vision.";
 
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
+    if (Object.keys(next).length > 0) {
+      setErrors(next);
       setStatus("idle");
       setErrorMsg(null);
-      const firstInvalid = (
-        ["name", "email", "service", "message"] as const
-      ).find((k) => nextErrors[k]);
-      if (firstInvalid) {
-        const el = formEl.querySelector<HTMLElement>(
-          `[name="${firstInvalid}"]`,
-        );
+      const firstId: Record<FieldKey, string> = {
+        name: "inq-name",
+        email: "inq-email",
+        service: "inq-service",
+        message: "message",
+      };
+      const first = (["name", "email", "service", "message"] as const).find(
+        (k) => next[k],
+      );
+      if (first) {
+        const el = document.getElementById(firstId[first]);
         el?.focus();
         el?.scrollIntoView({ block: "center", behavior: "smooth" });
       }
@@ -132,7 +124,27 @@ export default function InquiryForm({
     setStatus("submitting");
     setErrorMsg(null);
 
-    const payload = Object.fromEntries(formData.entries());
+    // Honeypot is read from the DOM (a bot fills the input directly, which never
+    // touches React state), not from `v`.
+    const hp = formRef.current
+      ? String(new FormData(formRef.current).get("hp_company") || "")
+      : "";
+    const payload: Record<string, string | undefined> = {
+      name: v.name,
+      email: v.email,
+      phone: v.phone,
+      service: v.service,
+      eventDate: v.eventDate,
+      location: v.location,
+      budget: v.budget,
+      referral: v.referral,
+      message,
+      hp_company: hp,
+      project: projectId,
+    };
+    if (v.referral === "other" && v.referralOther) {
+      payload.referralOther = v.referralOther;
+    }
 
     try {
       const res = await fetch("/api/inquire", {
@@ -145,7 +157,15 @@ export default function InquiryForm({
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
       setStatus("success");
-      formEl.reset();
+      setV((prev) => ({
+        ...prev,
+        phone: "",
+        eventDate: "",
+        location: "",
+        budget: "",
+        referral: "",
+        referralOther: "",
+      }));
       setMessage("");
     } catch (err) {
       setStatus("error");
@@ -204,24 +224,9 @@ export default function InquiryForm({
     );
   }
 
-  const input =
-    "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-  const inputError = "border-red-500 focus:border-red-500";
-  const label = "block text-sm font-medium mb-1.5";
-  const fieldClass = (field: keyof FieldErrors) =>
-    `${input} ${errors[field] ? inputError : ""}`.trim();
-
-  // Red asterisk marking a required field; the visible legend below explains it.
-  const Req = () => (
-    <span className="text-red-600" aria-hidden="true">
-      {" "}
-      *
-    </span>
-  );
-
   return (
     <form ref={formRef} onSubmit={onSubmit} className="grid gap-5" noValidate>
-      {/* Honeypot */}
+      {/* Honeypot — read from the DOM on submit, never via React state. */}
       <input
         type="text"
         name="hp_company"
@@ -230,86 +235,54 @@ export default function InquiryForm({
         className="hidden"
         aria-hidden="true"
       />
-      {projectId && (
-        <input type="hidden" name="project" defaultValue={projectId} />
-      )}
 
       <p className="text-xs text-[var(--muted)]">
-        <span className="text-red-600">*</span> Required
+        <span className="text-[var(--accent)]">*</span> Required
       </p>
 
       <div className="grid sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="name" className={label}>
-            Name
-            <Req />
-          </label>
-          <input
-            id="name"
-            name="name"
-            required
-            defaultValue={defaultName}
-            onInput={() => clearError("name")}
-            aria-invalid={!!errors.name || undefined}
-            aria-describedby={errors.name ? "name-error" : undefined}
-            className={fieldClass("name")}
-          />
-          {errors.name && (
-            <p id="name-error" className="mt-1 text-sm text-red-700">
-              {errors.name}
-            </p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="email" className={label}>
-            Email
-            <Req />
-          </label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            required
-            defaultValue={defaultEmail}
-            onInput={() => clearError("email")}
-            aria-invalid={!!errors.email || undefined}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            className={fieldClass("email")}
-          />
-          {errors.email && (
-            <p id="email-error" className="mt-1 text-sm text-red-700">
-              {errors.email}
-            </p>
-          )}
-        </div>
+        <TextField
+          id="inq-name"
+          label="Name"
+          required
+          value={v.name}
+          onChange={(val) => {
+            set("name")(val);
+            clearError("name");
+          }}
+          error={errors.name}
+          autoComplete="name"
+        />
+        <EmailField
+          id="inq-email"
+          label="Email"
+          required
+          value={v.email}
+          onChange={(val) => {
+            set("email")(val);
+            clearError("email");
+          }}
+          error={errors.email}
+        />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="phone" className={label}>
-            Phone
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            defaultValue={defaultPhone}
-            className={input}
-          />
-        </div>
-        <div>
-          <label htmlFor="service" className={label}>
-            Service
-            <Req />
-          </label>
+        <PhoneField
+          id="inq-phone"
+          value={v.phone}
+          onChange={set("phone")}
+        />
+        <Field id="inq-service" label="Service" required error={errors.service}>
           <select
-            id="service"
-            name="service"
-            defaultValue={defaultService || ""}
-            onChange={() => clearError("service")}
-            aria-invalid={!!errors.service || undefined}
-            aria-describedby={errors.service ? "service-error" : undefined}
-            className={fieldClass("service")}
-            required
+            id="inq-service"
+            value={v.service}
+            onChange={(e) => {
+              set("service")(e.target.value);
+              clearError("service");
+            }}
+            aria-invalid={errors.service ? true : undefined}
+            aria-describedby={errors.service ? "inq-service-error" : undefined}
+            className={controlClass(!!errors.service)}
           >
             <option value="" disabled>
               Select a service…
@@ -320,56 +293,34 @@ export default function InquiryForm({
               </option>
             ))}
           </select>
-          {errors.service && (
-            <p id="service-error" className="mt-1 text-sm text-red-700">
-              {errors.service}
-            </p>
-          )}
-        </div>
+        </Field>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="eventDate" className={label}>
-            Event date (if known)
-          </label>
-          <input
-            id="eventDate"
-            type="date"
-            name="eventDate"
-            className={input}
-          />
-        </div>
-        <div>
-          <label htmlFor="location" className={label}>
-            Location / venue
-          </label>
-          <input id="location" name="location" className={input} />
-        </div>
+        <DateField
+          id="inq-date"
+          label="Event date (if known)"
+          value={v.eventDate}
+          onChange={set("eventDate")}
+        />
+        <LocationField
+          id="inq-location"
+          label="Location / venue"
+          value={v.location}
+          onChange={set("location")}
+          valueKind="address"
+          placeholder="Search a venue or address…"
+        />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-5">
-        <div>
-          <label htmlFor="budget" className={label}>
-            Budget
-          </label>
-          <input
-            id="budget"
-            name="budget"
-            placeholder="e.g. $2,500 – $3,500"
-            className={input}
-          />
-        </div>
-        <div>
-          <label htmlFor="referral" className={label}>
-            How did you hear about me?
-          </label>
+        <BudgetField id="inq-budget" value={v.budget} onChange={set("budget")} />
+        <Field id="inq-referral" label="How did you hear about me?">
           <select
-            id="referral"
-            name="referral"
-            value={referral}
-            onChange={(e) => setReferral(e.target.value)}
-            className={input}
+            id="inq-referral"
+            value={v.referral}
+            onChange={(e) => set("referral")(e.target.value)}
+            className={controlClass(false)}
           >
             {REFERRAL_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -377,35 +328,36 @@ export default function InquiryForm({
               </option>
             ))}
           </select>
-          {referral === "other" && (
+          {v.referral === "other" && (
             <input
-              id="referralOther"
-              name="referralOther"
+              id="inq-referralOther"
+              value={v.referralOther}
+              onChange={(e) => set("referralOther")(e.target.value)}
               placeholder="Tell me more (optional)"
-              className={`${input} mt-2`}
+              className={`${controlClass(false)} mt-2`}
             />
           )}
-        </div>
+        </Field>
       </div>
 
-      <div>
-        <label htmlFor="message" className={label}>
-          Tell me about your vision
-          <Req />
-        </label>
+      <Field
+        id="message"
+        label="Tell me about your vision"
+        required
+        error={errors.message}
+      >
         <AssistedTextarea
           id="message"
           name="message"
           rows={6}
-          required
           value={message}
-          onChange={(v) => {
-            setMessage(v);
+          onChange={(val) => {
+            setMessage(val);
             clearError("message");
           }}
-          textareaClassName={fieldClass("message")}
           invalid={!!errors.message}
           errorId={errors.message ? "message-error" : undefined}
+          textareaClassName={controlClass(!!errors.message)}
           assist={{
             kind: "inquiry",
             question: "Tell me about your vision",
@@ -413,12 +365,7 @@ export default function InquiryForm({
             getContext: assistContext,
           }}
         />
-        {errors.message && (
-          <p id="message-error" className="mt-1 text-sm text-red-700">
-            {errors.message}
-          </p>
-        )}
-      </div>
+      </Field>
 
       {/* role="alert" + aria-live so screen readers announce submission
           failures without requiring the user to tab back to the error. */}

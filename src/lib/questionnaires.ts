@@ -20,6 +20,7 @@ export type FieldType =
   | "date"
   | "time"
   | "number"
+  | "location" // address / venue field with Google-Places autocomplete (free text retained)
   | "select"
   | "radio"
   | "checkbox"

@@ -33,7 +33,7 @@ test("weddings questionnaire: style 'Other' reveals a free-text field", async ({
     .getByRole("radio", { name: /already booked/i })
     .check();
   await page.getByLabel(/Which package/).selectOption("Premium");
-  await page.getByLabel(/Date of your event/).fill("2027-06-12");
+  await page.getByLabel(/Date of your event/).fill("06/12/2027");
   await page.getByRole("button", { name: /Next →/ }).click();
 
   // Section 4 — Your photography style. The free-text field is hidden

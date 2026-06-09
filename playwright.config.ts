@@ -48,6 +48,9 @@ export default defineConfig({
       // Supabase database — capture + portal cleanly no-op during tests.
       SUPABASE_URL: "",
       SUPABASE_SERVICE_ROLE_KEY: "",
+      // Blank the Places key so the autocomplete route returns an empty list
+      // deterministically (no live Google call during tests).
+      GOOGLE_PLACES_API_KEY: "",
     },
   },
 });

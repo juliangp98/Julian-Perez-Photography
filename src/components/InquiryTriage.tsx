@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // On-demand AI triage of a project's inquiry. A button calls /api/admin/triage,
 // which reads the inquiry server-side and returns an assessment (summary, fit,
@@ -88,18 +89,13 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <AiButton
           onClick={run}
-          disabled={status === "loading"}
-          className="px-4 py-2 text-sm rounded-full border border-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+          loading={status === "loading"}
+          loadingLabel="Reading the inquiry…"
         >
-          {status === "loading"
-            ? "Reading the inquiry…"
-            : triage
-              ? "✨ Re-run triage"
-              : "✨ Triage this inquiry"}
-        </button>
+          {triage ? "Re-run triage" : "Triage this inquiry"}
+        </AiButton>
         {status === "error" && (
           <span role="alert" className="text-sm text-red-700">
             Couldn&rsquo;t triage — please try again.

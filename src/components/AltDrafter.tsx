@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // Generate + review + persist accessibility alt text for portfolio gallery
 // images. Pick a gallery, optionally "Generate all", edit any line, and Save —
@@ -105,14 +106,9 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
           </select>
         </div>
         {gallery && gallery.images.length > 0 && (
-          <button
-            type="button"
-            onClick={generateAll}
-            disabled={bulk}
-            className="px-5 py-3 text-sm rounded-full border border-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
-          >
-            {bulk ? "Generating…" : "✨ Generate all"}
-          </button>
+          <AiButton onClick={generateAll} loading={bulk} loadingLabel="Generating…">
+            Generate all
+          </AiButton>
         )}
       </div>
 
@@ -147,14 +143,15 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
                     className={input}
                   />
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
+                    <AiButton
+                      size="sm"
                       onClick={() => generate(img.src)}
-                      disabled={row.status === "generating" || bulk}
-                      className="text-xs rounded-full border border-[var(--foreground)] px-3 py-1 hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+                      loading={row.status === "generating"}
+                      loadingLabel="Generating…"
+                      disabled={bulk}
                     >
-                      {row.status === "generating" ? "Generating…" : "✨ Generate"}
-                    </button>
+                      Generate
+                    </AiButton>
                     <button
                       type="button"
                       onClick={() => save(img.src)}
