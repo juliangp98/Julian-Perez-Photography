@@ -373,6 +373,22 @@ If now's a good time to pick things back up, just reply or grab a call here: {{b
 Either way, I'm wishing you well,
 Julian`,
   },
+  {
+    id: "booked-elsewhere",
+    name: "Booked elsewhere (graceful goodbye)",
+    stage: "declined",
+    subject: "Thank you, {{firstName}} — wishing you all the best",
+    body: `Hi {{firstName}},
+
+Thank you so much for reaching out about your {{serviceNoun}} and for taking the time to consider me. I understand you've decided to move forward with another photographer — that's completely okay, and I want to wish you a beautiful day and an easy lead-up to it.
+
+If anything shifts down the road — a second shooter, a last-minute gap, or future sessions like engagement, family, or anniversary photos — my door is always open. And if you ever need a recommendation, I'm happy to point you toward someone great.
+
+Congratulations again, {{firstName}}. Wishing you all the best.
+
+Warmly,
+Julian`,
+  },
 ];
 
 // Substitute `{{token}}` with a value from the context. Tokens without a

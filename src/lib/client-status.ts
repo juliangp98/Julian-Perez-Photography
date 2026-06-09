@@ -17,12 +17,14 @@ export type ClientStatus =
   | "delivered"
   | "complete"
   | "archived"
-  | "lost";
+  | "lost"
+  | "declined";
 
 // Ordered pipeline. The index doubles as the advancement rank: `advanceStatus`
 // only moves a record forward and never regresses an already-advanced status.
-// The terminal off-ramp states ("archived"/"lost") sit outside this linear
-// flow and are only ever set by hand in Studio.
+// The terminal off-ramp states ("archived"/"lost"/"declined") sit outside this
+// linear flow and are only ever set by hand. "lost" is a cooled lead that may
+// re-engage; "declined" is a prospect who chose another photographer (closed).
 export const CLIENT_STATUS_FLOW: ClientStatus[] = [
   "new-inquiry",
   "responded",
@@ -38,7 +40,11 @@ export const CLIENT_STATUS_FLOW: ClientStatus[] = [
   "complete",
 ];
 
-export const CLIENT_STATUS_TERMINAL: ClientStatus[] = ["archived", "lost"];
+export const CLIENT_STATUS_TERMINAL: ClientStatus[] = [
+  "archived",
+  "lost",
+  "declined",
+];
 
 // Studio dropdown options + admin-facing titles.
 export const CLIENT_STATUS_OPTIONS: { value: ClientStatus; title: string }[] = [
@@ -56,6 +62,7 @@ export const CLIENT_STATUS_OPTIONS: { value: ClientStatus; title: string }[] = [
   { value: "complete", title: "Complete" },
   { value: "archived", title: "Archived" },
   { value: "lost", title: "Lost" },
+  { value: "declined", title: "Declined / booked elsewhere" },
 ];
 
 // Warm, client-facing labels for the portal — never expose the internal slug.
@@ -74,6 +81,7 @@ export const CLIENT_STATUS_CLIENT_LABEL: Record<ClientStatus, string> = {
   complete: "Complete",
   archived: "Closed",
   lost: "Closed",
+  declined: "Closed",
 };
 
 // Advancement rank: position in the linear flow, or -1 for terminal/unknown
@@ -136,6 +144,7 @@ const STATUS_MILESTONE: Record<ClientStatus, number> = {
   complete: 5,
   archived: -1,
   lost: -1,
+  declined: -1,
 };
 
 export function clientMilestoneIndex(status: string | undefined): number {

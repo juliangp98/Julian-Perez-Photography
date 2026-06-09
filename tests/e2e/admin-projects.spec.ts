@@ -129,3 +129,28 @@ test("admin update: accepts the typed service/package/date values when authentic
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
+
+test("admin update: accepts the declined status and a locations array", async ({
+  request,
+}) => {
+  await signInAsAdmin(request, "10.88.0.8");
+  // The new terminal "declined" status (booked-elsewhere) and the admin-editable
+  // locations array both round-trip through the update schema.
+  const res = await request.post("/api/admin/update", {
+    data: {
+      id: "p1",
+      fields: {
+        status: "declined",
+        locations: [
+          {
+            label: "The Manor",
+            address: "123 Main St, Arlington, VA",
+            notes: "",
+          },
+        ],
+      },
+    },
+  });
+  expect(res.status()).toBe(200);
+  expect((await res.json()).ok).toBe(true);
+});

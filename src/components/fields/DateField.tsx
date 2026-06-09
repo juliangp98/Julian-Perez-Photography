@@ -78,6 +78,13 @@ export default function DateField({
   }, [open]);
 
   const selected = value ? new Date(`${value}T00:00:00`) : undefined;
+  // Bound the month/year dropdowns: a generous window around the current year,
+  // widened to include the selected date so a far-out (or past) value stays
+  // reachable. Only used inside the open popover, so this runs client-side.
+  const thisYear = new Date().getFullYear();
+  const selectedYear = selected?.getFullYear() ?? thisYear;
+  const calStartMonth = new Date(Math.min(thisYear - 5, selectedYear), 0);
+  const calEndMonth = new Date(Math.max(thisYear + 6, selectedYear), 11);
   const invalidTyped =
     touched && display.trim() !== "" && !displayToIso(display);
   const shownError =
@@ -137,16 +144,21 @@ export default function DateField({
           </svg>
         </button>
         {open && (
-          <div
-            className="absolute left-0 z-30 mt-2 rounded-lg border border-[var(--accent)] bg-white p-3 shadow-xl"
-            style={CALENDAR_THEME}
-          >
+          <div className="absolute left-0 z-30 mt-2 rounded-lg border border-[var(--accent)] bg-white p-3 shadow-xl">
+            {/* The theme vars go on the DayPicker root (not the wrapper): the
+                base stylesheet sets `--rdp-accent-color` on `.rdp-root` itself,
+                which beats an inherited value — only an inline style on the same
+                element overrides it to the brand gold. */}
             <DayPicker
               mode="single"
+              captionLayout="dropdown"
+              startMonth={calStartMonth}
+              endMonth={calEndMonth}
               selected={selected}
               onSelect={pick}
               defaultMonth={selected}
               showOutsideDays
+              style={CALENDAR_THEME}
             />
           </div>
         )}
