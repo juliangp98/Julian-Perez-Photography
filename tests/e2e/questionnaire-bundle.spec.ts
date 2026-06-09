@@ -12,7 +12,9 @@ import { test, expect, type Page } from "@playwright/test";
 // currently on screen.)
 async function satisfyVisible(page: Page) {
   for (const [sel, val] of [
-    ['input[type="date"]', "2027-08-08"],
+    // DateField is a masked MM/DD/YYYY text input (placeholder), not a native
+    // date input; number/time stay native.
+    ['input[placeholder="MM/DD/YYYY"]', "08/08/2027"],
     ['input[type="number"]', "1"],
     ['input[type="time"]', "12:00"],
   ] as const) {

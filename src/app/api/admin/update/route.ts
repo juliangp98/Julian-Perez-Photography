@@ -32,6 +32,17 @@ const schema = z.object({
     // Julian's reply to the client's notes/questions (shown to the client).
     // The client's own `clientNotes` are not admin-writable.
     clientNotesReply: z.string().max(10000).optional(),
+    // Venue / address rows (admin-editable; persisted to the locations JSONB).
+    locations: z
+      .array(
+        z.object({
+          label: z.string().max(300).optional(),
+          address: z.string().max(500).optional(),
+          notes: z.string().max(1000).optional(),
+        }),
+      )
+      .max(20)
+      .optional(),
   }),
 });
 

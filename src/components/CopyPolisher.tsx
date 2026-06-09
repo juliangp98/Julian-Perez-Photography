@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // Draft or tighten the marketing copy (tagline, description, intro) for a service
 // or portfolio page with AI, from the copy that's currently live. Calls
@@ -127,14 +128,14 @@ export default function CopyPolisher({
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <AiButton
           onClick={polish}
-          disabled={status === "drafting" || !selected}
-          className="px-6 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
+          loading={status === "drafting"}
+          loadingLabel="Drafting…"
+          disabled={!selected}
         >
-          {status === "drafting" ? "Drafting…" : "✨ Polish copy"}
-        </button>
+          Polish copy
+        </AiButton>
         {status === "error" && (
           <span role="alert" className="text-sm text-red-700">
             Couldn&rsquo;t draft — please try again.

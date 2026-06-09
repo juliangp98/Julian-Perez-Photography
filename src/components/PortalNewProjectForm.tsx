@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { services, serviceTitle } from "@/lib/services-data";
+import DateField from "@/components/fields/DateField";
 
 const input =
   "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
@@ -106,18 +107,12 @@ export default function PortalNewProjectForm() {
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="pnp-date" className={label}>
-              Date (if you have one)
-            </label>
-            <input
-              id="pnp-date"
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-              className={input}
-            />
-          </div>
+          <DateField
+            id="pnp-date"
+            label="Date (if you have one)"
+            value={eventDate}
+            onChange={setEventDate}
+          />
         </div>
 
         {dup && (

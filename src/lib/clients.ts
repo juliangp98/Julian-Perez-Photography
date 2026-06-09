@@ -664,6 +664,7 @@ const ADMIN_COLUMN: Record<string, string> = {
   internalNotes: "internal_notes",
   galleryUrl: "gallery_url",
   projectName: "project_name",
+  locations: "locations",
 };
 
 export async function updateClientAdmin(

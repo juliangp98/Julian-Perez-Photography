@@ -62,3 +62,31 @@ test("inquiry form: a missing required field shows an inline error and blocks su
     0,
   );
 });
+
+// The shared field primitives auto-format on the public inquiry form.
+test("inquiry form: phone / budget / date auto-format and a bad email flags", async ({
+  page,
+}) => {
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": "10.99.3.3" });
+  await page.goto("/inquire");
+
+  const phone = page.getByLabel("Phone");
+  await phone.fill("7035551234");
+  await expect(phone).toHaveValue("(703) 555-1234");
+
+  const date = page.getByLabel("Event date (if known)");
+  await date.fill("06152027");
+  await expect(date).toHaveValue("06/15/2027");
+
+  const budget = page.getByLabel("Budget");
+  await budget.fill("2500");
+  await budget.blur();
+  await expect(budget).toHaveValue("$2,500");
+
+  const email = page.getByLabel("Email");
+  await email.fill("not-an-email");
+  await email.blur();
+  await expect(
+    page.getByText("Please enter a valid email address."),
+  ).toBeVisible();
+});

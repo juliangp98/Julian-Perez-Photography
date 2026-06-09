@@ -16,6 +16,12 @@ The pill buttons inside `CalloutCard` (and the standalone CTAs that aren't in on
 
 While a route segment waits on data, the App Router shows one shared **loading identity** — a centered line-art camera (`LoadingScreen`) above a "Loading…" label, wired as the root `app/loading.tsx` Suspense fallback. It surfaces only when a navigation genuinely suspends — the dynamic admin/portal Supabase reads, a cold Sanity fetch — and stays invisible on instant or prerendered pages, so the few per-route journal/portfolio skeletons retired into it and every wait across the site now reads the same.
 
+## Form fields & formatting
+
+Every form on the site — the inquiry form, the multi-section questionnaire, the admin edit form, portal edits, and both new-project forms — runs its inputs through one set of shared field primitives (`src/components/fields/`) rather than hand-rolled `<input>`s, so formatting, validation, and the label / required-marker / inline-error chrome read identically everywhere (all off one `Field` wrapper + `inputClass`, with the helpers in `src/lib/field-format.ts`). **`PhoneField`** masks to `(703) 555-1234` as you type — the visual companion to `normalizeE164`'s server-side E.164 pass; **`EmailField`** flags an invalid address on blur and offers a one-click fix for a common domain typo ("Did you mean name@gmail.com?"); **`BudgetField`** drops in a `$` and comma-groups a plain number; **`NumberField`** holds to non-negative integers; and **`DateField`** types as `MM/DD/YYYY` (auto-slashing, auto-advancing month→day→year) and opens a **react-day-picker** calendar styled as a callout-card popover — the selected day ringed in the brand accent — while storing ISO `yyyy-MM-dd`.
+
+**Address & venue autocomplete.** `LocationField` queries `/api/places/autocomplete`, a server proxy for Google Places (New) that reuses the existing `GOOGLE_PLACES_API_KEY` (the reviews key), builds lightweight predictions from each suggestion's `structuredFormat` (no Place Details call, so no extra per-select billing), is rate-limited, and **returns an empty list when the key is unset** so the field cleanly degrades to free text. As the user types (≥3 chars, debounced) a keyboard-navigable combobox of addresses/venues drops in; selecting one fills the field, and **free text is always retained** for custom entries. It powers the inquiry "location", the questionnaire venue/address fields (`venueName` / `venueAddress` / get-ready / reception), and a new editable **Locations** section on the admin project form — a repeatable label/address/notes list persisted to the `locations` JSONB through `/api/admin/update`.
+
 ## Inquiry form + email
 
 `/inquire` posts to `/api/inquire`. Resend sends the owner a structured inquiry email plus an auto-reply to the client. The handler writes the inquiry subject line with the event date formatted as `"Aug 15, 2027"`. The form marks its required fields — name, email, service, and the message — with an asterisk and validates them client-side on submit: a missing or malformed field shows an inline, `aria-describedby`-wired error and focuses the first offender instead of bouncing off a generic server message.
@@ -211,6 +217,8 @@ The link is **visible by text, color, and grouping**. On the portal menu, bundle
 - Consolidated the per-round plan narrative into this CHANGELOG.
 
 ## AI-assisted drafting
+
+Every generative action across the site fires from one shared **`AiButton`** — a ✨-marked accent pill with a built-in loading state — so a generative tool always looks like one: "Help me write this" and "Draft this" on the public inquiry + questionnaire forms, plus the admin triage, prep-brief, plan, compose-email, copy-polish, journal, meta-description, alt-text, and natural-language-search tools.
 
 The compose-email panel on a project gains an admin-only **"Draft with AI"** button that turns a pipeline template + the project's real context into a personalized, on-brand draft — which Julian reviews and edits before sending (the AI never sends; it only fills the editable subject/body). An optional one-line steer ("mention the rain backup", "warmer tone") tunes the result, which lands under an "AI draft — review before sending" note.
 

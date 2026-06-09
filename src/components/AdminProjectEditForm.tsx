@@ -11,6 +11,17 @@ import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 // Imported directly (not via @/lib/content) so this client component doesn't
 // pull the server-only content layer into the browser bundle.
 import { services } from "@/lib/services-data";
+import TextField from "@/components/fields/TextField";
+import EmailField from "@/components/fields/EmailField";
+import PhoneField from "@/components/fields/PhoneField";
+import NumberField from "@/components/fields/NumberField";
+import DateField from "@/components/fields/DateField";
+import BudgetField from "@/components/fields/BudgetField";
+import LocationField from "@/components/fields/LocationField";
+import AiButton from "@/components/AiButton";
+import { formatPhone } from "@/lib/field-format";
+
+type LocationEntry = { label?: string; address?: string; notes?: string };
 
 // Coerce a stored event date into the `yyyy-MM-dd` a <input type="date"> needs.
 // An ISO calendar date is returned as-is (no timezone shift); other parseable
@@ -44,6 +55,7 @@ type Initial = {
   clientNotesReply?: string;
   internalNotes?: string;
   galleryUrl?: string;
+  locations?: LocationEntry[];
 };
 type Status = "idle" | "saving" | "saved" | "error";
 
@@ -73,7 +85,7 @@ export default function AdminProjectEditForm({
     projectName: initial.projectName ?? "",
     clientName: initial.clientName ?? "",
     email: initial.email ?? "",
-    phone: initial.phone ?? "",
+    phone: formatPhone(initial.phone ?? ""),
     partnerName: initial.partnerName ?? "",
     status: initial.status ?? "new-inquiry",
     serviceType: initial.serviceType ?? "",
@@ -88,6 +100,9 @@ export default function AdminProjectEditForm({
     internalNotes: initial.internalNotes ?? "",
     galleryUrl: initial.galleryUrl ?? "",
   });
+  const [locations, setLocations] = useState<LocationEntry[]>(
+    initial.locations ?? [],
+  );
   const [status, setStatus] = useState<Status>("idle");
   const [notifyClient, setNotifyClient] = useState(false);
   const [planStatus, setPlanStatus] = useState<
@@ -95,6 +110,13 @@ export default function AdminProjectEditForm({
   >("idle");
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value }));
+  const setStr = (k: keyof typeof v) => (val: string) =>
+    setV((prev) => ({ ...prev, [k]: val }));
+  function updateLoc(i: number, patch: Partial<LocationEntry>) {
+    setLocations((l) =>
+      l.map((loc, j) => (j === i ? { ...loc, ...patch } : loc)),
+    );
+  }
 
   // Draft the client-facing plan summary with AI, into the editable field.
   async function draftPlan() {
@@ -152,6 +174,7 @@ export default function AdminProjectEditForm({
           fields: {
             ...v,
             guestCount: v.guestCount === "" ? undefined : Number(v.guestCount),
+            locations: locations.filter((l) => l.label || l.address || l.notes),
           },
         }),
       });
@@ -233,18 +256,13 @@ export default function AdminProjectEditForm({
           </label>
           <input id="a-partner" value={v.partnerName} onChange={set("partnerName")} className={input} />
         </div>
-        <div>
-          <label htmlFor="a-email" className={label}>
-            Email
-          </label>
-          <input id="a-email" type="email" value={v.email} onChange={set("email")} className={input} />
-        </div>
-        <div>
-          <label htmlFor="a-phone" className={label}>
-            Phone
-          </label>
-          <input id="a-phone" type="tel" value={v.phone} onChange={set("phone")} className={input} />
-        </div>
+        <EmailField
+          id="a-email"
+          label="Email"
+          value={v.email}
+          onChange={setStr("email")}
+        />
+        <PhoneField id="a-phone" value={v.phone} onChange={setStr("phone")} />
         <div>
           <label htmlFor="a-package" className={label}>
             Package
@@ -271,45 +289,97 @@ export default function AdminProjectEditForm({
               )}
           </select>
         </div>
-        <div>
-          <label htmlFor="a-date" className={label}>
-            Event date
-          </label>
-          {eventDateUnparseable ? (
-            <>
-              <input
-                id="a-date"
-                value={v.eventDate}
-                onChange={set("eventDate")}
-                placeholder="YYYY-MM-DD"
-                className={input}
-              />
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Re-enter as YYYY-MM-DD to use the date picker.
-              </p>
-            </>
-          ) : (
-            <input
-              id="a-date"
-              type="date"
-              value={v.eventDate}
-              onChange={set("eventDate")}
-              className={input}
-            />
-          )}
+        {eventDateUnparseable ? (
+          <TextField
+            id="a-date"
+            label="Event date"
+            value={v.eventDate}
+            onChange={setStr("eventDate")}
+            placeholder="YYYY-MM-DD"
+            help="Re-enter as YYYY-MM-DD to use the calendar."
+          />
+        ) : (
+          <DateField
+            id="a-date"
+            label="Event date"
+            value={v.eventDate}
+            onChange={setStr("eventDate")}
+          />
+        )}
+        <NumberField
+          id="a-guests"
+          label="Guest count"
+          value={v.guestCount}
+          onChange={setStr("guestCount")}
+        />
+        <BudgetField
+          id="a-budget"
+          value={v.budget}
+          onChange={setStr("budget")}
+        />
+      </div>
+
+      {/* Locations — venue/address rows with Places autocomplete. */}
+      <div>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className={label}>Locations</span>
+          <button
+            type="button"
+            onClick={() => setLocations((l) => [...l, {}])}
+            className="rounded-full border border-[var(--foreground)] px-3 py-1 text-xs transition hover:bg-[var(--foreground)] hover:text-[var(--background)]"
+          >
+            + Add location
+          </button>
         </div>
-        <div>
-          <label htmlFor="a-guests" className={label}>
-            Guest count
-          </label>
-          <input id="a-guests" type="number" min={0} value={v.guestCount} onChange={set("guestCount")} className={input} />
-        </div>
-        <div>
-          <label htmlFor="a-budget" className={label}>
-            Budget
-          </label>
-          <input id="a-budget" value={v.budget} onChange={set("budget")} className={input} />
-        </div>
+        {locations.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">
+            No locations yet — add a venue or address.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {locations.map((loc, i) => (
+              <div
+                key={i}
+                className="space-y-3 rounded-lg border border-[var(--border)] p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Location {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLocations((l) => l.filter((_, j) => j !== i))
+                    }
+                    className="text-xs text-[var(--muted)] transition hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <TextField
+                  id={`a-loc-label-${i}`}
+                  label="Label / venue name"
+                  value={loc.label ?? ""}
+                  onChange={(val) => updateLoc(i, { label: val })}
+                />
+                <LocationField
+                  id={`a-loc-address-${i}`}
+                  label="Address"
+                  value={loc.address ?? ""}
+                  onChange={(val) => updateLoc(i, { address: val })}
+                  valueKind="address"
+                  placeholder="Search an address…"
+                />
+                <TextField
+                  id={`a-loc-notes-${i}`}
+                  label="Notes"
+                  value={loc.notes ?? ""}
+                  onChange={(val) => updateLoc(i, { notes: val })}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div>
         <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -320,14 +390,14 @@ export default function AdminProjectEditForm({
             </span>
           </label>
           {aiEnabled && (
-            <button
-              type="button"
+            <AiButton
+              size="sm"
               onClick={draftPlan}
-              disabled={planStatus === "drafting"}
-              className="text-xs rounded-full border border-[var(--foreground)] px-3 py-1 hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+              loading={planStatus === "drafting"}
+              loadingLabel="Drafting…"
             >
-              {planStatus === "drafting" ? "Drafting…" : "✨ Draft with AI"}
-            </button>
+              Draft with AI
+            </AiButton>
           )}
         </div>
         <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={input} />

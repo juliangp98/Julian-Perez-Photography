@@ -1,4 +1,5 @@
 "use client";
+import AiButton from "@/components/AiButton";
 
 // Compose a pipeline email on a project: pick a template, it prefills from the
 // project's info (with `[brackets]` for the bits to complete), edit freely, then
@@ -162,14 +163,14 @@ export default function ComposeEmail({
                 <p className="text-sm font-medium">
                   Personalize this with AI
                 </p>
-                <button
-                  type="button"
+                <AiButton
+                  size="sm"
                   onClick={draft}
-                  disabled={status === "drafting"}
-                  className="px-4 py-2 text-sm rounded-full border border-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] transition disabled:opacity-50"
+                  loading={status === "drafting"}
+                  loadingLabel="Drafting…"
                 >
-                  {status === "drafting" ? "Drafting…" : "✨ Draft with AI"}
-                </button>
+                  Draft with AI
+                </AiButton>
               </div>
               <input
                 value={instructions}
