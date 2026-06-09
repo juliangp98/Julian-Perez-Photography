@@ -28,6 +28,7 @@ const STAGE_LABEL: Record<string, string> = {
   delivered: "Delivery",
   complete: "Wrap-up",
   lost: "Re-engagement",
+  declined: "Booked elsewhere",
 };
 
 // Group consecutive same-stage templates so the picker reads as a pipeline.

@@ -40,7 +40,11 @@ const GROUPS: { key: string; title: string; statuses: string[] }[] = [
     ],
   },
   { key: "delivered", title: "Delivered & complete", statuses: ["delivered", "complete"] },
-  { key: "archived", title: "Archived & lost", statuses: ["archived", "lost"] },
+  {
+    key: "archived",
+    title: "Archived, lost & declined",
+    statuses: ["archived", "lost", "declined"],
+  },
 ];
 
 // Day delta from today for an event-date string (ISO / M/D/Y / "Mon D, YYYY");
@@ -113,7 +117,13 @@ export default async function AdminProjectsPage({
   const staleInquiries = all.filter(
     (r) => r.status === "new-inquiry" && (daysSince(r.updatedAt) ?? 0) > 3,
   );
-  const DONE_STATUSES = new Set(["delivered", "complete", "archived", "lost"]);
+  const DONE_STATUSES = new Set([
+    "delivered",
+    "complete",
+    "archived",
+    "lost",
+    "declined",
+  ]);
   const upcomingShoots = all
     .filter((r) => !DONE_STATUSES.has(r.status ?? ""))
     .map((r) => ({ r, days: daysFromToday(r.eventDate) }))
