@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/content";
-import GoogleReviews from "@/components/GoogleReviews";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
-import CalloutCard from "@/components/CalloutCard";
+import GoogleReviews from "@/components/marketing/GoogleReviews";
+import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Client Galleries",

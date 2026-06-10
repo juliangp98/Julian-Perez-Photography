@@ -6,9 +6,10 @@ import {
   getVisiblePortfolios,
   getVisibleServices,
 } from "@/lib/content";
-import GoogleReviews from "@/components/GoogleReviews";
-import FeaturedJournalPost from "@/components/FeaturedJournalPost";
+import GoogleReviews from "@/components/marketing/GoogleReviews";
+import FeaturedJournalPost from "@/components/marketing/FeaturedJournalPost";
 
+import Button from "@/components/ui/Button";
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   return {
@@ -48,18 +49,12 @@ export default async function HomePage() {
               across the DMV — built around who you are, not a shot list.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                href="/portfolio"
-                className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-              >
+              <Button href="/portfolio" variant="secondary" size="lg">
                 View portfolio
-              </Link>
-              <Link
-                href="/inquire"
-                className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-              >
+              </Button>
+              <Button href="/inquire" size="lg">
                 Inquire
-              </Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -151,24 +146,15 @@ export default async function HomePage() {
             you want? Jump straight into the planning questionnaire.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Link
-              href="/inquire"
-              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-            >
+            <Button href="/inquire" variant="secondary" size="lg">
               Start an inquiry
-            </Link>
-            <Link
-              href="/questionnaire"
-              className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-            >
+            </Button>
+            <Button href="/questionnaire" size="lg">
               Plan your session
-            </Link>
-            <Link
-              href="/book"
-              className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-            >
+            </Button>
+            <Button href="/book" variant="secondary" size="lg">
               Book a session
-            </Link>
+            </Button>
           </div>
         </div>
       </section>

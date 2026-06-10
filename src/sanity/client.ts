@@ -101,7 +101,7 @@ export const sanityClient = createClient({
 // journal pages consult this before fetching so a fresh clone without
 // env — or a deploy with a malformed env value — still builds and
 // renders a graceful placeholder instead of throwing. Same pattern used
-// for Resend/Twilio in src/lib/mail.ts + src/lib/sms.ts.
+// for Resend/Twilio in src/lib/email/notify.ts + src/lib/sms.ts.
 //
 // The `ok` flags come from the validator above: a projectId of
 // `PLACEHOLDER_PROJECT_ID` means either "unset" or "set-but-invalid" —

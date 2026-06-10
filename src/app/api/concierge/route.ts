@@ -14,8 +14,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel } from "@/lib/ai";
-import { buildConciergeContext } from "@/lib/concierge-kb";
+import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
+import { buildConciergeContext } from "@/lib/ai/concierge-kb";
 import { getSiteSettings } from "@/lib/content";
 import * as Sentry from "@sentry/nextjs";
 

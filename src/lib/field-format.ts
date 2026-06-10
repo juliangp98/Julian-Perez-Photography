@@ -1,8 +1,9 @@
-// Client-side input formatting + validation helpers shared by the field
-// primitives in `src/components/fields`. Pure functions, no React — easy to
-// unit-test and reuse. The phone display mask here is the visual companion to
-// `normalizeE164` (`src/lib/sms.ts`), which owns server-side E.164 normalization
-// for Twilio; this only shapes what the user sees while typing.
+// Formatting + validation helpers for the form-field primitives in
+// `src/components/ui/fields`, plus the site's one human-readable date formatter
+// (`formatHumanDate`, used in UI + emails). Pure functions, no React — easy to
+// unit-test and reuse on the client or the server. The phone display mask is the
+// visual companion to `normalizeE164` (`src/lib/sms.ts`), which owns server-side
+// E.164 normalization for Twilio; this only shapes what the user sees.
 
 // ── Phone ──
 
@@ -130,4 +131,62 @@ export function isoToDisplay(iso: string): string {
   if (!m) return "";
   const [, yyyy, mm, dd] = m;
   return `${mm}/${dd}/${yyyy}`;
+}
+
+// The studio's home timezone. Server renders run in UTC on Vercel, so a full
+// timestamp formatted without a pinned zone can show the wrong calendar day
+// (a 9 PM Eastern record reads as tomorrow) — pass this wherever a stored
+// timestamp (not a plain calendar date) is displayed.
+export const STUDIO_TIME_ZONE = "America/New_York";
+
+// Human-readable date for UI + emails: "June 7, 2026" (or "Jun 7, 2026" with
+// `month: "short"`). Accepts an ISO calendar date (anchored to local midnight so
+// it never shifts a day in a negative-offset locale) or any Date-parseable
+// string/Date; returns "" for empty or unparseable input so callers fall back
+// cleanly. Pass `timeZone` (e.g. STUDIO_TIME_ZONE) when the input is a full
+// timestamp rather than a calendar date. The site's single source for
+// displaying a date.
+export function formatHumanDate(
+  input?: string | Date | null,
+  opts: { month?: "long" | "short"; timeZone?: string } = {},
+): string {
+  if (!input) return "";
+  let date: Date;
+  if (input instanceof Date) {
+    date = input;
+  } else {
+    const s = input.trim();
+    if (!s) return "";
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    date = iso
+      ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+      : new Date(s);
+  }
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: opts.month ?? "long",
+    day: "numeric",
+    ...(opts.timeZone ? { timeZone: opts.timeZone } : {}),
+  });
+}
+
+// Coarse "how long ago" for a stored timestamp: "today", "yesterday",
+// "3 days ago", then weeks / months / years as the gap grows. Returns "" for
+// empty, unparseable, or future input so callers can simply append it.
+export function formatRelativeDays(iso?: string | null): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const days = Math.floor((Date.now() - t) / 86_400_000);
+  if (days < 0) return "";
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days} days ago`;
+  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+  if (days < 365 * 2) {
+    const months = Math.floor(days / 30);
+    return months === 1 ? "1 month ago" : `${months} months ago`;
+  }
+  return `${Math.floor(days / 365)} years ago`;
 }

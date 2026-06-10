@@ -11,10 +11,10 @@ import {
 } from "@/lib/client-status";
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
-import PortalBundles from "@/components/PortalBundles";
-import PortalNewProjectForm from "@/components/PortalNewProjectForm";
+import PortalBundles from "@/components/portal/PortalBundles";
+import PortalNewProjectForm from "@/components/forms/PortalNewProjectForm";
 import { projectDisplayName } from "@/lib/project-name";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
 
 // The portal home: a menu of the signed-in person's projects, grouped by
 // photographic category (umbrella) in the same card style as the services /

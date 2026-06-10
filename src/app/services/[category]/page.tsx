@@ -1,6 +1,5 @@
-import Link from "next/link";
 import Script from "next/script";
-import SubNav, { type SubNavItem } from "@/components/SubNav";
+import SubNav, { type SubNavItem } from "@/components/ui/SubNav";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -9,11 +8,12 @@ import {
   getSiteSettings,
   getVisibleServices,
 } from "@/lib/content";
-import PackageCard from "@/components/PackageCard";
-import FeaturedReel from "@/components/FeaturedReel";
+import PackageCard from "@/components/marketing/PackageCard";
+import FeaturedReel from "@/components/marketing/FeaturedReel";
 import { renderInline } from "@/lib/inline";
 import { getQuestionnaire } from "@/lib/questionnaires";
 
+import Button from "@/components/ui/Button";
 // Slugs come from Sanity when configured and fall back to the
 // hard-coded array otherwise. Wrapped so a network hiccup at build
 // time doesn't break the build; pages still render on demand.
@@ -316,12 +316,9 @@ export default async function ServiceCategoryPage({
             <p className="mt-2 text-sm text-[var(--muted)]">
               ~{questionnaire.estimatedMinutes} min · autosaves in your browser
             </p>
-            <Link
-              href={`/questionnaire/${s.slug}`}
-              className="mt-4 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition text-sm"
-            >
+            <Button href={`/questionnaire/${s.slug}`} className="mt-4">
               Start the questionnaire →
-            </Link>
+            </Button>
             <div className="mt-8 pt-8 border-t border-[var(--border)]">
               <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
                 Or explore another way
@@ -335,33 +332,19 @@ export default async function ServiceCategoryPage({
         )}
         <div className="mt-4 flex gap-3 flex-wrap">
           {portfolio && (
-            <Link
-              href={`/portfolio/${s.slug}`}
-              className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-            >
+            <Button href={`/portfolio/${s.slug}`} variant="secondary">
               View portfolio
-            </Link>
+            </Button>
           )}
-          <Link
-            href={`/inquire?service=${s.slug}`}
-            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          <Button href={`/inquire?service=${s.slug}`} variant="secondary">
             Inquire
-          </Link>
-          <Link
-            href="/book"
-            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          </Button>
+          <Button href="/book" variant="secondary">
             Book a session
-          </Link>
-          <a
-            href={settings.calls.discoveryCall.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          </Button>
+          <Button href={settings.calls.discoveryCall.url} external variant="secondary">
             Schedule a discovery call
-          </a>
+          </Button>
         </div>
       </div>
     </section>

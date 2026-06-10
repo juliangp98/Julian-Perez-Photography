@@ -9,9 +9,9 @@ import {
   BrandedEmailLayout,
   InquiryEmailTemplate,
   ClientConfirmationTemplate,
-} from "@/lib/email-templates";
+} from "@/lib/email/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate, resendFrom } from "@/lib/email-helpers";
+import { formatSubjectDate, resendFrom } from "@/lib/email/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
@@ -195,7 +195,7 @@ export async function POST(req: Request) {
   }
 
   // Durable capture — upsert a client record so the inquiry isn't lost to the
-  // inbox (backlog #11). Fire-and-forget: the email has already succeeded, so a
+  // inbox. Fire-and-forget: the email has already succeeded, so a
   // store failure (or an unconfigured store) must never fail the submission.
   // `upsertClientFromInquiry` no-ops when the private store isn't configured.
   try {

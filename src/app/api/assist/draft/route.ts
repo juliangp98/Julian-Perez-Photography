@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai";
+import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import * as Sentry from "@sentry/nextjs";
 
 const detailSchema = z.object({

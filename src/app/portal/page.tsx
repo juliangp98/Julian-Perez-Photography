@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import PortalLoginForm from "@/components/PortalLoginForm";
-import CalloutCard from "@/components/CalloutCard";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
+import PortalLoginForm from "@/components/portal/PortalLoginForm";
+import CalloutCard from "@/components/ui/CalloutCard";
+import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
 import { getSession } from "@/lib/auth-cookies";
 
 // Portal login (public). Authenticated portal pages live under /portal/* and

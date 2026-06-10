@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
-import SubNav, { ADMIN_TABS } from "@/components/SubNav";
+import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
   title: "External links — Admin",

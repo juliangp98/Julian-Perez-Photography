@@ -10,7 +10,7 @@ import { getAdminSession } from "@/lib/auth-cookies";
 import { addAdminLog, getClientFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { projectDisplayName } from "@/lib/project-name";
-import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/notify";
+import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/email/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const STATUS_VALUES = CLIENT_STATUS_OPTIONS.map((s) => s.value) as [

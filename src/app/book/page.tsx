@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/content";
-import CalloutCard from "@/components/CalloutCard";
-import Button from "@/components/Button";
-import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
+import Button from "@/components/ui/Button";
+import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
   title: "Book a Session",

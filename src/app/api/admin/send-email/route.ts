@@ -11,12 +11,12 @@ import { Resend } from "resend";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull, addAdminLog } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
-import { resendFrom } from "@/lib/email-helpers";
+import { resendFrom } from "@/lib/email/email-helpers";
 import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
   PipelineEmailTemplate,
-} from "@/lib/email-templates";
+} from "@/lib/email/email-templates";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({

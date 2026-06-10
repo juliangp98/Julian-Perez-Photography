@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { formatHumanDate as formatDate } from "@/lib/field-format";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
@@ -9,16 +10,16 @@ import {
 } from "@/lib/client-status";
 import { getQuestionnaire } from "@/lib/questionnaires";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
-import PortalEditForm from "@/components/PortalEditForm";
-import PortalDocumentUpload from "@/components/PortalDocumentUpload";
-import PortalStatusTimeline from "@/components/PortalStatusTimeline";
-import SubNav, { CLIENT_TABS } from "@/components/SubNav";
-import CalloutCard from "@/components/CalloutCard";
-import QuestionnaireCallout from "@/components/QuestionnaireCallout";
-import { RailCard, Detail } from "@/components/RailCard";
+import PortalEditForm from "@/components/portal/PortalEditForm";
+import PortalDocumentUpload from "@/components/portal/PortalDocumentUpload";
+import PortalStatusTimeline from "@/components/portal/PortalStatusTimeline";
+import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
+import QuestionnaireCallout from "@/components/portal/QuestionnaireCallout";
+import { RailCard, Detail } from "@/components/ui/RailCard";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { serviceTitle } from "@/lib/services-data";
-import { aiEnabled } from "@/lib/ai";
+import { aiEnabled } from "@/lib/ai/ai";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -51,17 +52,6 @@ function questionnaireLinkFor(record: {
   if (record.eventDate) params.set("eventDate", record.eventDate);
   if (record.guestCount != null) params.set("guestCount", String(record.guestCount));
   return { href: `/questionnaire/${record.serviceType}?${params.toString()}` };
-}
-
-function formatDate(d?: string): string | null {
-  if (!d) return null;
-  const date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 export default async function PortalProjectPage({

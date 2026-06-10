@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getServicesByUmbrella } from "@/lib/content";
-import SubNav, { MAIN_TABS } from "@/components/SubNav";
-import CalloutCard from "@/components/CalloutCard";
+import SubNav, { MAIN_TABS } from "@/components/ui/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Services & Pricing",

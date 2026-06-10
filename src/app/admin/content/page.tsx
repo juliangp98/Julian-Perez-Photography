@@ -2,14 +2,14 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
-import SubNav, { ADMIN_TABS } from "@/components/SubNav";
-import JournalDrafter from "@/components/JournalDrafter";
-import CopyPolisher, { type CopySubject } from "@/components/CopyPolisher";
-import MetaDrafter from "@/components/MetaDrafter";
-import AltDrafter, { type AltGallery } from "@/components/AltDrafter";
+import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
+import JournalDrafter from "@/components/admin/ai/JournalDrafter";
+import CopyPolisher, { type CopySubject } from "@/components/admin/ai/CopyPolisher";
+import MetaDrafter from "@/components/admin/ai/MetaDrafter";
+import AltDrafter, { type AltGallery } from "@/components/admin/ai/AltDrafter";
 import { getVisibleServices, getVisiblePortfolios } from "@/lib/content";
 import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
-import { aiEnabled } from "@/lib/ai";
+import { aiEnabled } from "@/lib/ai/ai";
 
 export const metadata: Metadata = {
   title: "Content tools — Admin",

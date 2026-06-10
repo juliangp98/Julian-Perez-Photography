@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getPortfoliosByUmbrella } from "@/lib/content";
-import SubNav, { MAIN_TABS } from "@/components/SubNav";
+import SubNav, { MAIN_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
   title: "Portfolio",

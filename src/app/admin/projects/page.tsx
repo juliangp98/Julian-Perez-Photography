@@ -4,22 +4,22 @@ import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
+import { statusTitle } from "@/lib/labels";
 import { serviceTitle } from "@/lib/services-data";
-import SubNav, { ADMIN_TABS } from "@/components/SubNav";
-import AdminQuickLog from "@/components/AdminQuickLog";
+import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
+import AdminQuickLog from "@/components/admin/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
-import AdminSearch from "@/components/AdminSearch";
-import NewProjectForm from "@/components/NewProjectForm";
-import { aiEnabled } from "@/lib/ai";
+import AdminSearch from "@/components/admin/AdminSearch";
+import NewProjectForm from "@/components/forms/NewProjectForm";
+import { compactInputClass } from "@/components/ui/fields/Field";
+import { submitButtonClass } from "@/components/ui/Button";
+import { aiEnabled } from "@/lib/ai/ai";
+import Panel from "@/components/ui/Panel";
 
 export const metadata: Metadata = {
   title: "Projects — Admin",
   robots: { index: false, follow: false },
 };
-
-const STATUS_TITLE: Record<string, string> = Object.fromEntries(
-  CLIENT_STATUS_OPTIONS.map((s) => [s.value, s.title]),
-);
 
 // Status groupings — mirrors the pipeline so the overview reads like a board.
 const GROUPS: { key: string; title: string; statuses: string[] }[] = [
@@ -71,12 +71,12 @@ function daysSince(iso?: string): number | null {
 
 function ProjectCard({ r }: { r: ClientRecordFull }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition">
+    <Panel className="hover:border-[var(--foreground)] transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
         <div className="flex items-baseline justify-between gap-3">
           <div className="font-serif text-xl">{projectDisplayName(r)}</div>
           <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
-            {STATUS_TITLE[r.status ?? ""] ?? r.status}
+            {statusTitle(r.status)}
           </span>
         </div>
         <div className="mt-2 text-sm text-[var(--muted)]">
@@ -94,7 +94,7 @@ function ProjectCard({ r }: { r: ClientRecordFull }) {
       <div className="mt-3 pt-3 border-t border-[var(--border)]">
         <AdminQuickLog projectId={r.id} currentStatus={r.status} />
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -195,7 +195,7 @@ export default async function AdminProjectsPage({
             </div>
           )}
           {upcomingShoots.length > 0 && (
-            <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+            <Panel>
               <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
                 Upcoming shoots ({upcomingShoots.length})
               </div>
@@ -221,7 +221,7 @@ export default async function AdminProjectsPage({
                   </li>
                 ))}
               </ul>
-            </div>
+            </Panel>
           )}
         </div>
       )}
@@ -239,13 +239,13 @@ export default async function AdminProjectsPage({
             defaultValue={q}
             placeholder="Search name, email, service…"
             aria-label="Search projects"
-            className="flex-1 min-w-[200px] px-4 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+            className={`flex-1 min-w-[200px] ${compactInputClass}`}
           />
           <select
             name="status"
             defaultValue={statusFilter}
             aria-label="Filter by status"
-            className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+            className={compactInputClass}
           >
             <option value="">All statuses</option>
             {CLIENT_STATUS_OPTIONS.map((o) => (
@@ -259,7 +259,7 @@ export default async function AdminProjectsPage({
               name="service"
               defaultValue={serviceFilter}
               aria-label="Filter by service"
-              className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] capitalize"
+              className={`${compactInputClass} capitalize`}
             >
               <option value="">All services</option>
               {services.map((s) => (
@@ -269,10 +269,7 @@ export default async function AdminProjectsPage({
               ))}
             </select>
           )}
-          <button
-            type="submit"
-            className="px-5 py-2 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-          >
+          <button type="submit" className={submitButtonClass}>
             Filter
           </button>
           {hasFilters && (

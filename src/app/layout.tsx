@@ -4,11 +4,11 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-import Nav from "@/components/Nav";
-import Footer from "@/components/Footer";
-import ConciergeWidget from "@/components/ConciergeWidget";
+import Nav from "@/components/marketing/Nav";
+import Footer from "@/components/marketing/Footer";
+import ConciergeWidget from "@/components/marketing/ConciergeWidget";
 import { getSiteSettings } from "@/lib/content";
-import { aiEnabled } from "@/lib/ai";
+import { aiEnabled } from "@/lib/ai/ai";
 
 const inter = Inter({
   variable: "--font-inter",

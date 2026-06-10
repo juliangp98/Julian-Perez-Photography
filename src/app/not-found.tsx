@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 
+import Button from "@/components/ui/Button";
 export default function NotFound() {
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-24 text-center">
@@ -21,30 +22,18 @@ export default function NotFound() {
         evolved. The links below cover where most visitors are headed.
       </p>
       <nav className="mt-10 flex flex-wrap justify-center gap-3 text-sm">
-        <Link
-          href="/"
-          className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        <Button href="/" variant="secondary">
           Home
-        </Link>
-        <Link
-          href="/portfolio"
-          className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        </Button>
+        <Button href="/portfolio" variant="secondary">
           Portfolio
-        </Link>
-        <Link
-          href="/services"
-          className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        </Button>
+        <Button href="/services" variant="secondary">
           Services
-        </Link>
-        <Link
-          href="/journal"
-          className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        </Button>
+        <Button href="/journal" variant="secondary">
           Journal
-        </Link>
+        </Button>
         <Link
           href="/inquire"
           className="px-5 py-2 rounded-full bg-[var(--accent)] text-white hover:opacity-90 transition"

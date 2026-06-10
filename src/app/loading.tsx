@@ -1,4 +1,4 @@
-import LoadingScreen from "@/components/LoadingScreen";
+import LoadingScreen from "@/components/ui/LoadingScreen";
 
 // Root Suspense fallback for the App Router. Shown only while a route segment is
 // actually waiting (the dynamic admin/portal reads, a cold Sanity fetch);

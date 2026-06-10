@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listQuestionnaires } from "@/lib/questionnaires";
 import { getUmbrellas, getVisibleServices } from "@/lib/content";
-import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
-import CalloutCard from "@/components/CalloutCard";
+import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
 
 export const metadata: Metadata = {
   title: "Planning questionnaires",

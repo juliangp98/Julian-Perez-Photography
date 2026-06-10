@@ -8,7 +8,7 @@ import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { updateClientAdmin, getClientFull } from "@/lib/clients";
 import { projectDisplayName } from "@/lib/project-name";
-import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/notify";
+import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/email/notify";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({

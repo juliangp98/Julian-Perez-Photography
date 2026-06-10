@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 
+import Button from "@/components/ui/Button";
 export default function JournalPostNotFound() {
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-24 text-center">
@@ -20,12 +21,9 @@ export default function JournalPostNotFound() {
         good place to start.
       </p>
       <div className="mt-10 flex flex-wrap justify-center gap-3 text-sm">
-        <Link
-          href="/journal"
-          className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-        >
+        <Button href="/journal" variant="secondary">
           All journal posts
-        </Link>
+        </Button>
         <Link
           href="/"
           className="px-5 py-2 rounded-full bg-[var(--accent)] text-white hover:opacity-90 transition"
