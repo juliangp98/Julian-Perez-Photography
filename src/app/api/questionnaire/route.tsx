@@ -13,9 +13,9 @@ import {
   BrandedEmailLayout,
   QuestionnaireEmailTemplate,
   ClientConfirmationTemplate,
-} from "@/lib/email-templates";
+} from "@/lib/email/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate, resendFrom } from "@/lib/email-helpers";
+import { formatSubjectDate, resendFrom } from "@/lib/email/email-helpers";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
 import { attachQuestionnaire } from "@/lib/clients";
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
   });
   const isWedding = slug === "weddings";
 
-  // Durable capture into the private client store (backlog #11). Snapshots the
+  // Durable capture into the private client store. Snapshots the
   // answers and links the generated plan PDF when one exists. Fire-and-forget
   // and a no-op when the store isn't configured, so it never changes the
   // submission outcome. Called from both the dev-fallback and production paths
@@ -280,7 +280,7 @@ export async function POST(req: Request) {
   if (isWedding) {
     try {
       const { renderToBuffer } = await import("@react-pdf/renderer");
-      const { WeddingDayPlan } = await import("@/lib/wedding-day-plan");
+      const { WeddingDayPlan } = await import("@/lib/pdf/wedding-day-plan");
       pdfBuffer = await renderToBuffer(
         <WeddingDayPlan answers={answers} />,
       );

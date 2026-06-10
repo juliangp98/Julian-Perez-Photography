@@ -7,6 +7,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { compactInputClass } from "@/components/ui/fields/Field";
+import { DOCUMENT_TYPE_OPTIONS } from "@/lib/labels";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
@@ -57,13 +59,13 @@ export default function PortalDocumentUpload({
         onChange={(e) => setKind(e.target.value)}
         disabled={status === "uploading"}
         aria-label="Document type"
-        className="px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+        className={compactInputClass}
       >
-        <option value="other">General</option>
-        <option value="contract">Contract</option>
-        <option value="invoice">Invoice</option>
-        <option value="timeline">Timeline</option>
-        <option value="moodboard">Moodboard</option>
+        {DOCUMENT_TYPE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
       <label
         htmlFor="portal-doc"

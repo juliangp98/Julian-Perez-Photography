@@ -13,9 +13,10 @@
 // social shares show something meaningful instead of the site default.
 
 import Link from "next/link";
+import { formatHumanDate as formatDate } from "@/lib/field-format";
 import type { Metadata } from "next";
-import SafeImage from "@/components/SafeImage";
-import SubNav, { ABOUT_TABS } from "@/components/SubNav";
+import SafeImage from "@/components/ui/SafeImage";
+import SubNav, { ABOUT_TABS } from "@/components/ui/SubNav";
 import { getAllPosts } from "@/sanity/queries";
 import { isSanityConfigured } from "@/sanity/client";
 import { urlFor } from "@/sanity/image";
@@ -61,14 +62,6 @@ function JournalShell({
       {children}
     </section>
   );
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 export default async function JournalIndex() {

@@ -8,6 +8,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Panel from "@/components/ui/Panel";
 
 type Project = { id: string; title: string; bundleLabel?: string };
 
@@ -72,7 +73,7 @@ export default function PortalBundles({
   const canLink = selected.length >= 2 && label.trim().length > 0;
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+    <Panel>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -183,6 +184,6 @@ export default function PortalBundles({
           )}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

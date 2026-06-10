@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import Button from "@/components/Button";
+import Button from "@/components/ui/Button";
 import { getAllFaqs } from "@/lib/faq";
 import { UMBRELLAS } from "@/lib/types";
-import { aiEnabled } from "@/lib/ai";
-import FaqBrowser from "@/components/FaqBrowser";
-import ConciergeChat from "@/components/ConciergeChat";
-import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
+import { aiEnabled } from "@/lib/ai/ai";
+import FaqBrowser from "@/components/marketing/FaqBrowser";
+import ConciergeChat from "@/components/marketing/ConciergeChat";
+import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
   title: "FAQ",

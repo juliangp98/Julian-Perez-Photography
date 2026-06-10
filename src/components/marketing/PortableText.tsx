@@ -25,7 +25,7 @@ import {
   type PortableTextMarkComponentProps,
   type PortableTextTypeComponentProps,
 } from "@portabletext/react";
-import SafeImage from "@/components/SafeImage";
+import SafeImage from "@/components/ui/SafeImage";
 import { urlFor } from "@/sanity/image";
 import type { SanityImageAsset } from "@/sanity/types";
 

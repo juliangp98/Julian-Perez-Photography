@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { describeImage, aiEnabled, visionModel } from "@/lib/ai";
+import { describeImage, aiEnabled, visionModel } from "@/lib/ai/ai";
 import { getPortfolio } from "@/lib/content";
 import * as Sentry from "@sentry/nextjs";
 

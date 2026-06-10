@@ -14,13 +14,13 @@ import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { listClients } from "@/lib/clients";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai";
+import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { projectDisplayName } from "@/lib/project-name";
 import {
   CLIENT_STATUS_FLOW,
   CLIENT_STATUS_TERMINAL,
-  CLIENT_STATUS_OPTIONS,
 } from "@/lib/client-status";
+import { statusTitle } from "@/lib/labels";
 import { services } from "@/lib/services-data";
 import * as Sentry from "@sentry/nextjs";
 
@@ -56,10 +56,6 @@ function daysUntil(d?: string): number | null {
   if (Number.isNaN(date.getTime())) return null;
   return Math.round((date.getTime() - Date.now()) / 86_400_000);
 }
-
-const STATUS_TITLE: Record<string, string> = Object.fromEntries(
-  CLIENT_STATUS_OPTIONS.map((s) => [s.value, s.title]),
-);
 
 const SYSTEM_PROMPT = [
   "You convert a photographer's natural-language search over his client projects into a structured filter. Output ONLY JSON — no prose, no code fence.",
@@ -177,7 +173,7 @@ export async function POST(req: Request) {
       name: projectDisplayName(r),
       clientName: r.clientName ?? null,
       status: r.status ?? null,
-      statusTitle: r.status ? (STATUS_TITLE[r.status] ?? r.status) : null,
+      statusTitle: statusTitle(r.status) || null,
       serviceType: r.serviceType ?? null,
       eventDate: r.eventDate ?? null,
     }));

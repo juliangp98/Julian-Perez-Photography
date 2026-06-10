@@ -12,7 +12,7 @@
 // threaded from the server, since the client can't read the API key).
 
 import { useState } from "react";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 export type AssistContext = {
   clientName?: string;
@@ -170,7 +170,7 @@ export default function AssistedTextarea({
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="A few rough notes — even keywords. I'll shape them into a clear answer."
+              placeholder="A few rough notes, or even keywords. I'll shape them into a clear answer."
               className={INPUT}
             />
           </div>

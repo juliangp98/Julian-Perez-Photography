@@ -26,6 +26,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
   ghost: "border border-[var(--border)] hover:border-[var(--foreground)]",
 };
 
+// Class string for an inline form-submit pill — the primary Button's look with a
+// disabled state. The interactive submit/save buttons keep their own loading
+// state, so they render as a plain <button> referencing this single class.
+export const submitButtonClass =
+  "px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50";
+
 export default function Button({
   href,
   external = false,

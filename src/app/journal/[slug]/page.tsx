@@ -13,11 +13,12 @@
 // get a properly-sized crop rather than the asset's intrinsic dimensions.
 
 import Link from "next/link";
+import { formatHumanDate as formatDate } from "@/lib/field-format";
 import { notFound } from "next/navigation";
 import Script from "next/script";
 import type { Metadata } from "next";
-import { PortableText } from "@/components/PortableText";
-import SafeImage from "@/components/SafeImage";
+import { PortableText } from "@/components/marketing/PortableText";
+import SafeImage from "@/components/ui/SafeImage";
 import { isSanityConfigured } from "@/sanity/client";
 import { urlFor } from "@/sanity/image";
 import {
@@ -25,7 +26,7 @@ import {
   getPostSlugs,
   getRelatedPosts,
 } from "@/sanity/queries";
-import SubNav, { ABOUT_TABS } from "@/components/SubNav";
+import SubNav, { ABOUT_TABS } from "@/components/ui/SubNav";
 
 const SITE_URL = "https://julianperezphotography.com";
 
@@ -82,14 +83,6 @@ export async function generateMetadata({
         }
       : undefined,
   };
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 export default async function JournalPostPage({

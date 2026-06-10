@@ -4,12 +4,19 @@ import type { ReactNode } from "react";
 // styling, required marker, help text, and inline-error wiring live in one place
 // instead of being copy-pasted into each form. The typed fields in this folder
 // (TextField, EmailField, PhoneField, DateField, BudgetField, NumberField,
-// LocationField) render their control as `children` inside this wrapper.
+// LocationField, SelectField) render their control as `children` inside this
+// wrapper.
 
 export const inputClass =
   "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
 const inputErrorClass = "border-red-500 focus:border-red-500";
 export const labelClass = "block text-sm font-medium mb-1.5";
+
+// Dense variant for inline tool bars (quick log, list filters, upload rows)
+// where the full field padding would overwhelm the row. No width — callers add
+// `w-full`/`flex-1` as the layout needs.
+export const compactInputClass =
+  "px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]";
 
 // The control class with an error outline when `error` is set.
 export function controlClass(error?: boolean, extra = ""): string {

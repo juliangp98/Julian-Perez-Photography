@@ -15,7 +15,7 @@ import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull } from "@/lib/clients";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai";
+import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { buildAnswerDigest } from "@/lib/questionnaire-digest";
 import { serviceNoun } from "@/lib/project-name";
 import * as Sentry from "@sentry/nextjs";

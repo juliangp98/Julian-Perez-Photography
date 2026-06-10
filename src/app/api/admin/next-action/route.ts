@@ -16,8 +16,8 @@ import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull } from "@/lib/clients";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai";
-import { EMAIL_TEMPLATES } from "@/lib/email-pipeline";
+import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
+import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,

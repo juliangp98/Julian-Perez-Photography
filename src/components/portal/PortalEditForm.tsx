@@ -8,11 +8,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AssistedTextarea, {
   type AssistContext,
-} from "@/components/AssistedTextarea";
-import TextField from "@/components/fields/TextField";
-import PhoneField from "@/components/fields/PhoneField";
-import NumberField from "@/components/fields/NumberField";
+} from "@/components/forms/AssistedTextarea";
+import TextField from "@/components/ui/fields/TextField";
+import PhoneField from "@/components/ui/fields/PhoneField";
+import NumberField from "@/components/ui/fields/NumberField";
 import { formatPhone } from "@/lib/field-format";
+import { inputClass, labelClass } from "@/components/ui/fields/Field";
 
 type Initial = {
   phone?: string;
@@ -23,10 +24,6 @@ type Initial = {
   projectName?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
-
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-const label = "block text-sm font-medium mb-1.5";
 
 export default function PortalEditForm({
   projectId,
@@ -130,7 +127,7 @@ export default function PortalEditForm({
         />
       </div>
       <div>
-        <label htmlFor="pf-notes" className={label}>
+        <label htmlFor="pf-notes" className={labelClass}>
           Notes / questions for me
         </label>
         <p className="text-xs text-[var(--muted)] mt-0.5 mb-2">
@@ -152,7 +149,7 @@ export default function PortalEditForm({
           rows={4}
           value={clientNotes}
           onChange={setClientNotes}
-          textareaClassName={input}
+          textareaClassName={inputClass}
           assist={{
             kind: "portal-note",
             question: "Notes or questions for your photographer",

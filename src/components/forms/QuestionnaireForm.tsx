@@ -1,30 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import AssistedTextarea, {
-  type AssistContext,
-} from "@/components/AssistedTextarea";
-import TextField from "@/components/fields/TextField";
-import EmailField from "@/components/fields/EmailField";
-import PhoneField from "@/components/fields/PhoneField";
-import NumberField from "@/components/fields/NumberField";
-import DateField from "@/components/fields/DateField";
-import LocationField from "@/components/fields/LocationField";
-import Link from "next/link";
-import type { Field, Questionnaire } from "@/lib/questionnaires";
-import {
-  evaluateShowIf,
-  resolvePackageOptions,
-  visibleSectionsFor,
-} from "@/lib/questionnaires";
+import type { AssistContext } from "@/components/forms/AssistedTextarea";
+import ReferralField from "@/components/forms/questionnaire/ReferralField";
+import FieldRenderer from "@/components/forms/questionnaire/FieldRenderer";
+import type { Value } from "@/components/forms/questionnaire/types";
+import type { Questionnaire } from "@/lib/questionnaires";
+import { evaluateShowIf, visibleSectionsFor } from "@/lib/questionnaires";
 import {
   bundleSiblings,
   prefillableFieldIds,
 } from "@/lib/questionnaire-bundles";
 import { serviceNoun } from "@/lib/project-name";
 import type { SiteSettings } from "@/lib/types";
-import { REFERRAL_OPTIONS } from "@/lib/referral";
+import Panel from "@/components/ui/Panel";
 
+import Button from "@/components/ui/Button";
 // Three of the four Square call URLs (post-questionnaire wrap-up needs
 // everything except the top-of-funnel discovery call). Taken from
 // `SiteSettings["calls"]` so the shape can't drift from the parent.
@@ -34,20 +25,7 @@ type QuestionnaireCalls = Pick<
 >;
 
 type Status = "idle" | "submitting" | "success" | "error";
-type Value = string | string[];
 type FormState = Record<string, Value>;
-
-// Canonical venue/address field ids that render with Google-Places autocomplete
-// (free text retained). Matched by id so the harmonized venue fields across
-// every questionnaire pick it up without retyping each schema entry; an explicit
-// `type: "location"` works too.
-const LOCATION_FIELD_IDS = new Set([
-  "venueName",
-  "venueAddress",
-  "gettingReadyAddress",
-  "partnerGettingReadyAddress",
-  "receptionVenue",
-]);
 
 // Shared emptiness check — file fields store a JSON array as a string, so a
 // raw empty-string check isn't enough and `"[]"` also counts as empty.
@@ -424,7 +402,7 @@ export default function QuestionnaireForm({
           steps within 48 hours.
         </p>
         {pdfPlan && submittedAnswersRef.current && (
-          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          <Panel className="mt-6">
             <p className="text-sm font-medium">Your {pdfPlan.label}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
               A PDF copy was also sent to your email.
@@ -447,24 +425,21 @@ export default function QuestionnaireForm({
                 {pdfErrorMsg}
               </p>
             )}
-          </div>
+          </Panel>
         )}
-        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+        <Panel className="mt-6">
           <p className="text-sm font-medium">Track your project</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Everything you just shared is saved to your project. Sign in to your
             client portal anytime to check your status, add more detail, and
             find your documents &mdash; same email, no password.
           </p>
-          <Link
-            href="/portal"
-            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
-          >
+          <Button href="/portal" className="mt-3">
             Open your portal &rarr;
-          </Link>
-        </div>
+          </Button>
+        </Panel>
         {siblingLinks.length > 0 && (
-          <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          <Panel className="mt-6">
             <p className="text-sm font-medium">Booking more than one session?</p>
             <p className="mt-1 mb-3 text-xs text-[var(--muted)]">
               Continue into a matching questionnaire &mdash; the details you just
@@ -472,19 +447,15 @@ export default function QuestionnaireForm({
             </p>
             <div className="flex flex-wrap gap-3">
               {siblingLinks.map((s) => (
-                <Link
-                  key={s.slug}
-                  href={s.href}
-                  className="inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-                >
+                <Button key={s.slug} href={s.href} variant="secondary">
                   Continue planning your {s.noun.toLowerCase()} &rarr;
-                </Link>
+                </Button>
               ))}
             </div>
-          </div>
+          </Panel>
         )}
         {/* Call booking CTAs */}
-        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg space-y-4">
+        <Panel className="mt-6 space-y-4">
           <div>
             <p className="text-sm font-medium">Ready to hop on a call?</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
@@ -492,48 +463,27 @@ export default function QuestionnaireForm({
               details. Pick the one that fits.
             </p>
           </div>
-          <a
-            href={calls.planningCall.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
-          >
+          <Button href={calls.planningCall.url} external>
             {calls.planningCall.label} &rarr;
-          </a>
+          </Button>
           {isWedding && (
             <div className="flex gap-3 flex-wrap">
-              <a
-                href={calls.weddingTimelineCall.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-              >
+              <Button href={calls.weddingTimelineCall.url} external variant="secondary">
                 {calls.weddingTimelineCall.label} &rarr;
-              </a>
-              <a
-                href={calls.venueWalkthrough.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-              >
+              </Button>
+              <Button href={calls.venueWalkthrough.url} external variant="secondary">
                 {calls.venueWalkthrough.label} &rarr;
-              </a>
+              </Button>
             </div>
           )}
-        </div>
+        </Panel>
         <div className="mt-6 flex gap-3 flex-wrap">
-          <Link
-            href={`/services/${questionnaire.slug}`}
-            className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-          >
+          <Button href={`/services/${questionnaire.slug}`} variant="secondary">
             Back to pricing
-          </Link>
-          <Link
-            href="/"
-            className="px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-          >
+          </Button>
+          <Button href="/" variant="secondary">
             Home
-          </Link>
+          </Button>
         </div>
       </div>
     );
@@ -676,489 +626,3 @@ export default function QuestionnaireForm({
     </div>
   );
 }
-
-// ----------------------------------------------------------------------------
-// Referral field — curated dropdown with an "Other" free-text fallback.
-// Rendered in place of the generic text renderer for the `referral` field so
-// the inquiry + questionnaire data stays normalized site-wide.
-// ----------------------------------------------------------------------------
-
-function ReferralField({
-  field,
-  value,
-  otherValue,
-  onChange,
-  onOtherChange,
-}: {
-  field: Field;
-  value: string | undefined;
-  otherValue: string | undefined;
-  onChange: (v: string) => void;
-  onOtherChange: (v: string) => void;
-}) {
-  const input =
-    "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-  const label = "block text-sm font-medium mb-1.5";
-  return (
-    <div>
-      <label htmlFor={field.id} className={label}>
-        {field.label}
-        {field.required && <span className="text-[var(--accent)]"> *</span>}
-      </label>
-      <select
-        id={field.id}
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        className={input}
-      >
-        {REFERRAL_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {value === "other" && (
-        <input
-          id="referralOther"
-          name="referralOther"
-          value={otherValue || ""}
-          onChange={(e) => onOtherChange(e.target.value)}
-          placeholder="Tell me more (optional)"
-          className={`${input} mt-2`}
-        />
-      )}
-      {field.help && (
-        <p className="mt-1.5 text-xs text-[var(--muted)]">{field.help}</p>
-      )}
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Field renderer
-// ----------------------------------------------------------------------------
-
-function FieldRenderer({
-  field,
-  value,
-  onChange,
-  slug,
-  aiEnabled,
-  getAssistContext,
-}: {
-  field: Field;
-  value: Value | undefined;
-  onChange: (v: Value) => void;
-  slug: string;
-  aiEnabled?: boolean;
-  getAssistContext?: () => AssistContext;
-}) {
-  const input =
-    "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-  const label = "block text-sm font-medium mb-1.5";
-
-  const labelEl = (
-    <label htmlFor={field.id} className={label}>
-      {field.label}
-      {field.required && <span className="text-[var(--accent)]"> *</span>}
-    </label>
-  );
-  const helpEl = field.help ? (
-    <p className="mt-1.5 text-xs text-[var(--muted)]">{field.help}</p>
-  ) : null;
-
-  const str = (value as string) || "";
-
-  // Address / venue fields → Places autocomplete (free text retained). Matched
-  // by explicit type or canonical id.
-  if (field.type === "location" || LOCATION_FIELD_IDS.has(field.id)) {
-    return (
-      <LocationField
-        id={field.id}
-        label={field.label}
-        required={field.required}
-        help={field.help}
-        value={str}
-        onChange={(v) => onChange(v)}
-        valueKind={field.id === "venueName" ? "name" : "address"}
-        placeholder={field.placeholder ?? "Search a venue or address…"}
-      />
-    );
-  }
-
-  switch (field.type) {
-    case "text":
-      return (
-        <TextField
-          id={field.id}
-          label={field.label}
-          required={field.required}
-          help={field.help}
-          value={str}
-          onChange={(v) => onChange(v)}
-          placeholder={field.placeholder}
-        />
-      );
-    case "email":
-      return (
-        <EmailField
-          id={field.id}
-          label={field.label}
-          required={field.required}
-          help={field.help}
-          value={str}
-          onChange={(v) => onChange(v)}
-          placeholder={field.placeholder}
-        />
-      );
-    case "tel":
-      return (
-        <PhoneField
-          id={field.id}
-          label={field.label}
-          required={field.required}
-          help={field.help}
-          value={str}
-          onChange={(v) => onChange(v)}
-          placeholder={field.placeholder}
-        />
-      );
-    case "number":
-      return (
-        <NumberField
-          id={field.id}
-          label={field.label}
-          required={field.required}
-          help={field.help}
-          value={str}
-          onChange={(v) => onChange(v)}
-          placeholder={field.placeholder}
-        />
-      );
-    case "date":
-      return (
-        <DateField
-          id={field.id}
-          label={field.label}
-          required={field.required}
-          help={field.help}
-          value={str}
-          onChange={(v) => onChange(v)}
-        />
-      );
-    case "time":
-      return (
-        <div>
-          {labelEl}
-          <input
-            id={field.id}
-            type="time"
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className={input}
-          />
-          {helpEl}
-        </div>
-      );
-    case "textarea":
-      return (
-        <div>
-          {labelEl}
-          <AssistedTextarea
-            id={field.id}
-            rows={4}
-            value={(value as string) || ""}
-            onChange={(v) => onChange(v)}
-            placeholder={field.placeholder}
-            textareaClassName={input}
-            assist={{
-              kind: "questionnaire",
-              question: field.label,
-              service: slug,
-              enabled: !!aiEnabled,
-              getContext: getAssistContext,
-            }}
-          />
-          {helpEl}
-        </div>
-      );
-    case "select":
-      return (
-        <div>
-          {labelEl}
-          <select
-            id={field.id}
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className={input}
-          >
-            <option value="" disabled>
-              Select…
-            </option>
-            {(field.options || []).map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {helpEl}
-        </div>
-      );
-    case "radio":
-      return (
-        <div>
-          {labelEl}
-          <div className="grid gap-2 mt-1">
-            {(field.options || []).map((opt) => (
-              <label
-                key={opt}
-                className="flex items-start gap-3 cursor-pointer text-sm"
-              >
-                <input
-                  type="radio"
-                  name={field.id}
-                  value={opt}
-                  checked={value === opt}
-                  onChange={() => onChange(opt)}
-                  className="mt-1"
-                />
-                <span>{opt}</span>
-              </label>
-            ))}
-          </div>
-          {helpEl}
-        </div>
-      );
-    case "checkbox": {
-      // A single-checkbox URL prefill arrives as a lone string (Next returns a
-      // string, not an array, for a non-repeated key) — wrap it so it checks.
-      const arr = Array.isArray(value) ? value : value ? [value] : [];
-      return (
-        <div>
-          {labelEl}
-          <div className="grid gap-2 mt-1">
-            {(field.options || []).map((opt) => (
-              <label
-                key={opt}
-                className="flex items-start gap-3 cursor-pointer text-sm"
-              >
-                <input
-                  type="checkbox"
-                  value={opt}
-                  checked={arr.includes(opt)}
-                  onChange={(e) => {
-                    if (e.target.checked) onChange([...arr, opt]);
-                    else onChange(arr.filter((v) => v !== opt));
-                  }}
-                  className="mt-1"
-                />
-                <span>{opt}</span>
-              </label>
-            ))}
-          </div>
-          {helpEl}
-        </div>
-      );
-    }
-    case "package": {
-      const opts = resolvePackageOptions(slug);
-      return (
-        <div>
-          {labelEl}
-          <select
-            id={field.id}
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className={input}
-          >
-            <option value="" disabled>
-              Select a package…
-            </option>
-            {opts.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {helpEl}
-        </div>
-      );
-    }
-    case "file":
-      return (
-        <FileField
-          field={field}
-          value={value}
-          onChange={onChange}
-          slug={slug}
-          labelEl={labelEl}
-          helpEl={helpEl}
-        />
-      );
-    default:
-      return null;
-  }
-}
-
-// ----------------------------------------------------------------------------
-// File field — uploads to Vercel Blob on selection so the form submit payload
-// stays JSON. State holds a JSON-encoded `{ url, name, size }[]`.
-// ----------------------------------------------------------------------------
-
-type UploadedFile = { url: string; name: string; size: number };
-
-function parseFiles(value: Value | undefined): UploadedFile[] {
-  if (typeof value !== "string" || !value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (f): f is UploadedFile =>
-        f && typeof f.url === "string" && typeof f.name === "string",
-    );
-  } catch {
-    return [];
-  }
-}
-
-function FileField({
-  field,
-  value,
-  onChange,
-  slug,
-  labelEl,
-  helpEl,
-}: {
-  field: Field;
-  value: Value | undefined;
-  onChange: (v: Value) => void;
-  slug: string;
-  labelEl: React.ReactNode;
-  helpEl: React.ReactNode;
-}) {
-  const files = parseFiles(value);
-  const maxFiles = field.maxFiles ?? 10;
-  const maxSizeMb = field.maxFileSizeMb ?? 10;
-  const maxSizeBytes = maxSizeMb * 1024 * 1024;
-
-  const [uploading, setUploading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function handleFiles(selected: FileList | null) {
-    if (!selected || selected.length === 0) return;
-    setMessage(null);
-    setUploading(true);
-    // The whole body runs inside try/catch/finally: the dynamic import
-    // below can throw on a chunk-load failure, and per-file uploads can
-    // throw on network errors. Either class of error should leave the
-    // UI in a consistent state (button re-enabled, message shown) rather
-    // than an unhandled rejection.
-    try {
-      // Dynamic import keeps @vercel/blob/client out of the initial
-      // client bundle for pages that don't use file fields.
-      const { upload } = await import("@vercel/blob/client");
-      const next = [...files];
-      const skipped: string[] = [];
-      let added = 0;
-      for (const file of Array.from(selected)) {
-        if (next.length >= maxFiles) {
-          skipped.push(`${file.name} (limit ${maxFiles})`);
-          continue;
-        }
-        if (file.size > maxSizeBytes) {
-          skipped.push(`${file.name} (over ${maxSizeMb} MB)`);
-          continue;
-        }
-        try {
-          const blob = await upload(
-            `questionnaires/${slug}/${Date.now()}-${file.name}`,
-            file,
-            {
-              access: "public",
-              handleUploadUrl: "/api/questionnaire-upload",
-            },
-          );
-          next.push({ url: blob.url, name: file.name, size: file.size });
-          added += 1;
-        } catch {
-          skipped.push(`${file.name} (upload failed)`);
-        }
-      }
-      onChange(JSON.stringify(next));
-      // Summarize for screen-reader announcement. A spoken "Uploaded 2
-      // files" is much more useful than silent state changes.
-      const parts: string[] = [];
-      if (added > 0) parts.push(`Uploaded ${added} file${added === 1 ? "" : "s"}.`);
-      if (skipped.length > 0) parts.push(`Skipped: ${skipped.join(", ")}`);
-      setMessage(parts.length > 0 ? parts.join(" ") : null);
-    } catch (err) {
-      console.error("[questionnaire] file upload failed:", err);
-      setMessage(
-        "The uploader couldn't load. Please refresh and try again, or attach files to the confirmation email once it arrives.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function removeAt(i: number) {
-    const next = files.filter((_, j) => j !== i);
-    onChange(JSON.stringify(next));
-  }
-
-  return (
-    <div>
-      {labelEl}
-      <input
-        id={field.id}
-        type="file"
-        multiple
-        disabled={uploading}
-        accept={field.accept || "image/*,application/pdf"}
-        onChange={(e) => {
-          void handleFiles(e.target.files);
-          e.target.value = ""; // reset so selecting the same file twice re-fires
-        }}
-        className="block w-full text-sm text-[var(--muted)] file:mr-3 file:px-4 file:py-2 file:border-0 file:rounded-full file:bg-[var(--foreground)] file:text-[var(--background)] hover:file:opacity-90 file:cursor-pointer file:disabled:opacity-60"
-      />
-      {/* Single live region for the uploader so screen readers announce
-          in-progress uploads and summary results without the user
-          having to hunt for status text. */}
-      <div
-        role="status"
-        aria-live="polite"
-        className="mt-2 text-xs text-[var(--muted)] min-h-[1rem]"
-      >
-        {uploading ? "Uploading…" : message || null}
-      </div>
-      {files.length > 0 && (
-        <ul className="mt-3 space-y-1.5 text-sm">
-          {files.map((f, i) => (
-            <li key={f.url} className="flex justify-between items-center gap-3">
-              <a
-                href={f.url}
-                target="_blank"
-                rel="noreferrer"
-                className="underline underline-offset-2 truncate text-[var(--foreground)] hover:text-[var(--accent)]"
-              >
-                {f.name}
-              </a>
-              <button
-                type="button"
-                onClick={() => removeAt(i)}
-                className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="mt-1.5 text-xs text-[var(--muted)]">
-        Up to {maxFiles} files, {maxSizeMb} MB each. Images and PDFs.
-      </p>
-      {helpEl}
-    </div>
-  );
-}
-

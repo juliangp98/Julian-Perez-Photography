@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Draft or tighten the marketing copy (tagline, description, intro) for a service
 // or portfolio page with AI, from the copy that's currently live. Calls
@@ -7,7 +7,8 @@ import AiButton from "@/components/AiButton";
 // Sanity Studio. The AI never publishes.
 
 import { useState } from "react";
-import CopyField from "@/components/CopyField";
+import CopyField from "@/components/ui/CopyField";
+import { inputClass } from "@/components/ui/fields/Field";
 
 export type CopySubject = {
   kind: "service" | "portfolio";
@@ -19,8 +20,7 @@ type Mode = "tighten" | "rewrite" | "fresh";
 type Status = "idle" | "drafting" | "drafted" | "error";
 type Copy = { tagline: string; description: string; intro: string[] };
 
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition";
+const input = `${inputClass} text-sm`;
 
 const MODES: { value: Mode; label: string }[] = [
   { value: "tighten", label: "Tighten the current copy" },

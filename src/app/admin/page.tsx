@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth-cookies";
-import PortalLoginForm from "@/components/PortalLoginForm";
+import PortalLoginForm from "@/components/portal/PortalLoginForm";
 
 // Admin login (public). The authenticated admin area lives under /admin/* and
 // is gated by the proxy + the ADMIN_EMAIL allowlist. noindex.

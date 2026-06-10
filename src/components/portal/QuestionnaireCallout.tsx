@@ -1,5 +1,5 @@
-import Button from "./Button";
-import CalloutCard from "./CalloutCard";
+import Button from "@/components/ui/Button";
+import CalloutCard from "@/components/ui/CalloutCard";
 import type { AnswerGroup } from "@/lib/questionnaire-digest";
 
 // One "Planning questionnaire" callout, shared by the admin project page and the

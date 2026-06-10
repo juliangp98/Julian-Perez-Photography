@@ -20,17 +20,10 @@
 // rendering a present post.
 
 import Link from "next/link";
-import SafeImage from "@/components/SafeImage";
+import { formatHumanDate as formatDate } from "@/lib/field-format";
+import SafeImage from "@/components/ui/SafeImage";
 import { urlFor } from "@/sanity/image";
 import type { JournalPostCard } from "@/sanity/types";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 export default function FeaturedJournalPost({
   post,

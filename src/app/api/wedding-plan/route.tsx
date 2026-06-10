@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   // JSON error rather than a raw 500 with a stack trace.
   try {
     const { renderToBuffer } = await import("@react-pdf/renderer");
-    const { WeddingDayPlan } = await import("@/lib/wedding-day-plan");
+    const { WeddingDayPlan } = await import("@/lib/pdf/wedding-day-plan");
     const buffer = await renderToBuffer(<WeddingDayPlan answers={answers} />);
 
     return new Response(new Uint8Array(buffer), {

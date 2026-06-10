@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Draft a journal post with AI from a topic/brief. Calls /api/admin/draft-journal
 // and shows the title, excerpt, tags, and body — each copyable — for Julian to
@@ -8,7 +8,8 @@ import AiButton from "@/components/AiButton";
 
 import { useState } from "react";
 import Link from "next/link";
-import CopyField from "@/components/CopyField";
+import CopyField from "@/components/ui/CopyField";
+import { inputClass } from "@/components/ui/fields/Field";
 
 type Post = {
   title: string;
@@ -19,8 +20,7 @@ type Post = {
 
 type Status = "idle" | "drafting" | "drafted" | "error";
 
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition";
+const input = `${inputClass} text-sm`;
 
 const POST_TYPES = [
   "",

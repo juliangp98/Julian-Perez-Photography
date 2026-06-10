@@ -9,13 +9,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { services, serviceTitle } from "@/lib/services-data";
-import DateField from "@/components/fields/DateField";
-
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-const label = "block text-sm font-medium mb-1.5";
-const primary =
-  "px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50";
+import DateField from "@/components/ui/fields/DateField";
+import SelectField from "@/components/ui/fields/SelectField";
+import { submitButtonClass } from "@/components/ui/Button";
+import Panel from "@/components/ui/Panel";
 
 type Dup = { id: string; serviceType?: string };
 
@@ -59,14 +56,14 @@ export default function PortalNewProjectForm() {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={primary}>
+      <button type="button" onClick={() => setOpen(true)} className={submitButtonClass}>
         + Start a new project
       </button>
     );
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+    <Panel>
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-serif text-xl">Start a new project</h2>
         <button
@@ -89,24 +86,15 @@ export default function PortalNewProjectForm() {
           in. I&rsquo;ll use the email you signed in with.
         </p>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="pnp-service" className={label}>
-              What are you thinking?
-            </label>
-            <select
-              id="pnp-service"
-              value={serviceType}
-              onChange={(e) => setServiceType(e.target.value)}
-              className={input}
-            >
-              <option value="">Not sure yet</option>
-              {services.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  {s.title}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="pnp-service"
+            label="What are you thinking?"
+            value={serviceType}
+            onChange={setServiceType}
+            placeholder="Not sure yet"
+            clearable
+            options={services.map((s) => ({ value: s.slug, label: s.title }))}
+          />
           <DateField
             id="pnp-date"
             label="Date (if you have one)"
@@ -142,7 +130,7 @@ export default function PortalNewProjectForm() {
           <button
             type="submit"
             disabled={status === "saving"}
-            className={primary}
+            className={submitButtonClass}
           >
             {status === "saving" ? "Creating…" : "Create project"}
           </button>
@@ -153,6 +141,6 @@ export default function PortalNewProjectForm() {
           )}
         </div>
       </form>
-    </div>
+    </Panel>
   );
 }

@@ -26,6 +26,7 @@ src/
 │   ├── api/
 │   │   ├── inquire/           # Inquiry form POST handler (Resend + optional Twilio)
 │   │   ├── questionnaire/     # Planning-form submission handler
+│   │   ├── admin/ + portal/   # Session-gated CRM/portal endpoints (magic links, updates, AI tools)
 │   │   ├── sanity-webhook/    # HMAC-verified revalidation endpoint
 │   │   └── wedding-plan/      # PDF preview of the wedding questionnaire
 │   ├── book/                  # Square Appointments embed
@@ -40,9 +41,18 @@ src/
 │   ├── page.tsx               # Home
 │   ├── robots.ts              # robots.txt
 │   └── sitemap.ts             # Auto-derived from visibleServices/visiblePortfolios
-├── components/                # Nav, Footer, GoogleReviews, PortableText, etc.
-├── lib/
+├── components/                # Organized by domain
+│   ├── ui/                    # Generic primitives — Button, Panel, CalloutCard, RailCard, SubNav + fields/ form controls
+│   ├── forms/                 # Inquiry + questionnaire forms (questionnaire/ renderer internals), new-project forms
+│   ├── admin/                 # Owner-dashboard pieces; admin/ai/ holds the AI drafting tools
+│   ├── portal/                # Client-portal pieces (edit form, uploads, status timeline)
+│   └── marketing/             # Public site chrome + content — Nav (nav/ menu internals), Footer, galleries, concierge
+├── lib/                       # Data/content modules flat; cross-cutting clusters grouped
 │   ├── content.ts             # Runtime content getters — Sanity-backed with hard-coded fallbacks
+│   ├── email/                 # Pipeline templates, branded layouts, send helpers, notifications
+│   ├── ai/                    # Model client, brand voice, concierge knowledge base
+│   ├── pdf/                   # Printable plan documents (wedding day / wedding films)
+│   ├── labels.ts              # Display labels for client-record fields (source, status, document type)
 │   ├── site-settings-data.ts  # siteSettings fallback + seed source
 │   ├── services-data.ts       # services fallback + seed source
 │   ├── portfolios-data.ts     # portfolios fallback + seed source
@@ -61,6 +71,8 @@ sanity/
 scripts/
 ├── import-photos.mjs          # Lightroom-export → portfolio importer
 └── seed-sanity.ts             # Upserts code-owned content into the dataset
+tests/
+└── e2e/                       # Playwright suite — see "Testing" below
 public/
 └── portfolio/<slug>/          # Imported gallery images live here
 sanity.config.ts               # Studio config (registers every schema)
@@ -95,7 +107,10 @@ The sitemap, per-category metadata, JSON-LD, and `generateStaticParams` all deri
 git clone https://github.com/juliangperez/Julian-Perez-Photography.git
 cd Julian-Perez-Photography
 npm install
+npm run dev
 ```
+
+That's a complete local setup — with **zero env vars** the full site runs at [http://localhost:3000](http://localhost:3000) on the hard-coded fallback content, and every integration (email, SMS, CMS, CRM/portal, reviews, AI) silently no-ops. Add env vars from the table below only for the pieces you want live.
 
 ### Environment variables
 
@@ -198,52 +213,31 @@ A file named `cover.jpg` or `hero.jpg` (any extension) is promoted to position 0
 
 ## Adding wedding films
 
-Wedding films land in two places: a Sanity-managed Video Entry on the `wedding-films` portfolio (canonical edit surface) and an optional code-side backfill in `src/lib/portfolios-data.ts` that keeps the entry available during a Sanity outage. Studio is the source of truth for routine edits; the data file is the safety net.
+Films are Video Entries on the `wedding-films` portfolio in Sanity Studio. Optionally mirror a film into `wedding-films.videos[]` in `src/lib/portfolios-data.ts` so it keeps rendering during a Sanity outage (then `npm run seed:sanity` — note the seed is `createOrReplace`, so Studio-only entries are wiped when you re-seed). Two upload paths:
 
-Two upload paths depending on whether the soundtrack survives YouTube's audio-match scan.
+**YouTube (preferred when the music isn't blocked):** upload as Public or Unlisted with embedding allowed, then add a Video Entry (Source Kind "YouTube") and paste any URL form or the bare video ID — the renderer extracts the ID and falls back to YouTube's poster frame when the thumbnail is blank. Set `featured: true` on the film that should lead `/services/wedding-films`.
 
-### YouTube path (preferred when the music isn't blocked)
+**Self-hosted on Vercel Blob (music-blocked films):**
 
-1. Upload the film to YouTube as Public or Unlisted (Private blocks embedding entirely; verify "Allow embedding" stays on under Edit video → Show more → Other options).
-2. In Sanity Studio → Portfolios → Wedding Films → add a Video Entry. Set Source Kind to "YouTube" and paste either the bare 11-character video ID or any URL form (watch, share, embed, shorts) — the renderer auto-extracts the ID.
-3. Thumbnail can be left blank — the renderer falls back to `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`.
-4. Fill title (couple's names), date, venue, optional description and duration. Set `featured: true` on the one film you want as the hero reel on `/services/wedding-films` (most recent featured wins if multiple are flagged).
-5. Publish in Studio. The webhook revalidates and the film appears on `/portfolio/wedding-films` within a second.
-
-### Self-hosted path (for music-blocked films)
-
-1. Re-encode to H.264 video + AAC audio in MP4 if the source isn't already (browsers won't play VP9/HEVC/AV1 from a `<video>` tag). One-liner:
-  ```bash
-   ffmpeg -i input.mp4 \
-     -c:v libx264 -preset slow -crf 22 \
-     -c:a aac -b:a 192k \
-     -movflags +faststart \
-     output-h264.mp4
-  ```
-   Or, when ripping with `yt-dlp`, pin the H.264 stream directly to skip the re-encode:
-2. Upload to Vercel Blob:
-  ```bash
+1. Re-encode to H.264/AAC MP4 if needed (browsers won't play VP9/HEVC/AV1 from a `<video>` tag):
+   ```bash
+   ffmpeg -i input.mp4 -c:v libx264 -preset slow -crf 22 -c:a aac -b:a 192k -movflags +faststart output-h264.mp4
+   ```
+2. Upload — reads `BLOB_READ_WRITE_TOKEN` from `.env.local` and prints the public URL:
+   ```bash
    npm run upload-video -- ./path/to/output-h264.mp4
-  ```
-   The script reads `BLOB_READ_WRITE_TOKEN` from `.env.local`, uploads with `access: "public"`, and prints the public URL.
-3. Export a thumbnail frame to `public/portfolio/wedding-films/thumbnails/<slug>.jpg` (16:9, ~1280×720, JPEG quality ~80). One-liner with ffmpeg:
-  ```bash
-   ffmpeg -ss 00:01:30 -i ./path/to/output-h264.mp4 \
-     -vframes 1 -q:v 2 \
-     public/portfolio/wedding-films/thumbnails/<slug>.jpg
-  ```
-   Tune `-ss` to a representative timestamp. Blob entries don't have an auto-thumbnail fallback — the file is required.
-4. In Studio, add a Video Entry with Source Kind "Self-hosted (Vercel Blob)", paste the URL into Blob URL, and reference the thumbnail path (e.g. `/portfolio/wedding-films/thumbnails/<slug>.jpg`). Same metadata fields as the YouTube path.
-
-### Optional: backfill into the fallback array
-
-For any film that should keep rendering during a Sanity outage, append a matching `videoEntry` to `wedding-films.videos[]` in `src/lib/portfolios-data.ts` and re-run `npm run seed:sanity`. Otherwise the film lives only in Sanity. The seed script is `createOrReplace` — anything in Studio that isn't also in the data file gets wiped on the next seed run, so re-seed only when intentionally resetting.
+   ```
+3. Export a 16:9 thumbnail (~1280×720; required — Blob entries have no auto-fallback):
+   ```bash
+   ffmpeg -ss 00:01:30 -i ./path/to/output-h264.mp4 -vframes 1 -q:v 2 public/portfolio/wedding-films/thumbnails/<slug>.jpg
+   ```
+4. Add the Video Entry with Source Kind "Self-hosted (Vercel Blob)", the Blob URL, and the thumbnail path.
 
 ## Embedded third-party tools
 
 - `**/book**` — embeds `siteSettings.bookingUrl` (Square Appointments) in an iframe. The iframe **cannot** use the `sandbox` attribute — Square detects sandboxed contexts and silently no-ops on click. A fallback "Open in new tab" button is rendered for browsers that block the embed.
 - `**/client`** — embeds `siteSettings.clientGalleryUrl` (Pic-Time) the same way, with the same fallback.
-- **Google Reviews** — `src/components/GoogleReviews.tsx` tries the Places API first. If the call fails or env vars are unset, it renders manual testimonials from `siteSettings.testimonials`. If both are empty, the component renders `null` so the page degrades cleanly.
+- **Google Reviews** — `src/components/marketing/GoogleReviews.tsx` tries the Places API first. If the call fails or env vars are unset, it renders manual testimonials from `siteSettings.testimonials`. If both are empty, the component renders `null` so the page degrades cleanly.
 
 ## Journal (Sanity CMS)
 
@@ -290,6 +284,18 @@ Schema-driven planning questionnaires live in `**src/lib/questionnaires.ts`**. E
 2. Register it in the `QUESTIONNAIRES` map keyed by `ServiceSlug`.
 3. The service page CTA (`/services/[category]`), the index page, and the sitemap pick it up automatically. No other wiring needed.
 
+## Testing
+
+A Playwright end-to-end suite lives in `tests/e2e/` (139 specs at last count) covering the public pages and forms, the API guards (validation / honeypot / rate limit), accessibility scans via axe, and the admin + portal surfaces:
+
+```bash
+npm run test:e2e                              # full suite — boots its own dev server
+npx playwright test --workers=1               # serial run; avoids Turbopack cold-compile flakiness on a fresh .next
+npx playwright test tests/e2e/a11y.spec.ts    # a single spec file
+```
+
+`playwright.config.ts` blanks the service env keys (Resend, Twilio, Supabase, auth, Places, AI) for the test server, so every integration no-ops: forms exercise the validation paths without sending anything, and the admin/portal specs sign in through the dev magic-link flow against the blanked store. The bar for every change is `npm run lint` + `npm run build` clean and the suite green; new code paths ship with a smoke-level spec alongside them (see `AGENTS.md`).
+
 ## Deployment (Vercel)
 
 The site is deployed to Vercel.
@@ -310,7 +316,7 @@ The site is deployed to Vercel.
 - Verify a custom domain in Resend so inquiries don't ship from `onboarding@resend.dev`
 - Restrict the Google Places API key to Places API (New) + the Vercel server IP range
 - Confirm pricing, booking status, and contact info are current — either in Studio or in the hard-coded `src/lib/*-data.ts` defaults (re-seed if you edited the latter)
-- Replace `/public/og.jpg` with a final social-share image (1200×630)
+- Add the social-share image at `/public/og.jpg` (1200×630) — `layout.tsx` already points OpenGraph + JSON-LD at it, but the file doesn't exist yet, so shares currently render without a preview image
 - Run the photo importer for every slug with real galleries
 - Configure `SANITY_WEBHOOK_SECRET` and register the webhook in Sanity so publishes propagate instantly
 
@@ -475,73 +481,12 @@ edits. Until the
 env is set, capture + portal cleanly no-op and the rest of the site is
 unaffected.
 
-## AI email drafting
+## AI features (admin drafting + public concierge)
 
-The admin compose-email panel on a project (`/admin/projects/[id]`) has a
-**"Draft with AI"** button that turns a pipeline template + the project's real
-details into a personalized, on-brand draft. **Julian always reviews and edits
-before sending — the AI never sends.** The draft is built server-side from the
-minimal client-appropriate facts (name, service, stage, date, venue, package,
-guest count, plan summary, and the project's portal / booking / gallery /
-questionnaire links) — never the internal note or budget. A reusable brand-voice
-prompt (`src/lib/ai-voice.ts`) keeps drafts sounding like Julian and forbids
-inventing facts: a missing detail comes back as a `[bracket]` to fill in, not a
-guess.
+All AI features hang off one env var, `GROQ_API_KEY` (**server scope, never `NEXT_PUBLIC_`**) — create a free key at [console.groq.com](https://console.groq.com). Groq is the default provider because its API doesn't train on submitted data, which is what makes prompts carrying client details acceptable; any OpenAI-compatible provider works via `AI_BASE_URL` + `AI_MODEL`, but stick to no-train providers for the client-facing drafting tools. With no key set, every AI surface degrades cleanly: admin panels omit their AI buttons and the public chat falls back to a static FAQ pointer. Design depth for all of it lives in `CHANGELOG.md` → "AI-assisted drafting".
 
-The feature is **optional and env-gated** — with no key set, the compose panel
-simply omits the AI button and stays a manual template editor. Nothing else
-changes.
-
-### One-time setup
-
-1. **Create a free Groq account** at
-  [console.groq.com](https://console.groq.com). Groq is the default because its
-   free tier is fast and, per their API policy, **does not train on submitted
-   data** — which is what makes it acceptable for prompts carrying client PII.
-2. **Create an API key** — Console → **API Keys** → **Create API Key**, then copy
-  the value (it's shown only once).
-3. **Add it to your env** — set `GROQ_API_KEY=<the key>` in `.env.local` and in
-  Vercel → Environment Variables (**server scope; never `NEXT_PUBLIC_`** — the
-   key must not reach the browser).
-4. Restart `npm run dev`, open any project at `/admin/projects/[id]`, pick a
-  template in the Compose panel, and click **✨ Draft with AI**.
-
-**Using a different provider.** `GROQ_API_KEY` works against any OpenAI-compatible
-chat-completions endpoint. To use OpenAI, Together, Fireworks, or similar, set
-`AI_BASE_URL` to the provider's base URL and `AI_MODEL` to one of its models
-(defaults: `https://api.groq.com/openai/v1` and `llama-3.3-70b-versatile`). Only
-switch to a provider that trains on inputs for non-PII uses — the client-drafting
-feature assumes a no-train provider.
-
-## Public concierge & FAQ
-
-`/faq` is a consolidated, **searchable and filterable** FAQ directory: free-text
-search plus a collection filter (a general bucket and each umbrella) with a
-per-service sub-filter. It's built from one shared source, `src/lib/faq.ts` — a
-curated general set (owned in code) merged with every visible service's
-`faqs[]` — and is plain content, so it works with or without AI configured. It's
-linked in the footer and the sitemap, and emits a consolidated `FAQPage` JSON-LD
-block.
-
-The same FAQ source grounds the **booking concierge** — a floating "Ask" chat
-widget shown site-wide (and docked on `/faq`) that answers questions about
-services, pricing, and booking and points visitors to the inquiry form. It's the
-only visitor-facing AI surface, so it's deliberately bounded:
-
-- **Grounded in public content only.** `POST /api/concierge` builds its context
-  (`src/lib/concierge-kb.ts`) from site settings, the service catalog, the FAQ
-  set, and the about bio. It **never** imports the client/CRM store, so no
-  private data can reach the model. The model has no tools; its reply is rendered
-  as plain text.
-- **Guardrailed.** The system prompt forbids inventing prices or availability,
-  keeps the scope to Julian's photography, ignores instructions embedded in
-  visitor messages, and routes booking actions to the inquiry form.
-- **Abuse-bounded.** Per-IP rate limit, a honeypot field, and capped message size
-  + history, mirroring the public inquiry route.
-- **Optional by env.** No new variable — it reuses `GROQ_API_KEY`. Without a key
-  the directory still works and the chat falls back to a static pointer to the
-  FAQ and inquiry form. The widget self-suppresses on `/faq` and on the studio /
-  admin / portal chrome.
+- **Admin drafting** — the compose-email panel on `/admin/projects/[id]` gains a "Draft with AI" button that turns a pipeline template + the project's client-appropriate facts into an on-brand draft for review (the AI never sends, never sees the internal note or budget, and returns `[brackets]` instead of guessing; the brand voice lives in `src/lib/ai/ai-voice.ts`). The same key powers inquiry triage, prep briefs, plan summaries, journal/copy/meta drafting, portfolio alt text, and natural-language admin search.
+- **Public concierge & FAQ** — `/faq` is a searchable, filterable directory built from one shared source (`src/lib/faq.ts`: a curated general set merged with every visible service's `faqs[]`), plain content that works without AI and emits `FAQPage` JSON-LD. The same source grounds the floating "Ask" chat widget (`POST /api/concierge`): grounded in public content only (`src/lib/ai/concierge-kb.ts` never touches the CRM store), guardrailed against inventing prices or following instructions embedded in visitor messages, and rate-limited + honeypotted like the inquiry route.
 
 ## Security
 

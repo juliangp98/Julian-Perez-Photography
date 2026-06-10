@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import InquiryForm from "@/components/InquiryForm";
-import GoogleReviews from "@/components/GoogleReviews";
+import InquiryForm from "@/components/forms/InquiryForm";
+import GoogleReviews from "@/components/marketing/GoogleReviews";
 import { getSiteSettings } from "@/lib/content";
-import { aiEnabled } from "@/lib/ai";
-import CalloutCard from "@/components/CalloutCard";
-import SubNav, { FUNNEL_TABS } from "@/components/SubNav";
+import { aiEnabled } from "@/lib/ai/ai";
+import CalloutCard from "@/components/ui/CalloutCard";
+import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
   title: "Inquire",

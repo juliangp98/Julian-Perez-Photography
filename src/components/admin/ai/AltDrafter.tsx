@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Generate + review + persist accessibility alt text for portfolio gallery
 // images. Pick a gallery, optionally "Generate all", edit any line, and Save —

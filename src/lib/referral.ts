@@ -9,7 +9,7 @@
 // the field stays visually optional while still collecting clean data
 // when filled.
 //
-// Full quarterly analytics requires a submission archive (backlog #11);
+// Full quarterly analytics requires a submission archive;
 // for now the API routes append `[via: <Label>]` to Julian's inbox so he
 // can filter/tally manually.
 
@@ -24,7 +24,6 @@ export const REFERRAL_OPTIONS = [
   { value: "other", label: "Other" },
 ] as const;
 
-export type ReferralValue = (typeof REFERRAL_OPTIONS)[number]["value"];
 
 // Human-readable labels keyed by stored value. Used server-side so email
 // bodies render "Instagram" rather than "instagram".

@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Natural-language search over the client projects. Posts a plain-English query
 // to /api/admin/search, which the AI turns into a structured filter applied
@@ -8,6 +8,7 @@ import AiButton from "@/components/AiButton";
 
 import { useState } from "react";
 import Link from "next/link";
+import Panel from "@/components/ui/Panel";
 
 type Match = {
   id: string;
@@ -59,7 +60,7 @@ export default function AdminSearch() {
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+    <Panel>
       <form onSubmit={submit} className="flex flex-wrap gap-3">
         <input
           value={query}
@@ -124,6 +125,6 @@ export default function AdminSearch() {
           )}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

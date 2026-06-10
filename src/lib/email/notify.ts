@@ -3,6 +3,7 @@
 // Resend isn't configured, so a missing key never breaks the primary request.
 
 import { Resend } from "resend";
+import { formatHumanDate } from "@/lib/field-format";
 import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
@@ -11,9 +12,9 @@ import {
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
-} from "./client-status";
+} from "@/lib/client-status";
 import { resendFrom } from "./email-helpers";
-import { getSiteSettings } from "./content";
+import { getSiteSettings } from "@/lib/content";
 
 // Notify a client that their project was updated. `lines` is the prose body;
 // `changes` (optional) renders as a compact bulleted list of what actually
@@ -97,15 +98,9 @@ function isoDay(d?: string): string {
   return `${date.getFullYear()}-${mm}-${dd}`;
 }
 
-// "June 7, 2026" — for display.
+// "June 7, 2026" for display — delegates to the shared date formatter.
 function longDay(d?: string): string {
-  const date = parseDay(d);
-  if (!date) return (d ?? "").trim();
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return formatHumanDate(d);
 }
 
 const trimmed = (s?: string) => (s ?? "").trim();

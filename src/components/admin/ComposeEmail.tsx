@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Compose a pipeline email on a project: pick a template, it prefills from the
 // project's info (with `[brackets]` for the bits to complete), edit freely, then
@@ -11,7 +11,8 @@ import {
   EMAIL_TEMPLATES,
   fillTemplate,
   type EmailTemplate,
-} from "@/lib/email-pipeline";
+} from "@/lib/email/email-pipeline";
+import { inputClass } from "@/components/ui/fields/Field";
 
 // Friendly heading per pipeline stage for the picker's option groups.
 const STAGE_LABEL: Record<string, string> = {
@@ -51,8 +52,7 @@ type Status =
   | "copied"
   | "error";
 
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition";
+const input = `${inputClass} text-sm`;
 
 export default function ComposeEmail({
   projectId,

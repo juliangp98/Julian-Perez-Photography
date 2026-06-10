@@ -11,17 +11,19 @@ import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 // Imported directly (not via @/lib/content) so this client component doesn't
 // pull the server-only content layer into the browser bundle.
 import { services } from "@/lib/services-data";
-import TextField from "@/components/fields/TextField";
-import EmailField from "@/components/fields/EmailField";
-import PhoneField from "@/components/fields/PhoneField";
-import NumberField from "@/components/fields/NumberField";
-import DateField from "@/components/fields/DateField";
-import BudgetField from "@/components/fields/BudgetField";
-import LocationField from "@/components/fields/LocationField";
-import AiButton from "@/components/AiButton";
+import TextField from "@/components/ui/fields/TextField";
+import EmailField from "@/components/ui/fields/EmailField";
+import PhoneField from "@/components/ui/fields/PhoneField";
+import NumberField from "@/components/ui/fields/NumberField";
+import SelectField from "@/components/ui/fields/SelectField";
+import DateField from "@/components/ui/fields/DateField";
+import BudgetField from "@/components/ui/fields/BudgetField";
+import AdminLocationsEditor, {
+  type LocationEntry,
+} from "@/components/admin/AdminLocationsEditor";
+import AiButton from "@/components/ui/AiButton";
 import { formatPhone } from "@/lib/field-format";
-
-type LocationEntry = { label?: string; address?: string; notes?: string };
+import { inputClass, labelClass } from "@/components/ui/fields/Field";
 
 // Coerce a stored event date into the `yyyy-MM-dd` a <input type="date"> needs.
 // An ISO calendar date is returned as-is (no timezone shift); other parseable
@@ -58,10 +60,6 @@ type Initial = {
   locations?: LocationEntry[];
 };
 type Status = "idle" | "saving" | "saved" | "error";
-
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-const label = "block text-sm font-medium mb-1.5";
 
 export default function AdminProjectEditForm({
   id,
@@ -112,11 +110,6 @@ export default function AdminProjectEditForm({
     setV((prev) => ({ ...prev, [k]: e.target.value }));
   const setStr = (k: keyof typeof v) => (val: string) =>
     setV((prev) => ({ ...prev, [k]: val }));
-  function updateLoc(i: number, patch: Partial<LocationEntry>) {
-    setLocations((l) =>
-      l.map((loc, j) => (j === i ? { ...loc, ...patch } : loc)),
-    );
-  }
 
   // Draft the client-facing plan summary with AI, into the editable field.
   async function draftPlan() {
@@ -148,8 +141,7 @@ export default function AdminProjectEditForm({
 
   // Changing the service clears a package that doesn't belong to the new
   // service, so the package selection can never contradict the service.
-  function setService(e: React.ChangeEvent<HTMLSelectElement>) {
-    const serviceType = e.target.value;
+  function setService(serviceType: string) {
     setV((prev) => {
       const svc = services.find((s) => s.slug === serviceType);
       const keepPackage = !!svc?.packages.some((p) => p.name === prev.package);
@@ -189,7 +181,7 @@ export default function AdminProjectEditForm({
   return (
     <form onSubmit={submit} className="space-y-5">
       <div>
-        <label htmlFor="a-project-name" className={label}>
+        <label htmlFor="a-project-name" className={labelClass}>
           Project name{" "}
           <span className="text-[var(--muted)] font-normal">
             (leave blank for the auto name)
@@ -200,61 +192,46 @@ export default function AdminProjectEditForm({
           value={v.projectName}
           onChange={set("projectName")}
           placeholder={namePlaceholder}
-          className={input}
+          className={inputClass}
         />
       </div>
       <div className="grid sm:grid-cols-2 gap-5">
+        <SelectField
+          id="a-status"
+          label="Status"
+          value={v.status}
+          onChange={setStr("status")}
+          options={CLIENT_STATUS_OPTIONS.map((s) => ({
+            value: s.value,
+            label: s.title,
+          }))}
+        />
+        <SelectField
+          id="a-service"
+          label="Service"
+          value={v.serviceType}
+          onChange={setService}
+          placeholder="— Select a service —"
+          clearable
+          options={[
+            ...services.map((s) => ({ value: s.slug, label: s.title })),
+            // Preserve an existing slug that isn't in the current catalog.
+            ...(v.serviceType && !services.some((s) => s.slug === v.serviceType)
+              ? [{ value: v.serviceType, label: v.serviceType }]
+              : []),
+          ]}
+        />
         <div>
-          <label htmlFor="a-status" className={label}>
-            Status
-          </label>
-          <select
-            id="a-status"
-            value={v.status}
-            onChange={set("status")}
-            className={input}
-          >
-            {CLIENT_STATUS_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="a-service" className={label}>
-            Service
-          </label>
-          <select
-            id="a-service"
-            value={v.serviceType}
-            onChange={setService}
-            className={input}
-          >
-            <option value="">— Select a service —</option>
-            {services.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.title}
-              </option>
-            ))}
-            {/* Preserve an existing slug that isn't in the current catalog. */}
-            {v.serviceType &&
-              !services.some((s) => s.slug === v.serviceType) && (
-                <option value={v.serviceType}>{v.serviceType}</option>
-              )}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="a-name" className={label}>
+          <label htmlFor="a-name" className={labelClass}>
             Client name
           </label>
-          <input id="a-name" value={v.clientName} onChange={set("clientName")} className={input} />
+          <input id="a-name" value={v.clientName} onChange={set("clientName")} className={inputClass} />
         </div>
         <div>
-          <label htmlFor="a-partner" className={label}>
+          <label htmlFor="a-partner" className={labelClass}>
             Partner name
           </label>
-          <input id="a-partner" value={v.partnerName} onChange={set("partnerName")} className={input} />
+          <input id="a-partner" value={v.partnerName} onChange={set("partnerName")} className={inputClass} />
         </div>
         <EmailField
           id="a-email"
@@ -263,32 +240,24 @@ export default function AdminProjectEditForm({
           onChange={setStr("email")}
         />
         <PhoneField id="a-phone" value={v.phone} onChange={setStr("phone")} />
-        <div>
-          <label htmlFor="a-package" className={label}>
-            Package
-          </label>
-          <select
-            id="a-package"
-            value={v.package}
-            onChange={set("package")}
-            disabled={!v.serviceType}
-            className={`${input} disabled:opacity-50`}
-          >
-            <option value="">
-              {v.serviceType ? "— Select a package —" : "Choose a service first"}
-            </option>
-            {packageOptions.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-            {/* Preserve an existing package that isn't in the service's list. */}
-            {v.package &&
-              !packageOptions.some((p) => p.name === v.package) && (
-                <option value={v.package}>{v.package}</option>
-              )}
-          </select>
-        </div>
+        <SelectField
+          id="a-package"
+          label="Package"
+          value={v.package}
+          onChange={setStr("package")}
+          disabled={!v.serviceType}
+          placeholder={
+            v.serviceType ? "— Select a package —" : "Choose a service first"
+          }
+          clearable
+          options={[
+            ...packageOptions.map((p) => p.name),
+            // Preserve an existing package that isn't in the service's list.
+            ...(v.package && !packageOptions.some((p) => p.name === v.package)
+              ? [v.package]
+              : []),
+          ]}
+        />
         {eventDateUnparseable ? (
           <TextField
             id="a-date"
@@ -319,68 +288,7 @@ export default function AdminProjectEditForm({
         />
       </div>
 
-      {/* Locations — venue/address rows with Places autocomplete. */}
-      <div>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className={label}>Locations</span>
-          <button
-            type="button"
-            onClick={() => setLocations((l) => [...l, {}])}
-            className="rounded-full border border-[var(--foreground)] px-3 py-1 text-xs transition hover:bg-[var(--foreground)] hover:text-[var(--background)]"
-          >
-            + Add location
-          </button>
-        </div>
-        {locations.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">
-            No locations yet — add a venue or address.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {locations.map((loc, i) => (
-              <div
-                key={i}
-                className="space-y-3 rounded-lg border border-[var(--border)] p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Location {i + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setLocations((l) => l.filter((_, j) => j !== i))
-                    }
-                    className="text-xs text-[var(--muted)] transition hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <TextField
-                  id={`a-loc-label-${i}`}
-                  label="Label / venue name"
-                  value={loc.label ?? ""}
-                  onChange={(val) => updateLoc(i, { label: val })}
-                />
-                <LocationField
-                  id={`a-loc-address-${i}`}
-                  label="Address"
-                  value={loc.address ?? ""}
-                  onChange={(val) => updateLoc(i, { address: val })}
-                  valueKind="address"
-                  placeholder="Search an address…"
-                />
-                <TextField
-                  id={`a-loc-notes-${i}`}
-                  label="Notes"
-                  value={loc.notes ?? ""}
-                  onChange={(val) => updateLoc(i, { notes: val })}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <AdminLocationsEditor locations={locations} onChange={setLocations} />
       <div>
         <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
           <label htmlFor="a-plan" className="text-sm font-medium">
@@ -400,7 +308,7 @@ export default function AdminProjectEditForm({
             </AiButton>
           )}
         </div>
-        <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={input} />
+        <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={inputClass} />
         {planStatus === "drafted" && (
           <p className="mt-1 text-xs text-[var(--accent)]">
             AI draft — review and edit before saving.
@@ -414,7 +322,7 @@ export default function AdminProjectEditForm({
       </div>
       {(initial.clientNotes || initial.clientNotesReply) && (
         <div>
-          <label htmlFor="a-reply" className={label}>
+          <label htmlFor="a-reply" className={labelClass}>
             Client notes &amp; questions{" "}
             <span className="text-[var(--muted)] font-normal">
               (from the client — your reply is shown to them)
@@ -435,12 +343,12 @@ export default function AdminProjectEditForm({
             value={v.clientNotesReply}
             onChange={set("clientNotesReply")}
             placeholder="Reply to the client…"
-            className={`${input} mt-3`}
+            className={`${inputClass} mt-3`}
           />
         </div>
       )}
       <div>
-        <label htmlFor="a-gallery" className={label}>
+        <label htmlFor="a-gallery" className={labelClass}>
           Gallery URL{" "}
           <span className="text-[var(--muted)] font-normal">
             (Pic-Time link — shown to the client when set)
@@ -452,14 +360,14 @@ export default function AdminProjectEditForm({
           value={v.galleryUrl}
           onChange={set("galleryUrl")}
           placeholder="https://…"
-          className={input}
+          className={inputClass}
         />
       </div>
       <div>
-        <label htmlFor="a-notes" className={label}>
+        <label htmlFor="a-notes" className={labelClass}>
           Internal notes <span className="text-[var(--muted)] font-normal">(private — never shown to the client)</span>
         </label>
-        <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={input} />
+        <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={inputClass} />
       </div>
       <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
         <input

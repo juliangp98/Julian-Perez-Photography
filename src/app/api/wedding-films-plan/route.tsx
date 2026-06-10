@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
   try {
     const { renderToBuffer } = await import("@react-pdf/renderer");
-    const { WeddingFilmsPlan } = await import("@/lib/wedding-films-plan");
+    const { WeddingFilmsPlan } = await import("@/lib/pdf/wedding-films-plan");
     const buffer = await renderToBuffer(
       <WeddingFilmsPlan answers={answers} />,
     );

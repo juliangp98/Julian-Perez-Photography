@@ -1,18 +1,18 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // Draft an SEO meta description for a key static/index page with AI. Calls
 // /api/admin/draft-meta and shows the result (copyable, with a character count)
 // for Julian to apply to the page's metadata. The AI never publishes.
 
 import { useState } from "react";
-import CopyField from "@/components/CopyField";
+import CopyField from "@/components/ui/CopyField";
 import { SEO_PAGES } from "@/lib/seo-pages";
+import { inputClass } from "@/components/ui/fields/Field";
 
 type Status = "idle" | "drafting" | "drafted" | "error";
 
-const input =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition";
+const input = `${inputClass} text-sm`;
 
 export default function MetaDrafter() {
   const [page, setPage] = useState("");

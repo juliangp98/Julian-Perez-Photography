@@ -12,12 +12,12 @@ import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { isAuthConfigured, signMagicToken } from "@/lib/auth";
 import { findClientIdByEmail } from "@/lib/clients";
-import { resendFrom } from "@/lib/email-helpers";
+import { resendFrom } from "@/lib/email/email-helpers";
 import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
   MagicLinkEmailTemplate,
-} from "@/lib/email-templates";
+} from "@/lib/email/email-templates";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({

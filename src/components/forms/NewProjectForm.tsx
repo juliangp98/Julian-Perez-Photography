@@ -8,14 +8,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { services, serviceTitle } from "@/lib/services-data";
-import Field, { controlClass } from "@/components/fields/Field";
-import TextField from "@/components/fields/TextField";
-import EmailField from "@/components/fields/EmailField";
-import PhoneField from "@/components/fields/PhoneField";
-import DateField from "@/components/fields/DateField";
-
-const primary =
-  "px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50";
+import SelectField from "@/components/ui/fields/SelectField";
+import TextField from "@/components/ui/fields/TextField";
+import EmailField from "@/components/ui/fields/EmailField";
+import PhoneField from "@/components/ui/fields/PhoneField";
+import DateField from "@/components/ui/fields/DateField";
+import { submitButtonClass } from "@/components/ui/Button";
+import Panel from "@/components/ui/Panel";
 
 type Dup = { id: string; clientName?: string; serviceType?: string };
 
@@ -32,10 +31,6 @@ export default function NewProjectForm() {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [dup, setDup] = useState<Dup | null>(null);
 
-  const set =
-    (k: keyof typeof v) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setV((p) => ({ ...p, [k]: e.target.value }));
   const setStr =
     (k: keyof typeof v) =>
     (val: string) =>
@@ -77,14 +72,14 @@ export default function NewProjectForm() {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={primary}>
+      <button type="button" onClick={() => setOpen(true)} className={submitButtonClass}>
         + New project
       </button>
     );
   }
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-5">
+    <Panel>
       <div className="flex items-center justify-between gap-4">
         <h2 className="font-serif text-xl">New project</h2>
         <button
@@ -118,21 +113,15 @@ export default function NewProjectForm() {
             onChange={setStr("email")}
           />
           <PhoneField id="np-phone" value={v.phone} onChange={setStr("phone")} />
-          <Field id="np-service" label="Service">
-            <select
-              id="np-service"
-              value={v.serviceType}
-              onChange={set("serviceType")}
-              className={controlClass(false)}
-            >
-              <option value="">Not sure yet</option>
-              {services.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  {s.title}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <SelectField
+            id="np-service"
+            label="Service"
+            value={v.serviceType}
+            onChange={setStr("serviceType")}
+            placeholder="Not sure yet"
+            clearable
+            options={services.map((s) => ({ value: s.slug, label: s.title }))}
+          />
           <DateField
             id="np-date"
             label="Event date"
@@ -168,7 +157,7 @@ export default function NewProjectForm() {
           <button
             type="submit"
             disabled={status === "saving" || !v.email.trim()}
-            className={primary}
+            className={submitButtonClass}
           >
             {status === "saving" ? "Creating…" : "Create project"}
           </button>
@@ -179,6 +168,6 @@ export default function NewProjectForm() {
           )}
         </div>
       </form>
-    </div>
+    </Panel>
   );
 }

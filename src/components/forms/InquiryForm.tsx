@@ -6,16 +6,19 @@ import { visibleServices as services } from "@/lib/content";
 import { REFERRAL_OPTIONS } from "@/lib/referral";
 import AssistedTextarea, {
   type AssistContext,
-} from "@/components/AssistedTextarea";
-import Field, { controlClass } from "@/components/fields/Field";
-import TextField from "@/components/fields/TextField";
-import EmailField from "@/components/fields/EmailField";
-import PhoneField from "@/components/fields/PhoneField";
-import DateField from "@/components/fields/DateField";
-import BudgetField from "@/components/fields/BudgetField";
-import LocationField from "@/components/fields/LocationField";
+} from "@/components/forms/AssistedTextarea";
+import Field, { controlClass } from "@/components/ui/fields/Field";
+import SelectField from "@/components/ui/fields/SelectField";
+import TextField from "@/components/ui/fields/TextField";
+import EmailField from "@/components/ui/fields/EmailField";
+import PhoneField from "@/components/ui/fields/PhoneField";
+import DateField from "@/components/ui/fields/DateField";
+import BudgetField from "@/components/ui/fields/BudgetField";
+import LocationField from "@/components/ui/fields/LocationField";
 import { formatPhone, isValidEmail } from "@/lib/field-format";
+import Panel from "@/components/ui/Panel";
 
+import Button from "@/components/ui/Button";
 type CallLink = { label: string; url: string };
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -191,35 +194,27 @@ export default function InquiryForm({
             Browse planning questionnaires →
           </Link>
         </p>
-        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+        <Panel className="mt-6">
           <p className="text-sm font-medium">Want to chat first?</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             A quick discovery call is the easiest way to see if we&rsquo;re a
             good fit. No commitment, no pressure.
           </p>
-          <a
-            href={discoveryCall.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-block px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition"
-          >
+          <Button href={discoveryCall.url} external className="mt-3">
             {discoveryCall.label} &rarr;
-          </a>
-        </div>
-        <div className="mt-6 p-5 border border-[var(--border)] rounded-lg">
+          </Button>
+        </Panel>
+        <Panel className="mt-6">
           <p className="text-sm font-medium">Track your project</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             Sign in to your client portal anytime to check your status, add
             details, and find your documents — just use this same email, no
             password needed.
           </p>
-          <Link
-            href="/portal"
-            className="mt-3 inline-block px-5 py-2 border border-[var(--foreground)] rounded-full text-sm hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          <Button href="/portal" variant="secondary" className="mt-3">
             Open your portal &rarr;
-          </Link>
-        </div>
+          </Button>
+        </Panel>
       </div>
     );
   }
@@ -272,28 +267,19 @@ export default function InquiryForm({
           value={v.phone}
           onChange={set("phone")}
         />
-        <Field id="inq-service" label="Service" required error={errors.service}>
-          <select
-            id="inq-service"
-            value={v.service}
-            onChange={(e) => {
-              set("service")(e.target.value);
-              clearError("service");
-            }}
-            aria-invalid={errors.service ? true : undefined}
-            aria-describedby={errors.service ? "inq-service-error" : undefined}
-            className={controlClass(!!errors.service)}
-          >
-            <option value="" disabled>
-              Select a service…
-            </option>
-            {services.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <SelectField
+          id="inq-service"
+          label="Service"
+          required
+          error={errors.service}
+          value={v.service}
+          onChange={(val) => {
+            set("service")(val);
+            clearError("service");
+          }}
+          placeholder="Select a service…"
+          options={services.map((s) => ({ value: s.slug, label: s.title }))}
+        />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-5">
@@ -315,19 +301,13 @@ export default function InquiryForm({
 
       <div className="grid sm:grid-cols-2 gap-5">
         <BudgetField id="inq-budget" value={v.budget} onChange={set("budget")} />
-        <Field id="inq-referral" label="How did you hear about me?">
-          <select
-            id="inq-referral"
-            value={v.referral}
-            onChange={(e) => set("referral")(e.target.value)}
-            className={controlClass(false)}
-          >
-            {REFERRAL_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <SelectField
+          id="inq-referral"
+          label="How did you hear about me?"
+          value={v.referral}
+          onChange={set("referral")}
+          options={REFERRAL_OPTIONS}
+        >
           {v.referral === "other" && (
             <input
               id="inq-referralOther"
@@ -337,7 +317,7 @@ export default function InquiryForm({
               className={`${controlClass(false)} mt-2`}
             />
           )}
-        </Field>
+        </SelectField>
       </div>
 
       <Field

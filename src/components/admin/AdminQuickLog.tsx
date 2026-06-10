@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
+import { compactInputClass } from "@/components/ui/fields/Field";
 
 export default function AdminQuickLog({
   projectId,
@@ -69,7 +70,7 @@ export default function AdminQuickLog({
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value)}
-        className="w-full px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+        className={`w-full ${compactInputClass}`}
       >
         {CLIENT_STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -81,7 +82,7 @@ export default function AdminQuickLog({
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="Add a note…"
-        className="w-full px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]"
+        className={`w-full ${compactInputClass}`}
       />
       <label className="flex items-center gap-2 text-xs text-[var(--muted)] cursor-pointer">
         <input

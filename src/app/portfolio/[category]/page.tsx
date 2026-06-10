@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -7,10 +6,11 @@ import {
   getVisiblePortfolios,
 } from "@/lib/content";
 import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
-import PortfolioGallery from "@/components/PortfolioGallery";
-import VideoGallery from "@/components/VideoGallery";
-import SubNav, { type SubNavItem } from "@/components/SubNav";
+import PortfolioGallery from "@/components/marketing/PortfolioGallery";
+import VideoGallery from "@/components/marketing/VideoGallery";
+import SubNav, { type SubNavItem } from "@/components/ui/SubNav";
 
+import Button from "@/components/ui/Button";
 // Slugs come from Sanity when configured and fall back to
 // `portfoliosFallback` otherwise. Wrapped in try/catch so a network
 // hiccup at build time doesn't break the build; pages still render
@@ -111,12 +111,9 @@ export default async function PortfolioCategoryPage({
             previous site.
           </p>
           {service && (
-            <Link
-              href={`/services/${linkedServiceSlug}`}
-              className="inline-block mt-6 px-5 py-2 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm"
-            >
+            <Button href={`/services/${linkedServiceSlug}`} variant="secondary" className="mt-6">
               View {p.title.toLowerCase()} pricing
-            </Link>
+            </Button>
           )}
         </div>
       ) : (

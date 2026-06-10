@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // On-demand AI shoot-prep brief. A button calls /api/admin/prep-brief, which
 // reads the project's submitted questionnaire server-side and returns a
@@ -7,6 +7,7 @@ import AiButton from "@/components/AiButton";
 // configured and the project actually has a questionnaire snapshot.
 
 import { useState } from "react";
+import Panel from "@/components/ui/Panel";
 
 type Brief = {
   headline: string;
@@ -86,7 +87,7 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
       </div>
 
       {brief && (
-        <div className="rounded-lg border border-[var(--border)] bg-white p-5 space-y-4">
+        <Panel className="space-y-4">
           {brief.headline && (
             <p className="font-serif text-lg leading-snug">{brief.headline}</p>
           )}
@@ -106,7 +107,7 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
             AI-generated from the questionnaire — skim before the shoot and
             confirm anything marked to check.
           </p>
-        </div>
+        </Panel>
       )}
     </div>
   );

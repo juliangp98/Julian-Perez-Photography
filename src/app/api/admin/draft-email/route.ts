@@ -10,13 +10,14 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { formatHumanDate } from "@/lib/field-format";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull } from "@/lib/clients";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email-pipeline";
-import { generateText, aiEnabled, aiModel } from "@/lib/ai";
-import { buildVoiceSystemPrompt } from "@/lib/ai-voice";
+import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email/email-pipeline";
+import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
+import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
@@ -31,15 +32,7 @@ const schema = z.object({
 });
 
 function longDate(d?: string): string | undefined {
-  if (!d) return undefined;
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? `${d.trim()}T00:00:00` : d;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return formatHumanDate(d) || undefined;
 }
 
 // Split the model's "Subject: …\n\n<body>" output; fall back to the template's

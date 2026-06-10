@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // On-demand AI triage of a project's inquiry. A button calls /api/admin/triage,
 // which reads the inquiry server-side and returns an assessment (summary, fit,
@@ -7,6 +7,7 @@ import AiButton from "@/components/AiButton";
 // and the project actually has an inquiry message.
 
 import { useState } from "react";
+import Panel from "@/components/ui/Panel";
 
 type Triage = {
   summary: string;
@@ -104,7 +105,7 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
       </div>
 
       {triage && (
-        <div className="rounded-lg border border-[var(--border)] bg-white p-5 space-y-4">
+        <Panel className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge label={FIT[triage.fit].label} cls={FIT[triage.fit].cls} />
             <Badge
@@ -158,7 +159,7 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
               </p>
             </div>
           )}
-        </div>
+        </Panel>
       )}
     </div>
   );

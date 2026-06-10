@@ -6,9 +6,9 @@
 // reach the model. React-cached so a burst of chat turns shares one build.
 
 import { cache } from "react";
-import { getSiteSettings, getVisibleServices, getAboutPage } from "./content";
-import { getAllFaqs } from "./faq";
-import { UMBRELLAS } from "./types";
+import { getSiteSettings, getVisibleServices, getAboutPage } from "@/lib/content";
+import { getAllFaqs } from "@/lib/faq";
+import { UMBRELLAS } from "@/lib/types";
 
 const umbrellaTitle = Object.fromEntries(
   UMBRELLAS.map((u) => [u.id, u.title]),

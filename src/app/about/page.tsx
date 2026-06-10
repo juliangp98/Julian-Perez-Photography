@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { getAboutPage, getSiteSettings } from "@/lib/content";
 import Image from "next/image";
-import SubNav, { ABOUT_TABS } from "@/components/SubNav";
-import CalloutCard from "@/components/CalloutCard";
+import SubNav, { ABOUT_TABS } from "@/components/ui/SubNav";
+import CalloutCard from "@/components/ui/CalloutCard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();

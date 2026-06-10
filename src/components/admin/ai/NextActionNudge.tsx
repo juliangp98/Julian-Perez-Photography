@@ -1,5 +1,5 @@
 "use client";
-import AiButton from "@/components/AiButton";
+import AiButton from "@/components/ui/AiButton";
 
 // On-demand AI "what's the next step?" for a project. A button calls
 // /api/admin/next-action, which reasons over the project's pipeline state

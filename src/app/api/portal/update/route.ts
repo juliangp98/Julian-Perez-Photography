@@ -18,9 +18,9 @@ import { render } from "@react-email/components";
 import {
   BrandedEmailLayout,
   NotificationEmailTemplate,
-} from "@/lib/email-templates";
-import { clientEditNotifyEnabled } from "@/lib/notify";
-import { resendFrom } from "@/lib/email-helpers";
+} from "@/lib/email/email-templates";
+import { clientEditNotifyEnabled } from "@/lib/email/notify";
+import { resendFrom } from "@/lib/email/email-helpers";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({

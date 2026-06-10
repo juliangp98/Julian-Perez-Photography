@@ -5,6 +5,7 @@
 // hidden entirely for terminal (closed) statuses.
 
 import { CLIENT_MILESTONES, clientMilestoneIndex } from "@/lib/client-status";
+import Panel from "@/components/ui/Panel";
 
 // Parse an event-date string (ISO "2026-10-10", "10/10/2026", "Aug 15, 2027").
 // Returns null for unparseable values so the countdown simply doesn't render.
@@ -43,7 +44,7 @@ export default function PortalStatusTimeline({
   const countdown = countdownLabel(daysUntil(eventDate));
 
   return (
-    <div className="mt-8 rounded-lg border border-[var(--border)] bg-white p-5 lg:p-6">
+    <Panel className="mt-8 lg:p-6">
       <div className="flex items-baseline justify-between gap-3">
         <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
           Where things stand
@@ -107,6 +108,6 @@ export default function PortalStatusTimeline({
       <p className="mt-5 text-sm text-[var(--muted)]">
         {CLIENT_MILESTONES[current].hint}
       </p>
-    </div>
+    </Panel>
   );
 }
