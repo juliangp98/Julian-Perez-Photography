@@ -36,6 +36,12 @@ test("a11y: home page has no violations (excluding documented rules)", async ({
   expect(results.violations).toEqual([]);
 });
 
+test("a11y: /about (bio + press line) has no violations", async ({ page }) => {
+  await page.goto("/about");
+  const results = await runAxe(page);
+  expect(results.violations).toEqual([]);
+});
+
 test("a11y: /inquire has no violations", async ({ page }) => {
   await page.goto("/inquire");
   const results = await runAxe(page);

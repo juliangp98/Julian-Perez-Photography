@@ -8,6 +8,7 @@ import {
 } from "@/lib/content";
 import GoogleReviews from "@/components/marketing/GoogleReviews";
 import FeaturedJournalPost from "@/components/marketing/FeaturedJournalPost";
+import PressStrip from "@/components/marketing/PressStrip";
 
 import Button from "@/components/ui/Button";
 export async function generateMetadata(): Promise<Metadata> {
@@ -133,6 +134,9 @@ export default async function HomePage() {
           <GoogleReviews heading="What clients say" limit={3} />
         </div>
       </section>
+
+      {/* Press features — empty list → strip hidden */}
+      <PressStrip />
 
       {/* CTA */}
       <section className="border-t border-[var(--border)]">

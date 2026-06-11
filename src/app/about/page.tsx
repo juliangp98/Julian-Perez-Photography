@@ -3,6 +3,7 @@ import { getAboutPage, getSiteSettings } from "@/lib/content";
 import Image from "next/image";
 import SubNav, { ABOUT_TABS } from "@/components/ui/SubNav";
 import CalloutCard from "@/components/ui/CalloutCard";
+import { pressItems } from "@/lib/press-data";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -35,6 +36,24 @@ export default async function AboutPage() {
           {about.bio.map((paragraph, i) => (
             <p key={i}>{paragraph}</p>
           ))}
+          {pressItems.length > 0 && (
+            <div className="pt-2 text-sm text-[var(--muted)]">
+              As featured in{" "}
+              {pressItems.map((p, i) => (
+                <span key={p.url}>
+                  {i > 0 && ", "}
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-4 hover:text-[var(--accent)]"
+                  >
+                    {p.name}: {p.title} →
+                  </a>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {images.length > 0 && (
           <aside className="mt-10 lg:mt-0 lg:sticky lg:top-24 space-y-5">
