@@ -80,7 +80,7 @@ Portfolio metadata (title, slug, umbrella, description, cover path, order, hidde
 
 ## About page in Sanity
 
-Singleton `aboutPage` doc with `heading` (string) + `bio` (string array of paragraphs — not Portable Text, since the copy is 3 plain paragraphs) + optional `headshot` (string path, Lightroom workflow). Cross-page fields (coverageArea, bookingStatus, contactEmail) stay on `siteSettings` — one authoritative source per concern.
+Singleton `aboutPage` doc with `heading` (string) + `bio` (string array of paragraphs — not Portable Text, since the copy is short plain paragraphs) + optional `headshot` (string path, Lightroom workflow). Cross-page fields (coverageArea, bookingStatus, contactEmail) stay on `siteSettings` — one authoritative source per concern. The bio reads as a five-paragraph story (the teenage spark, the 2019 Cuba turning point, the Arlington restart, the candid-first philosophy, the practical close) drawn from Julian's press interviews, kept in lockstep between `src/lib/about-data.ts` and the Sanity doc. An "As featured in" line under the bio links each press piece from `src/lib/press-data.ts`.
 
 ## Webhook revalidation
 
@@ -98,6 +98,10 @@ Signature-verified means an attacker with just the endpoint URL can trigger 401s
 A `featured` boolean on `journalPost` surfaces one editorially-curated post in a "Latest story" section on `/` (`src/components/marketing/FeaturedJournalPost.tsx`). The section silent-hides when no post is flagged, so an empty `featured` set is a valid steady state. If multiple posts are flagged, the most recently published one wins rather than requiring Julian to hunt down old flags.
 
 Tagged `journalPost` so the webhook's existing `revalidateTag("journalPost")` + `revalidatePath("/")` combo covers it without new wiring.
+
+## Press features
+
+Interviews and accolades live in one flat data module, `src/lib/press-data.ts` (`PressItem`: publication, piece title, URL, optional `/public/press/` wordmark) — deliberately code-only, since press changes a few times a year. Two surfaces render it: a slim **"Featured in" strip** on the home page between the reviews and the closing CTA (`src/components/marketing/PressStrip.tsx` — publication wordmarks linking out, piece title as the caption, hidden entirely when the list is empty, with a text-wordmark fallback for items without a logo asset), and the "As featured in" line under the About bio. Appending an item to the data file updates both. The static row is sized for a handful of features; a rolling carousel is the planned upgrade if the list outgrows one row.
 
 ## Embedded third-party tools
 
@@ -225,7 +229,7 @@ Every generative action across the site fires from one shared **`AiButton`** —
 
 The compose-email panel on a project gains an admin-only **"Draft with AI"** button that turns a pipeline template + the project's real context into a personalized, on-brand draft — which Julian reviews and edits before sending (the AI never sends; it only fills the editable subject/body). An optional one-line steer ("mention the rain backup", "warmer tone") tunes the result, which lands under an "AI draft — review before sending" note.
 
-A provider abstraction in `src/lib/ai/ai.ts` fronts any OpenAI-compatible chat-completions API with a single `generateText({ system, prompt })`. The default is **Groq** — free, fast, and (per their policy) non-training, which is why it's the pick for prompts carrying client PII — and it's swappable to OpenAI / Together / Fireworks / any compatible endpoint via `AI_BASE_URL` + `AI_MODEL`. The whole module no-ops (returns null) when `GROQ_API_KEY` is unset, so the compose panel simply omits the AI button and stays a manual editor — the same optional-by-env posture as Resend and Twilio. The key is server-only, never `NEXT_PUBLIC_`.
+A provider abstraction in `src/lib/ai/ai.ts` fronts any OpenAI-compatible chat-completions API with a single `generateText({ system, prompt })`. The default is **Groq** — free, fast, and (per their policy) non-training, which is why it's the pick for prompts carrying client PII — and it's swappable to OpenAI / Together / Fireworks / any compatible endpoint via `AI_BASE_URL` + `AI_MODEL` — including Vercel's AI Gateway as a documented target (`.env.example` carries the base URL, slug format, and the caveat that enforced zero-data-retention routing is Pro-plan-gated, so direct Groq stays the default for client-data prompts). The whole module no-ops (returns null) when `GROQ_API_KEY` is unset, so the compose panel simply omits the AI button and stays a manual editor — the same optional-by-env posture as Resend and Twilio. The key is server-only, never `NEXT_PUBLIC_`.
 
 `/api/admin/draft-email` (admin-gated, per-IP rate-limited, Sentry-instrumented) loads the project server-side and sends the model only the minimal, client-appropriate facts a draft needs — name, service, stage, date, venue, package, guest count, plan summary, and the project's portal/booking/gallery/questionnaire links — never the internal note or budget, and never PII trusted from the request body. A reusable brand-voice system prompt (`src/lib/ai/ai-voice.ts`) establishes Julian's persona and the non-negotiable rules — write as Julian, use only the supplied facts, leave a `[bracket]` placeholder rather than invent a missing detail — so a draft reads like him and can't fabricate a date or price. The model returns a `Subject:`/body pair parsed straight into the editable fields, falling back to the static filled template if the provider is unreachable. This was the first consumer of the shared `ai.ts`.
 
