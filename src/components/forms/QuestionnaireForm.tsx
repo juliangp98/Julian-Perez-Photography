@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AssistContext } from "@/components/forms/AssistedTextarea";
 import ReferralField from "@/components/forms/questionnaire/ReferralField";
 import FieldRenderer from "@/components/forms/questionnaire/FieldRenderer";
@@ -76,7 +76,9 @@ export default function QuestionnaireForm({
   // the submission's own status.
   const [pdfErrorMsg, setPdfErrorMsg] = useState<string | null>(null);
   // Preserve submitted answers for the PDF download button after localStorage is cleared.
-  const submittedAnswersRef = useRef<FormState | null>(null);
+  const [submittedAnswers, setSubmittedAnswers] = useState<FormState | null>(
+    null,
+  );
 
   // Build the assist context from answers given so far — excluding the field
   // being drafted, file uploads, and empties — so the writing assistant is
@@ -104,6 +106,10 @@ export default function QuestionnaireForm({
       const raw = window.localStorage.getItem(draftKey);
       if (raw) {
         const draft = JSON.parse(raw) as FormState;
+        // Mount-only localStorage hydration — state can't be seeded during SSR
+        // without a hydration mismatch, so the one-time post-mount set is the
+        // sanctioned pattern here.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState((prev) => ({ ...draft, ...prev, ...(prefill || {}) }));
       }
     } catch {
@@ -136,6 +142,10 @@ export default function QuestionnaireForm({
   );
   const safeIndex = Math.min(sectionIndex, Math.max(visibleSections.length - 1, 0));
   useEffect(() => {
+    // Clamp after the visible-sections list shrinks (a showIf hid the current
+    // section). Render already uses safeIndex, so the extra pass is a no-op
+    // visually — it only re-syncs the stored index.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (safeIndex !== sectionIndex) setSectionIndex(safeIndex);
   }, [safeIndex, sectionIndex]);
 
@@ -231,7 +241,7 @@ export default function QuestionnaireForm({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
-      submittedAnswersRef.current = payload;
+      setSubmittedAnswers(payload);
       setStatus("success");
       try {
         window.localStorage.removeItem(draftKey);
@@ -326,7 +336,7 @@ export default function QuestionnaireForm({
   }, [visibleSections, state, pdfPlan, questionnaire.slug]);
 
   const downloadPdf = useCallback(async () => {
-    if (!submittedAnswersRef.current || !pdfPlan) return;
+    if (!submittedAnswers || !pdfPlan) return;
     setPdfDownloading(true);
     // Clear any previous error message so a fresh attempt starts with a
     // clean slate. The surfaced error below replaces whatever was there.
@@ -337,7 +347,7 @@ export default function QuestionnaireForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service: questionnaire.slug,
-          answers: submittedAnswersRef.current,
+          answers: submittedAnswers,
         }),
       });
       if (!res.ok) {
@@ -364,7 +374,7 @@ export default function QuestionnaireForm({
     } finally {
       setPdfDownloading(false);
     }
-  }, [pdfPlan, questionnaire.slug]);
+  }, [pdfPlan, questionnaire.slug, submittedAnswers]);
 
   if (status === "success") {
     const isWedding = questionnaire.slug === "weddings";
@@ -373,7 +383,7 @@ export default function QuestionnaireForm({
     // answered and what the target asks, matched by canonical field id. No
     // per-pair field list; the harmonized IDs across questionnaires make it work
     // (file uploads are excluded since they can't ride a query string).
-    const answers = submittedAnswersRef.current;
+    const answers = submittedAnswers;
     const siblingLinks = answers
       ? bundleSiblings(questionnaire.slug).map((sib) => {
           const fields = prefillableFieldIds(sib);
@@ -401,7 +411,7 @@ export default function QuestionnaireForm({
           Your answers are in my inbox. I&rsquo;ll review and reach out with next
           steps within 48 hours.
         </p>
-        {pdfPlan && submittedAnswersRef.current && (
+        {pdfPlan && submittedAnswers && (
           <Panel className="mt-6">
             <p className="text-sm font-medium">Your {pdfPlan.label}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
