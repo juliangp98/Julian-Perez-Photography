@@ -74,14 +74,14 @@ export default function FileField({
           continue;
         }
         try {
-          const blob = await upload(
-            `questionnaires/${slug}/${Date.now()}-${file.name}`,
-            file,
-            {
-              access: "public",
-              handleUploadUrl: "/api/questionnaire-upload",
-            },
-          );
+          // Event-handler code, not render — the timestamp uniquifies the
+          // blob filename so same-named uploads can't collide.
+          // eslint-disable-next-line react-hooks/purity
+          const blobName = `questionnaires/${slug}/${Date.now()}-${file.name}`;
+          const blob = await upload(blobName, file, {
+            access: "public",
+            handleUploadUrl: "/api/questionnaire-upload",
+          });
           next.push({ url: blob.url, name: file.name, size: file.size });
           added += 1;
         } catch {

@@ -165,6 +165,8 @@ cp .env.example .env.local
 | `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts`                               |
 | `npm run upload-video -- <path>`          | Upload a local video file to Vercel Blob and print the public URL — used for music-blocked wedding films that can't live on YouTube |
 | `npm run seed:sanity`                     | Upsert the code-owned content graph into Sanity                                                                                     |
+| `npm run deps:check`                      | Dependency + integration health report: npm freshness, security audit, live Groq/Sanity/Supabase checks (read-only)                |
+| `npm run deps:update`                     | Apply the safe update layer: in-range bumps, same-major pins, `npm audit fix`, Playwright browsers — then verify (see Maintenance)  |
 
 
 ## Architecture notes
@@ -295,6 +297,18 @@ npx playwright test tests/e2e/a11y.spec.ts    # a single spec file
 ```
 
 `playwright.config.ts` blanks the service env keys (Resend, Twilio, Supabase, auth, Places, AI) for the test server, so every integration no-ops: forms exercise the validation paths without sending anything, and the admin/portal specs sign in through the dev magic-link flow against the blanked store. The bar for every change is `npm run lint` + `npm run build` clean and the suite green; new code paths ship with a smoke-level spec alongside them (see `AGENTS.md`).
+
+### Dependency & integration maintenance
+
+Monthly (or before a burst of work), run the health check and apply the safe layer:
+
+```bash
+npm run deps:check     # report: outdated packages, vulnerabilities, live service checks
+npm run deps:update    # apply: in-range updates, same-major framework pins, audit fix
+npm run lint && npm run build && npx playwright test --workers=1   # verify
+```
+
+The script never crosses a major version — majors are listed for a deliberate decision (read the migration notes, or ask for a full audit). It preserves the exact pins on `next` / `react` / `react-dom` / `eslint-config-next`, and reinstalls Playwright's browsers when the test runner moves (a moved runner with stale browsers fails every page-based spec with launch errors). The integration checks confirm the configured Groq models are still served (Groq retires models) and that Sanity + Supabase answer. Security alerts between runs come from GitHub Dependabot (`.github/dependabot.yml`, security-only — no unattended version PRs since there's no CI to prove them).
 
 ## Deployment (Vercel)
 

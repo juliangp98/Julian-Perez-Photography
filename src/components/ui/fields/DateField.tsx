@@ -54,6 +54,9 @@ export default function DateField({
   // Re-sync the visible text when the ISO value changes from outside (prefill).
   // Guarded so an incomplete in-progress entry (which maps to "") isn't wiped.
   useEffect(() => {
+    // Guarded one-way re-sync from an external value change (prefill) — only
+    // fires when the parsed display genuinely disagrees with the new value.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (displayToIso(display) !== value) setDisplay(isoToDisplay(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);

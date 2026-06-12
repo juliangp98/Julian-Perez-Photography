@@ -1,0 +1,13 @@
+# Security-only Dependabot: alert PRs for vulnerable dependencies, no routine
+# version-bump PRs. Routine freshness is handled locally by `npm run deps:check`
+# / `deps:update`, where the full lint + build + e2e gauntlet can verify the
+# result — this repo has no CI, so unattended version PRs would merge unproven.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    # 0 disables version-update PRs; security updates are unaffected by this
+    # limit and still open PRs when a vulnerability has an available fix.
+    open-pull-requests-limit: 0
