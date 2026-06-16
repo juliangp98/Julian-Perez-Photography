@@ -654,7 +654,7 @@ const weddingQuestionnaire: Questionnaire = {
               "Up to you / surprise me",
             ]
           },
-          help: "Plan to start around 20-30 min before sunset.",
+          help: "Based on the provided date and venue location, this pre-fills an ideal time for sunset portraits. Feel free to adjust to your liking.",
         },
         {
           id: "formalExit",

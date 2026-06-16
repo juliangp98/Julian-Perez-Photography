@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AssistContext } from "@/components/forms/AssistedTextarea";
 import ReferralField from "@/components/forms/questionnaire/ReferralField";
 import FieldRenderer from "@/components/forms/questionnaire/FieldRenderer";
@@ -131,6 +131,68 @@ export default function QuestionnaireForm({
     }, 400);
     return () => clearTimeout(t);
   }, [state, draftKey, hydrated]);
+
+  // Auto-default the "sunset session time" field once the date + venue are
+  // known: ask /api/sun for the ideal golden-hour start at that venue (real
+  // sunset in the venue's own timezone, ~25 min before). Only fills an empty
+  // field while the field is actually shown, so a manual choice is never
+  // overwritten. Gated by the field's own showIf so it matches exactly when the
+  // question appears. Deduped by date+venue so it fires once per combination.
+  const sunsetField = useMemo(
+    () =>
+      questionnaire.sections
+        .flatMap((s) => s.fields)
+        .find((f) => f.id === "sunsetTime"),
+    [questionnaire],
+  );
+  const lastSunKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated || !sunsetField) return;
+    if (!evaluateShowIf(sunsetField.showIf, state)) return;
+    const date = typeof state.eventDate === "string" ? state.eventDate : "";
+    const venue = [state.receptionVenue, state.venueAddress, state.venueName]
+      .filter((v): v is string => typeof v === "string" && v.trim().length >= 3)
+      .at(0);
+    const current = state.sunsetTime;
+    if (!date || !venue || (typeof current === "string" && current.trim()))
+      return;
+
+    const key = `${date}|${venue}`;
+    if (lastSunKey.current === key) return; // already resolved this combination
+
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      lastSunKey.current = key; // mark attempted up front to avoid duplicate fires
+      try {
+        const res = await fetch("/api/sun", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: venue, date }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+        if (data?.sessionTime) {
+          // Functional update so we never clobber a value the client typed
+          // while the request was in flight.
+          setState((prev) =>
+            typeof prev.sunsetTime === "string" && prev.sunsetTime.trim()
+              ? prev
+              : { ...prev, sunsetTime: data.sessionTime as string },
+          );
+        }
+      } catch {
+        // ignore (including aborts) — the field stays manually editable
+      }
+    }, 600);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [
+    hydrated,
+    sunsetField,
+    state,
+  ]);
 
   // Sections can be hidden by their own showIf clause (e.g. "Reception"
   // hides when the wedding Mini package is selected). The visible list

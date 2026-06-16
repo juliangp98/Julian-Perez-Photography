@@ -63,3 +63,39 @@ export async function fetchPlacePredictions(
   }
   return out;
 }
+
+type TextSearchApiResponse = {
+  places?: Array<{ location?: { latitude?: number; longitude?: number } }>;
+};
+
+// Resolve a free-text address to coordinates via Places Text Search (New) —
+// same product + GOOGLE_PLACES_API_KEY as the autocomplete above, so no extra
+// Google API to enable. Returns null when the key is missing, nothing matches,
+// or the call fails, so callers degrade gracefully (the feature just no-ops).
+// Text Search is a billable SKU, so call it sparingly (debounced + deduped).
+export async function geocodeAddress(
+  address: string,
+): Promise<{ lat: number; lng: number } | null> {
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  const query = address.trim();
+  if (!key || query.length < 3) return null;
+
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": "places.location",
+    },
+    body: JSON.stringify({ textQuery: query, regionCode: "US" }),
+  });
+  if (!res.ok) {
+    throw new Error(`Places text search ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as TextSearchApiResponse;
+  const loc = data.places?.[0]?.location;
+  if (typeof loc?.latitude !== "number" || typeof loc?.longitude !== "number") {
+    return null;
+  }
+  return { lat: loc.latitude, lng: loc.longitude };
+}
