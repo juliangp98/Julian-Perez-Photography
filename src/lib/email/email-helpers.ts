@@ -30,8 +30,17 @@ export function formatSubjectDate(value: unknown): string {
  * required to receive them.
  */
 export function resendFrom(): string {
-  return (
+  const from =
     process.env.RESEND_FROM ||
-    "Julian Perez Photography <noreply@julianperezphotography.com>"
-  );
+    "Julian Perez Photography <noreply@julianperezphotography.com>";
+  // The `onboarding@resend.dev` sandbox sender silently delivers ONLY to your
+  // own Resend account email — every other recipient is rejected with a 403,
+  // which the send routes swallow (anti-enumeration). Warn loudly so a stray
+  // RESEND_FROM override never breaks client mail unnoticed again.
+  if (from.includes("onboarding@resend.dev")) {
+    console.warn(
+      "[email] RESEND_FROM is the resend.dev sandbox sender — it only delivers to your own Resend account email. Set RESEND_FROM to an address on your verified domain (e.g. noreply@julianperezphotography.com).",
+    );
+  }
+  return from;
 }
