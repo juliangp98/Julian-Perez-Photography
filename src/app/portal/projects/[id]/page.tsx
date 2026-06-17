@@ -3,7 +3,7 @@ import { formatHumanDate as formatDate } from "@/lib/field-format";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
-import { getProjectForEmail } from "@/lib/clients";
+import { getProjectForViewer } from "@/lib/clients";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
@@ -62,8 +62,8 @@ export default async function PortalProjectPage({
   const session = await getSession();
   if (!session) redirect("/portal");
   const { id } = await params;
-  const record = await getProjectForEmail(id, session.email);
-  if (!record) {
+  const viewer = await getProjectForViewer(id, session.email);
+  if (!viewer) {
     return (
       <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
         <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
@@ -80,6 +80,10 @@ export default async function PortalProjectPage({
       </section>
     );
   }
+  const { record, viewerRole } = viewer;
+  // A second photographer granted read access — everything is view-only and the
+  // private client↔Julian notes channel was already redacted at the data layer.
+  const isCollaborator = viewerRole === "collaborator";
 
   const link = questionnaireLinkFor(record);
   // The client's own questionnaire answers (owner-gated snapshot), grouped for
@@ -134,6 +138,16 @@ export default async function PortalProjectPage({
         )}
       </div>
 
+      {isCollaborator && (
+        <div className="mt-6 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.04] px-5 py-3 text-sm text-[var(--muted)]">
+          <span className="font-medium text-[var(--foreground)]">
+            Shared with you
+          </span>{" "}
+          — you have second-photographer access to this project. Everything here
+          is view-only.
+        </div>
+      )}
+
       <PortalStatusTimeline status={record.status} eventDate={record.eventDate} />
 
       {/* Prominent CTAs span the full width. */}
@@ -159,53 +173,83 @@ export default async function PortalProjectPage({
       {/* Updates & submissions (left) + static project info (right rail). */}
       <div className="mt-10 grid lg:grid-cols-[1.6fr_1fr] gap-x-12 gap-y-10 items-start">
         <div className="min-w-0 space-y-10">
-          {inquireLink && (
-            <CalloutCard
-              eyebrow="Tell me what you're planning"
-              title="Set up your service"
-              description="You started this project without picking a service. Send a quick note and I'll get it set up — it stays attached to this project."
-              actions={[
-                { label: "Tell me what you're thinking →", href: inquireLink },
-              ]}
-            />
+          {isCollaborator ? (
+            // Read-only left column for a second photographer: the couple's
+            // planning answers get the wide column (the most useful thing for a
+            // shoot collaborator). No edit/upload affordances.
+            answerGroups && answerGroups.length > 0 ? (
+              <div>
+                <h2 className="font-serif text-2xl">Planning details</h2>
+                <p className="mt-2 mb-5 text-sm text-[var(--muted)]">
+                  The couple&rsquo;s questionnaire answers — shot priorities,
+                  timeline, must-haves.
+                </p>
+                <QuestionnaireCallout
+                  groups={answerGroups}
+                  defaultOpen
+                  title="Planning questionnaire"
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">
+                The couple hasn&rsquo;t submitted their planning questionnaire
+                yet. Their details will appear here once they do.
+              </p>
+            )
+          ) : (
+            <>
+              {inquireLink && (
+                <CalloutCard
+                  eyebrow="Tell me what you're planning"
+                  title="Set up your service"
+                  description="You started this project without picking a service. Send a quick note and I'll get it set up — it stays attached to this project."
+                  actions={[
+                    {
+                      label: "Tell me what you're thinking →",
+                      href: inquireLink,
+                    },
+                  ]}
+                />
+              )}
+
+              <div>
+                <h2 className="font-serif text-2xl">Update your details</h2>
+                <p className="mt-2 mb-5 text-sm text-[var(--muted)]">
+                  Keep your contact info and notes current — I&rsquo;ll see any
+                  changes you make here.
+                </p>
+                <PortalEditForm
+                  projectId={record.id}
+                  namePlaceholder={autoProjectName(record)}
+                  aiEnabled={aiEnabled()}
+                  projectContext={{
+                    clientName: record.clientName,
+                    service: serviceTitle(record.serviceType),
+                    eventDate: record.eventDate,
+                    status:
+                      CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus],
+                  }}
+                  initial={{
+                    phone: record.phone,
+                    partnerName: record.partnerName,
+                    guestCount: record.guestCount,
+                    clientNotes: record.clientNotes,
+                    clientNotesReply: record.clientNotesReply,
+                    projectName: record.projectName,
+                  }}
+                />
+              </div>
+
+              <div>
+                <h2 className="font-serif text-2xl">Upload a document</h2>
+                <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
+                  Share anything useful — a venue floor plan, a timeline, an
+                  inspiration PDF. I&rsquo;ll see it attached to this project.
+                </p>
+                <PortalDocumentUpload projectId={record.id} />
+              </div>
+            </>
           )}
-
-          <div>
-            <h2 className="font-serif text-2xl">Update your details</h2>
-            <p className="mt-2 mb-5 text-sm text-[var(--muted)]">
-              Keep your contact info and notes current — I&rsquo;ll see any
-              changes you make here.
-            </p>
-            <PortalEditForm
-              projectId={record.id}
-              namePlaceholder={autoProjectName(record)}
-              aiEnabled={aiEnabled()}
-              projectContext={{
-                clientName: record.clientName,
-                service: serviceTitle(record.serviceType),
-                eventDate: record.eventDate,
-                status:
-                  CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus],
-              }}
-              initial={{
-                phone: record.phone,
-                partnerName: record.partnerName,
-                guestCount: record.guestCount,
-                clientNotes: record.clientNotes,
-                clientNotesReply: record.clientNotesReply,
-                projectName: record.projectName,
-              }}
-            />
-          </div>
-
-          <div>
-            <h2 className="font-serif text-2xl">Upload a document</h2>
-            <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
-              Share anything useful — a venue floor plan, a timeline, an
-              inspiration PDF. I&rsquo;ll see it attached to this project.
-            </p>
-            <PortalDocumentUpload projectId={record.id} />
-          </div>
         </div>
 
         <aside className="min-w-0 space-y-8">
@@ -304,8 +348,9 @@ export default async function PortalProjectPage({
           {/* Planning questionnaire — collapsed once submitted (shows your own
               answers + resubmit), open as a prompt when not yet started. Only
               for service-set projects; the service-undecided inquiry prompt
-              lives in the left column. */}
-          {link && (
+              lives in the left column. Collaborators see the read-out in the
+              left column instead (no resubmit). */}
+          {!isCollaborator && link && (
             <QuestionnaireCallout
               groups={answerGroups}
               description="Fill it out so I show up fully prepared — your details here are carried over, and anything you add flows straight back to this project."

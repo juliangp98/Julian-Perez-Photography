@@ -173,3 +173,39 @@ export function summarizeClientChanges(
 export function clientEditNotifyEnabled(): boolean {
   return process.env.NOTIFY_CLIENT_EDITS !== "false";
 }
+
+// Invite a second photographer to a project they've been granted read access to.
+// `inviteLink` is a one-click portal sign-in link minted by the caller (which
+// has the request origin). Fire-and-forget; no-ops without Resend.
+export async function sendCollaboratorInviteEmail(opts: {
+  to: string;
+  projectName: string;
+  inviteLink: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const settings = await getSiteSettings();
+  const lines = [
+    `Julian has shared the project "${opts.projectName}" with you for second-photographer access.`,
+    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes — everything you need to show up prepared. The button below signs you straight in.",
+  ];
+  const html = await render(
+    BrandedEmailLayout({
+      preview: `${settings.siteName} shared a project with you`,
+      children: NotificationEmailTemplate({
+        heading: "You've been added to a shoot",
+        lines,
+        cta: { label: "Open the project →", href: opts.inviteLink },
+      }),
+    }),
+  );
+  await new Resend(apiKey).emails.send({
+    from: resendFrom(),
+    replyTo: settings.contactEmail,
+    to: opts.to,
+    subject: `${settings.siteName} shared "${opts.projectName}" with you`,
+    html,
+    text: `${lines.join("\n\n")}\n\nOpen the project: ${opts.inviteLink}\n\nThis sign-in link expires in 20 minutes; you can always request a fresh one at the portal sign-in page.`,
+  });
+}

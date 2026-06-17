@@ -32,6 +32,7 @@ import {
 } from "@/lib/project-name";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
+import AdminCollaborators from "@/components/admin/AdminCollaborators";
 import CopyField from "@/components/ui/CopyField";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
@@ -384,6 +385,18 @@ export default async function AdminProjectDetailPage({
                   />
                 </div>
               )}
+
+              <RailCard title="Second photographer access">
+                <p className="mb-4 text-sm text-[var(--muted)]">
+                  Grant a second photographer read-only portal access to this
+                  project — details, dates, documents, and the planning notes.
+                  Per project; remove anytime.
+                </p>
+                <AdminCollaborators
+                  projectId={record.id}
+                  collaborators={record.collaborators ?? []}
+                />
+              </RailCard>
 
               <RailCard title="Danger zone" tone="danger">
                 <p className="mb-4 text-sm text-[var(--muted)]">
