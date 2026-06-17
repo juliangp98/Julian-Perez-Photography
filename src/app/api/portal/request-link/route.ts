@@ -11,7 +11,7 @@ import { z } from "zod";
 import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { isAuthConfigured, signMagicToken } from "@/lib/auth";
-import { findClientIdByEmail } from "@/lib/clients";
+import { emailHasPortalAccess } from "@/lib/clients";
 import { resendFrom } from "@/lib/email/email-helpers";
 import { render } from "@react-email/components";
 import {
@@ -55,9 +55,9 @@ export async function POST(req: Request) {
   const email = parsed.data.email.trim().toLowerCase();
 
   try {
-    // Only issue a link if this email has at least one project.
-    const recordId = await findClientIdByEmail(email);
-    if (!recordId) return uniform;
+    // Only issue a link if this email owns or collaborates on a project.
+    const hasAccess = await emailHasPortalAccess(email);
+    if (!hasAccess) return uniform;
 
     const token = await signMagicToken({ email });
     const origin = req.headers.get("origin") || new URL(req.url).origin;

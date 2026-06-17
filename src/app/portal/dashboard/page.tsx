@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
-import { listProjectsByEmail, type ClientRecordSafe } from "@/lib/clients";
+import { listPortalProjects, type ClientRecordSafe } from "@/lib/clients";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   CLIENT_MILESTONES,
@@ -78,7 +78,12 @@ function ProjectCard({
 export default async function PortalProjectsMenuPage() {
   const session = await getSession();
   if (!session) redirect("/portal");
-  const projects = await listProjectsByEmail(session.email);
+  const all = await listPortalProjects(session.email);
+  // Owner projects drive the existing bundle/category grouping + owner actions;
+  // projects shared with this viewer (as a second photographer) render in their
+  // own read-only group.
+  const projects = all.filter((p) => p.viewerRole === "owner");
+  const shared = all.filter((p) => p.viewerRole === "collaborator");
 
   // Split bundled vs. loose. Bundles render first as their own accent groups;
   // the rest group by photographic category.
@@ -125,7 +130,7 @@ export default async function PortalProjectsMenuPage() {
         <PortalNewProjectForm />
       </div>
 
-      {projects.length === 0 ? (
+      {all.length === 0 ? (
         <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
           Nothing here yet. Once you&rsquo;ve inquired or started a
           questionnaire, your projects will show up here.
@@ -166,6 +171,23 @@ export default async function PortalProjectsMenuPage() {
               </div>
             </div>
           ))}
+
+          {/* Projects shared with this viewer as a second photographer —
+              read-only, kept distinct from their own work. */}
+          {shared.length > 0 && (
+            <div>
+              <h2 className="font-serif text-2xl">Shared with you</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Projects you&rsquo;ve been added to as a second photographer
+                (view-only).
+              </p>
+              <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {shared.map((p) => (
+                  <ProjectCard key={p.id} p={p} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Link projects into a bundle */}
           {projects.length >= 2 && (

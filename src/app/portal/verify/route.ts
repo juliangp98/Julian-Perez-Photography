@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyMagicToken } from "@/lib/auth";
 import { setSessionCookie } from "@/lib/auth-cookies";
-import { findClientIdByEmail } from "@/lib/clients";
+import { emailHasPortalAccess } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
@@ -27,10 +27,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Confirm the email still has at least one project (and the store is
-    // reachable) before issuing a session.
-    const anyProject = await findClientIdByEmail(claims.email);
-    if (!anyProject) {
+    // Confirm the email still has portal access — as an owner or a project
+    // collaborator (and the store is reachable) — before issuing a session.
+    const hasAccess = await emailHasPortalAccess(claims.email);
+    if (!hasAccess) {
       loginUrl.searchParams.set("error", "invalid-link");
       return NextResponse.redirect(loginUrl);
     }

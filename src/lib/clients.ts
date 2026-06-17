@@ -58,6 +58,15 @@ export type ClientLocationEntry = {
   notes?: string;
 };
 export type ClientDateEntry = { label?: string; date?: string };
+// A second photographer (or other helper) granted per-project READ access to
+// the portal. Stored as a JSONB array on the row; the parallel
+// `collaborator_emails text[]` (normalized, GIN-indexed) is what the reverse
+// "which projects can this email see" lookups filter on.
+export type CollaboratorEntry = {
+  email: string;
+  name?: string;
+  addedAt?: string;
+};
 
 // Portal-safe shape — what `getClientById` returns and the portal renders.
 export type ClientRecordSafe = {
@@ -116,6 +125,10 @@ const FULL_SELECT_EXTRA =
 // columns for the rest of the process, and retries — so everything keeps working
 // (minus those fields) until the migration is applied (a restart re-enables them).
 let optionalColumnsPresent = true;
+// Collaborator columns (collaborators jsonb + collaborator_emails text[]) land
+// in their own later migration, guarded separately so their absence pre-migration
+// degrades only the collaborator feature — never the established optional columns.
+let collaboratorColumnsPresent = true;
 
 function safeSelect(): string {
   return optionalColumnsPresent
@@ -123,7 +136,11 @@ function safeSelect(): string {
     : SAFE_SELECT_BASE;
 }
 function fullSelect(): string {
-  return safeSelect() + FULL_SELECT_EXTRA;
+  return (
+    safeSelect() +
+    FULL_SELECT_EXTRA +
+    (collaboratorColumnsPresent ? ", collaborators" : "")
+  );
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -145,19 +162,33 @@ function isMissingOptionalColumn(error: DbResult["error"]): boolean {
     )
   );
 }
+// Same 42703 guard, scoped to the collaborator columns so the collaborator
+// feature can no-op until its migration runs without touching the others.
+function isMissingCollaboratorColumn(error: DbResult["error"]): boolean {
+  return (
+    !!error &&
+    error.code === "42703" &&
+    /collaborator/.test(error.message ?? "")
+  );
+}
 
-// Run a projected read; on a missing optional-column error, remember it and
-// retry once with the reduced projection.
+// Run a projected read; on a missing optional-column error (either group),
+// remember it and retry once with the reduced projection.
 async function readWithOptionalColumns(
   projection: () => string,
   build: (select: string) => PromiseLike<DbResult>,
 ): Promise<DbResult> {
   const res = await build(projection());
+  let retry = false;
   if (isMissingOptionalColumn(res.error) && optionalColumnsPresent) {
     optionalColumnsPresent = false;
-    return build(projection());
+    retry = true;
   }
-  return res;
+  if (isMissingCollaboratorColumn(res.error) && collaboratorColumnsPresent) {
+    collaboratorColumnsPresent = false;
+    retry = true;
+  }
+  return retry ? build(projection()) : res;
 }
 
 function normalizeEmail(email: string): string {
@@ -231,6 +262,122 @@ export async function getProjectForEmail(
   );
   if (error) throw error;
   return (data as ClientRecordSafe | null) ?? null;
+}
+
+// ── Collaborator (second-photographer) read access ──
+//
+// A collaborator is a non-owner email granted per-project READ access via the
+// `collaborator_emails` array. These power the portal's broadened READ paths;
+// every WRITE path keeps using `getProjectForEmail` (owner-only), so collaborator
+// access can never reach a mutation.
+
+export type PortalViewerRole = "owner" | "collaborator";
+
+// Does this email own OR collaborate on any project? The magic-link gate
+// (request-link + verify). Degrades to owner-only if the collaborator column
+// isn't migrated yet.
+export async function emailHasPortalAccess(email: string): Promise<boolean> {
+  if (!isClientsStoreConfigured()) return false;
+  const e = normalizeEmail(email);
+  if (await findClientIdByEmail(e)) return true;
+  if (!collaboratorColumnsPresent) return false;
+  const { data, error } = await db()
+    .from(TABLE)
+    .select("id")
+    .contains("collaborator_emails", [e])
+    .limit(1);
+  if (isMissingCollaboratorColumn(error)) {
+    collaboratorColumnsPresent = false;
+    return false;
+  }
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+// All projects a portal viewer can see: their own (owner) plus any shared with
+// them (collaborator), each tagged with the viewer's role. Owner wins on overlap.
+// Collaborator entries are redacted of the private client↔Julian notes channel.
+export async function listPortalProjects(
+  email: string,
+): Promise<Array<ClientRecordSafe & { viewerRole: PortalViewerRole }>> {
+  if (!isClientsStoreConfigured()) return [];
+  const e = normalizeEmail(email);
+  const owned = await listProjectsByEmail(e);
+  const byId = new Map<string, ClientRecordSafe & { viewerRole: PortalViewerRole }>();
+  for (const p of owned) byId.set(p.id, { ...p, viewerRole: "owner" });
+
+  if (collaboratorColumnsPresent) {
+    const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
+      db()
+        .from(TABLE)
+        .select(sel)
+        .contains("collaborator_emails", [e])
+        .order("updated_at", { ascending: false }),
+    );
+    if (isMissingCollaboratorColumn(error)) {
+      collaboratorColumnsPresent = false;
+    } else if (error) {
+      throw error;
+    } else {
+      for (const p of (data as ClientRecordSafe[] | null) ?? []) {
+        if (byId.has(p.id)) continue; // owner role wins
+        byId.set(p.id, { ...redactPrivateNotes(p), viewerRole: "collaborator" });
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
+// The single-project READ gate for the portal page: returns the record if this
+// email is the owner OR a collaborator, with the viewer's role. Collaborators
+// get the project minus the private client↔Julian notes channel. Distinct from
+// getProjectForEmail so WRITES (which use that) stay strictly owner-only.
+export async function getProjectForViewer(
+  id: string,
+  email: string,
+): Promise<{ record: ClientRecordSafe; viewerRole: PortalViewerRole } | null> {
+  if (!isClientsStoreConfigured()) return null;
+  const e = normalizeEmail(email);
+
+  // Owner path first — also covers the pre-migration window with no extra query.
+  const owned = await getProjectForEmail(id, e);
+  if (owned) return { record: owned, viewerRole: "owner" };
+  if (!collaboratorColumnsPresent) return null;
+
+  // Collaborator path: read the row by id, then authorize against its
+  // collaborator list (the projection carries email + collaborator_emails so the
+  // check is in-process, never trusting the caller).
+  const collabSelect = () =>
+    projectForOwnerSelect() + ", collaborator_emails";
+  const { data, error } = await readWithOptionalColumns(collabSelect, (sel) =>
+    db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
+  );
+  if (isMissingCollaboratorColumn(error)) {
+    collaboratorColumnsPresent = false;
+    return null;
+  }
+  if (error) throw error;
+  const row = data as
+    | (ClientRecordSafe & { collaborator_emails?: string[] })
+    | null;
+  if (!row) return null;
+  const emails = Array.isArray(row.collaborator_emails)
+    ? row.collaborator_emails
+    : [];
+  if (!emails.includes(e)) return null;
+  // Strip the internal index column + the private notes before returning.
+  const { collaborator_emails: _drop, ...rest } = row;
+  void _drop;
+  return { record: redactPrivateNotes(rest), viewerRole: "collaborator" };
+}
+
+// Remove the private client↔Julian notes channel from a record shown to a
+// collaborator (they get full project visibility otherwise).
+function redactPrivateNotes(r: ClientRecordSafe): ClientRecordSafe {
+  const { clientNotes: _n, clientNotesReply: _r, ...rest } = r;
+  void _n;
+  void _r;
+  return rest;
 }
 
 // ── Writes ──
@@ -562,6 +709,76 @@ export async function appendDocument(
   if (error) throw error;
 }
 
+// Grant a second photographer read access to one project. Keeps the rich
+// `collaborators` array and the queryable `collaborator_emails` index in
+// lockstep; idempotent on the normalized email.
+export async function addCollaborator(
+  id: string,
+  input: { email: string; name?: string },
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const email = normalizeEmail(input.email);
+  const { data: row, error: selErr } = await db()
+    .from(TABLE)
+    .select("collaborators, collaborator_emails")
+    .eq("id", id)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (!row) return;
+  const collaborators: CollaboratorEntry[] = Array.isArray(row.collaborators)
+    ? row.collaborators
+    : [];
+  if (collaborators.some((c) => normalizeEmail(c.email ?? "") === email)) return;
+  collaborators.push({ email, name: input.name, addedAt: nowIso() });
+  const emails = Array.from(
+    new Set([
+      ...(Array.isArray(row.collaborator_emails) ? row.collaborator_emails : []),
+      email,
+    ]),
+  );
+  const { error } = await db()
+    .from(TABLE)
+    .update({
+      collaborators,
+      collaborator_emails: emails,
+      updated_at: nowIso(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Revoke a collaborator's access — filters both columns by normalized email.
+// Effective immediately (access is re-checked per request).
+export async function removeCollaborator(
+  id: string,
+  email: string,
+): Promise<void> {
+  if (!isClientsStoreConfigured()) return;
+  const e = normalizeEmail(email);
+  const { data: row, error: selErr } = await db()
+    .from(TABLE)
+    .select("collaborators, collaborator_emails")
+    .eq("id", id)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (!row) return;
+  const collaborators = (
+    Array.isArray(row.collaborators) ? row.collaborators : []
+  ).filter((c: CollaboratorEntry) => normalizeEmail(c.email ?? "") !== e);
+  const emails = (
+    Array.isArray(row.collaborator_emails) ? row.collaborator_emails : []
+  ).filter((x: string) => normalizeEmail(x) !== e);
+  const { error } = await db()
+    .from(TABLE)
+    .update({
+      collaborators,
+      collaborator_emails: emails,
+      updated_at: nowIso(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 // Whitelisted client-portal edits. Only these fields are ever writable from the
 // portal; status, package, pricing, and internal fields are never exposed.
 // Fields a signed-in client may edit on their own project. `planSummary` is
@@ -624,6 +841,7 @@ export type ClientRecordFull = ClientRecordSafe & {
   referral?: string;
   statusHistory?: ClientStatusEntry[];
   internalNotes?: string;
+  collaborators?: CollaboratorEntry[];
   createdAt?: string;
   updatedAt?: string;
 };

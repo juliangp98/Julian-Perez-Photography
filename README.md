@@ -420,6 +420,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
      status_history jsonb not null default '[]'::jsonb,
      last_client_update timestamptz,
      internal_notes text,
+     collaborators jsonb not null default '[]'::jsonb,
+     collaborator_emails text[] not null default '{}',
      created_at timestamptz not null default now(),
      updated_at timestamptz not null default now()
    );
@@ -431,6 +433,10 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    -- Bundle lookups (projects sharing a bundle_id render grouped).
    create index if not exists client_records_bundle_idx
      on client_records (bundle_id);
+   -- Reverse lookup for second-photographer access: which projects has this
+   -- email been granted? (collaborator_emails holds normalized lowercased emails.)
+   create index if not exists client_records_collab_emails_idx
+     on client_records using gin (collaborator_emails);
    -- Lock the table down: the app's service-role key bypasses RLS; with no
    -- policies, nothing else (including the anon key) can read it.
    alter table client_records enable row level security;
@@ -454,6 +460,11 @@ cookies are signed with `AUTH_SECRET` via `jose`.
    alter table client_records add column if not exists project_name text;
    alter table client_records add column if not exists client_notes text;
    alter table client_records add column if not exists client_notes_reply text;
+   -- Second-photographer (collaborator) per-project read access.
+   alter table client_records add column if not exists collaborators jsonb not null default '[]'::jsonb;
+   alter table client_records add column if not exists collaborator_emails text[] not null default '{}';
+   create index if not exists client_records_collab_emails_idx
+     on client_records using gin (collaborator_emails);
   ```
    *Optional — portfolio alt-text overrides.* The admin **Content tools →
    Portfolio image alt text** panel persists reviewed alt here; it overlays the
