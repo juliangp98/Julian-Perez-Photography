@@ -6,12 +6,12 @@
 //    would request intrinsic sizes client-side (layout shift) and there
 //    would be no base64 available for `blurDataURL`.
 //
-// 2. Every query passes `next: { revalidate: 60, tags: [...] }` to Next's
-//    fetch. 60s is a decent compromise: the journal is not a news site,
-//    publishing rhythms are measured in days; a minute's lag between "I
-//    published" and "it's on the site" is acceptable. The Sanity webhook
-//    at /api/sanity-webhook calls `revalidateTag("journalPost")` on
-//    publish, so the TTL is a safety net rather than the primary path.
+// 2. Every query passes `next: { revalidate: CONTENT_REVALIDATE_SECONDS,
+//    tags: [...] }` to Next's fetch. The Sanity webhook at
+//    /api/sanity-webhook calls `revalidateTag("journalPost")` on publish,
+//    so that tag invalidation is the primary path and a Studio edit shows
+//    up within seconds. The time window is a long safety net for a missed
+//    webhook rather than the freshness mechanism — see the constant below.
 //
 // Published filter: `defined(publishedAt) && publishedAt < now()` — keeps
 // drafts + future-dated posts out. When draft-preview mode lands this
@@ -33,6 +33,16 @@ import type {
 // shape; the splice in src/lib/content.ts unions it with the manifest to
 // produce a full `PortfolioCategory`.
 export type PortfolioMetadata = Omit<PortfolioCategory, "images">;
+
+// Time-based revalidation window for all content fetches below. The Sanity
+// webhook at /api/sanity-webhook is the PRIMARY freshness path — it calls
+// `revalidateTag(...)` on publish, so a Studio edit propagates within
+// seconds regardless of this value. This window is only the safety net for
+// a missed webhook delivery, so it's set generously: content here (journal,
+// services, portfolios, about, site settings) changes on a cadence of days,
+// not minutes, and a long window keeps ISR cache writes from accumulating
+// for pages that haven't actually changed.
+const CONTENT_REVALIDATE_SECONDS = 3600;
 
 const POST_CARD_FIELDS = `
   _id,
@@ -75,7 +85,7 @@ export async function getAllPosts(): Promise<JournalPostCard[]> {
     `*[_type == "journalPost" && defined(publishedAt) && publishedAt < now()]
       | order(publishedAt desc) { ${POST_CARD_FIELDS} }`,
     {},
-    { next: { revalidate: 60, tags: ["journalPost"] } },
+    { next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["journalPost"] } },
   );
 }
 
@@ -84,7 +94,12 @@ export async function getPostBySlug(slug: string): Promise<JournalPost | null> {
   return sanityClient.fetch<JournalPost | null>(
     `*[_type == "journalPost" && slug.current == $slug][0] { ${POST_FULL_FIELDS} }`,
     { slug },
-    { next: { revalidate: 60, tags: [`journalPost:${slug}`, "journalPost"] } },
+    {
+      next: {
+        revalidate: CONTENT_REVALIDATE_SECONDS,
+        tags: [`journalPost:${slug}`, "journalPost"],
+      },
+    },
   );
 }
 
@@ -97,7 +112,9 @@ export async function getPostSlugs(): Promise<string[]> {
     return await sanityClient.fetch<string[]>(
       `*[_type == "journalPost" && defined(publishedAt) && publishedAt < now()].slug.current`,
       {},
-      { next: { revalidate: 60, tags: ["journalPost"] } },
+      {
+        next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["journalPost"] },
+      },
     );
   } catch {
     // Network hiccup at build time shouldn't break the whole build — the
@@ -111,9 +128,9 @@ export async function getPostSlugs(): Promise<string[]> {
 //
 // Singleton document: there should only ever be one `siteSettings` doc in
 // the dataset, pinned to id `siteSettings` by the Studio config + seed
-// script. Reading uses the same `revalidate: 60` cadence as the journal
-// so Studio edits show up within a minute; the webhook at
-// /api/sanity-webhook invalidates sooner on publish.
+// script. Reading uses the same `CONTENT_REVALIDATE_SECONDS` window as the
+// journal; the webhook at /api/sanity-webhook invalidates on publish, so
+// edits surface within seconds rather than waiting out the window.
 // ---------------------------------------------------------------------------
 
 const SITE_SETTINGS_ID = "siteSettings";
@@ -149,7 +166,9 @@ export async function getSiteSettings(): Promise<Partial<SiteSettings> | null> {
   return sanityClient.fetch<Partial<SiteSettings> | null>(
     `*[_type == "siteSettings" && _id == $id][0] { ${SITE_SETTINGS_FIELDS} }`,
     { id: SITE_SETTINGS_ID },
-    { next: { revalidate: 60, tags: ["siteSettings"] } },
+    {
+      next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["siteSettings"] },
+    },
   );
 }
 
@@ -176,7 +195,9 @@ export async function getFeaturedPostFromSanity(): Promise<JournalPostCard | nul
           && publishedAt < now()]
         | order(publishedAt desc)[0] { ${POST_CARD_FIELDS} }`,
       {},
-      { next: { revalidate: 60, tags: ["journalPost"] } },
+      {
+        next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["journalPost"] },
+      },
     );
   } catch {
     return null;
@@ -196,7 +217,7 @@ export async function getRelatedPosts(
         && slug.current != $currentSlug]
       | order(publishedAt desc)[0...3] { ${POST_CARD_FIELDS} }`,
     { currentSlug },
-    { next: { revalidate: 60, tags: ["journalPost"] } },
+    { next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["journalPost"] } },
   );
 }
 
@@ -219,9 +240,9 @@ export async function getRelatedPosts(
 //
 // Consumers in `src/lib/content.ts` merge the remote list into the
 // hard-coded `services` fallback (all-or-nothing: if remote has any
-// docs, use them; otherwise fall back entirely). A 60s revalidate +
-// `serviceCategory` tag keeps Studio edits flowing through without
-// requiring a webhook.
+// docs, use them; otherwise fall back entirely). The
+// `CONTENT_REVALIDATE_SECONDS` window + `serviceCategory` tag keep Studio
+// edits flowing through; the webhook invalidates the tag on publish.
 // ---------------------------------------------------------------------------
 
 type UmbrellaDoc = { id: Umbrella; title: string; tagline: string };
@@ -266,7 +287,12 @@ export async function getServicesFromSanity(): Promise<
     const rows = await sanityClient.fetch<ServiceCategory[]>(
       `*[_type == "serviceCategory"] | order(order asc) { ${SERVICE_FIELDS} }`,
       {},
-      { next: { revalidate: 60, tags: ["serviceCategory"] } },
+      {
+        next: {
+          revalidate: CONTENT_REVALIDATE_SECONDS,
+          tags: ["serviceCategory"],
+        },
+      },
     );
     return Array.isArray(rows) ? rows : null;
   } catch {
@@ -290,7 +316,7 @@ export async function getServiceBySlugFromSanity(
       { slug },
       {
         next: {
-          revalidate: 60,
+          revalidate: CONTENT_REVALIDATE_SECONDS,
           tags: [`serviceCategory:${slug}`, "serviceCategory"],
         },
       },
@@ -309,7 +335,12 @@ export async function getServiceSlugsFromSanity(): Promise<string[] | null> {
     const rows = await sanityClient.fetch<string[]>(
       `*[_type == "serviceCategory" && hidden != true].slug.current`,
       {},
-      { next: { revalidate: 60, tags: ["serviceCategory"] } },
+      {
+        next: {
+          revalidate: CONTENT_REVALIDATE_SECONDS,
+          tags: ["serviceCategory"],
+        },
+      },
     );
     return Array.isArray(rows) ? rows : null;
   } catch {
@@ -327,7 +358,12 @@ export async function getUmbrellasFromSanity(): Promise<UmbrellaDoc[] | null> {
         tagline
       }`,
       {},
-      { next: { revalidate: 60, tags: ["categoryUmbrella"] } },
+      {
+        next: {
+          revalidate: CONTENT_REVALIDATE_SECONDS,
+          tags: ["categoryUmbrella"],
+        },
+      },
     );
     return Array.isArray(rows) ? rows : null;
   } catch {
@@ -389,7 +425,12 @@ export async function getPortfoliosFromSanity(): Promise<
     const rows = await sanityClient.fetch<PortfolioMetadata[]>(
       `*[_type == "portfolioCategory"] | order(order asc) { ${PORTFOLIO_FIELDS} }`,
       {},
-      { next: { revalidate: 60, tags: ["portfolioCategory"] } },
+      {
+        next: {
+          revalidate: CONTENT_REVALIDATE_SECONDS,
+          tags: ["portfolioCategory"],
+        },
+      },
     );
     return Array.isArray(rows) ? rows : null;
   } catch {
@@ -412,7 +453,7 @@ export async function getPortfolioBySlugFromSanity(
       { slug },
       {
         next: {
-          revalidate: 60,
+          revalidate: CONTENT_REVALIDATE_SECONDS,
           tags: [`portfolioCategory:${slug}`, "portfolioCategory"],
         },
       },
@@ -429,7 +470,12 @@ export async function getPortfolioSlugsFromSanity(): Promise<string[] | null> {
     const rows = await sanityClient.fetch<string[]>(
       `*[_type == "portfolioCategory" && hidden != true].slug.current`,
       {},
-      { next: { revalidate: 60, tags: ["portfolioCategory"] } },
+      {
+        next: {
+          revalidate: CONTENT_REVALIDATE_SECONDS,
+          tags: ["portfolioCategory"],
+        },
+      },
     );
     return Array.isArray(rows) ? rows : null;
   } catch {
@@ -454,13 +500,11 @@ const ABOUT_PAGE_FIELDS = `
   headshot
 `;
 
-export async function getAboutPageFromSanity(): Promise<
-  Partial<AboutPage> | null
-> {
+export async function getAboutPageFromSanity(): Promise<Partial<AboutPage> | null> {
   if (!isSanityConfigured()) return null;
   return sanityClient.fetch<Partial<AboutPage> | null>(
     `*[_type == "aboutPage" && _id == $id][0] { ${ABOUT_PAGE_FIELDS} }`,
     { id: ABOUT_PAGE_ID },
-    { next: { revalidate: 60, tags: ["aboutPage"] } },
+    { next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["aboutPage"] } },
   );
 }
