@@ -45,6 +45,19 @@ export function isClientsStoreConfigured(): boolean {
   );
 }
 
+// Lightweight liveness query for the keep-alive cron. A `head: true` count
+// touches Postgres without transferring any rows — the cheapest real database
+// hit, enough to reset Supabase's free-tier idle timer (projects auto-pause
+// after ~7 days without activity). Returns the row count; throws on error so
+// the caller can surface it to Sentry rather than silently no-op.
+export async function pingClientsStore(): Promise<number> {
+  const { count, error } = await db()
+    .from(TABLE)
+    .select("id", { count: "exact", head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type ClientDocumentEntry = {
   label: string;
   type?: string;

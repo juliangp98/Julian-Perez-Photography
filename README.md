@@ -138,6 +138,7 @@ cp .env.example .env.local
 | `SANITY_WEBHOOK_SECRET`         | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup                |
 | `SUPABASE_URL`                  | no (for the CRM)               | Supabase project URL (Settings → API). Holds the private `client_records` table used for lead capture + the portal. Without it, capture + portal no-op (inquiries still email). See "Client portal & CRM" below                                                                                                                                      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | no (for the CRM)               | Supabase **service-role** key — full DB access, **server-only**, never `NEXT_PUBLIC_`. The app is the access gatekeeper (the portal only reads the signed-in client's own row). Pairs with `SUPABASE_URL`                                                                                                                                            |
+| `CRON_SECRET`                   | no (recommended on Vercel)     | Shared secret the daily keep-alive cron uses to authorize `/api/cron/keepalive`. Vercel attaches it as `Authorization: Bearer …` on scheduled runs; with it set, the route rejects anything else. Generate with `openssl rand -hex 32`. See "Deployment → Supabase keep-alive" below                                                                  |
 | `AUTH_SECRET`                   | no (for the portal/admin)      | Secret that signs the portal + admin magic-link tokens and session cookies (≥16 chars; `openssl rand -hex 32`). Without it, `/portal` and `/admin` show the login page but can't issue links. Rotating it invalidates all active sessions                                                                                                            |
 | `ADMIN_EMAIL`                   | no (for the admin area)        | Owner email(s) allowed into `/admin` (projects overview, direct record editing, external-links hub). Comma-separate for more than one. Only these addresses ever receive an admin sign-in link                                                                                                                                                       |
 | `BLOB_READ_WRITE_TOKEN`         | yes (for blob uploads)         | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads, by `npm run upload-video` for the wedding-films self-hosted path, and to store captured plan PDFs. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
@@ -148,7 +149,7 @@ cp .env.example .env.local
 | `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
 | `GROQ_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor         |
 | `AI_MODEL`                      | no                             | Override the model (default `llama-3.3-70b-versatile`, a current Groq model). Set to match your provider when pointing `AI_BASE_URL` elsewhere                                                                                                                                                                                                       |
-| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `meta-llama/llama-4-scout-17b-16e-instruct`, a current Groq vision model). Drives both `import-photos --alt` and the admin alt-text tool                                                                                                                                     |
+| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `qwen/qwen3.6-27b`, Groq's recommended replacement for the retired Llama 4 Scout). Groq keeps no stable production vision model, so this rides whatever multimodal model they offer and may need swapping over time. Reasoning models (matched by slug) are sent `reasoning_effort: "none"` so alt text comes back without a chain-of-thought preamble. Drives both `import-photos --alt` and the admin alt-text tool |
 | `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                      |
 
 
@@ -324,6 +325,19 @@ The site is deployed to Vercel.
   - `/inquire` form delivers an email to `INQUIRY_TO`
   - `/book` and `/client` iframes render and accept clicks
   - Publishing in `/studio` propagates to the site in under a second (webhook wired)
+
+### Supabase keep-alive
+
+Supabase's free tier auto-pauses a project after ~7 days without database
+activity. Because the public site reads almost entirely from Sanity, Postgres
+can sit idle between admin/portal sessions and drift toward a pause. A daily
+Vercel Cron (`vercel.json`) hits `/api/cron/keepalive`, which runs one trivial
+count against `client_records` — enough to reset the idle timer. Set
+`CRON_SECRET` in the project's environment variables; Vercel sends it as a
+bearer token on scheduled runs, and the route rejects anything else. On the
+Hobby plan crons run once per day, which is ample margin for a 7-day window.
+(Upgrading to Supabase Pro removes auto-pausing entirely and makes this
+unnecessary.)
 
 ### Pre-launch checklist
 

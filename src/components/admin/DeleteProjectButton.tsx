@@ -53,8 +53,10 @@ export default function DeleteProjectButton({
   return (
     <div className="rounded-lg border border-red-300 bg-red-50/50 p-5">
       <p className="text-sm">
-        This permanently deletes <strong>{projectName}</strong> and can&rsquo;t
-        be undone. Type <code className="font-mono">DELETE</code> to confirm.
+        This permanently deletes <strong>{projectName}</strong>
+        {" and can’t be undone. Type "}
+        <code className="font-mono">DELETE</code>
+        {" to confirm."}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label htmlFor="del-confirm" className="sr-only">

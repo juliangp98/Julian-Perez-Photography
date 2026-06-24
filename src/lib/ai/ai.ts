@@ -13,8 +13,10 @@
 const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 // The text default isn't multimodal — vision uses a separate, vision-capable
-// model (override with AI_VISION_MODEL; Groq's lineup changes over time).
-const DEFAULT_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+// model (override with AI_VISION_MODEL; Groq's lineup changes over time). Groq
+// keeps no stable production vision model — its multimodal offerings ride the
+// Llama 4 line, so expect to revisit this when the current one is retired.
+const DEFAULT_VISION_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 // Whether AI features are configured. UI uses this to decide whether to offer
@@ -31,6 +33,23 @@ export function aiModel(): string {
 // The vision model in effect (default or env override).
 export function visionModel(): string {
   return process.env.AI_VISION_MODEL || DEFAULT_VISION_MODEL;
+}
+
+// Groq's reasoning models (qwen3, gpt-oss, deepseek-r1, …) emit a chain of
+// thought before their answer. For terse single-shot outputs like alt text we
+// want only the answer, so reasoning is turned off per request via
+// `reasoning_effort: "none"`. That parameter is REJECTED by non-reasoning
+// models (e.g. the Llama vision models), so it's sent only when the model id
+// matches a known reasoning family — letting AI_VISION_MODEL be pointed at
+// either kind without a code change.
+function isReasoningModel(model: string): boolean {
+  return /qwen3|gpt-oss|deepseek/i.test(model);
+}
+
+// Strip any `<think>…</think>` block a reasoning model may still emit inline,
+// leaving just the answer. A no-op for models that don't reason.
+function stripReasoning(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -147,6 +166,11 @@ export async function describeImage(
         ],
         max_tokens: opts.maxTokens ?? 300,
         temperature: opts.temperature ?? 0.3,
+        // Reasoning models would otherwise spend the token budget thinking
+        // out loud; alt text wants the answer directly.
+        ...(isReasoningModel(visionModel())
+          ? { reasoning_effort: "none" }
+          : {}),
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -164,7 +188,7 @@ export async function describeImage(
   const json: unknown = await res.json().catch(() => null);
   const content = (json as { choices?: { message?: { content?: unknown } }[] })
     ?.choices?.[0]?.message?.content;
-  return typeof content === "string" ? content.trim() : null;
+  return typeof content === "string" ? stripReasoning(content) : null;
 }
 
 // Pull a JSON object out of a model response, tolerating ```json code fences and

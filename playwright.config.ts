@@ -51,6 +51,9 @@ export default defineConfig({
       // Blank the Places key so the autocomplete route returns an empty list
       // deterministically (no live Google call during tests).
       GOOGLE_PLACES_API_KEY: "",
+      // A known secret so the keep-alive cron route's auth guard is exercised
+      // (reject without the bearer, accept with it).
+      CRON_SECRET: "e2e-cron-secret",
     },
   },
 });
