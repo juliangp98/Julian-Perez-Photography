@@ -3,18 +3,19 @@
 // when extending either side. Seeded from src/lib/portfolios-data.ts via
 // `npm run seed:sanity`.
 //
-//   Image binaries live in /public under the Lightroom → `npm run
-//   import-photos` workflow, which writes src/lib/portfolio-manifest.ts.
-//   The manifest overrides `coverImage` + supplies the full `images[]`
-//   gallery at runtime (see the splice in src/lib/content.ts). Sanity
-//   therefore stores ONLY metadata — title, slug, umbrella, description,
-//   and a placeholder `coverImage` path that the manifest replaces once
-//   Lightroom exports exist.
-//
-//   Consequence: there is no Sanity `image` type here, and no gallery
-//   array. Editors don't upload photos in Studio — that would diverge
-//   from the Lightroom-exported source of truth. If Julian wants to
-//   swap hero images, he re-runs the import script.
+//   Galleries resolve from the first available source (see the resolver
+//   in src/lib/content.ts):
+//     1. `gallery[]` below — photos uploaded directly in Studio. When this
+//        has any images it is the source of truth for the slug, and the
+//        first image is the cover.
+//     2. The Lightroom manifest (src/lib/portfolio-manifest.ts, written by
+//        `npm run import-photos`) — used when `gallery[]` is empty.
+//     3. The placeholder `coverImage` path / "coming soon" state otherwise.
+//   The two sources are never merged: a slug uses one or the other, so
+//   uploading in Studio supersedes the manifest for that slug without any
+//   syncing. `coverImage` (string) remains as the manifest/placeholder
+//   fallback. Sanity also stores the metadata — title, slug, umbrella,
+//   description, ordering, and the visibility flag.
 //
 // Notes on field choices:
 //   - `umbrella` reference mirrors `serviceCategory` — same locked-set
@@ -191,7 +192,31 @@ export const portfolioCategory = defineType({
       name: "coverImage",
       type: "string",
       description:
-        "Path to a cover image in /public (e.g. '/portfolio/weddings/cover.jpg'). Overridden at runtime by src/lib/portfolio-manifest.ts once Lightroom exports exist for this slug. Leave blank to use '/portfolio/placeholder.svg'.",
+        "Fallback cover path in /public (e.g. '/portfolio/weddings/cover.jpg'), used only when neither the gallery below nor the Lightroom manifest has images. Leave blank to use '/portfolio/placeholder.svg'.",
+    }),
+    defineField({
+      name: "gallery",
+      title: "Photo gallery",
+      type: "array",
+      of: [
+        {
+          type: "image",
+          options: { hotspot: true },
+          fields: [
+            {
+              name: "alt",
+              type: "string",
+              title: "Alt text",
+              description:
+                "Describe the photo for screen readers and SEO. No 'photo of' — just what's visible.",
+              validation: (r) => r.required(),
+            },
+            { name: "caption", type: "string", title: "Caption (optional)" },
+          ],
+        },
+      ],
+      description:
+        "Upload photos to manage this gallery here in Studio — drag to reorder; the first image is the cover. When this has any images it becomes the source of truth for the slug, superseding the Lightroom `import-photos` manifest. Leave empty to keep using the manifest.",
     }),
     defineField({
       name: "videos",
@@ -237,11 +262,13 @@ export const portfolioCategory = defineType({
       title: "title",
       subtitle: "umbrella.title",
       hidden: "hidden",
+      media: "gallery.0",
     },
-    prepare({ title, subtitle, hidden }) {
+    prepare({ title, subtitle, hidden, media }) {
       return {
         title: hidden ? `${title} (hidden)` : title,
         subtitle,
+        media,
       };
     },
   },

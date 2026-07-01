@@ -3,10 +3,13 @@ import {
   UMBRELLAS,
   type AboutPage,
   type PortfolioCategory,
+  type PortfolioImage,
   type ServiceCategory,
   type SiteSettings,
   type Umbrella,
 } from "./types";
+import { urlFor } from "@/sanity/image";
+import type { SanityImageAsset } from "@/sanity/types";
 import { portfolioManifest } from "./portfolio-manifest";
 import { aboutImages } from "./about-manifest";
 import { siteSettingsFallback } from "./site-settings-data";
@@ -261,12 +264,13 @@ export const getServicesByUmbrella = cache(async () => {
 // Portfolio categories
 //
 // Sanity is the runtime source of truth for portfolio METADATA (title,
-// description, umbrella, ordering, hidden flag). Image binaries stay in
-// `/public` under the Lightroom → `npm run import-photos` workflow —
-// same rationale as `heroImage` on services. The auto-generated
-// `portfolio-manifest.ts` maps slug → {coverImage, images[]} with real
-// dimensions + LQIP, and `spliceManifest` unions that over the Sanity
-// metadata at runtime to produce the full `PortfolioCategory`.
+// description, umbrella, ordering, hidden flag). Gallery IMAGES resolve
+// from the first available source (see `spliceManifest` below): a
+// Studio-uploaded Sanity `gallery[]`, else the Lightroom-generated
+// `portfolio-manifest.ts` (slug → {coverImage, images[]} with real
+// dimensions + LQIP), else a placeholder. The two image sources are never
+// merged — a slug uses one or the other — so uploading in Studio
+// supersedes the manifest for that slug with no syncing.
 //
 // Same dual role as services:
 //   1. **Fallback** — every server consumer calls `getPortfolios()` /
@@ -282,21 +286,61 @@ export const getServicesByUmbrella = cache(async () => {
 // visible to client UI at the next deploy.
 // ---------------------------------------------------------------------------
 
-// Apply the Lightroom manifest on top of a set of portfolio entries
-// (local fallback or Sanity-sourced metadata). Metadata-only shapes
-// (no `images[]`) get a default empty gallery; real images arrive via
-// the manifest splice. Shared between the sync fallback and the async
-// getter so "manifest overrides placeholder coverImage + supplies the
-// gallery" behaves identically on both paths.
+// Map a Studio-uploaded Sanity gallery entry to the runtime `PortfolioImage`
+// shape every renderer expects. Uses `urlFor` for a width-capped, auto-format
+// CDN url (matching the ~2400px Lightroom export target), the asset's
+// dimensions for explicit width/height, and its LQIP for the blur placeholder
+// — the same plumbing the journal images use. Malformed entries (missing
+// asset/dimensions) are skipped rather than throwing, so one bad image
+// degrades to fewer images instead of a broken page.
+function galleryToImages(gallery?: SanityImageAsset[]): PortfolioImage[] {
+  if (!gallery?.length) return [];
+  return gallery.flatMap((img) => {
+    const dims = img.asset?.metadata?.dimensions;
+    if (!img.asset?.url || !dims) return [];
+    return [
+      {
+        src: urlFor(img).width(2400).auto("format").url(),
+        alt: img.alt ?? "",
+        width: dims.width,
+        height: dims.height,
+        blurDataURL: img.asset.metadata?.lqip ?? "",
+      },
+    ];
+  });
+}
+
+// Resolve a portfolio's gallery from the first available source — the seam
+// that keeps the render layer source-agnostic:
+//   1. Sanity `gallery[]` uploaded in Studio (cover = first image).
+//   2. The Lightroom manifest (src/lib/portfolio-manifest.ts).
+//   3. The entry's own placeholder coverImage / empty gallery.
+// The two image sources are never merged: a slug uses one or the other, so
+// uploading in Studio supersedes the manifest for that slug with no syncing.
+// Shared between the sync fallback and the async getter. A future
+// Blob+Supabase uploader slots in as branch 0 here with no consumer changes.
 function spliceManifest(
   entries: Array<PortfolioMetadata | PortfolioCategory>,
 ): PortfolioCategory[] {
   return entries.map((entry) => {
     const images = "images" in entry ? entry.images : [];
-    const base: PortfolioCategory = { ...entry, images };
+    // Pull the raw Sanity `gallery` off (Sanity entries only); it's resolved
+    // into `images` below and isn't part of `PortfolioCategory`.
+    const { gallery, ...rest } = entry as PortfolioMetadata;
+    const base: PortfolioCategory = { ...rest, images };
+
+    // 1. Studio gallery wins when it has any usable images.
+    const sanityImages = galleryToImages(gallery);
+    if (sanityImages.length > 0) {
+      return { ...base, coverImage: sanityImages[0].src, images: sanityImages };
+    }
+
+    // 2. Lightroom manifest.
     const m = portfolioManifest[base.slug];
-    if (!m) return base;
-    return { ...base, coverImage: m.coverImage, images: m.images };
+    if (m) return { ...base, coverImage: m.coverImage, images: m.images };
+
+    // 3. Placeholder / empty.
+    return base;
   });
 }
 

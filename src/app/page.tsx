@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import {
   getFeaturedPost,
@@ -111,17 +112,36 @@ export default async function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {portfolios.slice(0, 6).map((p) => (
-            <Link
-              key={p.slug}
-              href={`/portfolio/${p.slug}`}
-              className="aspect-[4/5] bg-[var(--border)]/40 rounded-lg flex items-end p-5 relative overflow-hidden group"
-            >
-              <span className="font-serif text-xl text-[var(--foreground)]">
-                {p.title}
-              </span>
-            </Link>
-          ))}
+          {portfolios.slice(0, 6).map((p) => {
+            const cover = p.images[0];
+            return (
+              <Link
+                key={p.slug}
+                href={`/portfolio/${p.slug}`}
+                className="aspect-[4/5] bg-[var(--border)]/40 rounded-lg flex items-end p-5 relative overflow-hidden group"
+              >
+                {cover && (
+                  <>
+                    <Image
+                      src={cover.src}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      placeholder={cover.blurDataURL ? "blur" : "empty"}
+                      blurDataURL={cover.blurDataURL || undefined}
+                      className="object-cover transition duration-500 group-hover:scale-[1.02]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  </>
+                )}
+                <span
+                  className={`relative font-serif text-xl ${cover ? "text-white" : "text-[var(--foreground)]"}`}
+                >
+                  {p.title}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

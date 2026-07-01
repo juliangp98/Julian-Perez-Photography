@@ -11,12 +11,17 @@
 // only and must never be exposed as `NEXT_PUBLIC_`.
 
 const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+// Groq is retiring the Llama models; this is their recommended text
+// replacement. gpt-oss is a reasoning model, but it keeps its chain of thought
+// in a separate response field and returns clean `content` by default, so it
+// needs no reasoning suppression here (and it REJECTS `reasoning_effort:
+// "none"` — see `silenceReasoningWithNone`). Override with AI_MODEL.
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 // The text default isn't multimodal — vision uses a separate, vision-capable
 // model (override with AI_VISION_MODEL; Groq's lineup changes over time). Groq
-// keeps no stable production vision model — its multimodal offerings ride the
-// Llama 4 line, so expect to revisit this when the current one is retired.
-const DEFAULT_VISION_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
+// keeps no stable production vision model; qwen3.6-27b is its current
+// multimodal option (a reasoning model — see `silenceReasoningWithNone`).
+const DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 // Whether AI features are configured. UI uses this to decide whether to offer
@@ -35,19 +40,23 @@ export function visionModel(): string {
   return process.env.AI_VISION_MODEL || DEFAULT_VISION_MODEL;
 }
 
-// Groq's reasoning models (qwen3, gpt-oss, deepseek-r1, …) emit a chain of
-// thought before their answer. For terse single-shot outputs like alt text we
-// want only the answer, so reasoning is turned off per request via
-// `reasoning_effort: "none"`. That parameter is REJECTED by non-reasoning
-// models (e.g. the Llama vision models), so it's sent only when the model id
-// matches a known reasoning family — letting AI_VISION_MODEL be pointed at
-// either kind without a code change.
-function isReasoningModel(model: string): boolean {
-  return /qwen3|gpt-oss|deepseek/i.test(model);
+// Whether to send `reasoning_effort: "none"` to silence a model's inline chain
+// of thought. Groq splits into three cases:
+//   - qwen3 / deepseek emit the reasoning inline in `content` unless silenced,
+//     and they ACCEPT "none" — so these get the flag.
+//   - gpt-oss keeps reasoning in a separate field (clean `content` already) and
+//     REJECTS "none" (only low|medium|high) — so it must NOT get the flag.
+//   - non-reasoning models (e.g. the Llama vision models) reject the parameter
+//     outright — so they don't get it either.
+// Sending it only to the first group lets AI_MODEL / AI_VISION_MODEL point at
+// any of them without a code change.
+function silenceReasoningWithNone(model: string): boolean {
+  return /qwen3|deepseek/i.test(model);
 }
 
 // Strip any `<think>…</think>` block a reasoning model may still emit inline,
-// leaving just the answer. A no-op for models that don't reason.
+// leaving just the answer. A no-op for models that don't reason or that keep
+// reasoning off-channel (gpt-oss).
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
@@ -99,6 +108,9 @@ export async function generateText(
         ],
         max_tokens: opts.maxTokens ?? 1024,
         temperature: opts.temperature ?? 0.7,
+        // A reasoning-model default/override (e.g. qwen) would otherwise emit
+        // its chain of thought inline; keep the drafts clean.
+        ...(silenceReasoningWithNone(model) ? { reasoning_effort: "none" } : {}),
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -117,7 +129,7 @@ export async function generateText(
   const json: unknown = await res.json().catch(() => null);
   const content = (json as { choices?: { message?: { content?: unknown } }[] })
     ?.choices?.[0]?.message?.content;
-  return typeof content === "string" ? content.trim() : null;
+  return typeof content === "string" ? stripReasoning(content) : null;
 }
 
 export type DescribeImageOptions = {
@@ -168,7 +180,7 @@ export async function describeImage(
         temperature: opts.temperature ?? 0.3,
         // Reasoning models would otherwise spend the token budget thinking
         // out loud; alt text wants the answer directly.
-        ...(isReasoningModel(visionModel())
+        ...(silenceReasoningWithNone(visionModel())
           ? { reasoning_effort: "none" }
           : {}),
       }),

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { getPortfoliosByUmbrella } from "@/lib/content";
 import SubNav, { MAIN_TABS } from "@/components/ui/SubNav";
@@ -39,22 +40,47 @@ export default async function PortfolioIndex() {
             </div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {group.items.map((p) => (
-              <Link
-                key={p.slug}
-                href={`/portfolio/${p.slug}`}
-                className="group block"
-              >
-                <div className="aspect-[4/5] bg-[var(--border)]/40 rounded-lg overflow-hidden flex items-end p-6 border border-[var(--border)] group-hover:border-[var(--foreground)] transition">
-                  <div>
-                    <h3 className="font-serif text-2xl">{p.title}</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      {p.description}
-                    </p>
+            {group.items.map((p) => {
+              // Cover thumbnail when the gallery has images (Sanity or
+              // manifest); otherwise the card stays text-on-muted.
+              const cover = p.images[0];
+              return (
+                <Link
+                  key={p.slug}
+                  href={`/portfolio/${p.slug}`}
+                  className="group block"
+                >
+                  <div className="relative aspect-[4/5] bg-[var(--border)]/40 rounded-lg overflow-hidden flex items-end p-6 border border-[var(--border)] group-hover:border-[var(--foreground)] transition">
+                    {cover && (
+                      <>
+                        <Image
+                          src={cover.src}
+                          alt=""
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          placeholder={cover.blurDataURL ? "blur" : "empty"}
+                          blurDataURL={cover.blurDataURL || undefined}
+                          className="object-cover transition duration-500 group-hover:scale-[1.02]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      </>
+                    )}
+                    <div className="relative">
+                      <h3
+                        className={`font-serif text-2xl ${cover ? "text-white" : ""}`}
+                      >
+                        {p.title}
+                      </h3>
+                      <p
+                        className={`mt-1 text-sm ${cover ? "text-white/80" : "text-[var(--muted)]"}`}
+                      >
+                        {p.description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}
