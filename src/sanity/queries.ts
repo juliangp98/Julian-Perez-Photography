@@ -18,7 +18,7 @@
 // splits into two queries (published + preview).
 
 import { sanityClient, isSanityConfigured } from "./client";
-import type { JournalPost, JournalPostCard } from "./types";
+import type { JournalPost, JournalPostCard, SanityImageAsset } from "./types";
 import type {
   AboutPage,
   PortfolioCategory,
@@ -27,12 +27,15 @@ import type {
   Umbrella,
 } from "@/lib/types";
 
-// Portfolio docs in Sanity store metadata ONLY — the `images[]` gallery
-// (and the "real" coverImage) are supplied by src/lib/portfolio-manifest.ts
-// (auto-generated from Lightroom exports). So GROQ returns a trimmed
-// shape; the splice in src/lib/content.ts unions it with the manifest to
-// produce a full `PortfolioCategory`.
-export type PortfolioMetadata = Omit<PortfolioCategory, "images">;
+// Portfolio docs in Sanity carry metadata plus an OPTIONAL Studio-uploaded
+// `gallery[]`. The runtime `images[]` (and resolved coverImage) are produced
+// by the resolver in src/lib/content.ts, which prefers the Sanity gallery,
+// then the Lightroom-generated src/lib/portfolio-manifest.ts, then a
+// placeholder. So GROQ returns the metadata + the raw Sanity gallery; it
+// never returns the resolved `images[]`.
+export type PortfolioMetadata = Omit<PortfolioCategory, "images"> & {
+  gallery?: SanityImageAsset[];
+};
 
 // Time-based revalidation window for all content fetches below. The Sanity
 // webhook at /api/sanity-webhook is the PRIMARY freshness path — it calls
@@ -392,6 +395,15 @@ const PORTFOLIO_FIELDS = `
   "umbrella": umbrella->id,
   description,
   coverImage,
+  // Studio-uploaded gallery. Same asset projection as journal images so the
+  // resolver gets the CDN url + LQIP + dimensions in one round-trip. Empty
+  // for galleries still sourced from the Lightroom manifest.
+  gallery[] {
+    asset->{ url, metadata { lqip, dimensions } },
+    "alt": alt,
+    hotspot,
+    crop
+  },
   // GROQ select() collapses the flat sourceKind+youtubeId/blobUrl Studio
   // shape back into the discriminated VideoSource union the renderer
   // expects. Editors see two conditional fields; consumers see one

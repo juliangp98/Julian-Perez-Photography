@@ -148,8 +148,8 @@ cp .env.example .env.local
 | `SENTRY_PROJECT`                | no (build-time)                | Sentry project slug. Build-time only — pairs with `SENTRY_ORG`                                                                                                                                                                                                                                                                                       |
 | `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
 | `GROQ_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor         |
-| `AI_MODEL`                      | no                             | Override the model (default `llama-3.3-70b-versatile`, a current Groq model). Set to match your provider when pointing `AI_BASE_URL` elsewhere                                                                                                                                                                                                       |
-| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `qwen/qwen3.6-27b`, Groq's recommended replacement for the retired Llama 4 Scout). Groq keeps no stable production vision model, so this rides whatever multimodal model they offer and may need swapping over time. Reasoning models (matched by slug) are sent `reasoning_effort: "none"` so alt text comes back without a chain-of-thought preamble. Drives both `import-photos --alt` and the admin alt-text tool |
+| `AI_MODEL`                      | no                             | Override the text model (default `openai/gpt-oss-120b`, Groq's recommended replacement for the retired Llama 3.3 70B). gpt-oss keeps its reasoning off-channel and returns clean output; a `qwen3`/`deepseek` override is auto-sent `reasoning_effort: "none"` and any stray `<think>` block is stripped, so drafts stay clean whichever reasoning model is used. Set to match your provider when pointing `AI_BASE_URL` elsewhere |
+| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `qwen/qwen3.6-27b`, Groq's recommended replacement for the retired Llama 4 Scout/Maverick). Groq keeps no stable production vision model, so this rides whatever multimodal model they offer and may need swapping over time. `qwen3`/`deepseek` reasoning models are sent `reasoning_effort: "none"` so alt text comes back without a chain-of-thought preamble. Drives both `import-photos --alt` and the admin alt-text tool |
 | `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                      |
 
 
@@ -194,7 +194,15 @@ Every Sanity-backed read flows through **two caches**:
 
 ## Importing portfolio photos
 
-Photos are exported from Lightroom Classic into per-slug folders, then imported via a script that copies them into `public/portfolio/<slug>/` and regenerates `src/lib/portfolio-manifest.ts`.
+Each portfolio gallery resolves its images from the **first available source** (see the resolver in `src/lib/content.ts`): a Studio-uploaded Sanity `gallery[]`, else the Lightroom manifest, else a placeholder. The two image sources are never merged — a slug uses one or the other — so moving a gallery into Studio supersedes the manifest for that slug with no syncing. A future bespoke `/admin` uploader (Vercel Blob + Supabase) would slot in as a third source ahead of these without touching any renderer.
+
+### Studio upload (preferred)
+
+Open `/studio` → a Portfolio Category (e.g. "Weddings") → the **Photo gallery** field. Drag images in, drag to reorder (the first image is the cover), set alt text, and adjust the crop via hotspot. Sanity auto-generates the CDN URL, blur placeholder (LQIP), and dimensions, so the gallery grid, lightbox, the `/portfolio` index card, and the home teaser thumbnail all update live on publish — no redeploy. Storage rides the Sanity Free tier (100 GB assets + 100 GB bandwidth/month, hard-capped); the CDN serves resized derivatives, so per-view bytes stay small.
+
+### Lightroom export + script (fallback)
+
+For any slug without a Studio gallery, photos are exported from Lightroom Classic into per-slug folders, then imported via a script that copies them into `public/portfolio/<slug>/` and regenerates `src/lib/portfolio-manifest.ts`. This path remains fully supported.
 
 ```bash
 # Import everything from a source directory (one subfolder per slug)

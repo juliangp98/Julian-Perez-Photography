@@ -75,7 +75,9 @@ All-or-nothing fallback policy: if Sanity returns any services, the list is trus
 
 ## Portfolios in Sanity
 
-Portfolio metadata (title, slug, umbrella, description, cover path, order, hidden) lives in Sanity. Image binaries stay in `/public` under the Lightroom → `npm run import-photos` workflow. `spliceManifest()` in `src/lib/content.ts` unions Sanity metadata with `src/lib/portfolio-manifest.ts` at runtime so every `PortfolioCategory` consumer sees the full gallery shape.
+Portfolio metadata (title, slug, umbrella, description, cover path, order, hidden) lives in Sanity. Gallery images resolve from the first available source in `spliceManifest()` (`src/lib/content.ts`): a Studio-uploaded `gallery[]`, else the Lightroom-generated `src/lib/portfolio-manifest.ts`, else a placeholder. The two image sources are never merged — a slug uses one or the other — so uploading a gallery in Studio supersedes the manifest for that slug with no syncing, and a future bespoke uploader slots in as a third source ahead of these without touching any renderer. Every `PortfolioCategory` consumer still sees the same normalized `PortfolioImage[]` (`src`, `alt`, `width`, `height`, `blurDataURL`).
+
+The `gallery` field is a native Sanity `image[]` (hotspot + required `alt` + optional caption), so editors drag photos in, reorder them (the first image is the cover), and crop directly in `/studio`; Sanity auto-generates the CDN URL, LQIP, and dimensions, and `galleryToImages()` maps them through `urlFor()` with a 2400px cap — the same plumbing journal images use. Studio-uploaded alt is native, so the Supabase alt-override layer applies only to manifest-sourced galleries. The `/portfolio` index cards and the home portfolio teaser, previously text-only, now render the resolved cover as a blurred-up thumbnail when a gallery has images and fall back to text otherwise.
 
 15 non-hidden portfolio detail pages prerender as SSG via `generateStaticParams` → `await getVisiblePortfolios()`.
 
