@@ -51,6 +51,23 @@ export const siteSettings = defineType({
       validation: (r) => r.required(),
     }),
     defineField({
+      name: "heroImage",
+      title: "Home hero photo",
+      type: "image",
+      options: { hotspot: true },
+      description:
+        "Optional full-bleed background photo for the home-page hero (the tagline + buttons sit over it on a dark gradient). Leave empty to keep the text-only hero.",
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alt text",
+          description: "Describe the photo for screen readers and SEO.",
+          validation: (r) => r.required(),
+        },
+      ],
+    }),
+    defineField({
       name: "contactEmail",
       type: "string",
       validation: (r) => r.required().email(),

@@ -219,6 +219,22 @@ export const portfolioCategory = defineType({
         "Upload photos to manage this gallery here in Studio — drag to reorder; the first image is the cover. When this has any images it becomes the source of truth for the slug, superseding the Lightroom `import-photos` manifest. Leave empty to keep using the manifest.",
     }),
     defineField({
+      name: "cover",
+      title: "Cover photo (optional)",
+      type: "image",
+      options: { hotspot: true },
+      description:
+        "The thumbnail that represents this collection on the portfolio index and home teaser. Leave empty to use the first gallery image.",
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alt text",
+          validation: (r) => r.required(),
+        },
+      ],
+    }),
+    defineField({
       name: "videos",
       type: "array",
       of: [{ type: "videoEntry" }],

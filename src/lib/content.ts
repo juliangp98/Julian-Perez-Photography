@@ -5,6 +5,7 @@ import {
   type PortfolioCategory,
   type PortfolioImage,
   type ServiceCategory,
+  type SiteImage,
   type SiteSettings,
   type Umbrella,
 } from "./types";
@@ -24,6 +25,9 @@ import {
   getAboutPageFromSanity,
   getFeaturedPostFromSanity,
   type PortfolioMetadata,
+  type SiteSettingsRemote,
+  type ServiceCategoryRemote,
+  type AboutPageRemote,
 } from "@/sanity/queries";
 import type { JournalPostCard } from "@/sanity/types";
 
@@ -92,12 +96,14 @@ export { siteSettingsFallback };
 // calls) get their OWN per-key merge so a half-edited doc (editor
 // cleared one of the four call URLs) still renders with the rest
 // intact.
-function mergeWithFallback(
-  remote: Partial<SiteSettings>,
-): SiteSettings {
+function mergeWithFallback(remote: SiteSettingsRemote): SiteSettings {
+  // The hero photo arrives as a raw Sanity asset; resolve it to a SiteImage
+  // (absent/malformed → undefined, so the home page keeps its text hero).
+  const { heroImage: heroImageRaw, ...rest } = remote;
   return {
     ...siteSettingsFallback,
-    ...remote,
+    ...rest,
+    heroImage: toSiteImage(heroImageRaw) ?? undefined,
     social: {
       ...siteSettingsFallback.social,
       ...(remote.social ?? {}),
@@ -191,10 +197,17 @@ type UmbrellaGroup = {
 // a direct dataset edit outside Studio) — rendering a service with
 // `undefined` umbrella would crash the grouping code downstream.
 function normalizeRemoteServices(
-  remote: ServiceCategory[] | null,
+  remote: ServiceCategoryRemote[] | null,
 ): ServiceCategory[] | null {
   if (!remote || remote.length === 0) return null;
-  const valid = remote.filter((s) => !!s.umbrella && !!s.slug);
+  const valid = remote
+    .filter((s) => !!s.umbrella && !!s.slug)
+    // Resolve the raw Studio hero asset → SiteImage (absent → text-only card
+    // and detail page, exactly as today).
+    .map(({ heroPhoto, ...s }) => ({
+      ...s,
+      heroPhoto: toSiteImage(heroPhoto) ?? undefined,
+    }));
   return valid.length > 0 ? valid : null;
 }
 
@@ -286,27 +299,38 @@ export const getServicesByUmbrella = cache(async () => {
 // visible to client UI at the next deploy.
 // ---------------------------------------------------------------------------
 
-// Map a Studio-uploaded Sanity gallery entry to the runtime `PortfolioImage`
-// shape every renderer expects. Uses `urlFor` for a width-capped, auto-format
-// CDN url (matching the ~2400px Lightroom export target), the asset's
-// dimensions for explicit width/height, and its LQIP for the blur placeholder
-// — the same plumbing the journal images use. Malformed entries (missing
-// asset/dimensions) are skipped rather than throwing, so one bad image
-// degrades to fewer images instead of a broken page.
+// Map one Studio-uploaded Sanity image asset (dereferenced url + metadata) to
+// the render-ready `SiteImage` shape every consumer expects. Uses `urlFor` for
+// a width-capped, auto-format CDN url (matching the ~2400px Lightroom export
+// target), the asset's dimensions for explicit width/height, and its LQIP for
+// the blur placeholder — the same plumbing the journal images use. Returns null
+// for a malformed/missing asset so callers can skip it, degrading to a fallback
+// rather than throwing. Shared across the home hero, about, portfolio
+// gallery/cover, and service surfaces.
+function toSiteImage(img?: SanityImageAsset | null): SiteImage | null {
+  const dims = img?.asset?.metadata?.dimensions;
+  if (!img?.asset?.url || !dims) return null;
+  return {
+    src: urlFor(img).width(2400).auto("format").url(),
+    alt: img.alt ?? "",
+    width: dims.width,
+    height: dims.height,
+    blurDataURL: img.asset.metadata?.lqip ?? "",
+  };
+}
+
+// Wrap a /public image path (Lightroom manifest or a legacy string field) as a
+// SiteImage. These carry no intrinsic dimensions or LQIP; the surfaces that use
+// them render with `fill`, so the aspect defaults here are only a placeholder.
+function pathToSiteImage(src: string, alt = ""): SiteImage {
+  return { src, alt, width: 1000, height: 1250, blurDataURL: "" };
+}
+
 function galleryToImages(gallery?: SanityImageAsset[]): PortfolioImage[] {
   if (!gallery?.length) return [];
   return gallery.flatMap((img) => {
-    const dims = img.asset?.metadata?.dimensions;
-    if (!img.asset?.url || !dims) return [];
-    return [
-      {
-        src: urlFor(img).width(2400).auto("format").url(),
-        alt: img.alt ?? "",
-        width: dims.width,
-        height: dims.height,
-        blurDataURL: img.asset.metadata?.lqip ?? "",
-      },
-    ];
+    const mapped = toSiteImage(img);
+    return mapped ? [mapped] : [];
   });
 }
 
@@ -324,23 +348,43 @@ function spliceManifest(
 ): PortfolioCategory[] {
   return entries.map((entry) => {
     const images = "images" in entry ? entry.images : [];
-    // Pull the raw Sanity `gallery` off (Sanity entries only); it's resolved
-    // into `images` below and isn't part of `PortfolioCategory`.
-    const { gallery, ...rest } = entry as PortfolioMetadata;
+    // Pull the raw Sanity `gallery` + `cover` off (Sanity entries only); they're
+    // resolved below and aren't part of `PortfolioCategory`.
+    const { gallery, cover, ...rest } = entry as PortfolioMetadata;
     const base: PortfolioCategory = { ...rest, images };
+
+    // A hand-picked Studio cover wins for the card/teaser thumbnail; otherwise
+    // the first resolved gallery image is the cover.
+    const pickedCover = toSiteImage(cover);
 
     // 1. Studio gallery wins when it has any usable images.
     const sanityImages = galleryToImages(gallery);
     if (sanityImages.length > 0) {
-      return { ...base, coverImage: sanityImages[0].src, images: sanityImages };
+      const coverPhoto = pickedCover ?? sanityImages[0];
+      return {
+        ...base,
+        coverPhoto,
+        coverImage: coverPhoto.src,
+        images: sanityImages,
+      };
     }
 
     // 2. Lightroom manifest.
     const m = portfolioManifest[base.slug];
-    if (m) return { ...base, coverImage: m.coverImage, images: m.images };
+    if (m) {
+      const coverPhoto = pickedCover ?? m.images[0];
+      return {
+        ...base,
+        coverPhoto,
+        coverImage: coverPhoto?.src ?? m.coverImage,
+        images: m.images,
+      };
+    }
 
-    // 3. Placeholder / empty.
-    return base;
+    // 3. Placeholder / empty — a hand-picked cover can still light up cards.
+    return pickedCover
+      ? { ...base, coverPhoto: pickedCover, coverImage: pickedCover.src }
+      : base;
   });
 }
 
@@ -440,39 +484,55 @@ export { aboutPageFallback };
 
 // Per-field merge: remote Sanity values overlay the fallback, but a
 // missing or null remote `bio` collapses to the hard-coded paragraphs
-// rather than rendering an empty block. `headshot` is optional, so the
-// spread passes through whatever the remote supplies (the query's
-// `omitUndefined` seed ensures absent values don't leak as literal
-// `undefined`).
-function mergeAboutWithFallback(remote: Partial<AboutPage>): AboutPage {
+// rather than rendering an empty block. The raw Studio image fields
+// (`gallery`, `headshotImage`) are stripped here — they're resolved
+// separately by `resolveAboutImages` — so they never leak onto `AboutPage`.
+function mergeAboutWithFallback(remote: AboutPageRemote): AboutPage {
+  const { gallery, headshotImage, ...rest } = remote;
+  void gallery; // resolved separately in resolveAboutImages
+  void headshotImage;
   return {
     ...aboutPageFallback,
-    ...remote,
-    bio: remote.bio ?? aboutPageFallback.bio,
+    ...rest,
+    bio: rest.bio ?? aboutPageFallback.bio,
   };
+}
+
+// Resolve the About page's render-ready images from the first available
+// source, mirroring the portfolio resolver:
+//   1. Studio uploads — Sanity `gallery` / `headshotImage` (with LQIP).
+//   2. The Lightroom `about/` manifest + string `headshot`/`images` paths.
+//   3. Nothing (the sidebar simply doesn't render).
+// The two sources are never merged — a Studio gallery supersedes the manifest.
+function resolveAboutImages(base: AboutPage, remote?: AboutPageRemote): AboutPage {
+  const sanityPhotos = galleryToImages(remote?.gallery);
+  const fallbackPaths = aboutImages.length ? aboutImages : base.images ?? [];
+  const photos =
+    sanityPhotos.length > 0
+      ? sanityPhotos
+      : fallbackPaths.map((src) => pathToSiteImage(src));
+
+  const headshotPhoto =
+    toSiteImage(remote?.headshotImage) ??
+    (base.headshot ? pathToSiteImage(base.headshot) : undefined);
+
+  return { ...base, photos, headshotPhoto };
 }
 
 /**
  * Resolve the about-page content. Sanity-backed (merged per-field on top
- * of `aboutPageFallback`) when Sanity is configured and reachable; falls
- * back to the hard-coded values otherwise.
+ * of `aboutPageFallback`, with Studio images resolved) when Sanity is
+ * configured and reachable; falls back to the hard-coded values otherwise.
  *
  * Wrapped via `cacheSanityFetch` so `generateMetadata` and the page body
- * share one fetch per request. Next's 60s revalidate + `aboutPage` cache
- * tag + webhook-driven invalidation handle cross-request freshness.
+ * share one fetch per request. Next's revalidate + `aboutPage` cache tag +
+ * webhook-driven invalidation handle cross-request freshness.
  */
-// Imported /about sidebar photos (public/about/, via the manifest) win over any
-// manually-set paths — the same source-of-truth posture as the portfolio
-// galleries. Left untouched when the manifest is empty.
-function withAboutImages(a: AboutPage): AboutPage {
-  return aboutImages.length ? { ...a, images: aboutImages } : a;
-}
-
 export const getAboutPage = cacheSanityFetch<AboutPage>(async () => {
   const remote = await getAboutPageFromSanity();
   const base = remote ? mergeAboutWithFallback(remote) : aboutPageFallback;
-  return withAboutImages(base);
-}, withAboutImages(aboutPageFallback));
+  return resolveAboutImages(base, remote ?? undefined);
+}, resolveAboutImages(aboutPageFallback));
 
 // ---------------------------------------------------------------------------
 // Featured journal post (home-page surfacing)

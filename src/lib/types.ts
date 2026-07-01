@@ -93,7 +93,10 @@ export type ServiceCategory = {
   description: string;
   intro?: string[]; // Longer-form philosophy paragraphs shown above the packages.
   comboNote?: string; // Upsell note (e.g. wedding + engagement combo language).
-  heroImage?: string;
+  heroImage?: string; // Deprecated legacy /public path — superseded by heroPhoto.
+  // Resolved, render-ready hero photo uploaded in Studio (absent → card/detail
+  // stay text-only). Populated by the service resolver in content.ts.
+  heroPhoto?: SiteImage;
   packages: Package[];
   addOns?: AddOn[];
   pricingNote?: string;
@@ -101,13 +104,21 @@ export type ServiceCategory = {
   hidden?: boolean; // If true, excluded from nav/listings/sitemap/static params.
 };
 
-export type PortfolioImage = {
+// A resolved, render-ready image: a src (Sanity CDN or /public) plus the
+// intrinsic dimensions and blur placeholder every `next/image` call site needs.
+// Produced by `toSiteImage()` in src/lib/content.ts from a Sanity image asset
+// (or from a /public path via the portfolio/about manifests). Shared across the
+// home hero, about, portfolio, and service surfaces.
+export type SiteImage = {
   src: string;
   alt: string;
   width: number;
   height: number;
   blurDataURL: string;
 };
+
+// Portfolio gallery images use the same shape.
+export type PortfolioImage = SiteImage;
 
 // Discriminated source for a single portfolio video. YouTube entries embed
 // via iframe and can pull thumbnails automatically from i.ytimg.com; blob
@@ -143,6 +154,9 @@ export type PortfolioCategory = {
   title: string;
   description: string;
   coverImage: string;
+  // Resolved cover thumbnail for cards/teasers: a Studio-uploaded `cover`
+  // when set, else the first gallery image. Populated by the resolver.
+  coverPhoto?: SiteImage;
   images: PortfolioImage[];
   // Optional video archive. Photo galleries leave this unset; the
   // wedding-films portfolio populates it. The page renderer branches on
@@ -182,16 +196,24 @@ export type Testimonial = {
 export type AboutPage = {
   heading: string;
   bio: string[];
+  // Raw fallback/seed fields (Lightroom `/public` paths). `headshot` and
+  // `images` feed the seed script and the string fallback; the resolved
+  // `headshotPhoto` / `photos` below are what the page renders.
   headshot?: string;
-  // Optional sidebar photos on /about (paths into /public/about/...). Populated
-  // by the import script's `about/` manifest, or set by hand; rendered in a
-  // sticky column beside the bio.
   images?: string[];
+  // Resolved, render-ready images: a Studio-uploaded headshot + sidebar
+  // gallery when set, else the manifest/string paths. Populated by
+  // `getAboutPage()`.
+  headshotPhoto?: SiteImage;
+  photos?: SiteImage[];
 };
 
 export type SiteSettings = {
   siteName: string;
   tagline: string;
+  // Optional full-bleed home-page hero photo (uploaded in Studio). Resolved
+  // from the Sanity asset by `getSiteSettings()`; absent → the text-only hero.
+  heroImage?: SiteImage;
   contactEmail: string;
   coverageArea: string;
   bookingStatus: string;

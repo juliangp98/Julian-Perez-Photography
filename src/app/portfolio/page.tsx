@@ -41,9 +41,9 @@ export default async function PortfolioIndex() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {group.items.map((p) => {
-              // Cover thumbnail when the gallery has images (Sanity or
-              // manifest); otherwise the card stays text-on-muted.
-              const cover = p.images[0];
+              // Cover thumbnail: a hand-picked Studio cover, else the first
+              // gallery image (Sanity or manifest); otherwise text-on-muted.
+              const cover = p.coverPhoto ?? p.images[0];
               return (
                 <Link
                   key={p.slug}

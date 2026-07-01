@@ -33,8 +33,12 @@ import type {
 // then the Lightroom-generated src/lib/portfolio-manifest.ts, then a
 // placeholder. So GROQ returns the metadata + the raw Sanity gallery; it
 // never returns the resolved `images[]`.
-export type PortfolioMetadata = Omit<PortfolioCategory, "images"> & {
+export type PortfolioMetadata = Omit<
+  PortfolioCategory,
+  "images" | "coverPhoto"
+> & {
   gallery?: SanityImageAsset[];
+  cover?: SanityImageAsset;
 };
 
 // Time-based revalidation window for all content fetches below. The Sanity
@@ -46,6 +50,12 @@ export type PortfolioMetadata = Omit<PortfolioCategory, "images"> & {
 // not minutes, and a long window keeps ISR cache writes from accumulating
 // for pages that haven't actually changed.
 const CONTENT_REVALIDATE_SECONDS = 3600;
+
+// Shared image projection: dereference the asset for its CDN url + LQIP +
+// dimensions and carry alt/hotspot/crop — everything `toSiteImage` (content.ts)
+// needs to build a render-ready image. Reused by every Studio-uploadable
+// surface (home hero, about, portfolio gallery/cover, service hero).
+const IMAGE_FIELDS = `asset->{ url, metadata { lqip, dimensions } }, "alt": alt, hotspot, crop`;
 
 const POST_CARD_FIELDS = `
   _id,
@@ -161,12 +171,20 @@ const SITE_SETTINGS_FIELDS = `
   social    { instagram, facebook, youtube },
   analytics { ga4Id },
   googleProfileUrl,
-  testimonials[] { author, rating, relativeTime, text, source }
+  testimonials[] { author, rating, relativeTime, text, source },
+  heroImage { ${IMAGE_FIELDS} }
 `;
 
-export async function getSiteSettings(): Promise<Partial<SiteSettings> | null> {
+// Remote shape: everything on `SiteSettings` except the resolved `heroImage`,
+// which arrives as a raw Sanity asset and is turned into a `SiteImage` by
+// `getSiteSettings()` in content.ts.
+export type SiteSettingsRemote = Omit<Partial<SiteSettings>, "heroImage"> & {
+  heroImage?: SanityImageAsset;
+};
+
+export async function getSiteSettings(): Promise<SiteSettingsRemote | null> {
   if (!isSanityConfigured()) return null;
-  return sanityClient.fetch<Partial<SiteSettings> | null>(
+  return sanityClient.fetch<SiteSettingsRemote | null>(
     `*[_type == "siteSettings" && _id == $id][0] { ${SITE_SETTINGS_FIELDS} }`,
     { id: SITE_SETTINGS_ID },
     {
@@ -250,6 +268,13 @@ export async function getRelatedPosts(
 
 type UmbrellaDoc = { id: Umbrella; title: string; tagline: string };
 
+// Remote shape: everything on `ServiceCategory` except the resolved
+// `heroPhoto`, which arrives as a raw Sanity asset and is turned into a
+// `SiteImage` by `normalizeRemoteServices()` in content.ts.
+export type ServiceCategoryRemote = Omit<ServiceCategory, "heroPhoto"> & {
+  heroPhoto?: SanityImageAsset;
+};
+
 const SERVICE_FIELDS = `
   "slug": slug.current,
   title,
@@ -259,6 +284,7 @@ const SERVICE_FIELDS = `
   intro,
   comboNote,
   heroImage,
+  heroPhoto { ${IMAGE_FIELDS} },
   packages[] {
     name,
     tagline,
@@ -283,11 +309,11 @@ const SERVICE_FIELDS = `
 `;
 
 export async function getServicesFromSanity(): Promise<
-  ServiceCategory[] | null
+  ServiceCategoryRemote[] | null
 > {
   if (!isSanityConfigured()) return null;
   try {
-    const rows = await sanityClient.fetch<ServiceCategory[]>(
+    const rows = await sanityClient.fetch<ServiceCategoryRemote[]>(
       `*[_type == "serviceCategory"] | order(order asc) { ${SERVICE_FIELDS} }`,
       {},
       {
@@ -309,10 +335,10 @@ export async function getServicesFromSanity(): Promise<
 // only invalidates that page.
 export async function getServiceBySlugFromSanity(
   slug: string,
-): Promise<ServiceCategory | null> {
+): Promise<ServiceCategoryRemote | null> {
   if (!isSanityConfigured()) return null;
   try {
-    return await sanityClient.fetch<ServiceCategory | null>(
+    return await sanityClient.fetch<ServiceCategoryRemote | null>(
       `*[_type == "serviceCategory" && slug.current == $slug][0] {
         ${SERVICE_FIELDS}
       }`,
@@ -404,6 +430,9 @@ const PORTFOLIO_FIELDS = `
     hotspot,
     crop
   },
+  // Optional hand-picked cover for cards/teasers; resolver falls back to
+  // gallery[0] when unset.
+  cover { ${IMAGE_FIELDS} },
   // GROQ select() collapses the flat sourceKind+youtubeId/blobUrl Studio
   // shape back into the discriminated VideoSource union the renderer
   // expects. Editors see two conditional fields; consumers see one
@@ -509,12 +538,22 @@ const ABOUT_PAGE_ID = "aboutPage";
 const ABOUT_PAGE_FIELDS = `
   heading,
   bio,
-  headshot
+  headshot,
+  headshotImage { ${IMAGE_FIELDS} },
+  gallery[] { ${IMAGE_FIELDS} }
 `;
 
-export async function getAboutPageFromSanity(): Promise<Partial<AboutPage> | null> {
+// Remote shape: the About doc's editable fields plus the raw Studio-uploaded
+// headshot + gallery assets, which `getAboutPage()` (content.ts) resolves into
+// the render-ready `headshotPhoto` / `photos` on `AboutPage`.
+export type AboutPageRemote = Partial<AboutPage> & {
+  headshotImage?: SanityImageAsset;
+  gallery?: SanityImageAsset[];
+};
+
+export async function getAboutPageFromSanity(): Promise<AboutPageRemote | null> {
   if (!isSanityConfigured()) return null;
-  return sanityClient.fetch<Partial<AboutPage> | null>(
+  return sanityClient.fetch<AboutPageRemote | null>(
     `*[_type == "aboutPage" && _id == $id][0] { ${ABOUT_PAGE_FIELDS} }`,
     { id: ABOUT_PAGE_ID },
     { next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: ["aboutPage"] } },
