@@ -198,8 +198,25 @@ export const serviceCategory = defineType({
     defineField({
       name: "heroImage",
       type: "string",
+      hidden: true,
       description:
-        "Path to a hero image in /public (e.g. '/portfolio/weddings/hero.jpg'). Leave blank to use the default treatment. Uploads live in /public under the Lightroom-export workflow — this field is just a path.",
+        "Deprecated legacy /public path — superseded by the Hero photo upload below. Left hidden to avoid confusion; safe to ignore.",
+    }),
+    defineField({
+      name: "heroPhoto",
+      title: "Hero photo",
+      type: "image",
+      options: { hotspot: true },
+      description:
+        "Optional photo shown as a banner on this service's detail page and as the thumbnail on the services cards. Leave empty to keep the text-only treatment.",
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alt text",
+          validation: (r) => r.required(),
+        },
+      ],
     }),
     defineField({
       name: "packages",

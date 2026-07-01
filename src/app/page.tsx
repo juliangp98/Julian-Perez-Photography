@@ -34,27 +34,65 @@ export default async function HomePage() {
     getVisiblePortfolios(),
     getFeaturedPost(),
   ]);
+  // Optional full-bleed hero photo (uploaded in Studio). When absent the hero
+  // stays the text-only treatment; when present the copy sits over the photo on
+  // a dark gradient, so the text + buttons flip to light styling.
+  const hero = settings.heroImage;
   return (
     <>
       {/* Hero */}
-      <section className="border-b border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
+      <section
+        className={`relative overflow-hidden border-b border-[var(--border)] ${hero ? "text-white" : ""}`}
+      >
+        {hero && (
+          <>
+            <Image
+              src={hero.src}
+              alt={hero.alt}
+              fill
+              priority
+              sizes="100vw"
+              placeholder={hero.blurDataURL ? "blur" : "empty"}
+              blurDataURL={hero.blurDataURL || undefined}
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/20" />
+          </>
+        )}
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
           <div className="max-w-3xl">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            <div
+              className={`text-xs uppercase tracking-[0.2em] ${hero ? "text-white/80" : "text-[var(--muted)]"}`}
+            >
               {settings.coverageArea} · {settings.bookingStatus}
             </div>
             <h1 className="mt-6 font-serif text-5xl lg:text-7xl leading-[1.05]">
               {settings.tagline}
             </h1>
-            <p className="mt-6 text-lg text-[var(--muted)] max-w-xl">
+            <p
+              className={`mt-6 text-lg max-w-xl ${hero ? "text-white/85" : "text-[var(--muted)]"}`}
+            >
               Wedding, engagement, graduation, portrait, and event photography
               across the DMV — built around who you are, not a shot list.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
-              <Button href="/portfolio" variant="secondary" size="lg">
+              <Button
+                href="/portfolio"
+                variant="secondary"
+                size="lg"
+                className={
+                  hero
+                    ? "border-white text-white hover:bg-white hover:text-[var(--foreground)]"
+                    : ""
+                }
+              >
                 View portfolio
               </Button>
-              <Button href="/inquire" size="lg">
+              <Button
+                href="/inquire"
+                size="lg"
+                className={hero ? "bg-white text-[var(--foreground)]" : ""}
+              >
                 Inquire
               </Button>
             </div>
@@ -83,12 +121,27 @@ export default async function HomePage() {
             <Link
               key={s.slug}
               href={`/services/${s.slug}`}
-              className="group border border-[var(--border)] rounded-lg p-6 bg-white hover:border-[var(--foreground)] transition"
+              className="group border border-[var(--border)] rounded-lg overflow-hidden bg-white hover:border-[var(--foreground)] transition"
             >
-              <h3 className="font-serif text-2xl">{s.title}</h3>
-              <p className="mt-2 text-sm text-[var(--muted)]">{s.tagline}</p>
-              <div className="mt-6 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
-                Explore →
+              {s.heroPhoto && (
+                <div className="relative aspect-[16/10]">
+                  <Image
+                    src={s.heroPhoto.src}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 33vw, 100vw"
+                    placeholder={s.heroPhoto.blurDataURL ? "blur" : "empty"}
+                    blurDataURL={s.heroPhoto.blurDataURL || undefined}
+                    className="object-cover transition duration-500 group-hover:scale-[1.02]"
+                  />
+                </div>
+              )}
+              <div className="p-6">
+                <h3 className="font-serif text-2xl">{s.title}</h3>
+                <p className="mt-2 text-sm text-[var(--muted)]">{s.tagline}</p>
+                <div className="mt-6 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                  Explore →
+                </div>
               </div>
             </Link>
           ))}
@@ -113,7 +166,7 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {portfolios.slice(0, 6).map((p) => {
-            const cover = p.images[0];
+            const cover = p.coverPhoto ?? p.images[0];
             return (
               <Link
                 key={p.slug}

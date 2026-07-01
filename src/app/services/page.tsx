@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { getServicesByUmbrella } from "@/lib/content";
 import SubNav, { MAIN_TABS } from "@/components/ui/SubNav";
@@ -45,20 +46,35 @@ export default async function ServicesIndex() {
               <Link
                 key={s.slug}
                 href={`/services/${s.slug}`}
-                className="group border border-[var(--border)] rounded-lg p-6 bg-white hover:border-[var(--foreground)] transition flex flex-col"
+                className="group border border-[var(--border)] rounded-lg overflow-hidden bg-white hover:border-[var(--foreground)] transition flex flex-col"
               >
-                <h3 className="font-serif text-2xl">{s.title}</h3>
-                <p className="mt-2 text-sm text-[var(--muted)] flex-1">{s.tagline}</p>
-                
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] group-hover:text-[var(--foreground)]">
-                    View pricing →
+                {s.heroPhoto && (
+                  <div className="relative aspect-[16/10]">
+                    <Image
+                      src={s.heroPhoto.src}
+                      alt=""
+                      fill
+                      sizes="(max-width: 1024px) 33vw, 100vw"
+                      placeholder={s.heroPhoto.blurDataURL ? "blur" : "empty"}
+                      blurDataURL={s.heroPhoto.blurDataURL || undefined}
+                      className="object-cover transition duration-500 group-hover:scale-[1.02]"
+                    />
                   </div>
-                  <p className="text-xs text-[var(--muted)]">
-                    {s.packages.length} packages
+                )}
+                <div className="p-6 flex flex-col flex-1">
+                  <h3 className="font-serif text-2xl">{s.title}</h3>
+                  <p className="mt-2 text-sm text-[var(--muted)] flex-1">
+                    {s.tagline}
                   </p>
+                  <div className="mt-6 flex items-center justify-between">
+                    <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                      View pricing →
+                    </div>
+                    <p className="text-xs text-[var(--muted)]">
+                      {s.packages.length} packages
+                    </p>
+                  </div>
                 </div>
-                
               </Link>
             ))}
           </div>

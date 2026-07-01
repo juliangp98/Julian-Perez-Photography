@@ -1,4 +1,5 @@
 import Script from "next/script";
+import Image from "next/image";
 import SubNav, { type SubNavItem } from "@/components/ui/SubNav";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -149,6 +150,21 @@ export default async function ServiceCategoryPage({
         <h1 className="mt-3 font-serif text-5xl">{s.title}</h1>
         <p className="mt-5 text-lg text-[var(--muted)]">{s.description}</p>
       </div>
+
+      {s.heroPhoto && (
+        <div className="relative mt-8 aspect-[21/9] overflow-hidden rounded-lg border border-[var(--border)]">
+          <Image
+            src={s.heroPhoto.src}
+            alt={s.heroPhoto.alt}
+            fill
+            priority
+            sizes="(max-width: 1280px) 100vw, 1216px"
+            placeholder={s.heroPhoto.blurDataURL ? "blur" : "empty"}
+            blurDataURL={s.heroPhoto.blurDataURL || undefined}
+            className="object-cover"
+          />
+        </div>
+      )}
 
       {(() => {
         // Featured reel + intro composition. Wedding-films populates a

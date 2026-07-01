@@ -21,7 +21,10 @@ export default async function AboutPage() {
     getAboutPage(),
     getSiteSettings(),
   ]);
-  const images = about.images ?? [];
+  // Resolved sidebar photos + headshot (Studio uploads → manifest → none).
+  const photos = about.photos ?? [];
+  const headshot = about.headshotPhoto;
+  const hasAside = photos.length > 0 || !!headshot;
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ABOUT_TABS} />
@@ -30,7 +33,7 @@ export default async function AboutPage() {
       <div className="mt-8 lg:grid lg:grid-cols-3 lg:gap-12 lg:items-start">
         <div
           className={`space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90 ${
-            images.length > 0 ? "lg:col-span-2" : "max-w-3xl"
+            hasAside ? "lg:col-span-2" : "max-w-3xl"
           }`}
         >
           {about.bio.map((paragraph, i) => (
@@ -55,18 +58,33 @@ export default async function AboutPage() {
             </div>
           )}
         </div>
-        {images.length > 0 && (
+        {hasAside && (
           <aside className="mt-10 lg:mt-0 lg:sticky lg:top-24 space-y-5">
-            {images.slice(0, 3).map((src) => (
+            {headshot && (
+              <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)]">
+                <Image
+                  src={headshot.src}
+                  alt={headshot.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                  placeholder={headshot.blurDataURL ? "blur" : "empty"}
+                  blurDataURL={headshot.blurDataURL || undefined}
+                  className="object-cover"
+                />
+              </div>
+            )}
+            {photos.slice(0, 3).map((img) => (
               <div
-                key={src}
+                key={img.src}
                 className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)]"
               >
                 <Image
-                  src={src}
-                  alt=""
+                  src={img.src}
+                  alt={img.alt}
                   fill
                   sizes="(max-width: 1024px) 100vw, 33vw"
+                  placeholder={img.blurDataURL ? "blur" : "empty"}
+                  blurDataURL={img.blurDataURL || undefined}
                   className="object-cover"
                 />
               </div>

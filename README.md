@@ -200,6 +200,21 @@ Each portfolio gallery resolves its images from the **first available source** (
 
 Open `/studio` → a Portfolio Category (e.g. "Weddings") → the **Photo gallery** field. Drag images in, drag to reorder (the first image is the cover), set alt text, and adjust the crop via hotspot. Sanity auto-generates the CDN URL, blur placeholder (LQIP), and dimensions, so the gallery grid, lightbox, the `/portfolio` index card, and the home teaser thumbnail all update live on publish — no redeploy. Storage rides the Sanity Free tier (100 GB assets + 100 GB bandwidth/month, hard-capped); the CDN serves resized derivatives, so per-view bytes stay small.
 
+### Images in Studio (all surfaces)
+
+The same upload pattern (native Sanity `image` field → `toSiteImage()` in `src/lib/content.ts` → `next/image`, with a graceful fallback) now backs **every** image on the site. All are optional and degrade to the prior state (manifest path or text-only) when unset:
+
+| Where | Studio field | Fallback |
+| --- | --- | --- |
+| Home hero (full-bleed) | `Site Settings → Home hero photo` | text-only hero |
+| Portfolio gallery | `Portfolio Category → Photo gallery` | Lightroom manifest |
+| Portfolio card/teaser cover | `Portfolio Category → Cover photo` | first gallery image |
+| About headshot + sidebar | `About Page → Headshot` / `Sidebar photos` | `/public/about` manifest paths |
+| Service hero + card thumbnail | `Service Category → Hero photo` | text-only |
+| Journal cover + inline | `Journal Post → Cover image` / body images | — (Sanity-only) |
+
+Uploading in Studio supersedes the fallback for that surface — the two are never merged, so there's nothing to keep in sync. Everything publishes live via the webhook with no redeploy.
+
 ### Lightroom export + script (fallback)
 
 For any slug without a Studio gallery, photos are exported from Lightroom Classic into per-slug folders, then imported via a script that copies them into `public/portfolio/<slug>/` and regenerates `src/lib/portfolio-manifest.ts`. This path remains fully supported.

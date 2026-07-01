@@ -56,7 +56,44 @@ export const aboutPage = defineType({
       type: "array",
       of: [{ type: "string" }],
       description:
-        "Optional sidebar photos on /about — paths into /public/about/ (e.g. '/about/about-01.jpg'). The import script's `about/` folder populates these automatically; you can also set them by hand. Rendered in a column beside the bio.",
+        "Fallback sidebar photo paths in /public/about/ (Lightroom `about/` manifest). Used only when the Studio `gallery` below is empty.",
+    }),
+    defineField({
+      name: "headshotImage",
+      title: "Headshot",
+      type: "image",
+      options: { hotspot: true },
+      description:
+        "Upload your headshot here (shown at the top of the /about sidebar). Supersedes the legacy `headshot` path when set.",
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alt text",
+          validation: (r) => r.required(),
+        },
+      ],
+    }),
+    defineField({
+      name: "gallery",
+      title: "Sidebar photos",
+      type: "array",
+      of: [
+        {
+          type: "image",
+          options: { hotspot: true },
+          fields: [
+            {
+              name: "alt",
+              type: "string",
+              title: "Alt text",
+              validation: (r) => r.required(),
+            },
+          ],
+        },
+      ],
+      description:
+        "Upload up to a few photos for the sticky column beside the bio (the first three render). When this has any images it supersedes the Lightroom `images` paths above.",
     }),
   ],
   preview: {
