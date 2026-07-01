@@ -120,11 +120,17 @@ export default function ConciergeChat({
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <Bubble key={i} role={m.role}>
-            {m.content}
-          </Bubble>
-        ))}
+        {messages.map((m, i) =>
+          m.role === "assistant" ? (
+            <Bubble key={i} role="assistant" plain={false}>
+              <FormattedMessage content={m.content} />
+            </Bubble>
+          ) : (
+            <Bubble key={i} role="user">
+              {m.content}
+            </Bubble>
+          ),
+        )}
 
         {status === "sending" && (
           <Bubble role="assistant">
@@ -215,21 +221,184 @@ export default function ConciergeChat({
   );
 }
 
-function Bubble({ role, children }: { role: Role; children: React.ReactNode }) {
+function Bubble({
+  role,
+  plain = true,
+  children,
+}: {
+  role: Role;
+  // Plain bubbles (user turns, the greeting) preserve newlines with
+  // `whitespace-pre-line`. Formatted assistant replies render their own block
+  // elements via `FormattedMessage`, so they opt out.
+  plain?: boolean;
+  children: React.ReactNode;
+}) {
   const isUser = role === "user";
+  const base = isUser
+    ? "max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--foreground)] text-[var(--background)] px-3.5 py-2 text-sm"
+    : "max-w-[85%] rounded-2xl rounded-bl-sm border border-[var(--border)] bg-[var(--background)] px-3.5 py-2 text-sm";
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div
-        className={
-          isUser
-            ? "max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--foreground)] text-[var(--background)] px-3.5 py-2 text-sm whitespace-pre-line"
-            : "max-w-[85%] rounded-2xl rounded-bl-sm border border-[var(--border)] bg-[var(--background)] px-3.5 py-2 text-sm whitespace-pre-line"
-        }
-      >
+      <div className={plain ? `${base} whitespace-pre-line` : base}>
         {children}
       </div>
     </div>
   );
+}
+
+// --- Lightweight reply formatter -------------------------------------------
+// The concierge model emits light Markdown — **bold**, dash lists, and bare
+// site paths like /inquire. Render a safe subset so it reads cleanly and links
+// work, instead of showing literal asterisks and dead text. Tables/headings are
+// discouraged in the prompt; if one slips through it degrades to plain text.
+
+// Known internal routes that get auto-linked when written as a bare path. The
+// allow-list avoids false positives (dates like 6/12/2027 never match).
+const ROUTE = "inquire|services|portfolio|faq|book|client|journal|about|questionnaire";
+const INLINE_RE = new RegExp(
+  // [label](href)                     bare url                internal path
+  `\\[([^\\]]+)\\]\\((\\/[^\\s)]+|https?:\\/\\/[^\\s)]+)\\)|(https?:\\/\\/[^\\s)]+)|(\\/(?:${ROUTE})(?:\\/[\\w-]+)*)`,
+  "g",
+);
+
+function InlineLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const cls = "underline underline-offset-2 hover:opacity-80";
+  return href.startsWith("/") ? (
+    <Link href={href} className={cls}>
+      {children}
+    </Link>
+  ) : (
+    // break-all so a long bare URL wraps inside the bubble instead of
+    // overflowing its width.
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${cls} break-all`}
+    >
+      {children}
+    </a>
+  );
+}
+
+// Split plain text on `**bold**`, returning text + <strong> nodes.
+function renderBold(text: string, keyBase: string): React.ReactNode[] {
+  return text
+    .split(/\*\*([^*]+)\*\*/g)
+    .map((part, i) =>
+      i % 2 === 1 ? <strong key={`${keyBase}-b${i}`}>{part}</strong> : part,
+    );
+}
+
+// Parse one line: link markdown links, bare URLs, and internal paths; bold the
+// rest.
+function renderInline(input: string, keyBase: string): React.ReactNode[] {
+  // Unwrap inline-code backticks (models sometimes wrap paths like `/inquire`).
+  const text = input.replace(/`([^`]+)`/g, "$1");
+  const re = new RegExp(INLINE_RE.source, "g");
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last)
+      out.push(...renderBold(text.slice(last, m.index), `${keyBase}-t${i}`));
+    if (m[1] && m[2]) {
+      out.push(
+        <InlineLink key={`${keyBase}-l${i}`} href={m[2]}>
+          {m[1]}
+        </InlineLink>,
+      );
+    } else {
+      const raw = m[3] ?? m[4] ?? m[0];
+      const href = raw.replace(/[.,!?)]+$/, "");
+      out.push(
+        <InlineLink key={`${keyBase}-l${i}`} href={href}>
+          {href}
+        </InlineLink>,
+      );
+      if (href.length < raw.length) out.push(raw.slice(href.length));
+    }
+    last = re.lastIndex;
+    i++;
+  }
+  if (last < text.length)
+    out.push(...renderBold(text.slice(last), `${keyBase}-tE`));
+  return out;
+}
+
+function FormattedMessage({ content }: { content: string }) {
+  const blocks: React.ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  let key = 0;
+
+  const flush = () => {
+    if (!list) return;
+    const { ordered, items } = list;
+    const cls = `${ordered ? "list-decimal" : "list-disc"} pl-5 space-y-1`;
+    const children = items.map((it, j) => (
+      <li key={j}>{renderInline(it, `k${key}-${j}`)}</li>
+    ));
+    blocks.push(
+      ordered ? (
+        <ol key={`k${key++}`} className={cls}>
+          {children}
+        </ol>
+      ) : (
+        <ul key={`k${key++}`} className={cls}>
+          {children}
+        </ul>
+      ),
+    );
+    list = null;
+  };
+
+  const pushItem = (ordered: boolean, item: string) => {
+    if (list && list.ordered !== ordered) flush();
+    (list ??= { ordered, items: [] }).items.push(item);
+  };
+
+  for (const raw of content.split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    // Drop Markdown table separator rows (|---|---|).
+    if (/^\|?[\s:|-]+\|[\s:|-]*$/.test(line)) continue;
+
+    const bullet = line.match(/^[-*]\s+(.*)$/);
+    if (bullet) {
+      pushItem(false, bullet[1]);
+      continue;
+    }
+    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    if (numbered) {
+      pushItem(true, numbered[1]);
+      continue;
+    }
+    flush();
+
+    // Headings render as an emphasized line; table content rows degrade to a
+    // middot-joined line so they stay readable if the model ignores the rule.
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    let text = heading ? heading[1] : line;
+    if (!heading && text.includes("|")) {
+      text = text
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .replace(/\s*\|\s*/g, " · ")
+        .trim();
+    }
+    blocks.push(
+      <p key={`k${key++}`} className={heading ? "font-medium" : undefined}>
+        {renderInline(text, `p${key}`)}
+      </p>,
+    );
+  }
+  flush();
+
+  return <div className="space-y-2 break-words">{blocks}</div>;
 }
 
 function Dot() {
