@@ -61,8 +61,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const origin = req.headers.get("origin") || new URL(req.url).origin;
-    const imgRes = await fetch(`${origin}${parsed.data.src}`, {
+    // Studio-uploaded gallery images are absolute cdn.sanity.io URLs; Lightroom
+    // manifest images are site-relative paths that need the origin prefixed.
+    const { src } = parsed.data;
+    const imgUrl = /^https?:\/\//i.test(src)
+      ? src
+      : `${req.headers.get("origin") || new URL(req.url).origin}${src}`;
+    const imgRes = await fetch(imgUrl, {
       signal: AbortSignal.timeout(15_000),
     });
     if (!imgRes.ok) {

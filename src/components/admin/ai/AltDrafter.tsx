@@ -2,9 +2,12 @@
 import AiButton from "@/components/ui/AiButton";
 
 // Generate + review + persist accessibility alt text for portfolio gallery
-// images. Pick a gallery, optionally "Generate all", edit any line, and Save —
-// each Save persists an override (via /api/admin/save-alt) that overlays the
-// manifest baseline at render and survives photo re-imports. Generation
+// images — the way to fill alt for a batch uploaded in Studio without typing it
+// per photo. Works for both Studio-uploaded galleries (cdn.sanity.io images) and
+// Lightroom-manifest galleries, since both resolve into `p.images` upstream.
+// Pick a gallery, optionally "Generate all", edit any line, and Save — each Save
+// persists an override (via /api/admin/save-alt) that wins at render over the
+// image's own alt and survives photo re-imports. Generation
 // (/api/admin/draft-alt) uses the vision model, one image at a time.
 
 import { useState } from "react";

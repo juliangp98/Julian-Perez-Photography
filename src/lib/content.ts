@@ -100,10 +100,11 @@ function mergeWithFallback(remote: SiteSettingsRemote): SiteSettings {
   // The hero photo arrives as a raw Sanity asset; resolve it to a SiteImage
   // (absent/malformed → undefined, so the home page keeps its text hero).
   const { heroImage: heroImageRaw, ...rest } = remote;
+  const siteName = rest.siteName ?? siteSettingsFallback.siteName;
   return {
     ...siteSettingsFallback,
     ...rest,
-    heroImage: toSiteImage(heroImageRaw) ?? undefined,
+    heroImage: toSiteImage(heroImageRaw, siteName) ?? undefined,
     social: {
       ...siteSettingsFallback.social,
       ...(remote.social ?? {}),
@@ -206,7 +207,7 @@ function normalizeRemoteServices(
     // and detail page, exactly as today).
     .map(({ heroPhoto, ...s }) => ({
       ...s,
-      heroPhoto: toSiteImage(heroPhoto) ?? undefined,
+      heroPhoto: toSiteImage(heroPhoto, s.title) ?? undefined,
     }));
   return valid.length > 0 ? valid : null;
 }
@@ -307,12 +308,18 @@ export const getServicesByUmbrella = cache(async () => {
 // for a malformed/missing asset so callers can skip it, degrading to a fallback
 // rather than throwing. Shared across the home hero, about, portfolio
 // gallery/cover, and service surfaces.
-function toSiteImage(img?: SanityImageAsset | null): SiteImage | null {
+function toSiteImage(
+  img?: SanityImageAsset | null,
+  fallbackAlt = "",
+): SiteImage | null {
   const dims = img?.asset?.metadata?.dimensions;
   if (!img?.asset?.url || !dims) return null;
   return {
     src: urlFor(img).width(2400).auto("format").url(),
-    alt: img.alt ?? "",
+    // Alt is optional in Studio; when blank, fall back to a caller-supplied
+    // label (e.g. the collection/page name) so a skipped photo still has a
+    // meaningful alt rather than an empty string.
+    alt: img.alt || fallbackAlt,
     width: dims.width,
     height: dims.height,
     blurDataURL: img.asset.metadata?.lqip ?? "",
@@ -326,10 +333,13 @@ function pathToSiteImage(src: string, alt = ""): SiteImage {
   return { src, alt, width: 1000, height: 1250, blurDataURL: "" };
 }
 
-function galleryToImages(gallery?: SanityImageAsset[]): PortfolioImage[] {
+function galleryToImages(
+  gallery?: SanityImageAsset[],
+  fallbackAlt = "",
+): PortfolioImage[] {
   if (!gallery?.length) return [];
   return gallery.flatMap((img) => {
-    const mapped = toSiteImage(img);
+    const mapped = toSiteImage(img, fallbackAlt);
     return mapped ? [mapped] : [];
   });
 }
@@ -354,11 +364,12 @@ function spliceManifest(
     const base: PortfolioCategory = { ...rest, images };
 
     // A hand-picked Studio cover wins for the card/teaser thumbnail; otherwise
-    // the first resolved gallery image is the cover.
-    const pickedCover = toSiteImage(cover);
+    // the first resolved gallery image is the cover. The category title is the
+    // alt fallback for any photo whose alt was left blank in Studio.
+    const pickedCover = toSiteImage(cover, base.title);
 
     // 1. Studio gallery wins when it has any usable images.
-    const sanityImages = galleryToImages(gallery);
+    const sanityImages = galleryToImages(gallery, base.title);
     if (sanityImages.length > 0) {
       const coverPhoto = pickedCover ?? sanityImages[0];
       return {
@@ -505,7 +516,7 @@ function mergeAboutWithFallback(remote: AboutPageRemote): AboutPage {
 //   3. Nothing (the sidebar simply doesn't render).
 // The two sources are never merged — a Studio gallery supersedes the manifest.
 function resolveAboutImages(base: AboutPage, remote?: AboutPageRemote): AboutPage {
-  const sanityPhotos = galleryToImages(remote?.gallery);
+  const sanityPhotos = galleryToImages(remote?.gallery, base.heading);
   const fallbackPaths = aboutImages.length ? aboutImages : base.images ?? [];
   const photos =
     sanityPhotos.length > 0
@@ -513,7 +524,7 @@ function resolveAboutImages(base: AboutPage, remote?: AboutPageRemote): AboutPag
       : fallbackPaths.map((src) => pathToSiteImage(src));
 
   const headshotPhoto =
-    toSiteImage(remote?.headshotImage) ??
+    toSiteImage(remote?.headshotImage, base.heading) ??
     (base.headshot ? pathToSiteImage(base.headshot) : undefined);
 
   return { ...base, photos, headshotPhoto };
