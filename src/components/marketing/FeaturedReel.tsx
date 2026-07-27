@@ -20,6 +20,7 @@ import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
 import Video from "yet-another-react-lightbox/plugins/video";
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/counter.css";
+import ImageScrim from "@/components/ui/ImageScrim";
 import type { VideoEntry } from "@/lib/types";
 
 type Props = {
@@ -103,7 +104,7 @@ export default function FeaturedReel({
             Thumbnail unavailable
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+        <ImageScrim />
         <div className="absolute inset-0 flex items-center justify-center">
           <span
             aria-hidden
