@@ -198,6 +198,9 @@ export const portfolioCategory = defineType({
       name: "gallery",
       title: "Photo gallery",
       type: "array",
+      // Grid layout renders the multi-image asset input: drop or select many
+      // files at once and each becomes its own item.
+      options: { layout: "grid" },
       of: [
         {
           type: "image",
@@ -206,17 +209,16 @@ export const portfolioCategory = defineType({
             {
               name: "alt",
               type: "string",
-              title: "Alt text",
+              title: "Alt text (optional)",
               description:
-                "Describe the photo for screen readers and SEO. No 'photo of' — just what's visible.",
-              validation: (r) => r.required(),
+                "Optional — describe the photo for screen readers and SEO (no 'photo of', just what's visible). Leave blank to fill in later; the site falls back to the collection name.",
             },
             { name: "caption", type: "string", title: "Caption (optional)" },
           ],
         },
       ],
       description:
-        "Upload photos to manage this gallery here in Studio — drag to reorder; the first image is the cover. When this has any images it becomes the source of truth for the slug, superseding the Lightroom `import-photos` manifest. Leave empty to keep using the manifest.",
+        "Upload photos here in Studio — drop or select several at once, then drag to reorder (the first image is the cover) and add alt/captions whenever. When this has any images it becomes the source of truth for the slug, superseding the Lightroom `import-photos` manifest. Leave empty to keep using the manifest.",
     }),
     defineField({
       name: "cover",
@@ -229,8 +231,7 @@ export const portfolioCategory = defineType({
         {
           name: "alt",
           type: "string",
-          title: "Alt text",
-          validation: (r) => r.required(),
+          title: "Alt text (optional)",
         },
       ],
     }),

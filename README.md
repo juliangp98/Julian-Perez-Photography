@@ -215,6 +215,10 @@ The same upload pattern (native Sanity `image` field → `toSiteImage()` in `src
 
 Uploading in Studio supersedes the fallback for that surface — the two are never merged, so there's nothing to keep in sync. Everything publishes live via the webhook with no redeploy.
 
+**Batch upload + optional details.** The gallery fields render as a grid: drop or select **several files at once** and each becomes its own item, then drag to reorder. The per-photo `alt` and `caption` are **optional** everywhere — upload a batch and publish immediately, then come back to add alt/captions whenever. When `alt` is blank the site falls back to a sensible label (the collection/page name) so the image still has meaningful alt text.
+
+**Generate alt with AI.** To fill alt for a batch without typing it per photo, use the admin **Content tools → Portfolio image alt text** panel (`/admin/content`): pick a gallery, "Generate all" (or per-photo), review/edit, and Save. It works for both Studio-uploaded and Lightroom galleries; the saved text is stored as a Supabase override (`portfolio_image_alt`) that **wins at render** over the image's own alt and survives re-imports — no Sanity write token needed. Requires `GROQ_API_KEY` (vision) + Supabase configured.
+
 ### Lightroom export + script (fallback)
 
 For any slug without a Studio gallery, photos are exported from Lightroom Classic into per-slug folders, then imported via a script that copies them into `public/portfolio/<slug>/` and regenerates `src/lib/portfolio-manifest.ts`. This path remains fully supported.

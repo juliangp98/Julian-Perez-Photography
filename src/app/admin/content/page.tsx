@@ -22,8 +22,9 @@ export default async function AdminContentPage() {
 
   // The copy tool's dropdown is server-loaded from the live catalog.
   let subjects: CopySubject[] = [];
-  // The alt tool lists photo galleries with each image's current effective alt
-  // (persisted override when present, else the manifest baseline).
+  // The alt tool lists photo galleries (Studio-uploaded and Lightroom-manifest
+  // alike — both resolve into `p.images`) with each image's current effective
+  // alt: a persisted override when present, else the image's own alt/fallback.
   let galleries: AltGallery[] = [];
   if (ai) {
     const [services, portfolios, altOverrides] = await Promise.all([
@@ -104,9 +105,11 @@ export default async function AdminContentPage() {
           <div className="pt-8 border-t border-[var(--border)]">
             <h2 className="font-serif text-2xl">Portfolio image alt text</h2>
             <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
-              Describe gallery photos for screen readers and SEO. Generate,
-              edit, and save &mdash; saved text overrides the import baseline and
-              survives re-imports.
+              Describe gallery photos for screen readers and SEO &mdash; the easy
+              way to fill in alt for a batch you uploaded in Studio without typing
+              it per photo. Works for both Studio-uploaded and Lightroom
+              galleries; generate, edit, and save. Saved text wins at render over
+              the photo&rsquo;s own alt and survives re-imports.
             </p>
             <AltDrafter galleries={galleries} />
           </div>

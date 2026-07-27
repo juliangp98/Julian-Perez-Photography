@@ -61,9 +61,9 @@ export const siteSettings = defineType({
         {
           name: "alt",
           type: "string",
-          title: "Alt text",
-          description: "Describe the photo for screen readers and SEO.",
-          validation: (r) => r.required(),
+          title: "Alt text (optional)",
+          description:
+            "Optional — describe the photo for screen readers and SEO. Falls back to the site name if left blank.",
         },
       ],
     }),

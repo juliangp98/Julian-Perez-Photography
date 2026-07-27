@@ -213,8 +213,7 @@ export const serviceCategory = defineType({
         {
           name: "alt",
           type: "string",
-          title: "Alt text",
-          validation: (r) => r.required(),
+          title: "Alt text (optional)",
         },
       ],
     }),

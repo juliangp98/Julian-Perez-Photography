@@ -48,9 +48,9 @@ export const journalPost = defineType({
         {
           name: "alt",
           type: "string",
-          title: "Alt text",
-          description: "Describe the photo for screen readers and SEO.",
-          validation: (r) => r.required(),
+          title: "Alt text (optional)",
+          description:
+            "Optional — describe the photo for screen readers and SEO. Falls back to the post title if left blank.",
         },
       ],
       validation: (r) => r.required(),
@@ -68,8 +68,7 @@ export const journalPost = defineType({
             {
               name: "alt",
               type: "string",
-              title: "Alt text",
-              validation: (r) => r.required(),
+              title: "Alt text (optional)",
             },
             { name: "caption", type: "string", title: "Caption (optional)" },
           ],

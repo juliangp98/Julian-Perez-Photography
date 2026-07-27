@@ -69,8 +69,7 @@ export const aboutPage = defineType({
         {
           name: "alt",
           type: "string",
-          title: "Alt text",
-          validation: (r) => r.required(),
+          title: "Alt text (optional)",
         },
       ],
     }),
@@ -78,6 +77,8 @@ export const aboutPage = defineType({
       name: "gallery",
       title: "Sidebar photos",
       type: "array",
+      // Grid layout renders the multi-image asset input: drop/select several at once.
+      options: { layout: "grid" },
       of: [
         {
           type: "image",
@@ -86,14 +87,13 @@ export const aboutPage = defineType({
             {
               name: "alt",
               type: "string",
-              title: "Alt text",
-              validation: (r) => r.required(),
+              title: "Alt text (optional)",
             },
           ],
         },
       ],
       description:
-        "Upload up to a few photos for the sticky column beside the bio (the first three render). When this has any images it supersedes the Lightroom `images` paths above.",
+        "Upload photos for the sticky column beside the bio (the first three render) — drop several at once, reorder and add alt later. When this has any images it supersedes the Lightroom `images` paths above.",
     }),
   ],
   preview: {
