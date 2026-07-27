@@ -26,6 +26,7 @@ import Video from "yet-another-react-lightbox/plugins/video";
 import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/counter.css";
 import type { VideoEntry } from "@/lib/types";
+import ImageScrim from "@/components/ui/ImageScrim";
 
 type Props = { videos: VideoEntry[] };
 
@@ -165,8 +166,8 @@ export default function VideoGallery({ videos }: Props) {
                   Thumbnail unavailable
                 </div>
               )}
-              {/* Subtle gradient + play affordance + metadata overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/0 to-black/0" />
+              {/* Bottom scrim + play affordance + metadata overlay */}
+              <ImageScrim />
               <div className="absolute inset-0 flex items-center justify-center">
                 <span
                   aria-hidden

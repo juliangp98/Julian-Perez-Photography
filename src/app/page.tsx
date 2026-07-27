@@ -10,6 +10,7 @@ import {
 import GoogleReviews from "@/components/marketing/GoogleReviews";
 import FeaturedJournalPost from "@/components/marketing/FeaturedJournalPost";
 import PressStrip from "@/components/marketing/PressStrip";
+import ImageScrim, { overlayTextClass } from "@/components/ui/ImageScrim";
 
 import Button from "@/components/ui/Button";
 export async function generateMetadata(): Promise<Metadata> {
@@ -56,11 +57,11 @@ export default async function HomePage() {
               blurDataURL={hero.blurDataURL || undefined}
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/20" />
+            <ImageScrim edge="hero" />
           </>
         )}
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
-          <div className="max-w-3xl">
+          <div className={`max-w-3xl ${hero ? overlayTextClass : ""}`}>
             <div
               className={`text-xs uppercase tracking-[0.2em] ${hero ? "text-white/80" : "text-[var(--muted)]"}`}
             >
@@ -184,11 +185,11 @@ export default async function HomePage() {
                       blurDataURL={cover.blurDataURL || undefined}
                       className="object-cover transition duration-500 group-hover:scale-[1.02]"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    <ImageScrim />
                   </>
                 )}
                 <span
-                  className={`relative font-serif text-xl ${cover ? "text-white" : "text-[var(--foreground)]"}`}
+                  className={`relative font-serif text-xl ${cover ? `text-white ${overlayTextClass}` : "text-[var(--foreground)]"}`}
                 >
                   {p.title}
                 </span>
