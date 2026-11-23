@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // AI portfolio alt text (/api/admin/draft-alt). The owner picks a gallery image
 // and gets accessibility alt text to review and save — the AI never publishes.
@@ -8,16 +8,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // `drafted: false` BEFORE any provider call (and regardless of whether a vision
 // key is configured) — a clean deterministic no-op.
 
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
-
 test("draft-alt: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/draft-alt", {
     headers: { "x-forwarded-for": "10.99.18.1" },
@@ -26,10 +16,7 @@ test("draft-alt: rejects an unauthenticated request", async ({ request }) => {
   expect(res.status()).toBe(401);
 });
 
-test("draft-alt: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.18.2");
+test("draft-alt: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // Missing `src` — a schema violation (400), proving the session was accepted.
   const res = await request.post("/api/admin/draft-alt", {
     data: { slug: "weddings" },
@@ -37,10 +24,7 @@ test("draft-alt: rejects a malformed body when authenticated", async ({
   expect(res.status()).toBe(400);
 });
 
-test("draft-alt: accepts a well-formed request, no-ops for an unknown gallery", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.18.3");
+test("draft-alt: accepts a well-formed request, no-ops for an unknown gallery", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/draft-alt", {
     data: { slug: "not-a-real-gallery", src: "/portfolio/x/one.jpg" },
   });

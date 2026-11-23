@@ -1,59 +1,68 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
-// E2E smoke tests for the public-facing forms. These run against the
-// Next dev server (started by Playwright). The suite relies on the
-// dev-mode RESEND_API_KEY-absent fallback in the API routes so nothing
-// is actually emailed — the route returns `{ ok: true, dev: true }`
-// and logs the payload.
-//
-// If RESEND_API_KEY is set in the shell, the tests will send real
-// emails. Unset it or use `.env.test` conventions before running.
+// The suite only ever talks to stand-ins. Provider calls (Resend, the AI
+// provider, Twilio) go to tests/e2e/support/fake-providers.mjs, and the client
+// store is a separate test Supabase project whose keys live in .env.test as
+// TEST_SUPABASE_URL / TEST_SUPABASE_SERVICE_ROLE_KEY. Shell values for the real
+// keys are overridden below, and the app runs on its own port so an ordinary
+// `npm run dev` on :3000 (with real keys) is never reused by mistake.
+if (existsSync(".env.test")) process.loadEnvFile(".env.test");
+
+const APP_PORT = 3100;
+const FAKE_PORT = Number(process.env.FAKE_PROVIDERS_PORT ?? 4010);
+const FAKE_URL = `http://localhost:${FAKE_PORT}`;
+const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  // 120s ceiling per test. Plenty of headroom for the dev server's
-  // cold Turbopack compile of any single page, which can run 30-60s
-  // on a fresh suite start when the client bundle includes the
-  // Sentry SDK + Replay integration. Real submission round-trips are
-  // sub-second after warm-up.
+  // Headroom for the dev server's cold compile of a page (30-60s with the
+  // Sentry client bundle); warm requests are sub-second.
   timeout: 120_000,
-  fullyParallel: false, // requests share in-memory rate-limit buckets
+  // One worker: the fake providers keep one shared record of calls, and specs
+  // assert on it.
+  workers: 1,
   reporter: [["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${APP_PORT}`,
     trace: "retain-on-failure",
-    // Tests interact with native file downloads on /api/wedding-plan.
     actionTimeout: 30_000,
   },
-  projects: [
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      command: "node tests/e2e/support/fake-providers.mjs",
+      url: `${FAKE_URL}/__health`,
+      reuseExistingServer: !CI,
+      timeout: 10_000,
+      env: { FAKE_PROVIDERS_PORT: String(FAKE_PORT) },
+    },
+    {
+      command: CI
+        ? `npm run build && npx next start -p ${APP_PORT}`
+        : `npx next dev -p ${APP_PORT}`,
+      url: `http://localhost:${APP_PORT}`,
+      reuseExistingServer: !CI,
+      timeout: CI ? 300_000 : 120_000,
+      env: {
+        AUTH_SECRET: "e2e-test-secret-not-for-production-0123456789abcdef",
+        ADMIN_EMAIL: "admin@example.com",
+        INQUIRY_TO: "owner@example.com",
+        CRON_SECRET: "e2e-cron-secret",
+        RESEND_API_KEY: "re_fake_e2e",
+        RESEND_BASE_URL: FAKE_URL,
+        GROQ_API_KEY: "gsk_fake_e2e",
+        AI_BASE_URL: FAKE_URL,
+        AI_MODEL: "",
+        AI_VISION_MODEL: "",
+        TWILIO_ACCOUNT_SID: "",
+        TWILIO_AUTH_TOKEN: "",
+        TWILIO_PHONE_FROM: "",
+        SUPABASE_URL: process.env.TEST_SUPABASE_URL ?? "",
+        SUPABASE_SERVICE_ROLE_KEY: process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "",
+        // Empty so the autocomplete route returns its deterministic empty list.
+        GOOGLE_PLACES_API_KEY: "",
+      },
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    // Clear RESEND_API_KEY so the dev-mode fallback kicks in — tests
-    // must not send real email. (Playwright merges into process.env.)
-    // AUTH_SECRET is a throwaway test value so the portal auth routes +
-    // proxy function; it is never used outside the local test server.
-    env: {
-      RESEND_API_KEY: "",
-      AUTH_SECRET: "e2e-test-secret-not-for-production-0123456789abcdef",
-      ADMIN_EMAIL: "admin@example.com",
-      // Blank the client store so the suite never reads or writes the real
-      // Supabase database — capture + portal cleanly no-op during tests.
-      SUPABASE_URL: "",
-      SUPABASE_SERVICE_ROLE_KEY: "",
-      // Blank the Places key so the autocomplete route returns an empty list
-      // deterministically (no live Google call during tests).
-      GOOGLE_PLACES_API_KEY: "",
-      // A known secret so the keep-alive cron route's auth guard is exercised
-      // (reject without the bearer, accept with it).
-      CRON_SECRET: "e2e-cron-secret",
-    },
-  },
 });

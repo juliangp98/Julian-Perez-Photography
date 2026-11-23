@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Natural-language admin search (/api/admin/search). The owner types a plain
 // query; the AI turns it into a structured filter applied to the client list,
@@ -9,16 +9,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // keyless env no-ops earlier still) — either way a well-formed authed request is
 // a deterministic 200 with no matches.
 
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
-
 test("admin search: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/search", {
     headers: { "x-forwarded-for": "10.99.17.1" },
@@ -27,10 +17,7 @@ test("admin search: rejects an unauthenticated request", async ({ request }) => 
   expect(res.status()).toBe(401);
 });
 
-test("admin search: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.17.2");
+test("admin search: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // Missing `query` — a schema violation (400), proving the session was accepted.
   const res = await request.post("/api/admin/search", {
     data: {},
@@ -38,10 +25,7 @@ test("admin search: rejects a malformed body when authenticated", async ({
   expect(res.status()).toBe(400);
 });
 
-test("admin search: accepts a well-formed request, returns no matches on an empty store", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.17.3");
+test("admin search: accepts a well-formed request, returns no matches on an empty store", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/search", {
     data: { query: "weddings in June with no contract yet" },
   });

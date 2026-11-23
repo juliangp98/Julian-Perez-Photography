@@ -316,15 +316,14 @@ Schema-driven planning questionnaires live in `**src/lib/questionnaires.ts`**. E
 
 ## Testing
 
-A Playwright end-to-end suite lives in `tests/e2e/` (139 specs at last count) covering the public pages and forms, the API guards (validation / honeypot / rate limit), accessibility scans via axe, and the admin + portal surfaces:
+A Playwright end-to-end suite lives in `tests/e2e/`, covering the public pages and forms, the API guards (validation / honeypot / rate limit), accessibility scans via axe, and the admin + portal surfaces:
 
 ```bash
-npm run test:e2e                              # full suite — boots its own dev server
-npx playwright test --workers=1               # serial run; avoids Turbopack cold-compile flakiness on a fresh .next
+npm run test:e2e                              # full suite; boots the fakes and its own app server on :3100
 npx playwright test tests/e2e/a11y.spec.ts    # a single spec file
 ```
 
-`playwright.config.ts` blanks the service env keys (Resend, Twilio, Supabase, auth, Places, AI) for the test server, so every integration no-ops: forms exercise the validation paths without sending anything, and the admin/portal specs sign in through the dev magic-link flow against the blanked store. The bar for every change is `npm run lint` + `npm run build` clean and the suite green; new code paths ship with a smoke-level spec alongside them (see `AGENTS.md`).
+The suite never reaches a real provider. `playwright.config.ts` starts `tests/e2e/support/fake-providers.mjs` (stand-ins for Resend, the AI provider and Twilio) and points the app at it, so sends, drafts and sign-in emails run their real code paths; specs read what was "sent" through the `fakes` fixture in `tests/e2e/support/fixtures.ts`, which also provides signed-in `adminRequest` / `adminPage` / `portalRequest` and a per-test client IP. The client store is a separate test Supabase project: put its keys in `.env.test` as `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY` (run `supabase/schema.sql` on it once). Without them the store stays blank and store-backed specs skip. CI (`.github/workflows/ci.yml`) runs lint, typecheck and the suite against a production build on every push and PR; the same two keys go in the repository's Actions secrets. New code paths ship with a spec alongside them (see `AGENTS.md`).
 
 ### Dependency & integration maintenance
 
@@ -333,10 +332,10 @@ Monthly (or before a burst of work), run the health check and apply the safe lay
 ```bash
 npm run deps:check     # report: outdated packages, vulnerabilities, live service checks
 npm run deps:update    # apply: in-range updates, same-major framework pins, audit fix
-npm run lint && npm run build && npx playwright test --workers=1   # verify
+npm run lint && npm run typecheck && npm run build && npm run test:e2e   # verify
 ```
 
-The script never crosses a major version — majors are listed for a deliberate decision (read the migration notes, or ask for a full audit). It preserves the exact pins on `next` / `react` / `react-dom` / `eslint-config-next`, and reinstalls Playwright's browsers when the test runner moves (a moved runner with stale browsers fails every page-based spec with launch errors). The integration checks confirm the configured Groq models are still served (Groq retires models) and that Sanity + Supabase answer. Security alerts between runs come from GitHub Dependabot (`.github/dependabot.yml`, security-only — no unattended version PRs since there's no CI to prove them).
+The script never crosses a major version — majors are listed for a deliberate decision (read the migration notes, or ask for a full audit). It preserves the exact pins on `next` / `react` / `react-dom` / `eslint-config-next`, and reinstalls Playwright's browsers when the test runner moves (a moved runner with stale browsers fails every page-based spec with launch errors). The integration checks confirm the configured Groq models are still served (Groq retires models) and that Sanity + Supabase answer. Security alerts between runs come from GitHub Dependabot (`.github/dependabot.yml`, security-only).
 
 ## Deployment (Vercel)
 
@@ -430,98 +429,9 @@ cookies are signed with `AUTH_SECRET` via `jose`.
 ### One-time setup
 
 1. **Create a free Supabase project** at [supabase.com](https://supabase.com).
-2. **Create the table** — Supabase → SQL Editor → run:
-  ```sql
-   create table if not exists client_records (
-     id uuid primary key default gen_random_uuid(),
-     client_name text,
-     email text not null,
-     phone text,
-     partner_name text,
-     status text not null default 'new-inquiry',
-     service_type text,
-     package text,
-     bundle_id uuid,
-     bundle_label text,
-     gallery_url text,
-     project_name text,
-     source text default 'manual',
-     event_date text,
-     secondary_dates jsonb not null default '[]'::jsonb,
-     locations jsonb not null default '[]'::jsonb,
-     guest_count integer,
-     budget text,
-     plan_summary text,
-     client_notes text,
-     client_notes_reply text,
-     questionnaire_snapshot text,
-     documents jsonb not null default '[]'::jsonb,
-     inquiry_message text,
-     referral text,
-     status_history jsonb not null default '[]'::jsonb,
-     last_client_update timestamptz,
-     internal_notes text,
-     collaborators jsonb not null default '[]'::jsonb,
-     collaborator_emails text[] not null default '{}',
-     created_at timestamptz not null default now(),
-     updated_at timestamptz not null default now()
-   );
-   -- One row = one project; the email is the person. A single client can hold
-   -- several projects (e.g. an engagement and a wedding), so the email index is
-   -- NON-unique. Capture matches on email + service to decide insert vs. update.
-   create index if not exists client_records_email_idx
-     on client_records (lower(email));
-   -- Bundle lookups (projects sharing a bundle_id render grouped).
-   create index if not exists client_records_bundle_idx
-     on client_records (bundle_id);
-   -- Reverse lookup for second-photographer access: which projects has this
-   -- email been granted? (collaborator_emails holds normalized lowercased emails.)
-   create index if not exists client_records_collab_emails_idx
-     on client_records using gin (collaborator_emails);
-   -- Lock the table down: the app's service-role key bypasses RLS; with no
-   -- policies, nothing else (including the anon key) can read it.
-   alter table client_records enable row level security;
-  ```
-   *Already created the table from an earlier version (unique email index, no
-   bundle columns)? Run this once to migrate it in place — it converts the email
-   index to non-unique so a person can hold multiple projects, and adds the
-   bundle columns. (The app tolerates the columns being absent: until you run
-   this, the portal and admin pages still load — they just omit bundle grouping,
-   and a second service for one person can't open a separate project — so a
-   deploy can land ahead of the migration without taking the portals down.)*
-  ```sql
-   drop index if exists client_records_email_idx;
-   create index if not exists client_records_email_idx
-     on client_records (lower(email));
-   alter table client_records add column if not exists bundle_id uuid;
-   alter table client_records add column if not exists bundle_label text;
-   create index if not exists client_records_bundle_idx
-     on client_records (bundle_id);
-   alter table client_records add column if not exists gallery_url text;
-   alter table client_records add column if not exists project_name text;
-   alter table client_records add column if not exists client_notes text;
-   alter table client_records add column if not exists client_notes_reply text;
-   -- Second-photographer (collaborator) per-project read access.
-   alter table client_records add column if not exists collaborators jsonb not null default '[]'::jsonb;
-   alter table client_records add column if not exists collaborator_emails text[] not null default '{}';
-   create index if not exists client_records_collab_emails_idx
-     on client_records using gin (collaborator_emails);
-  ```
-   *Optional — portfolio alt-text overrides.* The admin **Content tools →
-   Portfolio image alt text** panel persists reviewed alt here; it overlays the
-   import-generated baseline at render and survives re-imports. The app no-ops
-   cleanly without this table (galleries just use the manifest alt), so it's
-   only needed if you want to save alt edits from the admin tool. Same project,
-   service-role only:
-  ```sql
-   create table if not exists portfolio_image_alt (
-     src text primary key,
-     alt text not null,
-     updated_at timestamptz not null default now()
-   );
-   -- Service-role only, same as client_records: RLS on, no policies.
-   alter table portfolio_image_alt enable row level security;
-  ```
+2. **Create the tables**: Supabase → SQL Editor → paste and run
+   [`supabase/schema.sql`](supabase/schema.sql). It is idempotent, so the same
+   file brings an older table up to date and sets up the separate test project.
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
   or use Project Settings (gear, bottom-left):
   - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.

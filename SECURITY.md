@@ -154,10 +154,12 @@ suspected of being exposed, and as part of a quarterly audit.
 
 - [ ] 2FA enforced on Julian's account.
 - [ ] Repo Settings → **Branches** → branch protection on `main`: require
-      PR reviews (1), require status checks to pass, restrict who can push.
-- [ ] Repo Settings → **Secrets and variables** — audit any GitHub Actions
-      secrets. Nothing production-critical should live here unless CI
-      actually needs it.
+      PR reviews (1), require the **CI / check** status to pass, restrict who
+      can push.
+- [ ] Repo Settings → **Secrets and variables** → Actions: only
+      `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY` (the separate
+      test project, never production). Nothing production-critical lives
+      here.
 
 ## Ongoing hygiene
 

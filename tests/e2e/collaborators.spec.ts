@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Per-project second-photographer access. The admin grants/revokes a
 // collaborator email via /api/admin/collaborators; the portal magic-link gate
@@ -7,16 +7,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // portal-auth.spec.ts), so this covers the admin route's auth + validation and
 // the uniform portal request-link response. Cross-account read access and the
 // owner-only write guarantee are verified manually against real data.
-
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
 
 test("admin collaborators: rejects an unauthenticated request", async ({
   request,
@@ -28,10 +18,7 @@ test("admin collaborators: rejects an unauthenticated request", async ({
   expect(res.status()).toBe(401);
 });
 
-test("admin collaborators: rejects an invalid email when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.71.0.2");
+test("admin collaborators: rejects an invalid email when authenticated", async ({ adminRequest: request }) => {
   // A malformed email is a schema violation (400), proving the session was
   // accepted (otherwise this would be 401).
   const res = await request.post("/api/admin/collaborators", {
@@ -40,10 +27,7 @@ test("admin collaborators: rejects an invalid email when authenticated", async (
   expect(res.status()).toBe(400);
 });
 
-test("admin collaborators: accepts an add when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.71.0.3");
+test("admin collaborators: accepts an add when authenticated", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/collaborators", {
     data: {
       action: "add",
@@ -58,10 +42,7 @@ test("admin collaborators: accepts an add when authenticated", async ({
   expect((await res.json()).ok).toBe(true);
 });
 
-test("admin collaborators: accepts a remove when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.71.0.4");
+test("admin collaborators: accepts a remove when authenticated", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/collaborators", {
     data: { action: "remove", projectId: "p1", email: "second@example.com" },
   });

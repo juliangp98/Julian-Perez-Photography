@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Bundle linking APIs. A bundle groups two or more of one person's projects
 // (e.g. wedding + engagement) under a shared label. Two endpoints write it:
@@ -10,18 +10,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // sign-in needs only ADMIN_EMAIL, so the admin endpoint is testable end-to-end:
 // with the store blanked in this environment the helpers no-op, so a
 // well-formed authenticated request returns ok without touching a database.
-
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  // Following the link sets jpp_admin_session in this context's cookie jar;
-  // subsequent posts from the same `request` fixture carry it.
-  await request.get(json.devLink);
-}
 
 test("portal bundle: rejects an unauthenticated request", async ({
   request,
@@ -41,10 +29,7 @@ test("admin bundle: rejects an unauthenticated request", async ({ request }) => 
   expect(res.status()).toBe(401);
 });
 
-test("admin bundle: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.7.3");
+test("admin bundle: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // A link needs 2+ project ids — one is a schema violation (400), proving the
   // session was accepted (otherwise this would be 401).
   const res = await request.post("/api/admin/bundle", {
@@ -53,10 +38,7 @@ test("admin bundle: rejects a malformed body when authenticated", async ({
   expect(res.status()).toBe(400);
 });
 
-test("admin bundle: accepts a well-formed link when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.7.4");
+test("admin bundle: accepts a well-formed link when authenticated", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/bundle", {
     data: {
       action: "link",
@@ -70,10 +52,7 @@ test("admin bundle: accepts a well-formed link when authenticated", async ({
   expect((await res.json()).ok).toBe(true);
 });
 
-test("admin bundle: accepts an unlink when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.7.5");
+test("admin bundle: accepts an unlink when authenticated", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/bundle", {
     data: { action: "unlink", projectId: "p1" },
   });
