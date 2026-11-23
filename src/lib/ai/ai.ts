@@ -72,6 +72,9 @@ export type GenerateTextOptions = {
   messages?: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  // Abort the request after this many ms (default 30s). Callers on a
+  // user-facing path pass a tighter cap so a slow provider can't stall them.
+  timeoutMs?: number;
 };
 
 // Generate a completion from the configured provider. Returns the trimmed text,
@@ -112,7 +115,7 @@ export async function generateText(
         // its chain of thought inline; keep the drafts clean.
         ...(silenceReasoningWithNone(model) ? { reasoning_effort: "none" } : {}),
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
     // Network failure or timeout — normalize to a single error shape.

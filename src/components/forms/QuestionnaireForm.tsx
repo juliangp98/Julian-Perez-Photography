@@ -12,6 +12,7 @@ import {
   prefillableFieldIds,
 } from "@/lib/questionnaire-bundles";
 import { serviceNoun } from "@/lib/project-name";
+import { referralDetailPrompt } from "@/lib/referral";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
 
@@ -277,10 +278,14 @@ export default function QuestionnaireForm({
       }
     }
     // `referralOther` isn't declared in the questionnaire schema — it's a
-    // companion field that only appears when the referral dropdown is set
-    // to "Other". Include it in the payload when present so Julian sees
-    // the long-tail source in his email.
-    if (payload.referral === "other" && typeof state.referralOther === "string" && state.referralOther) {
+    // companion field that only appears when the referral option asks for
+    // detail (which group, venue, or vendor; "Other"). Include it in the
+    // payload when present so Julian sees the specific source in his email.
+    if (
+      referralDetailPrompt(payload.referral as string | undefined) &&
+      typeof state.referralOther === "string" &&
+      state.referralOther
+    ) {
       payload.referralOther = state.referralOther;
     }
 
@@ -608,9 +613,9 @@ export default function QuestionnaireForm({
         {visibleFields.map((field) => {
           // Normalize the "How did you find me?" field into the curated
           // dropdown used across the site — regardless of what `type` the
-          // questionnaire JSON declares for it. The "Other" option reveals
-          // a sibling free-text input (`referralOther`) so long-tail
-          // sources still come through.
+          // questionnaire JSON declares for it. Options that ask for detail
+          // reveal a sibling free-text input (`referralOther`) so the
+          // specific group, venue, or vendor still comes through.
           if (field.id === "referral") {
             return (
               <ReferralField

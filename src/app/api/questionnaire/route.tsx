@@ -201,9 +201,9 @@ export async function POST(req: Request) {
 
     for (const f of populatedFields) {
       const v = answers[f.id];
-      // `referral` renders as the friendly label (+ "Other" free-text
-      // detail if supplied). `referralOther` is a companion field only
-      // — skip its own row to avoid duplicating the detail.
+      // `referral` renders as the friendly label (+ the companion detail
+      // — which group, venue, or vendor — if supplied). `referralOther` is
+      // a companion field only — skip its own row to avoid duplicating it.
       if (f.id === "referral") {
         const referralRaw = typeof v === "string" ? v : "";
         const otherRaw = typeof answers["referralOther"] === "string"

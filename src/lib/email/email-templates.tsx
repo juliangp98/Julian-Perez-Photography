@@ -16,6 +16,11 @@ import {
   Preview,
 } from "@react-email/components";
 import type { ReactNode } from "react";
+import {
+  TRIAGE_FIT_LABEL,
+  TRIAGE_URGENCY_LABEL,
+  type InquiryTriage,
+} from "@/lib/ai/triage";
 
 // ---------------------------------------------------------------------------
 // Brand tokens (mirrored from globals.css)
@@ -157,6 +162,14 @@ export function BrandedEmailLayout({
 // Inquiry email (sent to Julian)
 // ---------------------------------------------------------------------------
 
+const SECTION_LABEL_STYLE = {
+  fontSize: "12px",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.1em",
+  color: MUTED,
+  margin: "0 0 8px 0",
+};
+
 type InquiryData = {
   name: string;
   email: string;
@@ -172,9 +185,12 @@ type InquiryData = {
 export function InquiryEmailTemplate({
   data,
   serviceName,
+  triage,
 }: {
   data: InquiryData;
   serviceName: string;
+  // AI assessment of the inquiry, when one came back in time. Owner-only.
+  triage?: InquiryTriage | null;
 }) {
   const fields: [string, string | undefined][] = [
     ["Name", data.name],
@@ -199,6 +215,50 @@ export function InquiryEmailTemplate({
       >
         New inquiry
       </Text>
+
+      {triage ? (
+        <Section
+          style={{
+            border: `1px solid ${BORDER}`,
+            padding: "12px 16px",
+            margin: "0 0 24px 0",
+          }}
+        >
+          <Text style={SECTION_LABEL_STYLE}>AI assessment</Text>
+          <Text
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              color: FOREGROUND,
+              margin: "0 0 6px 0",
+            }}
+          >
+            {TRIAGE_FIT_LABEL[triage.fit]} · {TRIAGE_URGENCY_LABEL[triage.urgency]}
+          </Text>
+          <Text
+            style={{
+              fontSize: "14px",
+              color: FOREGROUND,
+              lineHeight: "20px",
+              margin: "0 0 6px 0",
+            }}
+          >
+            {triage.summary}
+          </Text>
+          {[triage.fitReason, triage.urgencyReason].filter(Boolean).length ? (
+            <Text
+              style={{
+                fontSize: "12px",
+                color: MUTED,
+                lineHeight: "18px",
+                margin: 0,
+              }}
+            >
+              {[triage.fitReason, triage.urgencyReason].filter(Boolean).join(" ")}
+            </Text>
+          ) : null}
+        </Section>
+      ) : null}
 
       {fields.map(([label, value]) =>
         value ? (
@@ -246,6 +306,31 @@ export function InquiryEmailTemplate({
           {data.message}
         </Text>
       </Section>
+
+      {triage?.suggestedReply ? (
+        <Section
+          style={{
+            borderLeft: `3px solid ${BORDER}`,
+            paddingLeft: "16px",
+            margin: "20px 0",
+          }}
+        >
+          <Text style={SECTION_LABEL_STYLE}>
+            Suggested reply (draft — edit before sending)
+          </Text>
+          <Text
+            style={{
+              fontSize: "14px",
+              color: FOREGROUND,
+              lineHeight: "22px",
+              margin: 0,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {triage.suggestedReply}
+          </Text>
+        </Section>
+      ) : null}
 
       <Text style={{ fontSize: "12px", color: MUTED, margin: "16px 0 0 0" }}>
         Reply directly to this email to respond to {data.name}.
