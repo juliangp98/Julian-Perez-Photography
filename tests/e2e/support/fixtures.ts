@@ -57,9 +57,13 @@ export async function magicLinkFor(email: string): Promise<string> {
   return link!;
 }
 
+// The session cookie arrives on the verify redirect, so the redirect isn't
+// followed: that would render the landing page, which is slow on a cold compile
+// and says nothing about the test at hand.
 async function signIn(request: APIRequestContext, path: string, email: string) {
   await request.post(path, { data: { email, hp_company: "" } });
-  await request.get(await magicLinkFor(email));
+  const res = await request.get(await magicLinkFor(email), { maxRedirects: 0 });
+  expect(res.headers()["set-cookie"], `no session cookie for ${email}`).toBeTruthy();
 }
 
 export const test = base.extend<{

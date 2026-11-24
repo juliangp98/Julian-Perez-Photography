@@ -5,11 +5,11 @@ import { test, expect } from "./support/fixtures";
 // /api/portal/bundle (the client, on their own projects) and /api/admin/bundle
 // (the owner, on any one client's projects).
 //
-// The portal happy path needs a seeded record to obtain a session, so only its
-// auth guard is reachable here (same constraint as portal-auth.spec.ts). Admin
-// sign-in needs only ADMIN_EMAIL, so the admin endpoint is testable end-to-end:
-// with the store blanked in this environment the helpers no-op, so a
-// well-formed authenticated request returns ok without touching a database.
+// Only the portal endpoint's auth guard runs here; a portal session needs a
+// client record, and the store-backed portal sign-in is covered in
+// email-webhook.spec.ts. Admin sign-in needs only ADMIN_EMAIL, so the admin endpoint is testable end-to-end:
+// the ids are ones no project has, so the helpers find nothing to link and a
+// well-formed authenticated request returns ok without changing any record.
 
 test("portal bundle: rejects an unauthenticated request", async ({
   request,
@@ -46,8 +46,8 @@ test("admin bundle: accepts a well-formed link when authenticated", async ({ adm
       label: "Wedding + Engagement",
     },
   });
-  // Store is blanked here, so the helper no-ops — but the route accepts the
-  // request and returns ok.
+  // No project has these ids, so the helper links nothing, but the route
+  // accepts the request and returns ok.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });

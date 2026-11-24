@@ -9,12 +9,12 @@ Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writin
 ## The UI kit first
 
 - Buttons and button-styled links: `Button` (variants `primary`, `secondary`, `ghost`, `danger`, `text`; `loading` for in-flight states).
-- The line after an action: `FormStatus`. Copying: `CopyButton` or `CopyField`. Status chips: `Badge`.
+- The line after an action: `FormStatus`. Every action confirms itself there rather than counting on the refreshed page to show it worked. Copying: `CopyButton` or `CopyField`. Status chips: `Badge`.
 - Boxes: `Panel` (with `tone`), `CalloutCard`, `RailCard`.
 - Form controls: the `fields/` components; every dropdown is `Select` or `SelectField`.
 - Colors come from the theme tokens (`text-muted`, `border-border`, `text-accent`, `text-danger`, ...), never hex values or `[var(--...)]` classes.
 
-`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, and retired pieces.
+`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, retired pieces, and any route `loading.tsx` (on this Next version a loading boundary makes `router.refresh()` drop updates after an action).
 
 ## One feature, one job
 

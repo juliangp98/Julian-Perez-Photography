@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
 // accepted response (draft is null when unconfigured, a string when it ran)
 // rather than a specific draft. The honeypot path short-circuits before the
 // provider, so its draft:null is deterministic. Nothing is persisted, so these
-// run against the blanked test store with no side effects.
+// have no side effects in any store.
 
 test("assist-draft: rejects a malformed body with 400", async ({ request }) => {
   // Missing the required `kind` and `question`.

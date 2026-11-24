@@ -5,9 +5,9 @@ import { test, expect } from "./support/fixtures";
 // people, must-have shots, logistics) built from the snapshot server-side. It is
 // admin-gated and rate-limited, and never auto-runs.
 //
-// No project record resolves here (the store is blank without .env.test), so a
-// well-formed authenticated request is accepted but no-ops (`generated: false`) rather than
-// calling a provider. The auth guard and the schema are both reachable.
+// No project has the id "p1", so a well-formed authenticated request is
+// accepted but no-ops (`generated: false`) rather than calling a provider. The
+// auth guard and the schema are both reachable.
 
 test("prep-brief: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/prep-brief", {

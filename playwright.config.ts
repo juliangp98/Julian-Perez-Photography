@@ -17,9 +17,13 @@ const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/support/reset-test-store.ts",
   // Headroom for the dev server's cold compile of a page (30-60s with the
   // Sentry client bundle); warm requests are sub-second.
   timeout: 120_000,
+  // The same headroom for what a page shows after an action, which can wait on
+  // a compile in dev; the production build in CI is quick.
+  expect: { timeout: CI ? 5_000 : 15_000 },
   // One worker: the fake providers keep one shared record of calls, and specs
   // assert on it.
   workers: 1,
@@ -57,6 +61,7 @@ export default defineConfig({
         GROQ_API_KEY: "gsk_fake_e2e",
         AI_BASE_URL: FAKE_URL,
         AI_MODEL: "",
+        AI_FALLBACK_MODEL: "",
         AI_VISION_MODEL: "",
         TWILIO_ACCOUNT_SID: "ACfake_e2e",
         TWILIO_AUTH_TOKEN: "fake_e2e",

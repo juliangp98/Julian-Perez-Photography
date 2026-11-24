@@ -6,8 +6,8 @@ import { test, expect } from "./support/fixtures";
 // optionally pointing at a fitting email template. Admin-gated and rate-limited,
 // and never auto-runs.
 //
-// No project record resolves here (the store is blank without .env.test), so a
-// well-formed authenticated request is accepted but no-ops (`suggested: false`).
+// No project has the id "p1", so a well-formed authenticated request is
+// accepted but no-ops (`suggested: false`).
 
 test("next-action: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/next-action", {

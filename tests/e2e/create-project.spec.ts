@@ -1,9 +1,9 @@
 import { test, expect } from "./support/fixtures";
 
 // Manual project creation. Admin (/api/admin/create-project) is fully gated +
-// testable; the portal route (/api/portal/create-project) needs a session that
-// can't be minted against the blanked test store, so only its 401 is asserted.
-// The store is blanked, so a well-formed admin create cleanly no-ops.
+// testable; for the portal route (/api/portal/create-project) only its 401 is
+// asserted. A well-formed admin create answers ok: it creates the project when
+// the test store is configured (the suite's reset clears it) and no-ops without.
 
 test("admin create-project: rejects an unauthenticated request", async ({
   request,
@@ -23,7 +23,7 @@ test("admin create-project: rejects a malformed body when authenticated", async 
   expect(res.status()).toBe(400);
 });
 
-test("admin create-project: accepts a well-formed create, no-ops on the blanked store", async ({ adminRequest: request }) => {
+test("admin create-project: accepts a well-formed create", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/create-project", {
     data: {
       email: "newclient@example.com",

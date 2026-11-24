@@ -1,9 +1,9 @@
-import { test, expect } from "./support/fixtures";
+import { test, expect, hasTestStore } from "./support/fixtures";
 
 // Persist a reviewed alt-text override (/api/admin/save-alt). Admin-gated and
-// rate-limited. The override store is blanked in the test env (see
-// playwright.config.ts), so a well-formed save cleanly no-ops with
-// `saved: false` — deterministic and never touches a real database.
+// rate-limited. With the test store a well-formed save is written (to an
+// e2e-only image path, which the suite's reset clears); without a store it's
+// accepted and answers `saved: false`.
 
 test("save-alt: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/save-alt", {
@@ -21,13 +21,12 @@ test("save-alt: rejects a malformed body when authenticated", async ({ adminRequ
   expect(res.status()).toBe(400);
 });
 
-test("save-alt: accepts a well-formed save, no-ops when the store is unconfigured", async ({ adminRequest: request }) => {
+test("save-alt: accepts a well-formed save, and saves it when there's a store", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/save-alt", {
-    data: { src: "/portfolio/weddings/one.jpg", alt: "A couple at sunset." },
+    data: { src: "/portfolio/e2e/sample.jpg", alt: "A couple at sunset." },
   });
-  // Store blanked in the test env → accepted but not persisted.
   expect(res.status()).toBe(200);
   const json = await res.json();
   expect(json.ok).toBe(true);
-  expect(json.saved).toBe(false);
+  expect(json.saved).toBe(hasTestStore);
 });

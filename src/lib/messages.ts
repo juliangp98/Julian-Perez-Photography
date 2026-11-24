@@ -4,7 +4,7 @@
 
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { db, isClientsStoreConfigured } from "@/lib/clients";
+import { db, isClientsStoreConfigured, isRecordId } from "@/lib/clients";
 
 const TABLE = "client_messages";
 
@@ -106,7 +106,7 @@ export async function listProjectMessages(
   projectId: string,
   opts: { clientView?: boolean } = {},
 ): Promise<ClientMessage[]> {
-  if (!isClientsStoreConfigured()) return [];
+  if (!isClientsStoreConfigured() || !isRecordId(projectId)) return [];
   let q = db().from(TABLE).select(SELECT).eq("project_id", projectId);
   if (opts.clientView) q = q.in("status", CLIENT_VISIBLE);
   const { data, error } = await q.order("sent_at", { ascending: true });

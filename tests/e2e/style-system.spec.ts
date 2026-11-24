@@ -55,3 +55,11 @@ test("retired pieces stay gone", () => {
   expect(offenders(/\b(text|border|bg)-red-(300|400|500|700|800)\b/, ["src/components/ui/Badge.tsx"])).toEqual([]);
   expect(offenders(/✨/)).toEqual([]);
 });
+
+// A loading.tsx anywhere above a page makes router.refresh() (on Next 16.2)
+// fetch the updated page after an action and, about a third of the time, never
+// show it. The CHANGELOG's "Site scaffold" section has the measurements.
+test("no route loading boundaries", () => {
+  const boundaries = files.map((f) => f.path).filter((p) => /^src\/app\/.*loading\.tsx$/.test(p));
+  expect(boundaries, "a loading.tsx breaks router.refresh() after actions").toEqual([]);
+});

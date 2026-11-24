@@ -1,8 +1,8 @@
 import { test, expect } from "./support/fixtures";
 
 // Admin project deletion (/api/admin/delete-project). Owner-gated and
-// rate-limited. The store is blanked in the test env, so a well-formed delete
-// cleanly no-ops (`ok: true`) without touching a real database.
+// rate-limited. The well-formed delete names an id no project has, so it
+// answers `ok: true` without removing anything, with or without a store.
 
 test("delete-project: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/delete-project", {
@@ -18,7 +18,7 @@ test("delete-project: rejects a malformed body when authenticated", async ({ adm
   expect(res.status()).toBe(400);
 });
 
-test("delete-project: accepts a well-formed request, no-ops on the blanked store", async ({ adminRequest: request }) => {
+test("delete-project: accepts a well-formed request for a project that doesn't exist", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/delete-project", {
     data: { projectId: "00000000-0000-0000-0000-000000000000" },
   });

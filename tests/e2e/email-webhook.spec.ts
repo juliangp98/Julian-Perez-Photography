@@ -57,6 +57,22 @@ test.describe("the thread against the test store", () => {
     await expect(thread.getByText("Delivered")).toBeVisible();
   });
 
+  // The page re-renders from the server after the send (router.refresh); the
+  // new message has to appear on the thread without a reload.
+  test("a send from Compose shows on the thread without a reload", async ({ adminRequest, adminPage, fakes }) => {
+    const p = await startThread(adminRequest, fakes);
+    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.getByRole("combobox", { name: "Email template" }).selectOption({ label: "Inquiry reply" });
+    await adminPage.getByRole("textbox", { name: "Subject" }).fill("Second note");
+    await adminPage.getByRole("textbox", { name: "Email body" }).fill("Following up from Compose.");
+    await adminPage.getByRole("button", { name: "Send to client" }).click();
+    await expect(adminPage.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
+    await expect(
+      adminPage.getByRole("list", { name: "Messages" }).getByText("Following up from Compose."),
+    ).toBeVisible();
+    expect(sentTo(await fakes.calls("resend"), p.email).at(-1)?.body?.text).toBe("Following up from Compose.");
+  });
+
   test("a bounce marks the message and tells the owner", async ({ adminRequest, adminPage, fakes }) => {
     const p = await startThread(adminRequest, fakes);
     await post(adminRequest, {
@@ -134,10 +150,18 @@ test.describe("the thread against the test store", () => {
     expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(1);
 
     await adminPage.goto(`/admin/projects/${p.id}`);
+    const released = adminPage.waitForResponse((r) => r.url().endsWith("/api/admin/messages"));
     await adminPage.getByRole("button", { name: /send it to the client/i }).click();
-    await expect(adminPage.getByText("Sent after review.")).toBeVisible();
+    expect((await released).status()).toBe(200);
+    await expect(adminPage.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
     const [relay] = sentTo(await fakes.calls("resend"), p.email).slice(-1);
     expect(relay.body?.text).toBe("Unverified hello.");
+    await expect(adminPage.getByText("Sent after review.")).toBeVisible();
+
+    // The thread records it: the held copy is marked, and there's nothing left to release.
+    await adminPage.reload();
+    await expect(adminPage.getByText("Sent after review.")).toBeVisible();
+    await expect(adminPage.getByRole("button", { name: /send it to the client/i })).toHaveCount(0);
   });
 
   test("an old Gmail thread forwarded to the filing address is imported, not sent", async ({
@@ -187,6 +211,12 @@ test.describe("the thread against the test store", () => {
     const thread = page.getByRole("list", { name: "Messages" });
     await expect(thread.getByText("Opening note")).toBeVisible();
     await expect(thread.getByText("A question from the portal.")).toBeVisible();
+
+    // Writing from the page itself: confirmed, and on the thread without a reload.
+    await page.getByPlaceholder("Write to Julian…").fill("Can we start at four?");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Sent. Julian gets it by email too." })).toBeVisible();
+    await expect(thread.getByText("Can we start at four?")).toBeVisible();
   });
 });
 
@@ -204,7 +234,7 @@ async function startThread(
   });
   const { id } = await created.json();
   const sent = await request.post("/api/admin/send-email", {
-    data: { projectId: id, subject: "Opening note", body: "Opening note" },
+    data: { projectId: id, subject: "Opening note", body: "Looking forward to it." },
   });
   expect(sent.status()).toBe(200);
   const { id: resendId } = await sent.json();

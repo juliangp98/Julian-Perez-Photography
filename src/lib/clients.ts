@@ -208,12 +208,21 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+// Project ids are UUIDs. Anything else (a mistyped or truncated URL) can't
+// match a row, and handing it to Postgres fails the uuid cast rather than
+// finding nothing, so the helpers treat it as a missing row up front: lookups
+// answer "not found" and writes do nothing.
+const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isRecordId(id: string): boolean {
+  return RECORD_ID.test(id);
+}
+
 // ── Reads ──
 
 export async function getClientById(
   id: string,
 ): Promise<ClientRecordSafe | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
@@ -259,7 +268,7 @@ export async function getProjectForEmail(
   id: string,
   email: string,
 ): Promise<ClientRecordSafe | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(
     projectForOwnerSelect,
     (sel) =>
@@ -346,7 +355,7 @@ export async function getProjectForViewer(
   id: string,
   email: string,
 ): Promise<{ record: ClientRecordSafe; viewerRole: PortalViewerRole } | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const e = normalizeEmail(email);
 
   // Owner path first — also covers the pre-migration window with no extra query.
@@ -423,7 +432,7 @@ export async function upsertClientFromInquiry(input: {
 
   // Attach-by-id: only when the project is unclaimed or already this email's, so
   // a leaked completion link can't write into someone else's record.
-  if (input.projectId) {
+  if (input.projectId && isRecordId(input.projectId)) {
     const { data: byId } = await db()
       .from(TABLE)
       .select(FILL)
@@ -572,7 +581,7 @@ export async function attachQuestionnaire(input: {
   let existing: QRow | undefined;
 
   // Attach-by-id when the project is unclaimed or already this email's.
-  if (input.projectId) {
+  if (input.projectId && isRecordId(input.projectId)) {
     const { data: byId } = await db()
       .from(TABLE)
       .select(SEL)
@@ -670,7 +679,7 @@ export async function advanceStatus(
   target: ClientStatus,
   note?: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error: selErr } = await db()
     .from(TABLE)
     .select("status, status_history")
@@ -693,7 +702,7 @@ export async function appendDocument(
   id: string,
   doc: ClientDocumentEntry,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error: selErr } = await db()
     .from(TABLE)
     .select("documents")
@@ -717,7 +726,7 @@ export async function addCollaborator(
   id: string,
   input: { email: string; name?: string },
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const email = normalizeEmail(input.email);
   const { data: row, error: selErr } = await db()
     .from(TABLE)
@@ -754,7 +763,7 @@ export async function removeCollaborator(
   id: string,
   email: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const e = normalizeEmail(email);
   const { data: row, error: selErr } = await db()
     .from(TABLE)
@@ -801,7 +810,7 @@ export async function updateClientFields(
   id: string,
   fields: ClientEditableFields,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const patch: Record<string, unknown> = {};
   for (const k of CLIENT_EDITABLE) {
     const v = fields[k];
@@ -849,7 +858,7 @@ export async function listClients(): Promise<ClientRecordFull[]> {
 export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
@@ -879,7 +888,7 @@ export async function updateClientAdmin(
   id: string,
   fields: Record<string, unknown>,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const patch: Record<string, unknown> = {};
   for (const [k, col] of Object.entries(ADMIN_COLUMN)) {
     if (k in fields && fields[k] !== undefined) patch[col] = fields[k];
@@ -915,7 +924,7 @@ export async function addAdminLog(
   id: string,
   input: { status?: string; note?: string },
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error } = await db()
     .from(TABLE)
     .select("status, status_history")
@@ -988,12 +997,13 @@ export async function setBundleForEmail(
   projectIds: string[],
   label: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  const asked = projectIds.filter(isRecordId);
+  if (!isClientsStoreConfigured() || asked.length < 2) return;
   const { data: owned, error } = await db()
     .from(TABLE)
     .select("id")
     .eq("email", normalizeEmail(email))
-    .in("id", projectIds);
+    .in("id", asked);
   if (error) throw error;
   const ids = (owned ?? []).map((r) => r.id as string);
   if (ids.length < 2) return;
@@ -1004,7 +1014,7 @@ export async function clearBundleForEmail(
   email: string,
   projectId: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(projectId)) return;
   const { data: owned, error } = await db()
     .from(TABLE)
     .select("id")
@@ -1021,11 +1031,12 @@ export async function setBundleAdmin(
   projectIds: string[],
   label: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  const ids = projectIds.filter(isRecordId);
+  if (!isClientsStoreConfigured() || ids.length < 2) return;
   const { data: rows, error } = await db()
     .from(TABLE)
     .select("id, email")
-    .in("id", projectIds);
+    .in("id", ids);
   if (error) throw error;
   const emails = new Set((rows ?? []).map((r) => r.email as string));
   if (emails.size !== 1 || (rows ?? []).length < 2) return;
@@ -1037,14 +1048,14 @@ export async function setBundleAdmin(
 }
 
 export async function clearBundleAdmin(projectId: string): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(projectId)) return;
   await applyBundle([projectId], null, null);
 }
 
 // Permanently delete one project row (admin-only). No-ops cleanly when the
 // store isn't configured. Bundle siblings are unaffected — only this row goes.
 export async function deleteClient(id: string): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { error } = await db().from(TABLE).delete().eq("id", id);
   if (error) throw error;
 }

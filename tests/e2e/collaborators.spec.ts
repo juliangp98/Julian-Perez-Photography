@@ -1,12 +1,13 @@
-import { test, expect } from "./support/fixtures";
+import { test, expect, hasTestStore } from "./support/fixtures";
 
 // Per-project second-photographer access. The admin grants/revokes a
 // collaborator email via /api/admin/collaborators; the portal magic-link gate
-// then also issues links to collaborator emails. The grant's real visibility
-// semantics need a seeded record (the store is blanked here, same constraint as
-// portal-auth.spec.ts), so this covers the admin route's auth + validation and
-// the uniform portal request-link response. Cross-account read access and the
-// owner-only write guarantee are verified manually against real data.
+// then also issues links to collaborator emails. This covers the admin route's
+// auth and validation (on an id no project has, so the grant changes nothing)
+// and the uniform portal request-link response; with the test store it also
+// grants access on a real project from the admin page. Cross-account read
+// access and the owner-only write guarantee are verified manually against
+// real data.
 
 test("admin collaborators: rejects an unauthenticated request", async ({
   request,
@@ -37,7 +38,7 @@ test("admin collaborators: accepts an add when authenticated", async ({ adminReq
       sendInvite: false,
     },
   });
-  // Store blanked → helper no-ops, but the route accepts it.
+  // No project has this id → the helper does nothing, but the route accepts it.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
@@ -53,12 +54,33 @@ test("admin collaborators: accepts a remove when authenticated", async ({ adminR
 test("portal request-link: stays uniform for a collaborator email", async ({
   request,
 }) => {
-  // The gate now also considers collaborator access. With the store blanked it
-  // can't match, but the anti-enumeration response must stay a uniform 200.
+  // The gate also considers collaborator access. This address isn't on any
+  // project, and the anti-enumeration response must stay a uniform 200.
   const res = await request.post("/api/portal/request-link", {
     headers: { "x-forwarded-for": "10.71.0.5" },
     data: { email: "second@example.com", hp_company: "" },
   });
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
+});
+
+test("admin collaborators: granting access on a project confirms and lists them", async ({
+  adminRequest,
+  adminPage,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const stamp = Date.now();
+  const created = await adminRequest.post("/api/admin/create-project", {
+    data: { email: `e2e-collab-${stamp}@example.com`, clientName: "E2E Collab", serviceType: "weddings", force: true },
+  });
+  const { id } = await created.json();
+  const second = `e2e-second-${stamp}@example.com`;
+
+  await adminPage.goto(`/admin/projects/${id}`);
+  await adminPage.getByLabel("Add a second photographer").fill(second);
+  await adminPage.getByLabel("Email them a one-click sign-in link").uncheck();
+  await adminPage.getByRole("button", { name: "Grant access" }).click();
+  await expect(adminPage.getByRole("status").filter({ hasText: "Added." })).toBeVisible();
+  // The list comes from the server: it shows the new address without a reload.
+  await expect(adminPage.getByRole("listitem").filter({ hasText: second })).toBeVisible();
 });

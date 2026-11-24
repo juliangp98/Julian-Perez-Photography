@@ -1,10 +1,11 @@
-import { test, expect } from "./support/fixtures";
+import { test, expect, hasTestStore } from "./support/fixtures";
 
 // Admin projects overview: quick-log API (status/note from the board) and the
-// search/filter params. With the store blanked in this environment the helpers
-// no-op and the list is empty, so the quick-log UI and filter form (both gated
-// on real records) aren't reachable — but the API guards and the server-side
-// filter code path are.
+// search/filter params. The API cases use an id no project has ("p1"), so the
+// helpers find no row and do nothing while the route still accepts the shape;
+// that holds with or without the test store. The pages cover the server-side
+// filter path and the not-found state, and, with the test store, a quick-log
+// note saved from the board.
 
 test("admin quick-log: rejects an unauthenticated request", async ({
   request,
@@ -33,7 +34,7 @@ test("admin quick-log: accepts a note when authenticated", async ({ adminRequest
       notifyClient: true,
     },
   });
-  // Store blanked → helper no-ops, but the route accepts it.
+  // No project has this id → the helper does nothing, but the route accepts it.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
@@ -48,8 +49,8 @@ test("admin projects: filter params render without error", async ({ adminPage: p
 
 test("admin project page: a missing project renders the not-found state, not a 500", async ({ adminPage: page }) => {
   // The detail page server-renders its full tree — including the collapsible
-  // questionnaire callout path. With the store blanked the record is absent, so
-  // it must show the not-found copy rather than 500.
+  // questionnaire callout path. An id that isn't a project's must show the
+  // not-found copy rather than 500.
   await page.goto("/admin/projects/no-such-project");
   await expect(page.getByText(/couldn.t be found/i)).toBeVisible();
 });
@@ -65,7 +66,7 @@ test("admin update: accepts a gallery URL and project name when authenticated", 
       },
     },
   });
-  // Store blanked → no-op, but the route accepts the new fields.
+  // No project has this id → no-op, but the route accepts the new fields.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
@@ -110,4 +111,17 @@ test("admin update: accepts the declined status and a locations array", async ({
   });
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
+});
+
+test("admin quick-log: a note saved from the board says so", async ({ adminRequest, adminPage }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const email = `e2e-quick-${Date.now()}@example.com`;
+  await adminRequest.post("/api/admin/create-project", {
+    data: { email, clientName: "E2E Quick", serviceType: "weddings", force: true },
+  });
+  await adminPage.goto(`/admin/projects?q=${encodeURIComponent(email)}`);
+  await adminPage.getByRole("button", { name: "Quick update +" }).click();
+  await adminPage.getByPlaceholder("Add a note…").fill("Called, left a voicemail");
+  await adminPage.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(adminPage.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
 });

@@ -29,6 +29,9 @@ function fresh() {
   };
 }
 let state = fresh();
+// Ids carry this process's start time: like a real provider's, they're never
+// reused, even by a later run against the same test store.
+const RUN = Date.now().toString(36);
 let seq = 0;
 
 const notFound = [404, { statusCode: 404, name: "not_found", message: "Not found" }];
@@ -45,7 +48,7 @@ const routes = [
     }
     const key = headers["idempotency-key"];
     if (key && state.idempotency.has(key)) return [200, { id: state.idempotency.get(key) }];
-    const id = `fake-email-${++seq}`;
+    const id = `fake-email-${RUN}-${++seq}`;
     state.emails.set(id, { ...body, id, created_at: new Date().toISOString(), last_event: "delivered" });
     if (key) state.idempotency.set(key, id);
     return [200, { id }];
@@ -64,7 +67,7 @@ const routes = [
     }
     const content = state.script.replies.length ? state.script.replies.shift() : DEFAULT_REPLY;
     return [200, {
-      id: `fake-chat-${++seq}`,
+      id: `fake-chat-${RUN}-${++seq}`,
       object: "chat.completion",
       model: body?.model,
       choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
@@ -73,7 +76,7 @@ const routes = [
   ["POST", /^\/2010-04-01\/Accounts\/[^/]+\/Messages\.json$/, "twilio", (body) =>
     String(body?.To ?? "").endsWith("0000")
       ? [400, { code: 21211, message: "The 'To' number is not a valid phone number." }]
-      : [201, { sid: `SMfake${++seq}`, status: "queued", to: body?.To }]],
+      : [201, { sid: `SMfake${RUN}${++seq}`, status: "queued", to: body?.To }]],
 ];
 
 async function readBody(req) {

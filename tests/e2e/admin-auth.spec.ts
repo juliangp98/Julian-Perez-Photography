@@ -79,9 +79,9 @@ test("admin: full sign-in loop reaches the projects dashboard", async ({
   ).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
-  // 4. External-links hub is reachable once authed. 30s timeout: the first
-  //    navigation to this route triggers a cold Turbopack compile that can
-  //    exceed the default 5s assertion window on a fresh suite run.
+  // 4. External-links hub is reachable once authed. 30s timeout: under the
+  //    dev server the first navigation to this route triggers a cold compile
+  //    that can outlast the configured assertion window on a fresh suite run.
   await page.getByRole("link", { name: "External links" }).click();
   await expect(
     page.getByRole("heading", { name: "External links", level: 1 }),

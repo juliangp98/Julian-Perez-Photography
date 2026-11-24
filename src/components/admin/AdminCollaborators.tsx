@@ -27,10 +27,12 @@ export default function AdminCollaborators({
   const [sendInvite, setSendInvite] = useState(true);
   const [busy, setBusy] = useState<string | null>(null); // "add" | the email being removed
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState("");
 
-  async function post(body: Record<string, unknown>, busyKey: string) {
+  async function post(body: Record<string, unknown>, busyKey: string, doneText: string) {
     setBusy(busyKey);
     setError(null);
+    setDone("");
     try {
       const res = await fetch("/api/admin/collaborators", {
         method: "POST",
@@ -38,6 +40,7 @@ export default function AdminCollaborators({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("request failed");
+      setDone(doneText);
       router.refresh();
       return true;
     } catch {
@@ -62,6 +65,7 @@ export default function AdminCollaborators({
         sendInvite,
       },
       "add",
+      "Added.",
     );
     if (ok) {
       setEmail("");
@@ -106,6 +110,7 @@ export default function AdminCollaborators({
                   post(
                     { action: "remove", projectId, email: c.email },
                     c.email,
+                    "Removed.",
                   )
                 }
               >
@@ -148,7 +153,7 @@ export default function AdminCollaborators({
         >
           Grant access
         </Button>
-        <FormStatus state={error ? "error" : "idle"} error={error ?? ""} className="block" />
+        <FormStatus state={error ? "error" : done ? "ok" : "idle"} ok={done} error={error ?? ""} className="block" />
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ export default function AdminQuickLog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notifyClient, setNotifyClient] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const statusChanged = !!status && status !== (currentStatus ?? "");
   const canSave = statusChanged || note.trim().length > 0;
@@ -51,7 +52,10 @@ export default function AdminQuickLog({
       router.refresh();
       // Stay open to say so when the client email didn't go out.
       if (json.notifyError) setError(`Saved, but the client email didn't send: ${json.notifyError}.`);
-      else setOpen(false);
+      else {
+        setSaved(true);
+        setOpen(false);
+      }
     } catch {
       setError("Couldn't save. Try again.");
     } finally {
@@ -61,13 +65,19 @@ export default function AdminQuickLog({
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-[10px] uppercase tracking-widest text-muted hover:text-foreground cursor-pointer bg-transparent border-0 p-0"
-      >
-        Quick update +
-      </button>
+      <span className="inline-flex items-baseline gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setSaved(false);
+            setOpen(true);
+          }}
+          className="text-[10px] uppercase tracking-widest text-muted hover:text-foreground cursor-pointer bg-transparent border-0 p-0"
+        >
+          Quick update +
+        </button>
+        <FormStatus state={saved ? "ok" : "idle"} className="text-xs" />
+      </span>
     );
   }
 

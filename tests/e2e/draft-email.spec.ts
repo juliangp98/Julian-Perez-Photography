@@ -5,10 +5,10 @@ import { test, expect } from "./support/fixtures";
 // the project's server-side facts — which the owner reviews before sending (the
 // route never sends). It is admin-gated and rate-limited.
 //
-// No project record resolves here (the store is blank without .env.test), so a
-// well-formed authenticated request is accepted but no-ops (`drafted: false`) rather than
-// calling a provider — the compose UI falls back to the static template. The
-// auth guard, the schema, and the template-existence check are all reachable.
+// No project has the id "p1", so a well-formed authenticated request is
+// accepted but no-ops (`drafted: false`) rather than calling a provider — the
+// compose UI falls back to the static template. The auth guard, the schema, and
+// the template-existence check are all reachable.
 
 test("draft-email: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/draft-email", {

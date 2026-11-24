@@ -25,8 +25,10 @@ test("questionnaire upload: a token request from another site is refused", async
 });
 
 test("questionnaire upload: a path outside questionnaires/ is refused", async ({ request }) => {
+  // The site's own origin passes the origin check in dev and production builds
+  // alike (localhost is allowed only outside production), so the path is what's tested.
   const res = await request.post("/api/questionnaire-upload", {
-    headers: { origin: "http://localhost:3100" },
+    headers: { origin: "https://julianperezphotography.com" },
     data: tokenRequest("client-plans/../weddings-day-plan.pdf"),
   });
   expect(res.status()).toBe(400);

@@ -6,8 +6,8 @@ import { test, expect } from "./support/fixtures";
 // since the summary is portal-visible. The owner reviews/edits it in the form
 // and saves. It is admin-gated and rate-limited.
 //
-// No project record resolves here (the store is blank without .env.test), so a
-// well-formed authenticated request is accepted but no-ops (`drafted: false`).
+// No project has the id "p1", so a well-formed authenticated request is
+// accepted but no-ops (`drafted: false`).
 
 test("draft-plan: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/draft-plan", {

@@ -1,14 +1,14 @@
 import { test, expect } from "./support/fixtures";
 
 // AI inquiry triage (/api/admin/triage). On a project with an inquiry, the
-// owner can request an AI assessment (summary, fit, urgency, key details, a
-// suggested reply) built from the inquiry server-side. It is admin-gated and
-// rate-limited, and never auto-runs.
+// owner can request an AI assessment (summary, fit, urgency, key details) built
+// from the inquiry server-side; the reply itself is drafted in Compose. It is
+// admin-gated and rate-limited, and never auto-runs.
 //
-// No project record resolves here (the store is blank without .env.test), so a
-// well-formed authenticated request is accepted but no-ops (`triaged: false`) rather than
-// calling a provider — the admin UI then shows no assessment. The auth guard and
-// the schema are both reachable.
+// No project has the id "p1", so a well-formed authenticated request is
+// accepted but no-ops (`triaged: false`) rather than calling a provider — the
+// admin UI then shows no assessment. The auth guard and the schema are both
+// reachable.
 
 test("triage: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/triage", {

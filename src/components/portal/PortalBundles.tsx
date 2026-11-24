@@ -31,6 +31,7 @@ export default function PortalBundles({
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [done, setDone] = useState("");
 
   // Existing bundles among these projects, grouped by label — surfaced in the
   // collapsed header so the grouping is visible without opening the panel.
@@ -50,9 +51,10 @@ export default function PortalBundles({
     );
   }
 
-  async function post(body: unknown) {
+  async function post(body: unknown, doneText: string) {
     setBusy(true);
     setError(false);
+    setDone("");
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -62,6 +64,7 @@ export default function PortalBundles({
       if (!res.ok) throw new Error();
       setSelected([]);
       setLabel("");
+      setDone(doneText);
       router.refresh();
     } catch {
       setError(true);
@@ -142,7 +145,7 @@ export default function PortalBundles({
                     variant="text"
                     disabled={busy}
                     onClick={() =>
-                      post({ action: "unlink", projectId: p.id })
+                      post({ action: "unlink", projectId: p.id }, "Unlinked.")
                     }
                   >
                     Unlink
@@ -170,14 +173,15 @@ export default function PortalBundles({
               loading={busy}
               loadingLabel="Saving…"
               onClick={() =>
-                post({ action: "link", projectIds: selected, label })
+                post({ action: "link", projectIds: selected, label }, "Linked.")
               }
             >
               Link selected
             </Button>
           </div>
           <FormStatus
-            state={error ? "error" : "idle"}
+            state={error ? "error" : done ? "ok" : "idle"}
+            ok={done}
             error="Couldn’t update. Try again."
             className="mt-3 block"
           />

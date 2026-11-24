@@ -171,8 +171,8 @@ export default async function AdminProjectDetailPage({
                     <Panel className="mt-5">
                       <h3 className="font-serif text-lg">Triage with AI</h3>
                       <p className="mt-1 mb-4 text-sm text-muted">
-                        Fit, urgency, key details, and a suggested reply to start
-                        from.
+                        Fit, urgency and key details, with a link to draft the
+                        reply in Compose.
                       </p>
                       <InquiryTriage projectId={record.id} />
                     </Panel>
