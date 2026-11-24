@@ -24,7 +24,7 @@ export function renderInline(text: string): ReactNode[] {
         <Link
           key={`l${key++}`}
           href={href}
-          className="underline underline-offset-4 decoration-[var(--accent)] hover:text-[var(--accent)] transition"
+          className="underline underline-offset-4 decoration-accent hover:text-accent transition"
         >
           {label}
         </Link>,
@@ -36,7 +36,7 @@ export function renderInline(text: string): ReactNode[] {
           href={href}
           target="_blank"
           rel="noreferrer"
-          className="underline underline-offset-4 decoration-[var(--accent)] hover:text-[var(--accent)] transition"
+          className="underline underline-offset-4 decoration-accent hover:text-accent transition"
         >
           {label}
         </a>,

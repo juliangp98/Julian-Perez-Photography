@@ -2,7 +2,7 @@
 //
 //   npm run deps:check    — report only: npm freshness, security audit, and
 //                           live checks of the third-party services npm can't
-//                           see (Groq model availability, Sanity reachability).
+//                           see (Groq catalogue + model pins, Sanity reachability).
 //   npm run deps:update   — apply the safe layer: in-range `npm update`,
 //                           same-major bumps for the exact-pinned framework
 //                           packages, `npm audit fix`, and a Playwright browser
@@ -87,25 +87,25 @@ else if (sev.moderate) log("  (moderates here have historically been transitive 
 // ── 3. integration freshness (the part npm can't see) ─────────────────────────
 header("Service integrations");
 
-// Groq: the configured (or default) model slugs must still be served — Groq
-// retires models, and a vanished slug silently breaks every AI feature.
+// Groq: the site picks its models from the live catalogue (src/lib/ai/models.ts)
+// and switches by itself when one is retired, so this only reports the
+// catalogue size and whether any env pins are still served.
 const groqKey = process.env.GROQ_API_KEY;
 if (!groqKey) {
   log("  Groq: no key in env — skipped");
 } else {
   const base = (process.env.AI_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/$/, "");
-  const want = [
-    process.env.AI_MODEL || "llama-3.3-70b-versatile",
-    process.env.AI_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct",
-  ];
+  const pins = ["AI_MODEL", "AI_FALLBACK_MODEL", "AI_VISION_MODEL"].filter((k) => process.env[k]);
   try {
     const res = await fetch(`${base}/models`, {
       headers: { Authorization: `Bearer ${groqKey}` },
       signal: AbortSignal.timeout(15000),
     });
     const ids = ((await res.json())?.data ?? []).map((m) => m.id);
-    for (const slug of want) {
-      log(ids.includes(slug) ? `  ✓ AI model live: ${slug}` : `  ✗ AI MODEL GONE: ${slug} — set AI_MODEL/AI_VISION_MODEL to a current model`);
+    log(`  ✓ Groq answers: ${ids.length} models served; the site chooses among them daily`);
+    for (const k of pins) {
+      const slug = process.env[k];
+      log(ids.includes(slug) ? `  ✓ ${k} pin still served: ${slug}` : `  ✗ ${k} pin no longer served: ${slug} — the site ignores it; remove or update it`);
     }
   } catch (err) {
     log(`  ⚠ Groq models check failed (${err.message ?? err})`);

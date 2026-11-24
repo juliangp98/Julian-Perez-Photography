@@ -205,3 +205,17 @@ export function formatDateTime(iso?: string | null): string {
     timeZone: STUDIO_TIME_ZONE,
   });
 }
+
+// Whole calendar days from today to a date ("2026-10-10", "10/10/2026",
+// "Aug 15, 2027", or a full timestamp): negative when it's past, null when it
+// can't be read.
+export function daysUntil(d?: string | null): number | null {
+  if (!d) return null;
+  let date = new Date(`${d}T00:00:00`);
+  if (Number.isNaN(date.getTime())) date = new Date(d);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}

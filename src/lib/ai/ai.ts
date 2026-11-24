@@ -1,62 +1,37 @@
-// Provider-agnostic text generation (server-only). A single `generateText`
-// call fronts any OpenAI-compatible chat-completions API; the default provider
-// is Groq, whose free tier is fast and — per their API policy — does not train
-// on submitted data, which is why it's the pick for anything carrying client
-// PII. Swappable to OpenAI / Together / Fireworks / any compatible endpoint by
-// pointing `AI_BASE_URL` (+ `AI_MODEL`) at it.
+// Text and vision generation (server-only) through any OpenAI-compatible chat
+// API. The default provider is Groq: its free tier is fast and its API policy
+// doesn't train on submitted data, which is why it's used for prompts carrying
+// client details. AI_BASE_URL points it elsewhere.
 //
-// The whole module no-ops (returns null) when `GROQ_API_KEY` is unset, so AI
-// features degrade to their static fallback instead of erroring — the same
-// optional-by-env posture as Resend and Twilio. The key is read server-side
-// only and must never be exposed as `NEXT_PUBLIC_`.
+// Without GROQ_API_KEY every call returns null and AI features fall back to
+// their static versions. Which model answers is decided in ./models.ts; a
+// retired model falls through to the fallback, then to a fresh pick.
+
+import { TransientError, withRetry } from "@/lib/retry";
+import { currentModels, knownModels, refreshModels } from "./models";
 
 const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
-// Groq is retiring the Llama models; this is their recommended text
-// replacement. gpt-oss is a reasoning model, but it keeps its chain of thought
-// in a separate response field and returns clean `content` by default, so it
-// needs no reasoning suppression here (and it REJECTS `reasoning_effort:
-// "none"` — see `silenceReasoningWithNone`). Override with AI_MODEL.
-const DEFAULT_MODEL = "openai/gpt-oss-120b";
-// The text default isn't multimodal — vision uses a separate, vision-capable
-// model (override with AI_VISION_MODEL; Groq's lineup changes over time). Groq
-// keeps no stable production vision model; qwen3.6-27b is its current
-// multimodal option (a reasoning model — see `silenceReasoningWithNone`).
-const DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b";
 const REQUEST_TIMEOUT_MS = 30_000;
 
-// Whether AI features are configured. UI uses this to decide whether to offer
-// the AI affordance at all (rather than show a button that no-ops).
 export function aiEnabled(): boolean {
   return !!process.env.GROQ_API_KEY;
 }
 
-// The model in effect (default or env override) — handy for logs / tags.
+// The model last known to be in use, for log and Sentry tags.
 export function aiModel(): string {
-  return process.env.AI_MODEL || DEFAULT_MODEL;
+  return knownModels().primary;
 }
-
-// The vision model in effect (default or env override).
 export function visionModel(): string {
-  return process.env.AI_VISION_MODEL || DEFAULT_VISION_MODEL;
+  return knownModels().vision ?? "";
 }
 
-// Whether to send `reasoning_effort: "none"` to silence a model's inline chain
-// of thought. Groq splits into three cases:
-//   - qwen3 / deepseek emit the reasoning inline in `content` unless silenced,
-//     and they ACCEPT "none" — so these get the flag.
-//   - gpt-oss keeps reasoning in a separate field (clean `content` already) and
-//     REJECTS "none" (only low|medium|high) — so it must NOT get the flag.
-//   - non-reasoning models (e.g. the Llama vision models) reject the parameter
-//     outright — so they don't get it either.
-// Sending it only to the first group lets AI_MODEL / AI_VISION_MODEL point at
-// any of them without a code change.
+// qwen3 and deepseek put their reasoning inline unless told not to, and accept
+// `reasoning_effort: "none"`; gpt-oss keeps it separate and rejects "none";
+// non-reasoning models reject the parameter. So only the first group gets it.
 function silenceReasoningWithNone(model: string): boolean {
   return /qwen3|deepseek/i.test(model);
 }
 
-// Strip any `<think>…</think>` block a reasoning model may still emit inline,
-// leaving just the answer. A no-op for models that don't reason or that keep
-// reasoning off-channel (gpt-oss).
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
@@ -65,72 +40,12 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export type GenerateTextOptions = {
   system: string;
-  // Most callers pass a single user `prompt`. Multi-turn callers (the public
-  // concierge) pass a `messages` transcript instead; when set it takes
-  // precedence over `prompt`.
+  // A single user prompt, or a transcript (the concierge) that takes precedence.
   prompt?: string;
   messages?: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
 };
-
-// Generate a completion from the configured provider. Returns the trimmed text,
-// or null when no key is configured (caller falls back). Throws on a provider
-// error (non-2xx, timeout, malformed response) so the route can log it to
-// Sentry and surface a retry message — a thrown error is never a silent drop.
-export async function generateText(
-  opts: GenerateTextOptions,
-): Promise<string | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
-
-  const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(
-    /\/$/,
-    "",
-  );
-  const model = aiModel();
-
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: opts.system },
-          ...(opts.messages?.length
-            ? opts.messages
-            : [{ role: "user" as const, content: opts.prompt ?? "" }]),
-        ],
-        max_tokens: opts.maxTokens ?? 1024,
-        temperature: opts.temperature ?? 0.7,
-        // A reasoning-model default/override (e.g. qwen) would otherwise emit
-        // its chain of thought inline; keep the drafts clean.
-        ...(silenceReasoningWithNone(model) ? { reasoning_effort: "none" } : {}),
-      }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
-    // Network failure or timeout — normalize to a single error shape.
-    throw new Error(
-      `AI request failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`AI provider ${res.status}: ${detail.slice(0, 500)}`);
-  }
-
-  const json: unknown = await res.json().catch(() => null);
-  const content = (json as { choices?: { message?: { content?: unknown } }[] })
-    ?.choices?.[0]?.message?.content;
-  return typeof content === "string" ? stripReasoning(content) : null;
-}
 
 export type DescribeImageOptions = {
   system: string;
@@ -141,72 +56,146 @@ export type DescribeImageOptions = {
   temperature?: number;
 };
 
-// Vision completion: describe an image for the given prompt (e.g. generate alt
-// text). Same posture as `generateText` — returns trimmed text, null without a
-// key, throws on a provider error — but sends a multimodal message and uses the
-// vision model (`AI_VISION_MODEL`), since the text default isn't multimodal.
-export async function describeImage(
-  opts: DescribeImageOptions,
+type Message = { role: string; content: unknown };
+
+class ModelGone extends Error {
+  name = "ModelGone";
+}
+
+async function callModel(
+  model: string,
+  messages: Message[],
+  maxTokens: number,
+  temperature: number,
 ): Promise<string | null> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
-
-  const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(
-    /\/$/,
-    "",
-  );
-
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
+  const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
+  return withRetry(async () => {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: visionModel(),
-        messages: [
-          { role: "system", content: opts.system },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: opts.prompt },
-              { type: "image_url", image_url: { url: opts.imageDataUrl } },
-            ],
-          },
-        ],
-        max_tokens: opts.maxTokens ?? 300,
-        temperature: opts.temperature ?? 0.3,
-        // Reasoning models would otherwise spend the token budget thinking
-        // out loud; alt text wants the answer directly.
-        ...(silenceReasoningWithNone(visionModel())
-          ? { reasoning_effort: "none" }
-          : {}),
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+        ...(silenceReasoningWithNone(model) ? { reasoning_effort: "none" } : {}),
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch (err) {
-    throw new Error(
-      `AI vision request failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`AI vision provider ${res.status}: ${detail.slice(0, 500)}`);
-  }
-
-  const json: unknown = await res.json().catch(() => null);
-  const content = (json as { choices?: { message?: { content?: unknown } }[] })
-    ?.choices?.[0]?.message?.content;
-  return typeof content === "string" ? stripReasoning(content) : null;
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 500);
+      if (res.status === 404 || /model_not_found|model_decommissioned|decommissioned|does not exist/i.test(detail)) {
+        throw new ModelGone(`${model}: ${detail}`);
+      }
+      const message = `AI provider ${res.status}: ${detail}`;
+      if (res.status === 429 || res.status >= 500) throw new TransientError(message);
+      throw new Error(message);
+    }
+    const json = (await res.json().catch(() => null)) as {
+      choices?: { message?: { content?: unknown } }[];
+    } | null;
+    const content = json?.choices?.[0]?.message?.content;
+    return typeof content === "string" ? stripReasoning(content) : null;
+  });
 }
 
-// Pull a JSON object out of a model response, tolerating ```json code fences and
-// stray prose around it (models often wrap structured output). Returns the
-// parsed value, or null when nothing parseable is found — callers then validate
-// the shape (e.g. with zod) before trusting it.
+// Tries the chosen models in order; when all are gone, picks fresh ones once.
+async function complete(
+  role: "text" | "vision",
+  messages: Message[],
+  maxTokens: number,
+  temperature: number,
+): Promise<string | null> {
+  if (!aiEnabled()) return null;
+  const pick = async (fresh: boolean) => {
+    const m = fresh ? await refreshAiModels("a model was retired") : await currentModels();
+    return (role === "vision" ? [m.vision] : [m.primary, m.fallback]).filter(Boolean) as string[];
+  };
+  for (const fresh of [false, true]) {
+    let gone: unknown;
+    for (const model of await pick(fresh)) {
+      try {
+        return await callModel(model, messages, maxTokens, temperature);
+      } catch (err) {
+        if (!(err instanceof ModelGone)) throw err;
+        gone = err;
+      }
+    }
+    if (fresh) throw gone ?? new Error("No AI model is available");
+  }
+  return null;
+}
+
+// Re-chooses the models from the live catalogue; the daily cron runs it too.
+export function refreshAiModels(reason: string) {
+  return refreshModels(reason, async (model, role) => {
+    try {
+      const text =
+        role === "vision"
+          ? await callModel(
+              model,
+              [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: "What color is this image? One word." },
+                    { type: "image_url", image_url: { url: PROBE_IMAGE } },
+                  ],
+                },
+              ],
+              200,
+              0,
+            )
+          : await callModel(model, [{ role: "user", content: "Reply with the word ok." }], 200, 0);
+      return !!text?.trim();
+    } catch {
+      return false;
+    }
+  });
+}
+
+// A 1×1 red PNG.
+const PROBE_IMAGE =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+
+// Returns the trimmed text, or null without a key. Throws on a provider error
+// so the route can report it and show a retry message.
+export function generateText(opts: GenerateTextOptions): Promise<string | null> {
+  const transcript = opts.messages?.length
+    ? opts.messages
+    : [{ role: "user" as const, content: opts.prompt ?? "" }];
+  return complete(
+    "text",
+    [{ role: "system", content: opts.system }, ...transcript],
+    opts.maxTokens ?? 1024,
+    opts.temperature ?? 0.7,
+  );
+}
+
+export function describeImage(opts: DescribeImageOptions): Promise<string | null> {
+  return complete(
+    "vision",
+    [
+      { role: "system", content: opts.system },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: opts.prompt },
+          { type: "image_url", image_url: { url: opts.imageDataUrl } },
+        ],
+      },
+    ],
+    opts.maxTokens ?? 300,
+    opts.temperature ?? 0.3,
+  );
+}
+
+// Pull a JSON object out of a model response, tolerating ```json fences and
+// stray prose around it. Returns null when nothing parses; callers validate
+// the shape before trusting it.
 export function extractJsonObject(text: string): unknown | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1] : text;

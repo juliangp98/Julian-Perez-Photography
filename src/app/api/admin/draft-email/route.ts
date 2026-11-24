@@ -1,39 +1,26 @@
-// POST /api/admin/draft-email — owner-only. Turns a pipeline template + the
-// project's real context into a personalized, on-brand draft the owner reviews
-// and edits before sending (this route never sends). The project is loaded
-// server-side, so only the minimal facts a draft needs leave the server — never
-// internal notes or budget, and never PII trusted from the request body.
-//
-// No-ops gracefully (`drafted: false`) when AI isn't configured or the project
-// can't be resolved, so the compose UI simply falls back to the static template.
+// POST /api/admin/draft-email: owner-only. Drafts a personalized email from a
+// pipeline template and the project's own record; it never sends, and never
+// passes internal notes, budget, or body-supplied PII to the model.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
-import { formatHumanDate } from "@/lib/field-format";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
+import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
-import { rateLimitResponse } from "@/lib/request-guard";
 import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email/email-pipeline";
+import { emailTokens } from "@/lib/email/email-tokens";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
-import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
 } from "@/lib/client-status";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   projectId: z.string().min(1),
   templateId: z.string().min(1),
   instructions: z.string().max(2000).optional(),
 });
-
-function longDate(d?: string): string | undefined {
-  return formatHumanDate(d) || undefined;
-}
 
 // Split the model's "Subject: …\n\n<body>" output; fall back to the template's
 // own subject if the model didn't follow the format.
@@ -48,72 +35,29 @@ function parseDraft(
   return { subject: fallbackSubject, body: text.trim() };
 }
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/draft-email",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't draft right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data, { req }) => {
+    const template = EMAIL_TEMPLATES.find((t) => t.id === data.templateId);
+    if (!template) return apiError(400, "Unknown template.");
 
-  // AI calls cost provider quota — cap per IP even though the route is admin-only.
-  const limited = rateLimitResponse(req, {
-    key: "admin-draft-email",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    // Not configured: the UI keeps the static template (no error).
+    if (!aiEnabled()) return { ok: true, drafted: false };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
+    // Resolve the project server-side; never trust PII from the body.
+    const record = await getClientFull(data.projectId);
+    if (!record) return { ok: true, drafted: false };
 
-  const template = EMAIL_TEMPLATES.find((t) => t.id === parsed.data.templateId);
-  if (!template) {
-    return NextResponse.json({ error: "Unknown template." }, { status: 400 });
-  }
+    // The same tokens the compose panel fills, so links in the draft are real.
+    const ctx = emailTokens(record, originOf(req));
+    const { projectName: name, serviceNoun: noun, eventDate, venue } = ctx;
 
-  // Not configured → let the UI keep the static template (no error).
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  // Resolve the project server-side; never trust PII from the body.
-  const record = await getClientFull(parsed.data.projectId);
-  if (!record) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  try {
-    const origin = req.headers.get("origin") || new URL(req.url).origin;
-    const noun = serviceNoun(record.serviceType)?.toLowerCase();
-    const name = projectDisplayName(record);
-    const eventDate = longDate(record.eventDate);
-    const venue =
-      record.locations?.[0]?.label || record.locations?.[0]?.address;
-
-    // The same token context the manual compose panel uses, so URLs the draft
-    // should keep (portal, booking, gallery, questionnaire) are real values.
-    const ctx: Record<string, string | undefined> = {
-      firstName: record.clientName?.trim().split(/\s+/)[0],
-      clientName: record.clientName,
-      projectName: name,
-      serviceNoun: noun,
-      eventDate,
-      venue,
-      galleryUrl: record.galleryUrl,
-      portalUrl: `${origin}/portal`,
-      bookingUrl: `${origin}/book`,
-      questionnaireUrl: record.serviceType
-        ? `${origin}/questionnaire/${record.serviceType}`
-        : undefined,
-    };
-
-    // Minimal, client-appropriate facts — no internal notes, no budget.
+    // Minimal, client-appropriate facts: no internal notes, no budget.
     const facts: string[] = [];
     if (record.clientName) facts.push(`Client name: ${record.clientName}`);
     if (record.partnerName) facts.push(`Partner: ${record.partnerName}`);
@@ -148,8 +92,8 @@ export async function POST(req: Request) {
       "",
       "Facts about THIS client and project (use only these — do not invent anything not listed):",
       facts.map((f) => `- ${f}`).join("\n"),
-      parsed.data.instructions?.trim()
-        ? `\nExtra instructions for this specific draft: ${parsed.data.instructions.trim()}`
+      data.instructions?.trim()
+        ? `\nExtra instructions for this specific draft: ${data.instructions.trim()}`
         : "",
       "",
       "Now write the personalized email in the required Subject/body format.",
@@ -162,21 +106,10 @@ export async function POST(req: Request) {
       temperature: 0.7,
     });
 
-    if (!raw) {
-      // Key vanished between the check and the call — fall back, don't error.
-      return NextResponse.json({ ok: true, drafted: false });
-    }
+    // Key vanished between the check and the call: fall back, don't error.
+    if (!raw) return { ok: true, drafted: false };
 
     const draft = parseDraft(raw, fillTemplate(template.subject, ctx));
-    return NextResponse.json({ ok: true, drafted: true, ...draft });
-  } catch (err) {
-    console.error("[admin] draft-email error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-draft-email", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, drafted: true, ...draft };
+  },
+});

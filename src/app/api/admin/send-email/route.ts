@@ -1,7 +1,6 @@
 // POST /api/admin/send-email: the owner sends an edited pipeline email to a
-// project's client. The recipient comes from the record, never the body. It
-// goes on the project's thread (replies come back to it), the owner gets a
-// copy, and the response says plainly whether it left and why not if it didn't.
+// project's client. The recipient comes from the record, never the body; the
+// owner gets a copy and the response says whether it left and why not.
 
 export const runtime = "nodejs";
 
@@ -9,10 +8,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { render } from "@react-email/components";
 import * as Sentry from "@sentry/nextjs";
-import { getAdminSession } from "@/lib/auth-cookies";
+import { apiError, defineRoute } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
-import { rateLimitResponse } from "@/lib/request-guard";
 import { sendEmail, EmailError, describeEmailFailure } from "@/lib/email/send";
 import {
   BrandedEmailLayout,
@@ -27,73 +25,53 @@ const schema = z.object({
   idempotencyKey: z.string().uuid().optional(),
 });
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
-  const limited = rateLimitResponse(req, {
-    key: "admin-send-email",
-    max: 20,
-    windowMs: 10 * 60 * 1000,
-  });
-  if (limited) return limited;
+export const POST = defineRoute({
+  route: "admin/send-email",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 10 * 60 * 1000 },
+  run: async ({ projectId, subject, body, idempotencyKey }) => {
+    const record = await getClientFull(projectId);
+    if (!record) return apiError(404, "That project wasn't found.");
+    if (!record.email) return apiError(409, "No email on file for this client.");
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-  const { projectId, subject, idempotencyKey } = parsed.data;
+    let id: string | null;
+    try {
+      const settings = await getSiteSettings();
+      const html = await render(
+        BrandedEmailLayout({
+          preview: subject,
+          children: PipelineEmailTemplate({ body }),
+        }),
+      );
+      ({ id } = await sendEmail({
+        to: record.email,
+        replyTo: settings.contactEmail,
+        bcc: settings.contactEmail,
+        subject,
+        html,
+        text: body,
+        idempotencyKey,
+        thread: { projectId, kind: "compose" },
+      }));
+    } catch (err) {
+      Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });
+      const status =
+        err instanceof EmailError ? (err.reason === "not-configured" ? 503 : 502) : 500;
+      return NextResponse.json(
+        { error: `Not sent: ${describeEmailFailure(err)}.` },
+        { status },
+      );
+    }
 
-  const record = await getClientFull(projectId);
-  if (!record) {
-    return NextResponse.json({ error: "That project wasn't found." }, { status: 404 });
-  }
-  if (!record.email) {
-    return NextResponse.json({ error: "No email on file for this client." }, { status: 409 });
-  }
+    if (!id) {
+      return {
+        ok: true,
+        sent: false,
+        note: "Resend isn't set up here, so the email was logged instead of sent.",
+      };
+    }
 
-  let id: string | null;
-  try {
-    const settings = await getSiteSettings();
-    const html = await render(
-      BrandedEmailLayout({
-        preview: subject,
-        children: PipelineEmailTemplate({ body: parsed.data.body }),
-      }),
-    );
-    ({ id } = await sendEmail({
-      to: record.email,
-      replyTo: settings.contactEmail,
-      bcc: settings.contactEmail,
-      subject,
-      html,
-      text: parsed.data.body,
-      idempotencyKey,
-      thread: { projectId, kind: "compose" },
-    }));
-  } catch (err) {
-    Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });
-    const status =
-      err instanceof EmailError ? (err.reason === "not-configured" ? 503 : 502) : 500;
-    return NextResponse.json(
-      { error: `Not sent: ${describeEmailFailure(err)}.` },
-      { status },
-    );
-  }
-
-  if (!id) {
-    return NextResponse.json({
-      ok: true,
-      sent: false,
-      note: "Resend isn't set up here, so the email was logged instead of sent.",
-    });
-  }
-
-  return NextResponse.json({ ok: true, sent: true, id });
-}
+    return { ok: true, sent: true, id };
+  },
+});

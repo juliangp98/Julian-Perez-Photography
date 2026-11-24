@@ -1,25 +1,13 @@
-// POST /api/assist/draft — PUBLIC, client-side writing assistant.
-//
-// Shapes a client's rough notes into a clear, first-person answer to a single
-// form field — the inquiry "vision" box, a questionnaire textarea, or the
-// portal "notes / questions for me" box. It is a WRITING ASSISTANT, not a fact
-// source: it uses only what the client provides (their notes + the context of
-// their OWN other answers / project), never invents specifics, never quotes the
-// studio's offerings, and is grounded in NO catalog or CRM data. Stateless —
-// nothing is persisted, so the client PII it shapes passes through to the
-// (non-training) provider and is gone.
-//
-// Same guard posture as the concierge (the other public AI surface): per-IP
-// rate limit + honeypot + capped sizes, degrading to a no-op (no draft) when no
-// AI key is configured — the UI hides the affordance in that case anyway.
+// POST /api/assist/draft: public writing assistant that shapes a client's notes
+// into a first-person answer to one form field. It uses only what the client
+// supplies, never catalog or CRM data, and persists nothing.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import { defineRoute } from "@/lib/api-route";
+import { isHoneypotTriggered } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
-import * as Sentry from "@sentry/nextjs";
 
 const detailSchema = z.object({
   label: z.string().max(120),
@@ -97,48 +85,31 @@ function buildUserPrompt(data: AssistInput): string {
   return lines.join("\n");
 }
 
-export async function POST(req: Request) {
-  // 30 drafts / 5 min / IP — generous for real iterating, a ceiling for abuse
+export const POST = defineRoute({
+  route: "assist/draft",
+  auth: "public",
+  schema,
+  // 30 drafts / 5 min / IP: generous for real iterating, a ceiling for abuse
   // of a provider-backed endpoint.
-  const limited = rateLimitResponse(req, {
-    key: "assist-draft",
-    max: 30,
-    windowMs: 5 * 60 * 1000,
-  });
-  if (limited) return limited;
+  rateLimit: { max: 30, windowMs: 5 * 60 * 1000 },
+  failure: { status: 502, error: "Couldn't draft that right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    // Honeypot triggered: pretend success silently (no draft) so bots move on.
+    if (isHoneypotTriggered(data.hp_company)) return { ok: true, draft: null };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    // No key, no draft. The affordance isn't rendered without one anyway, but a
+    // direct caller still gets a clean, non-error response.
+    if (!aiEnabled()) return { ok: true, draft: null };
 
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  // Honeypot triggered — pretend success silently (no draft) so bots move on.
-  if (isHoneypotTriggered(parsed.data.hp_company)) {
-    return NextResponse.json({ ok: true, draft: null });
-  }
-
-  // No key → no draft. The affordance isn't rendered without one anyway, but a
-  // direct caller still gets a clean, non-error response.
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, draft: null });
-  }
-
-  try {
     const raw = await generateText({
-      system: buildSystemPrompt(parsed.data.kind),
-      prompt: buildUserPrompt(parsed.data),
+      system: buildSystemPrompt(data.kind),
+      prompt: buildUserPrompt(data),
       maxTokens: 500,
       temperature: 0.6,
     });
 
-    if (!raw) return NextResponse.json({ ok: true, draft: null });
+    if (!raw) return { ok: true, draft: null };
 
     // The model is asked for JSON; tolerate ```json fences / stray prose, and
     // fall back to using the whole response as the draft if it didn't comply.
@@ -147,17 +118,8 @@ export async function POST(req: Request) {
     if (validated?.success) {
       const draft = validated.data.draft.trim();
       const tip = validated.data.tip?.trim() || undefined;
-      return NextResponse.json({ ok: true, draft: draft || null, tip });
+      return { ok: true, draft: draft || null, tip };
     }
-    return NextResponse.json({ ok: true, draft: raw });
-  } catch (err) {
-    console.error("[assist-draft] error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "assist-draft", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft that right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, draft: raw };
+  },
+});

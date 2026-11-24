@@ -1,20 +1,14 @@
-// POST /api/admin/draft-copy — owner-only. Drafts or tightens the marketing copy
-// (tagline, description, intro) for a service or portfolio page, in Julian's
-// voice, from the copy that's currently live. The AI never publishes — it
-// returns improved copy for Julian to review and paste into Sanity Studio.
-//
-// No-ops gracefully (`drafted: false`) when AI isn't configured or the subject
-// can't be resolved.
+// POST /api/admin/draft-copy: owner-only. Drafts or tightens a service or portfolio
+// page's tagline, description and intro from its live copy, for review in Studio.
+// Never publishes; no-ops (`drafted: false`) without a key or an unknown subject.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
-import { rateLimitResponse } from "@/lib/request-guard";
+import * as Sentry from "@sentry/nextjs";
+import { apiError, defineRoute } from "@/lib/api-route";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { getService, getPortfolio } from "@/lib/content";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   kind: z.enum(["service", "portfolio"]),
@@ -52,43 +46,23 @@ const SYSTEM_PROMPT_BASE = [
   'For a portfolio page, "intro" may be an empty array.',
 ].join("\n");
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/draft-copy",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't draft right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    if (!aiEnabled()) return { ok: true, drafted: false };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-draft-copy",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    // Resolve the live copy server-side.
+    const subject =
+      data.kind === "service"
+        ? await getService(data.slug)
+        : await getPortfolio(data.slug);
+    if (!subject) return { ok: true, drafted: false };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  // Resolve the live copy server-side.
-  const subject =
-    parsed.data.kind === "service"
-      ? await getService(parsed.data.slug)
-      : await getPortfolio(parsed.data.slug);
-  if (!subject) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  try {
     const current = subject as {
       title?: string;
       tagline?: string;
@@ -96,17 +70,15 @@ export async function POST(req: Request) {
       intro?: string[];
     };
     const prompt = [
-      `Subject: ${current.title ?? parsed.data.slug} (${parsed.data.kind} page)`,
-      parsed.data.angle?.trim()
-        ? `Angle / emphasis: ${parsed.data.angle.trim()}`
-        : "",
+      `Subject: ${current.title ?? data.slug} (${data.kind} page)`,
+      data.angle?.trim() ? `Angle / emphasis: ${data.angle.trim()}` : "",
       "",
       "Current copy:",
       `- Tagline: ${current.tagline || "(none)"}`,
       `- Description: ${current.description || "(none)"}`,
       `- Intro: ${current.intro?.length ? current.intro.join("\n\n") : "(none)"}`,
       "",
-      MODE_INSTRUCTION[parsed.data.mode],
+      MODE_INSTRUCTION[data.mode],
       "",
       "Write the improved copy now.",
     ]
@@ -117,34 +89,20 @@ export async function POST(req: Request) {
       system: SYSTEM_PROMPT_BASE,
       prompt,
       maxTokens: 1200,
-      temperature: parsed.data.mode === "tighten" ? 0.4 : 0.7,
+      temperature: data.mode === "tighten" ? 0.4 : 0.7,
     });
 
-    if (!raw) {
-      return NextResponse.json({ ok: true, drafted: false });
-    }
+    if (!raw) return { ok: true, drafted: false };
 
     const valid = copySchema.safeParse(extractJsonObject(raw));
     if (!valid.success || (!valid.data.tagline.trim() && !valid.data.description.trim())) {
       Sentry.captureException(new Error("Copy draft JSON failed validation"), {
-        tags: { route: "admin-draft-copy", stage: "parse", model: aiModel() },
+        tags: { route: "admin/draft-copy", stage: "parse", model: aiModel() },
         level: "warning",
       });
-      return NextResponse.json(
-        { error: "Couldn't read the draft — please try again." },
-        { status: 502 },
-      );
+      return apiError(502, "Couldn't read the draft. Try again.");
     }
 
-    return NextResponse.json({ ok: true, drafted: true, copy: valid.data });
-  } catch (err) {
-    console.error("[admin] draft-copy error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-draft-copy", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, drafted: true, copy: valid.data };
+  },
+});

@@ -1,23 +1,15 @@
-// POST /api/concierge — PUBLIC, content-grounded booking concierge.
-//
-// The only AI surface anonymous visitors reach, so it's tightly bounded:
-// per-IP rate limit + honeypot + capped message size/history, and it is
-// grounded ONLY in public catalog content (see concierge-kb.ts) — it never
-// imports the client/CRM store, so no private data can reach the model. The
-// model has no tools; its reply is rendered as plain text, nothing is executed.
-//
-// Degrades to a static, helpful fallback when no AI key is configured, the
-// same optional-by-env posture as the rest of the AI features.
+// POST /api/concierge: public booking concierge grounded only in public catalog
+// content. It never reads the client store, has no tools, and answers a static
+// fallback when no AI key is configured.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import { apiError, defineRoute } from "@/lib/api-route";
+import { isHoneypotTriggered } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildConciergeContext } from "@/lib/ai/concierge-kb";
 import { getSiteSettings } from "@/lib/content";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   messages: z
@@ -60,46 +52,27 @@ function buildSystemPrompt(studioName: string, context: string): string {
   ].join("\n");
 }
 
-export async function POST(req: Request) {
-  // 15 messages / 5 min / IP — plenty for a real conversation, a hard ceiling
+export const POST = defineRoute({
+  route: "concierge",
+  auth: "public",
+  schema,
+  // 15 messages / 5 min / IP: plenty for a real conversation, a hard ceiling
   // for scripted abuse of a provider-backed endpoint.
-  const limited = rateLimitResponse(req, {
-    key: "concierge",
-    max: 15,
-    windowMs: 5 * 60 * 1000,
-  });
-  if (limited) return limited;
+  rateLimit: { max: 15, windowMs: 5 * 60 * 1000 },
+  failure: { status: 502, error: "I'm having trouble responding right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    // Honeypot triggered: pretend success silently so bots move on.
+    if (isHoneypotTriggered(data.hp_company)) return { ok: true, reply: FALLBACK_REPLY };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    // The exchange must end on a visitor message; otherwise there's nothing to
+    // answer (and it signals a malformed client).
+    const turns = data.messages.slice(-MAX_TURNS);
+    if (turns[turns.length - 1]?.role !== "user") return apiError(400, "Invalid request.");
 
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
+    // No key: static fallback (the widget normally isn't rendered without one).
+    if (!aiEnabled()) return { ok: true, reply: FALLBACK_REPLY, grounded: false };
 
-  // Honeypot triggered — pretend success silently so bots move on.
-  if (isHoneypotTriggered(parsed.data.hp_company)) {
-    return NextResponse.json({ ok: true, reply: FALLBACK_REPLY });
-  }
-
-  // The exchange must end on a visitor message — otherwise there's nothing to
-  // answer (and it signals a malformed client).
-  const turns = parsed.data.messages.slice(-MAX_TURNS);
-  if (turns[turns.length - 1]?.role !== "user") {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  // No key → static fallback (the widget normally isn't rendered without one).
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, reply: FALLBACK_REPLY, grounded: false });
-  }
-
-  try {
     const [settings, context] = await Promise.all([
       getSiteSettings(),
       buildConciergeContext(),
@@ -112,18 +85,7 @@ export async function POST(req: Request) {
       temperature: 0.4,
     });
 
-    if (!reply) {
-      return NextResponse.json({ ok: true, reply: FALLBACK_REPLY, grounded: false });
-    }
-    return NextResponse.json({ ok: true, reply });
-  } catch (err) {
-    console.error("[concierge] error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "concierge", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "I'm having trouble responding right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    if (!reply) return { ok: true, reply: FALLBACK_REPLY, grounded: false };
+    return { ok: true, reply };
+  },
+});

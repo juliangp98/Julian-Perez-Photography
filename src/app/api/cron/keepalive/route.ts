@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { pingClientsStore, isClientsStoreConfigured } from "@/lib/clients";
 import { reconcileUnsettledSends } from "@/lib/email/relay";
+import { aiEnabled, refreshAiModels } from "@/lib/ai/ai";
 
 // Keep-alive endpoint for the Supabase free tier, which auto-pauses a project
 // after ~7 days without database activity. The public site reads almost
@@ -48,5 +49,17 @@ export async function GET(req: Request) {
       level: "warning",
     });
   }
-  return NextResponse.json({ ok: true, count, settled });
+  // Re-choose the AI models from the live catalogue (the owner hears if they change).
+  let models: string | undefined;
+  if (aiEnabled()) {
+    try {
+      models = (await refreshAiModels("daily check")).primary;
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "cron/keepalive", stage: "ai-models" },
+        level: "warning",
+      });
+    }
+  }
+  return NextResponse.json({ ok: true, count, settled, models });
 }

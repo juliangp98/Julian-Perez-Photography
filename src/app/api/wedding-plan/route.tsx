@@ -1,73 +1,56 @@
-// POST /api/wedding-plan — generates and returns a Wedding Day Plan PDF.
-//
-// Called from the success screen's "Download" button. Accepts the same
-// { service, answers } payload as /api/questionnaire but only returns the PDF.
-// Error responses share the `{ error }` JSON envelope used by every
-// other API route so the client UI can display a consistent message.
+// POST /api/wedding-plan: renders and returns the Wedding Day Plan PDF for the
+// success screen's Preview and Download buttons. Takes the same { service,
+// answers } payload as /api/questionnaire, stores nothing, and sends no email.
 
 export const runtime = "nodejs";
 
+import { z } from "zod";
 import { getQuestionnaire, visibleSectionsFor, evaluateShowIf } from "@/lib/questionnaires";
-import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { apiError } from "@/lib/api-response";
-import * as Sentry from "@sentry/nextjs";
+import { isHoneypotTriggered } from "@/lib/request-guard";
+import { apiError, defineRoute } from "@/lib/api-route";
 
-type Answers = Record<string, string | string[]>;
+export const POST = defineRoute({
+  route: "wedding-plan",
+  auth: "public",
+  schema: z.object({
+    service: z.unknown().optional(),
+    hp_company: z.unknown().optional(),
+    answers: z
+      .record(z.string(), z.union([z.string(), z.array(z.string())]))
+      .optional(),
+  }),
+  // Higher than inquire/questionnaire because the preview button lets real
+  // clients regenerate mid-edit; still low enough to stop a scraper.
+  rateLimit: { max: 10, windowMs: 10 * 60 * 1000 },
+  failure: { status: 500, error: "Could not generate the PDF. Please try again." },
+  run: async (body) => {
+    // Honeypot: an empty 200 so bots don't learn the field is a trap.
+    if (isHoneypotTriggered(body.hp_company)) {
+      return new Response("", { status: 200 });
+    }
 
-export async function POST(req: Request) {
-  // Rate limit: 10 / 10 min / IP. Higher than inquire/questionnaire
-  // because the preview button lets real clients regenerate mid-edit.
-  // Still low enough to kneecap a scraper burning Vercel minutes.
-  const limited = rateLimitResponse(req, {
-    key: "wedding-plan",
-    max: 10,
-    windowMs: 10 * 60 * 1000,
-  });
-  if (limited) return limited;
+    if (body.service !== "weddings") {
+      return apiError(400, "PDF generation is only available for weddings.");
+    }
 
-  let body: { service?: string; hp_company?: string; answers?: Answers };
-  try {
-    body = await req.json();
-  } catch {
-    return apiError(400, "Invalid JSON payload.");
-  }
+    const q = getQuestionnaire("weddings");
+    if (!q) return apiError(400, "Unknown questionnaire.");
 
-  // Honeypot — silently return an empty 200 so bots don't learn the
-  // field is a trap. Human clients never populate it.
-  if (isHoneypotTriggered(body.hp_company)) {
-    return new Response("", { status: 200 });
-  }
+    const answers = body.answers || {};
 
-  if (body.service !== "weddings") {
-    return apiError(400, "PDF generation is only available for weddings.");
-  }
-
-  const q = getQuestionnaire("weddings");
-  if (!q) {
-    return apiError(400, "Unknown questionnaire.");
-  }
-
-  const answers = body.answers || {};
-
-  // Basic validation — ensure required visible fields are present so the
-  // PDF isn't rendered with empty sections. The check mirrors the same
-  // required/showIf logic the questionnaire form uses on the client.
-  const visibleSections = visibleSectionsFor(q, answers);
-  for (const section of visibleSections) {
-    for (const f of section.fields) {
-      if (!f.required) continue;
-      if (!evaluateShowIf(f.showIf, answers)) continue;
-      const v = answers[f.id];
-      if (v === undefined || v === "") {
-        return apiError(400, `Missing required field: ${f.label}`);
+    // Required visible fields must be present so the PDF isn't rendered with
+    // empty sections; mirrors the form's own required/showIf logic.
+    for (const section of visibleSectionsFor(q, answers)) {
+      for (const f of section.fields) {
+        if (!f.required) continue;
+        if (!evaluateShowIf(f.showIf, answers)) continue;
+        const v = answers[f.id];
+        if (v === undefined || v === "") {
+          return apiError(400, `Missing required field: ${f.label}`);
+        }
       }
     }
-  }
 
-  // Wrap the render in try/catch so a failure inside @react-pdf/renderer
-  // (malformed answer, template bug, runtime OOM) surfaces as a clean
-  // JSON error rather than a raw 500 with a stack trace.
-  try {
     const { renderToBuffer } = await import("@react-pdf/renderer");
     const { WeddingDayPlan } = await import("@/lib/pdf/wedding-day-plan");
     const buffer = await renderToBuffer(<WeddingDayPlan answers={answers} />);
@@ -78,11 +61,5 @@ export async function POST(req: Request) {
         "Content-Disposition": 'attachment; filename="Wedding-Day-Plan.pdf"',
       },
     });
-  } catch (err) {
-    console.error("[wedding-plan] PDF render failed:", err);
-    Sentry.captureException(err, {
-      tags: { route: "wedding-plan", stage: "pdf-render" },
-    });
-    return apiError(500, "Could not generate the PDF. Please try again.");
-  }
-}
+  },
+});
