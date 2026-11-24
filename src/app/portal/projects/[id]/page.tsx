@@ -20,6 +20,9 @@ import { RailCard, Detail } from "@/components/ui/RailCard";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { serviceTitle } from "@/lib/services-data";
 import { aiEnabled } from "@/lib/ai/ai";
+import { listProjectMessages } from "@/lib/messages";
+import MessageThread from "@/components/messages/MessageThread";
+import PortalMessageBox from "@/components/messages/PortalMessageBox";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
 // signed-in person's email (getProjectForEmail), so a client can never open a
@@ -81,9 +84,12 @@ export default async function PortalProjectPage({
     );
   }
   const { record, viewerRole } = viewer;
-  // A second photographer granted read access — everything is view-only and the
-  // private client↔Julian notes channel was already redacted at the data layer.
+  // A second photographer granted read access: everything is view-only, and
+  // the client's message thread isn't theirs to see.
   const isCollaborator = viewerRole === "collaborator";
+  const messages = isCollaborator
+    ? []
+    : await listProjectMessages(record.id, { clientView: true });
 
   const link = questionnaireLinkFor(record);
   // The client's own questionnaire answers (owner-gated snapshot), grouped for
@@ -213,28 +219,48 @@ export default async function PortalProjectPage({
               )}
 
               <div>
+                <h2 className="font-serif text-2xl">Messages</h2>
+                <p className="mt-2 mb-5 text-sm text-muted">
+                  Everything we&rsquo;ve written each other about this project.
+                  Write here, or just reply to any of my emails.
+                </p>
+                <MessageThread
+                  messages={messages}
+                  viewer="client"
+                  clientLabel={record.clientName || "You"}
+                />
+                <PortalMessageBox
+                  projectId={record.id}
+                  aiEnabled={aiEnabled()}
+                  service={serviceTitle(record.serviceType)}
+                  assistContext={{
+                    clientName: record.clientName,
+                    details: [
+                      { label: "Event date", value: record.eventDate ?? "" },
+                      {
+                        label: "Project status",
+                        value: CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus] ?? "",
+                      },
+                      { label: "Project name", value: record.projectName ?? "" },
+                      { label: "Partner name", value: record.partnerName ?? "" },
+                    ].filter((d) => d.value),
+                  }}
+                />
+              </div>
+
+              <div>
                 <h2 className="font-serif text-2xl">Update your details</h2>
-                <p className="mt-2 mb-5 text-sm text-[var(--muted)]">
-                  Keep your contact info and notes current — I&rsquo;ll see any
-                  changes you make here.
+                <p className="mt-2 mb-5 text-sm text-muted">
+                  Keep your contact info current. I&rsquo;ll see any changes
+                  you make here.
                 </p>
                 <PortalEditForm
                   projectId={record.id}
                   namePlaceholder={autoProjectName(record)}
-                  aiEnabled={aiEnabled()}
-                  projectContext={{
-                    clientName: record.clientName,
-                    service: serviceTitle(record.serviceType),
-                    eventDate: record.eventDate,
-                    status:
-                      CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus],
-                  }}
                   initial={{
                     phone: record.phone,
                     partnerName: record.partnerName,
                     guestCount: record.guestCount,
-                    clientNotes: record.clientNotes,
-                    clientNotesReply: record.clientNotesReply,
                     projectName: record.projectName,
                   }}
                 />

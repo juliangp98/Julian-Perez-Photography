@@ -1,6 +1,7 @@
 // POST /api/admin/send-email: the owner sends an edited pipeline email to a
-// project's client. The recipient comes from the record, never the body. The
-// response says plainly whether the email left, and why not when it didn't.
+// project's client. The recipient comes from the record, never the body. It
+// goes on the project's thread (replies come back to it), the owner gets a
+// copy, and the response says plainly whether it left and why not if it didn't.
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,7 @@ import { z } from "zod";
 import { render } from "@react-email/components";
 import * as Sentry from "@sentry/nextjs";
 import { getAdminSession } from "@/lib/auth-cookies";
-import { getClientFull, addAdminLog } from "@/lib/clients";
+import { getClientFull } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
 import { rateLimitResponse } from "@/lib/request-guard";
 import { sendEmail, EmailError, describeEmailFailure } from "@/lib/email/send";
@@ -69,10 +70,12 @@ export async function POST(req: Request) {
     ({ id } = await sendEmail({
       to: record.email,
       replyTo: settings.contactEmail,
+      bcc: settings.contactEmail,
       subject,
       html,
       text: parsed.data.body,
       idempotencyKey,
+      thread: { projectId, kind: "compose" },
     }));
   } catch (err) {
     Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });
@@ -89,18 +92,6 @@ export async function POST(req: Request) {
       ok: true,
       sent: false,
       note: "Resend isn't set up here, so the email was logged instead of sent.",
-    });
-  }
-
-  // Best-effort record on the project history, with Resend's id as proof.
-  try {
-    await addAdminLog(projectId, {
-      note: `Emailed the client: "${subject}" (Resend ${id})`,
-    });
-  } catch (err) {
-    Sentry.captureException(err, {
-      tags: { route: "admin/send-email", stage: "log" },
-      level: "warning",
     });
   }
 

@@ -6,21 +6,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AssistedTextarea, {
-  type AssistContext,
-} from "@/components/forms/AssistedTextarea";
 import TextField from "@/components/ui/fields/TextField";
 import PhoneField from "@/components/ui/fields/PhoneField";
 import NumberField from "@/components/ui/fields/NumberField";
 import { formatPhone } from "@/lib/field-format";
-import { inputClass, labelClass } from "@/components/ui/fields/Field";
 
 type Initial = {
   phone?: string;
   partnerName?: string;
   guestCount?: number;
-  clientNotes?: string;
-  clientNotesReply?: string;
   projectName?: string;
 };
 type Status = "idle" | "saving" | "saved" | "error";
@@ -29,20 +23,10 @@ export default function PortalEditForm({
   projectId,
   initial,
   namePlaceholder,
-  aiEnabled = false,
-  projectContext,
 }: {
   projectId: string;
   initial: Initial;
   namePlaceholder?: string;
-  aiEnabled?: boolean;
-  // Read-only project facts (from the server) used to ground the notes assist.
-  projectContext?: {
-    clientName?: string;
-    service?: string;
-    eventDate?: string;
-    status?: string;
-  };
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState(() => formatPhone(initial.phone ?? ""));
@@ -50,25 +34,8 @@ export default function PortalEditForm({
   const [guestCount, setGuestCount] = useState(
     initial.guestCount != null ? String(initial.guestCount) : "",
   );
-  const [clientNotes, setClientNotes] = useState(initial.clientNotes ?? "");
   const [projectName, setProjectName] = useState(initial.projectName ?? "");
   const [status, setStatus] = useState<Status>("idle");
-
-  // Ground the notes assist in the project's known facts + the client's live
-  // edits, so a drafted question reads as theirs ("our June wedding at …").
-  function assistContext(): AssistContext {
-    const details: { label: string; value: string }[] = [];
-    const add = (label: string, value?: string | null) => {
-      const v = (value ?? "").trim();
-      if (v) details.push({ label, value: v });
-    };
-    add("Event date", projectContext?.eventDate);
-    add("Project status", projectContext?.status);
-    add("Project name", projectName);
-    add("Partner name", partnerName);
-    add("Guest count", guestCount);
-    return { clientName: projectContext?.clientName, details };
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +49,6 @@ export default function PortalEditForm({
           phone,
           partnerName,
           guestCount: guestCount === "" ? undefined : Number(guestCount),
-          clientNotes,
           projectName,
         }),
       });
@@ -124,39 +90,6 @@ export default function PortalEditForm({
           label="Guest count"
           value={guestCount}
           onChange={setGuestCount}
-        />
-      </div>
-      <div>
-        <label htmlFor="pf-notes" className={labelClass}>
-          Notes / questions for me
-        </label>
-        <p className="text-xs text-[var(--muted)] mt-0.5 mb-2">
-          Anything you&rsquo;d like me to know, or questions you have — I&rsquo;ll
-          see these and reply here.
-        </p>
-        {initial.clientNotesReply && (
-          <div className="mb-3 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.05] p-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
-              Julian&rsquo;s reply
-            </div>
-            <p className="mt-1 text-sm whitespace-pre-line">
-              {initial.clientNotesReply}
-            </p>
-          </div>
-        )}
-        <AssistedTextarea
-          id="pf-notes"
-          rows={4}
-          value={clientNotes}
-          onChange={setClientNotes}
-          textareaClassName={inputClass}
-          assist={{
-            kind: "portal-note",
-            question: "Notes or questions for your photographer",
-            service: projectContext?.service,
-            enabled: aiEnabled,
-            getContext: assistContext,
-          }}
         />
       </div>
       <div className="flex items-center gap-4">

@@ -134,6 +134,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 
+  // Durable capture: upsert a client record so the inquiry isn't lost to the
+  // inbox. It runs before the confirmation so that email starts the project's
+  // thread. The owner email has already gone, so a store failure (or an
+  // unconfigured store) never fails the submission.
+  let projectId: string | null = null;
+  try {
+    projectId = await upsertClientFromInquiry({
+      name: data.name,
+      email: data.email,
+      phone: data.phone || undefined,
+      service: data.service,
+      eventDate: data.eventDate || undefined,
+      location: data.location || undefined,
+      budget: data.budget || undefined,
+      referral: formatReferral(data.referral, data.referralOther) || undefined,
+      message: data.message,
+      projectId: data.project || undefined,
+    });
+  } catch (err) {
+    console.error("[inquire] client-record upsert error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "inquire", stage: "client-record" },
+      level: "warning",
+    });
+  }
+
   // Client confirmation email — fire and forget; don't fail the submission.
   try {
     const confirmHtml = await render(
@@ -144,6 +170,7 @@ export async function POST(req: Request) {
     await sendEmail({
       replyTo: settings.contactEmail,
       to: data.email,
+      ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
       subject: "Thanks for your inquiry — Julian Perez Photography",
       html: confirmHtml,
       text: `Thank you, ${data.name.split(" ")[0]}. Your inquiry is in my inbox. I'll review it and get back to you within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
@@ -173,31 +200,6 @@ export async function POST(req: Request) {
         level: "warning",
       });
     }
-  }
-
-  // Durable capture — upsert a client record so the inquiry isn't lost to the
-  // inbox. Fire-and-forget: the email has already succeeded, so a
-  // store failure (or an unconfigured store) must never fail the submission.
-  // `upsertClientFromInquiry` no-ops when the private store isn't configured.
-  try {
-    await upsertClientFromInquiry({
-      name: data.name,
-      email: data.email,
-      phone: data.phone || undefined,
-      service: data.service,
-      eventDate: data.eventDate || undefined,
-      location: data.location || undefined,
-      budget: data.budget || undefined,
-      referral: formatReferral(data.referral, data.referralOther) || undefined,
-      message: data.message,
-      projectId: data.project || undefined,
-    });
-  } catch (err) {
-    console.error("[inquire] client-record upsert error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "inquire", stage: "client-record" },
-      level: "warning",
-    });
   }
 
   return NextResponse.json({ ok: true });

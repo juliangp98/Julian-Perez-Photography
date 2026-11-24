@@ -19,6 +19,7 @@ import { getSiteSettings } from "@/lib/content";
 // `changes` (optional) renders as a compact bulleted list of what actually
 // changed. The email always carries a "sign in to your portal" call to action.
 export async function sendClientUpdateEmail(opts: {
+  projectId: string;
   to?: string;
   firstName?: string;
   projectName: string;
@@ -52,6 +53,7 @@ export async function sendClientUpdateEmail(opts: {
   await sendEmail({
     replyTo: settings.contactEmail,
     to: opts.to,
+    thread: { projectId: opts.projectId, kind: "update" },
     subject: `An update on ${opts.projectName}`,
     html,
     text: `${opts.lines.join("\n\n")}${changeText}\n\nOpen your portal: ${opts.portalUrl}`,
@@ -72,7 +74,6 @@ type ChangeableFields = {
   guestCount?: number;
   planSummary?: string;
   galleryUrl?: string;
-  clientNotesReply?: string;
 };
 
 function parseDay(d?: string): Date | null {
@@ -144,14 +145,6 @@ export function summarizeClientChanges(
     trimmed(fields.planSummary) !== trimmed(before.planSummary)
   ) {
     out.push("Plan details were updated");
-  }
-
-  if (
-    fields.clientNotesReply !== undefined &&
-    trimmed(fields.clientNotesReply) !== trimmed(before.clientNotesReply) &&
-    trimmed(fields.clientNotesReply)
-  ) {
-    out.push("I replied to your notes / questions");
   }
 
   if (

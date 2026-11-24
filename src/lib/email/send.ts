@@ -1,11 +1,21 @@
 // The one way the site sends email. Every send goes through sendEmail(), which
 // reads Resend's result (the SDK returns errors instead of throwing), retries
 // transient failures, keeps the subject on one line, always carries a plain-
-// text part, and keeps non-production builds away from real recipients.
+// text part, and keeps non-production builds away from real recipients. A send
+// on a project's thread also gets the project's reply address and is recorded
+// in client_messages, failures included.
 
 import { Resend, type CreateEmailOptions } from "resend";
+import * as Sentry from "@sentry/nextjs";
 import { resendFrom } from "./email-helpers";
+import { replyAddress } from "./inbound";
 import { TransientError, withRetry } from "@/lib/retry";
+import {
+  ensureReplyToken,
+  lastMessageId,
+  recordMessage,
+  type MessageKind,
+} from "@/lib/messages";
 
 export type EmailFailure = "not-configured" | "rejected" | "network";
 
@@ -37,6 +47,8 @@ export type OutgoingEmail = {
   headers?: Record<string, string>;
   attachments?: CreateEmailOptions["attachments"];
   idempotencyKey?: string;
+  // A client-facing email that belongs on a project's thread.
+  thread?: { projectId: string; kind: MessageKind };
 };
 
 // Resend error names that mean "try again shortly" rather than "this send is
@@ -81,6 +93,9 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
     return { id: null };
   }
 
+  const envelope = email.thread ? await threadEnvelope(email.thread.projectId) : {};
+  const replyTo = envelope.replyTo ?? email.replyTo;
+  const headers = { ...email.headers, ...envelope.headers };
   const redirect = safetyRecipient();
   const payload: CreateEmailOptions = {
     from: resendFrom(),
@@ -88,18 +103,78 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
     subject: redirect ? `[preview → ${[email.to].flat().join(", ")}] ${subject}` : subject,
     text: email.text,
     ...(email.html ? { html: email.html } : {}),
-    ...(email.replyTo ? { replyTo: email.replyTo } : {}),
+    ...(replyTo ? { replyTo } : {}),
     ...(email.bcc && !redirect ? { bcc: email.bcc } : {}),
-    ...(email.headers ? { headers: email.headers } : {}),
+    ...(Object.keys(headers).length ? { headers } : {}),
     ...(email.attachments ? { attachments: email.attachments } : {}),
   };
 
+  const record = (fields: { resendId?: string; status: "sent" | "failed"; statusDetail?: string }) =>
+    email.thread &&
+    recordMessage({
+      projectId: email.thread.projectId,
+      direction: "out",
+      kind: email.thread.kind,
+      fromAddr: payload.from,
+      toAddr: [email.to].flat().join(", "),
+      subject,
+      bodyText: email.text,
+      inReplyTo: headers["In-Reply-To"],
+      // Only a send that went out claims the key, so a retry after a failure
+      // is still recorded.
+      idempotencyKey: fields.status === "sent" ? email.idempotencyKey : undefined,
+      ...fields,
+    }).catch((err) =>
+      Sentry.captureException(err, {
+        tags: { route: "email/send", stage: "record" },
+        level: "warning",
+      }),
+    );
+
+  try {
+    const sent = await deliver(apiKey, payload, email.idempotencyKey);
+    await record({ resendId: sent.id, status: "sent" });
+    return sent;
+  } catch (err) {
+    if (err instanceof EmailError) await record({ status: "failed", statusDetail: err.message });
+    throw err;
+  }
+}
+
+// The reply address and reply headers for a project's next email. Best effort:
+// a store hiccup sends the email without them rather than not at all.
+async function threadEnvelope(
+  projectId: string,
+): Promise<{ replyTo?: string; headers?: Record<string, string> }> {
+  try {
+    const [token, previous] = await Promise.all([
+      ensureReplyToken(projectId),
+      lastMessageId(projectId),
+    ]);
+    return {
+      replyTo: token ? replyAddress(token) : undefined,
+      headers: previous ? { "In-Reply-To": previous, References: previous } : undefined,
+    };
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "email/send", stage: "thread" },
+      level: "warning",
+    });
+    return {};
+  }
+}
+
+async function deliver(
+  apiKey: string,
+  payload: CreateEmailOptions,
+  idempotencyKey?: string,
+): Promise<{ id: string }> {
   const resend = new Resend(apiKey);
   try {
     return await withRetry(async () => {
       const { data, error } = await resend.emails.send(
         payload,
-        email.idempotencyKey ? { idempotencyKey: email.idempotencyKey } : undefined,
+        idempotencyKey ? { idempotencyKey } : undefined,
       );
       if (!error) return { id: data.id };
       const transient =

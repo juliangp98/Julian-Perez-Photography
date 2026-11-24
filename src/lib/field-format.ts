@@ -190,3 +190,18 @@ export function formatRelativeDays(iso?: string | null): string {
   }
   return `${Math.floor(days / 365)} years ago`;
 }
+
+// A message timestamp in the studio's timezone: "Nov 17, 2026, 3:04 PM".
+export function formatDateTime(iso?: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: STUDIO_TIME_ZONE,
+  });
+}

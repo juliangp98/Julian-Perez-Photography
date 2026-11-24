@@ -76,6 +76,7 @@ export async function POST(req: Request) {
         status: parsed.data.status,
       });
       await sendClientUpdateEmail({
+        projectId: parsed.data.projectId,
         to: before.email,
         firstName: before.clientName?.split(" ")[0],
         projectName: name,

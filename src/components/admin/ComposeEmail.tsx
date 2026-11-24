@@ -232,9 +232,9 @@ export default function ComposeEmail({
             </p>
           )}
           <p className="text-xs text-[var(--muted)]">
-            Fill in any <code>[bracketed]</code> bits before sending. Sending
-            emails the client through your branded template and logs it to the
-            project history.
+            Fill in any <code>[bracketed]</code> bits before sending. It goes
+            to the client in your branded layout, you get a copy, and it joins
+            the thread above.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button

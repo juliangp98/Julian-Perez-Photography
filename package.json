@@ -12,6 +12,7 @@
     "import-photos": "node scripts/import-photos.mjs",
     "seed:sanity": "tsx --env-file=.env.local scripts/seed-sanity.ts",
     "upload-video": "tsx --env-file=.env.local scripts/upload-video.ts",
+    "messages:backfill": "node --env-file-if-exists=.env.local scripts/backfill-messages.mjs",
     "deps:check": "node --env-file-if-exists=.env.local scripts/check-deps.mjs",
     "deps:update": "node --env-file-if-exists=.env.local scripts/check-deps.mjs --update"
   },

@@ -36,6 +36,9 @@ import AdminCollaborators from "@/components/admin/AdminCollaborators";
 import CopyField from "@/components/ui/CopyField";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
+import MessageThread from "@/components/messages/MessageThread";
+import { listProjectMessages, ensureReplyToken } from "@/lib/messages";
+import { logAddress } from "@/lib/email/inbound";
 
 export const metadata: Metadata = {
   title: "Project — Admin",
@@ -96,6 +99,10 @@ export default async function AdminProjectDetailPage({
       }
     : {};
   const ai = aiEnabled();
+  const [messages, replyToken] = record
+    ? await Promise.all([listProjectMessages(record.id), ensureReplyToken(record.id)])
+    : [[], null];
+  const filingAddress = replyToken ? logAddress(replyToken) : undefined;
   // Render the stored questionnaire JSON as readable grouped answers (falls
   // back to the raw snapshot only when it can't be parsed).
   const answerGroups = record?.questionnaireSnapshot
@@ -171,8 +178,6 @@ export default async function AdminProjectDetailPage({
                     guestCount: record.guestCount,
                     budget: record.budget,
                     planSummary: record.planSummary,
-                    clientNotes: record.clientNotes,
-                    clientNotesReply: record.clientNotesReply,
                     internalNotes: record.internalNotes,
                     galleryUrl: record.galleryUrl,
                     locations: record.locations,
@@ -223,8 +228,29 @@ export default async function AdminProjectDetailPage({
                 </div>
               )}
 
-              {/* Compose a pipeline email — prefills from this project. */}
-              <div className="pt-8 border-t border-[var(--border)]">
+              <div className="pt-8 border-t border-border">
+                <h2 className="font-serif text-2xl">Messages</h2>
+                <p className="mt-2 mb-4 text-sm text-muted">
+                  Every email to and from this client, with delivery status.
+                  Replies land here and in your inbox.
+                </p>
+                <MessageThread
+                  messages={messages}
+                  viewer="owner"
+                  clientLabel={record.clientName || record.email || "Client"}
+                />
+                {filingAddress && (
+                  <div className="mt-4">
+                    <CopyField
+                      label="To file an older email here, forward it from Gmail to"
+                      value={filingAddress}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Compose a pipeline email; it prefills from this project. */}
+              <div className="pt-8 border-t border-border">
                 <h2 className="font-serif text-2xl">Compose email</h2>
                 <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
                   Pick a template for where this client is in the pipeline — it

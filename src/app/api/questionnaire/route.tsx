@@ -141,10 +141,10 @@ export async function POST(req: Request) {
   // and a no-op when the store isn't configured, so it never changes the
   // submission outcome. Called from both the dev-fallback and production paths
   // so capture happens regardless of whether email is configured.
-  const captureRecord = async (pdfUrl?: string) => {
-    if (!clientEmail) return;
+  const captureRecord = async (pdfUrl?: string): Promise<string | null> => {
+    if (!clientEmail) return null;
     try {
-      await attachQuestionnaire({
+      return await attachQuestionnaire({
         name: clientName,
         email: clientEmail,
         service: slug,
@@ -158,6 +158,7 @@ export async function POST(req: Request) {
         tags: { route: "questionnaire", stage: "client-record" },
         level: "warning",
       });
+      return null;
     }
   };
 
@@ -330,6 +331,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 
+  // Persist the generated plan PDF to Blob (when one exists) so it can be
+  // linked from the client record + portal, then capture the submission.
+  let planPdfUrl: string | undefined;
+  if (pdfBuffer) {
+    try {
+      planPdfUrl =
+        (await storePdf({
+          key: `client-plans/${slug}-day-plan.pdf`,
+          data: pdfBuffer,
+        })) || undefined;
+    } catch (err) {
+      console.error("[questionnaire] plan PDF store error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "store-pdf" },
+        level: "warning",
+      });
+    }
+  }
+  // Captured before the confirmation so that email starts the project thread.
+  const projectId = await captureRecord(planPdfUrl);
+
   // ── Client confirmation email — fire and forget ──
 
   if (clientEmail) {
@@ -358,6 +380,7 @@ export async function POST(req: Request) {
       await sendEmail({
         replyTo: settings.contactEmail,
         to: clientEmail,
+        ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
         subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
         html: confirmHtml,
         text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
@@ -395,25 +418,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Persist the generated plan PDF to Blob (when one exists) so it can be
-  // linked from the client record + portal, then capture the submission.
-  let planPdfUrl: string | undefined;
-  if (pdfBuffer) {
-    try {
-      planPdfUrl =
-        (await storePdf({
-          key: `client-plans/${slug}-day-plan.pdf`,
-          data: pdfBuffer,
-        })) || undefined;
-    } catch (err) {
-      console.error("[questionnaire] plan PDF store error:", err);
-      Sentry.captureException(err, {
-        tags: { route: "questionnaire", stage: "store-pdf" },
-        level: "warning",
-      });
-    }
-  }
-  await captureRecord(planPdfUrl);
 
   return NextResponse.json({
     ok: true,

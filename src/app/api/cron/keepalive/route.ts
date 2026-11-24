@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { pingClientsStore, isClientsStoreConfigured } from "@/lib/clients";
+import { reconcileUnsettledSends } from "@/lib/email/relay";
 
 // Keep-alive endpoint for the Supabase free tier, which auto-pauses a project
 // after ~7 days without database activity. The public site reads almost
@@ -27,13 +28,25 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, skipped: "store-unconfigured" });
   }
 
+  let count: number;
   try {
-    const count = await pingClientsStore();
-    return NextResponse.json({ ok: true, count });
+    count = await pingClientsStore();
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route: "cron/keepalive", stage: "ping" },
     });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+
+  // Settle thread messages whose delivery webhook never arrived.
+  let settled = 0;
+  try {
+    settled = await reconcileUnsettledSends();
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "cron/keepalive", stage: "reconcile" },
+      level: "warning",
+    });
+  }
+  return NextResponse.json({ ok: true, count, settled });
 }

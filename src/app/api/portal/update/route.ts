@@ -27,7 +27,6 @@ const schema = z.object({
   phone: z.string().max(50).optional(),
   partnerName: z.string().max(200).optional(),
   guestCount: z.coerce.number().int().min(0).max(100000).optional(),
-  clientNotes: z.string().max(5000).optional(),
   projectName: z.string().max(200).optional(),
 });
 

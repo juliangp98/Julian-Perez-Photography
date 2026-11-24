@@ -53,8 +53,6 @@ type Initial = {
   guestCount?: number;
   budget?: string;
   planSummary?: string;
-  clientNotes?: string;
-  clientNotesReply?: string;
   internalNotes?: string;
   galleryUrl?: string;
   locations?: LocationEntry[];
@@ -94,7 +92,6 @@ export default function AdminProjectEditForm({
     guestCount: initial.guestCount != null ? String(initial.guestCount) : "",
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
-    clientNotesReply: initial.clientNotesReply ?? "",
     internalNotes: initial.internalNotes ?? "",
     galleryUrl: initial.galleryUrl ?? "",
   });
@@ -323,33 +320,6 @@ export default function AdminProjectEditForm({
           </p>
         )}
       </div>
-      {(initial.clientNotes || initial.clientNotesReply) && (
-        <div>
-          <label htmlFor="a-reply" className={labelClass}>
-            Client notes &amp; questions{" "}
-            <span className="text-[var(--muted)] font-normal">
-              (from the client — your reply is shown to them)
-            </span>
-          </label>
-          {initial.clientNotes ? (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm whitespace-pre-line">
-              {initial.clientNotes}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--muted)]">
-              No notes from the client yet.
-            </p>
-          )}
-          <textarea
-            id="a-reply"
-            rows={3}
-            value={v.clientNotesReply}
-            onChange={set("clientNotesReply")}
-            placeholder="Reply to the client…"
-            className={`${inputClass} mt-3`}
-          />
-        </div>
-      )}
       <div>
         <label htmlFor="a-gallery" className={labelClass}>
           Gallery URL{" "}

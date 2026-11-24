@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { WEBHOOK_SECRET } from "./tests/e2e/support/webhook-sign";
 
 // The suite only ever talks to stand-ins. Provider calls (Resend, the AI
 // provider, Twilio) go to tests/e2e/support/fake-providers.mjs, and the client
@@ -51,6 +52,8 @@ export default defineConfig({
         CRON_SECRET: "e2e-cron-secret",
         RESEND_API_KEY: "re_fake_e2e",
         RESEND_BASE_URL: FAKE_URL,
+        RESEND_WEBHOOK_SECRET: WEBHOOK_SECRET,
+        RESEND_INBOUND_DOMAIN: "in.example.test",
         GROQ_API_KEY: "gsk_fake_e2e",
         AI_BASE_URL: FAKE_URL,
         AI_MODEL: "",
