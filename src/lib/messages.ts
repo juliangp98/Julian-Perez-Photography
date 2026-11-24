@@ -235,3 +235,29 @@ export async function findProjectByReplyToken(token: string): Promise<ThreadProj
   const row = data as unknown as ThreadProject;
   return { ...row, collaboratorEmails: row.collaboratorEmails ?? [] };
 }
+
+// The owner's own recent writing to clients (composed here, answered from
+// Gmail, or filed from Gmail), newest first. The email drafter learns his voice
+// from it; src/lib/ai/voice-samples.ts redacts it first.
+export async function listOwnerWriting(
+  excludeProjectId: string,
+  limit = 12,
+): Promise<{ bodyText: string; names: string[] }[]> {
+  if (!isClientsStoreConfigured()) return [];
+  const { data, error } = await db()
+    .from(TABLE)
+    .select("bodyText:body_text, client:client_records(client_name, partner_name)")
+    .eq("direction", "out")
+    .in("kind", ["compose", "relay", "imported"])
+    .in("status", ["sent", "delivered", "delayed"])
+    .neq("project_id", excludeProjectId)
+    .not("body_text", "is", null)
+    .order("sent_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  type Row = { bodyText: string; client: { client_name?: string; partner_name?: string } | null };
+  return ((data as unknown as Row[] | null) ?? []).map((r) => ({
+    bodyText: r.bodyText,
+    names: [r.client?.client_name, r.client?.partner_name].filter((n): n is string => !!n),
+  }));
+}

@@ -11,6 +11,8 @@ import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email/email-pipeline";
 import { emailTokens } from "@/lib/email/email-tokens";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
+import { pickVoiceSamples, voiceSection } from "@/lib/ai/voice-samples";
+import { listOwnerWriting } from "@/lib/messages";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
@@ -80,10 +82,13 @@ export const POST = defineRoute({
     facts.push(`Booking link: ${ctx.bookingUrl}`);
 
     const guide = fillTemplate(template.body, ctx);
+    // Julian's own recent emails, so drafts sound more like him over time. A
+    // store hiccup just means a draft without examples.
+    const samples = pickVoiceSamples(await listOwnerWriting(record.id).catch(() => []));
     const prompt = [
       `Write the "${template.name}" email for this client.`,
       "",
-      "Here is the template I usually start from for this kind of email. Use it as a structural guide — keep its purpose and keep any URLs exactly as written — but personalize it and make it sound like a real, individual note rather than a form letter:",
+      "Here is the template I usually start from for this kind of email. Use it as a structural guide (keep its purpose and keep any URLs exactly as written), but personalize it so it reads as an individual note, not a form letter:",
       "----",
       `Subject: ${template.subject}`,
       "",
@@ -95,6 +100,7 @@ export const POST = defineRoute({
       data.instructions?.trim()
         ? `\nExtra instructions for this specific draft: ${data.instructions.trim()}`
         : "",
+      ...voiceSection(samples),
       "",
       "Now write the personalized email in the required Subject/body format.",
     ].join("\n");
