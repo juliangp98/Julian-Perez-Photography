@@ -1,10 +1,11 @@
 # Security
 
-Codebase-level protections (CSP, security headers, XSS fixes, origin checks,
-rate limiting, HMAC-verified webhooks) are enforced in the Next.js app itself
-and are covered by the regular test and review cycle. This document covers
-the remaining surface: credentials, dashboard configuration, and DNS — work
-that lives outside the codebase and that Julian owns operationally.
+The Next.js app enforces its own protections: security headers, a
+Content-Security-Policy in report-only mode, origin checks, a per-instance
+rate limit, and signed webhooks. The regular test and review cycle covers
+them. This document lists what the code can't do on its own: credentials,
+dashboard settings, and DNS. Julian owns these. It also states what the
+code does and doesn't promise, so each item can be checked against it.
 
 Walk through it whenever a new integration is added, when credentials are
 suspected of being exposed, and as part of a quarterly audit.
@@ -24,15 +25,25 @@ suspected of being exposed, and as part of a quarterly audit.
       Security. Never expose it client-side. Rotate at Supabase → Settings →
       API if it leaks. The `client_records` table has RLS enabled so nothing
       but the service role can read it.
-- [ ] `AUTH_SECRET` (portal + admin magic links + sessions) is ≥32 hex chars
-      and server env only. Rotating it invalidates all active sessions —
-      harmless (everyone just requests a fresh sign-in link). Rotate if exposed.
+- [ ] `AUTH_SECRET` (portal and admin magic links and sessions) is at least
+      32 hex chars and server env only. Rotating it ends every active session.
+      That is harmless: people request a fresh sign-in link. Rotate if exposed.
+- [ ] `RESEND_WEBHOOK_SECRET` verifies Resend's signed events at
+      `/api/email/webhook`. Without it the route refuses every event. Rotate
+      it in the Resend webhook settings and the Vercel env var together; a
+      mismatch drops delivery status and client replies until both match.
+- [ ] `RESEND_INBOUND_DOMAIN` names the receiving subdomain for project
+      addresses (`reply+<token>@` and `log+<token>@`). Its MX record must
+      point at Resend and nowhere else. `npm run email:check` reports it.
+- [ ] `CRON_SECRET` is set in production. The daily cron answers 503 in
+      production without it, and 401 to any caller without the matching
+      `Authorization: Bearer` header.
 - [ ] `ADMIN_EMAIL` is set to only the owner address(es). The `/admin`
       dashboard (full record read/edit) is gated to these emails; the allowlist
       is re-checked on every token verify, so removing an address revokes access
       even on an unexpired session.
 - [ ] 2FA enabled on every account: Vercel, Sanity, Resend, Twilio, Google
-      Cloud, GitHub, domain registrar.
+      Cloud, GitHub, Supabase, Sentry, Groq, domain registrar.
 - [ ] Passwords stored in a password manager (1Password, Bitwarden, Apple
       Keychain). No reused passwords across vendors.
 
@@ -44,18 +55,34 @@ suspected of being exposed, and as part of a quarterly audit.
       `SANITY_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `SUPABASE_URL`,
       `SUPABASE_SERVICE_ROLE_KEY`, and `AUTH_SECRET` are all present in
       production (server scope; the latter three carry no `NEXT_PUBLIC_` prefix).
+      Also confirm `ADMIN_EMAIL`, `CRON_SECRET`, `RESEND_WEBHOOK_SECRET` and
+      `RESEND_INBOUND_DOMAIN`. `src/lib/config.ts` lists every setting; the
+      admin Projects page shows a Setup card for any that are missing.
 - [ ] Settings → **Deployment Protection** — enable Vercel Authentication
       on Preview deployments so preview URLs aren't publicly crawlable.
       Previews share env vars with production, which makes them leak-prone
       if they're reachable anonymously.
-- [ ] Settings → **Firewall** — enable **Attack Challenge Mode** so the
-      platform auto-rate-limits when traffic patterns look hostile.
+- [ ] Settings → **Firewall** → add **rate-limit rules** for the public
+      endpoints: `/api/inquire`, `/api/questionnaire*`, and
+      `/api/*/request-link`. The app's own limiter (`src/lib/request-guard.ts`)
+      keeps its counters in memory on each serverless instance. It slows one
+      client hitting one warm instance, but a burst spread across instances
+      or cold starts gets through. Only a firewall rule limits across all of
+      them. This is the owner's task in the Vercel dashboard.
+- [ ] Settings → **Firewall** → keep **Attack Challenge Mode** ready to turn
+      on when traffic looks hostile.
 - [ ] Settings → **Logs** — confirm Log Retention meets your needs (1 day
       on the free tier, longer on paid). Consider a Log Drain to Axiom or
       Datadog if persistent debugging history becomes valuable.
 - [ ] Settings → **Members** — audit access. Only Julian should hold the
       Owner role.
-- [ ] **Vercel Blob** lifecycle — questionnaire uploads land in Blob and
+- [ ] Upload tokens. `/api/questionnaire-upload` issues a token only to a
+      browser on this site (the production domain, its www alias, a
+      `*.vercel.app` preview, or localhost outside production), only for a
+      path under `questionnaires/`, and only for images or PDFs up to 10 MB.
+      `/api/portal/upload` issues a token only to a signed-in portal session
+      and answers 401 otherwise.
+- [ ] **Vercel Blob** lifecycle. Questionnaire uploads land in Blob and
       persist indefinitely by default. Decide on a purge cadence (e.g. 90
       days) and either do it manually via `vercel blob rm` or schedule a
       cleanup function. Blob contents are PII (client names, venue
@@ -75,9 +102,10 @@ suspected of being exposed, and as part of a quarterly audit.
       `_type in ["siteSettings","aboutPage","categoryUmbrella","serviceCategory","portfolioCategory","journalPost"]`,
       and its secret matches `SANITY_WEBHOOK_SECRET` in Vercel.
 - [ ] sanity.io/manage → project → **Members** — only Julian as Admin.
-- [ ] Dataset visibility — `production` is a public dataset. That is the
+- [ ] Dataset visibility. `production` is a public dataset. That is the
       correct setting (read-only public queries; no secrets stored in
       Sanity) but confirm it periodically.
+
 ## Client portal & CRM
 
 - [ ] Client PII lives only in the private Supabase `client_records` table,
@@ -88,9 +116,29 @@ suspected of being exposed, and as part of a quarterly audit.
       questionnaire snapshot, status history, and inquiry context are never
       selected. Keep internal-only columns out of that projection when adding
       fields.
-- [ ] Magic-link tokens are short-lived (20 min) and the login endpoint is
-      rate-limited + returns a uniform response (no account enumeration).
-      Session cookies are httpOnly/Secure/SameSite, signed with `AUTH_SECRET`.
+- [ ] Magic links are signed tokens that expire after 20 minutes. They are
+      not single-use: the verify routes (`/portal/verify`, `/admin/verify`)
+      don't record used tokens, so a link works again until it expires. Anyone
+      who gets a forwarded or leaked link inside that window can sign in.
+      The request-link endpoints return the same response whether or not the
+      address has an account, and carry the per-instance rate limit. Session
+      cookies are httpOnly, Secure and SameSite, signed with `AUTH_SECRET`.
+- [ ] `client_messages` holds the body of every email and portal message on
+      each project's thread, including client replies. RLS is on and no
+      policy grants access, so only the service role can read it. Confirm RLS
+      stays on, as for `client_records`. The client portal shows only sent,
+      delivered, delayed and received messages; held ones stay admin-only.
+- [ ] Each project's reply address carries a secret token
+      (`client_records.reply_token`). Anyone who has the address can post to
+      that project's thread. What they send is filed and forwarded to the
+      owner, flagged when the sender isn't the client or a collaborator.
+      Those messages stay out of the client's portal view.
+- [ ] The owner's reply reaches a client only when the receiving server
+      reports a passing DKIM signature from the sender's own domain. A
+      message that claims the owner's address without one is held on the
+      thread as unverified, and goes out only when the owner clicks send in
+      the admin. Mail sent to a `log+<token>@` address by anyone else is
+      filed as unverified and never sent. Review held messages on the thread.
 - [ ] Portal reads/writes always resolve the record id from the verified
       session cookie, never from a URL or request body (no IDOR). Confirm any
       new portal route follows this.
@@ -98,9 +146,9 @@ suspected of being exposed, and as part of a quarterly audit.
       `ADMIN_EMAIL` allowlist. Admin write routes (`/api/admin/*`) verify the
       admin session server-side, independent of the proxy gate.
       `/admin` is in `robots.ts` disallow.
-- [ ] **Vercel Blob** lifecycle covers portal document uploads + captured plan
-      PDFs too (public, unguessable URLs). Fold these into the same purge
-      cadence as questionnaire uploads — they're PII.
+- [ ] **Vercel Blob** lifecycle covers portal document uploads and captured
+      plan PDFs too (public, unguessable URLs). Fold these into the same purge
+      cadence as questionnaire uploads. They are PII.
 
 ## Resend
 
@@ -110,11 +158,33 @@ suspected of being exposed, and as part of a quarterly audit.
 - [ ] Publish **SPF**: `v=spf1 include:resend._spf.resend.com ~all` (copy
       the exact string Resend shows in your region).
 - [ ] **DKIM** — copy Resend's three CNAME records into DNS.
-- [ ] Publish **DMARC**. Start at `v=DMARC1; p=none; rua=mailto:juliangperez@gmail.com`
+- [ ] Publish **DMARC**. Start at `v=DMARC1; p=none; rua=mailto:julian@julianperezphotography.com`
       for a one-week soak, then tighten to `p=quarantine`.
-- [ ] Resend dashboard → **API Keys** — scoped to this project only; no
+- [ ] Resend dashboard → **API Keys**: scoped to this project only, no
       org-wide keys. Revoke any key that leaves a laptop or an agent
       transcript.
+- [ ] Resend dashboard → **Webhooks**: one webhook, pointed at
+      `https://julianperezphotography.com/api/email/webhook`, sending delivery
+      and received events. Its signing secret matches `RESEND_WEBHOOK_SECRET`.
+- [ ] Run `npm run email:check` after any DNS or Resend change. It reports
+      SPF, DMARC, the sending domain and its DKIM records, the receiving MX,
+      and the webhook, with a fix for each failure.
+
+## Sentry
+
+- [ ] All three runtimes share `sentry.shared.ts`. `sendDefaultPii` is
+      false. Before an event leaves, the request is cut to its URL and method
+      (no body, headers or cookies), and stack-frame local variables are
+      removed. Keep any new Sentry config on these shared options.
+- [ ] The DSN in `sentry.shared.ts` is public by design. It can submit
+      events but not read them. Rotate the project key in Sentry only if
+      spam events start arriving.
+- [ ] The Content-Security-Policy is sent as
+      `Content-Security-Policy-Report-Only` and reports violations to the
+      Sentry project's security endpoint. Review those reports. Once they go
+      quiet, the next step is to enforce the policy: send it as
+      `Content-Security-Policy` in `next.config.ts`.
+- [ ] Sentry → **Settings** → **Members**: only Julian. 2FA on.
 
 ## Twilio
 
@@ -157,8 +227,10 @@ suspected of being exposed, and as part of a quarterly audit.
       PR reviews (1), require the **CI / check** status to pass, restrict who
       can push.
 - [ ] Repo Settings → **Secrets and variables** → Actions: only
-      `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY` (the separate
-      test project, never production). Nothing production-critical lives
+      `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY`, for the
+      separate test Supabase project, never production. These keys live
+      nowhere else: not in the repo, not in Vercel. CI points every other
+      provider at the fake server, so nothing production-critical lives
       here.
 
 ## Ongoing hygiene

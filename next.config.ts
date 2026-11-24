@@ -30,12 +30,12 @@ const SLUG_REDIRECTS: { from: string; to: string }[] = [
 //   - Permissions-Policy denies powerful browser APIs the site never
 //     uses, shrinking the surface any third-party script can request.
 //
-// The Content-Security-Policy ships in Report-Only mode first. Inline
-// scripts still in use (GA4 bootstrap, JSON-LD structured data) would
-// block under a strict enforcing policy without a hash/nonce pipeline;
-// Report-Only surfaces violations in the browser console without
-// breaking page rendering, which gives a safe soak window before the
-// policy is promoted to enforcing mode.
+// The Content-Security-Policy ships in Report-Only mode. Inline scripts
+// still in use (GA4 bootstrap, JSON-LD structured data) would block under
+// a strict enforcing policy without a hash or nonce pipeline. Report-Only
+// breaks nothing; each violation is sent to Sentry's security endpoint
+// (see CSP_REPORT_URI), so the policy can be enforced once the reports
+// go quiet.
 const SECURITY_HEADERS = [
   {
     key: "Strict-Transport-Security",
@@ -56,10 +56,15 @@ const SECURITY_HEADERS = [
 // videos), Google (Analytics + Places review avatars), Square
 // Appointments (the `/book` iframe), Pic-Time (the `/client` gallery
 // iframe), YouTube (wedding-films portfolio embeds + thumbnails served
-// from i.ytimg.com), and Sentry (error reporting — primary path is the
-// same-origin `/monitoring/sentry` tunnel, but direct ingest hosts are
-// allowlisted as a fallback for cases where the tunnel route is
-// unavailable).
+// from i.ytimg.com), and Sentry (error reporting goes through the
+// same-origin `/monitoring` tunnel; the direct ingest hosts are allowed
+// as a fallback for when the tunnel is unavailable).
+//
+// Violation reports go to the Sentry project's security endpoint. The
+// key and ids are the public ones in the DSN (sentry.shared.ts).
+const CSP_REPORT_URI =
+  "https://o4511373294764032.ingest.us.sentry.io/api/4511373373341696/security/?sentry_key=f2af901b1c20bb748d4c8b37f7d938d6";
+
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.vercel-insights.com https://va.vercel-scripts.com",
@@ -79,6 +84,7 @@ const CSP_REPORT_ONLY = [
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
+  `report-uri ${CSP_REPORT_URI}`,
 ].join("; ");
 
 const nextConfig: NextConfig = {

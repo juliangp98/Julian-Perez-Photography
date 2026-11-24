@@ -20,3 +20,7 @@ Every round of work that ships new code paths (new routes, new components, new d
 2. **Sentry instrumentation** — server-side `Sentry.captureException(err, { tags: { route, stage } })` calls inside every catch block on the new code paths, with `level: "warning"` for fire-and-forget side effects (SMS, client confirmations) and the default fatal level for primary failure modes. Client-side coverage is automatic via the `@sentry/nextjs` App Router integration, but new error boundaries should still call `Sentry.captureException` explicitly the way `src/app/error.tsx` and `src/app/global-error.tsx` do.
 
 A round is not done until both are updated. The plan-and-CHANGELOG cycle's close-out checklist lives by this rule.
+
+# House rules
+
+One definition per thing, the UI kit first, one feature per job, the writing rules for visible text, settings in `src/lib/config.ts`, and the commit style are in `docs/contributing.md`, with the check that enforces each one. Read it before changing UI, copy, email or settings.

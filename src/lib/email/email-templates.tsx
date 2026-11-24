@@ -4,6 +4,7 @@
 // @react-email/components and passed to Resend as HTML. A plain-text fallback
 // is always included alongside the HTML for email clients that don't render it.
 
+import { CONTACT_EMAIL } from "@/lib/site-settings-data";
 import {
   Html,
   Head,
@@ -112,11 +113,8 @@ export function BrandedEmailLayout({
               julianperezphotography.com
             </Link>
             {" · "}
-            <Link
-              href="mailto:juliangperez98@gmail.com"
-              style={{ color: ACCENT }}
-            >
-              juliangperez98@gmail.com
+            <Link href={`mailto:${CONTACT_EMAIL}`} style={{ color: ACCENT }}>
+              {CONTACT_EMAIL}
             </Link>
           </Text>
           <Text

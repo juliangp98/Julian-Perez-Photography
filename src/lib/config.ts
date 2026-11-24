@@ -27,7 +27,7 @@ export const SETTINGS: Setting[] = [
   { area: "Clients and sign-in", name: "SUPABASE_URL", purpose: "The private client store (projects, messages, settings).", without: "No client records, portal, admin projects or message threads.", neededInProd: true, example: "https://<ref>.supabase.co" },
   { area: "Clients and sign-in", name: "SUPABASE_SERVICE_ROLE_KEY", purpose: "Server-only key for the client store.", without: "Same as SUPABASE_URL.", neededInProd: true },
   { area: "Clients and sign-in", name: "AUTH_SECRET", purpose: "Signs portal and admin sign-in links and sessions.", without: "Nobody can sign in to the portal or admin.", neededInProd: true, example: "openssl rand -hex 32" },
-  { area: "Clients and sign-in", name: "ADMIN_EMAIL", purpose: "The owner address(es) allowed into /admin, comma-separated.", without: "Nobody can sign in to /admin.", neededInProd: true },
+  { area: "Clients and sign-in", name: "ADMIN_EMAIL", purpose: "The owner addresses allowed into /admin, comma-separated. List both the studio address and the inbox it forwards to, so a reply from either counts as yours.", without: "Nobody can sign in to /admin.", neededInProd: true, example: "julian@julianperezphotography.com,you@gmail.com" },
   { area: "Clients and sign-in", name: "BLOB_READ_WRITE_TOKEN", purpose: "Vercel Blob, for questionnaire uploads, portal documents and plan PDFs.", without: "Uploads and stored plan PDFs fail.", neededInProd: true },
   // Content
   { area: "Content", name: "NEXT_PUBLIC_SANITY_PROJECT_ID", purpose: "The Sanity project the content comes from.", without: "The site falls back to the content built into the code; the journal is empty.", neededInProd: true },

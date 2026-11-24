@@ -7,6 +7,7 @@
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
 import Error from "next/error";
+import { CONTACT_EMAIL } from "@/lib/site-settings-data";
 
 export default function GlobalError({
   error,
@@ -63,8 +64,8 @@ export default function GlobalError({
             The site itself hit a problem.
           </h1>
           <p style={{ color: "#6b6b6b", marginTop: "16px", lineHeight: 1.6 }}>
-            A retry usually helps. If it keeps happening, please email
-            juliangperez98@gmail.com directly.
+            A retry usually helps. If it keeps happening, please email{" "}
+            {CONTACT_EMAIL} directly.
           </p>
           <button
             onClick={reset}

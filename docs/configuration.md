@@ -23,7 +23,7 @@ The site checks itself: missing settings that production needs are logged once w
 | `SUPABASE_URL` | needed | The private client store (projects, messages, settings). Example: `https://<ref>.supabase.co`. | No client records, portal, admin projects or message threads. |
 | `SUPABASE_SERVICE_ROLE_KEY` | needed | Server-only key for the client store. | Same as SUPABASE_URL. |
 | `AUTH_SECRET` | needed | Signs portal and admin sign-in links and sessions. Example: `openssl rand -hex 32`. | Nobody can sign in to the portal or admin. |
-| `ADMIN_EMAIL` | needed | The owner address(es) allowed into /admin, comma-separated. | Nobody can sign in to /admin. |
+| `ADMIN_EMAIL` | needed | The owner addresses allowed into /admin, comma-separated. List both the studio address and the inbox it forwards to, so a reply from either counts as yours. Example: `julian@julianperezphotography.com,you@gmail.com`. | Nobody can sign in to /admin. |
 | `BLOB_READ_WRITE_TOKEN` | needed | Vercel Blob, for questionnaire uploads, portal documents and plan PDFs. | Uploads and stored plan PDFs fail. |
 
 ## Content
