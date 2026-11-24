@@ -45,7 +45,7 @@ function renderConfigDoc(settings = SETTINGS) {
     "Client replies come back to the site through Resend's receiving domains, so they land on the project's thread as well as your inbox.",
     "",
     "1. In Resend → Domains, add a receiving domain on a subdomain, e.g. `in.julianperezphotography.com`. Its MX records go on that subdomain only, so Gmail on the root domain is untouched.",
-    "2. In Resend → Webhooks, add `https://www.julianperezphotography.com/api/email/webhook` for the `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed` and `email.received` events. Copy its signing secret.",
+    "2. In Resend → Webhooks, add `https://julianperezphotography.com/api/email/webhook` for the `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed` and `email.received` events. Copy its signing secret.",
     "3. Set `RESEND_INBOUND_DOMAIN` and `RESEND_WEBHOOK_SECRET` in Vercel and redeploy.",
     "4. Run `npm run email:check`: it confirms SPF, DKIM and DMARC, the domain's status, the receiving MX records and the webhook.",
     "",

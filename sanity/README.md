@@ -51,7 +51,7 @@ Then at https://sanity.io/manage → project → API → Webhooks → **+Add**:
 | Field | Value |
 | --- | --- |
 | Name | Next.js revalidation |
-| URL | `https://www.julianperezphotography.com/api/sanity-webhook` |
+| URL | `https://julianperezphotography.com/api/sanity-webhook` |
 | Dataset | `production` |
 | Trigger | Create, Update, Delete |
 | Filter | `_type in ["siteSettings", "aboutPage", "categoryUmbrella", "serviceCategory", "portfolioCategory", "journalPost"]` |
