@@ -71,17 +71,18 @@ export const POST = defineRoute({
 
     // Include the event date in the subject when supplied — makes triage
     // easier when multiple inquiries for the same service land in a row.
-    const subject = `New inquiry — ${serviceName} — ${data.name}${formatSubjectDate(data.eventDate)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
+    const subject = `New inquiry: ${serviceName}, ${data.name}${formatSubjectDate(data.eventDate)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
+    const empty = "—";
     const text = [
       `New inquiry from ${settings.siteName}`,
       ``,
       `Name:      ${data.name}`,
       `Email:     ${data.email}`,
-      `Phone:     ${data.phone || "—"}`,
+      `Phone:     ${data.phone || empty}`,
       `Service:   ${serviceName}`,
-      `Date:      ${data.eventDate || "—"}`,
-      `Location:  ${data.location || "—"}`,
-      `Budget:    ${data.budget || "—"}`,
+      `Date:      ${data.eventDate || empty}`,
+      `Location:  ${data.location || empty}`,
+      `Budget:    ${data.budget || empty}`,
       `Referral:  ${referralDisplay}`,
       ``,
       `Message:`,
@@ -93,7 +94,7 @@ export const POST = defineRoute({
     // rather than the internal slug.
     const emailData = { ...data, referral: referralDisplay === "—" ? undefined : referralDisplay };
     const html = await render(
-      <BrandedEmailLayout preview={`New inquiry from ${data.name} — ${serviceName}`}>
+      <BrandedEmailLayout preview={`New inquiry from ${data.name}: ${serviceName}`}>
         <InquiryEmailTemplate data={emailData} serviceName={serviceName} />
       </BrandedEmailLayout>,
     );
@@ -142,7 +143,7 @@ export const POST = defineRoute({
     // Client confirmation email — fire and forget; don't fail the submission.
     try {
       const confirmHtml = await render(
-        <BrandedEmailLayout preview="Thanks for reaching out — I'll be in touch soon">
+        <BrandedEmailLayout preview="Thanks for reaching out. I'll be in touch soon.">
           <ClientConfirmationTemplate clientName={data.name} />
         </BrandedEmailLayout>,
       );
@@ -150,7 +151,7 @@ export const POST = defineRoute({
         replyTo: settings.contactEmail,
         to: data.email,
         ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
-        subject: "Thanks for your inquiry — Julian Perez Photography",
+        subject: "Thanks for your inquiry | Julian Perez Photography",
         html: confirmHtml,
         text: `Thank you, ${data.name.split(" ")[0]}. Your inquiry is in my inbox. I'll review it and get back to you within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
       });
@@ -169,7 +170,7 @@ export const POST = defineRoute({
         const firstName = data.name.split(" ")[0];
         await sendSms(
           data.phone,
-          `Thanks, ${firstName}! Your inquiry for ${serviceName} is in Julian's inbox. He'll reply within 48h. — Julian Perez Photography`,
+          `Thanks, ${firstName}! Your inquiry for ${serviceName} is in Julian's inbox. He'll reply within 48h. (Julian Perez Photography)`,
         );
       } catch (err) {
         Sentry.captureException(err, {

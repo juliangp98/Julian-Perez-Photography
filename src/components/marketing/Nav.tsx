@@ -12,13 +12,11 @@ import {
 } from "@/components/marketing/nav/menu-data";
 import { MegaMenu, DropdownMenu } from "@/components/marketing/nav/menus";
 import MobileDrawer from "@/components/marketing/nav/MobileDrawer";
+import Button from "@/components/ui/Button";
 
-// Site header: sticky bar with hover megamenus/dropdowns on desktop and a
-// disclosure drawer on mobile. The menu contents live in `nav/menu-data.ts`
-// (one source for both presentations); the panels in `nav/menus.tsx`; the
-// drawer in `nav/MobileDrawer.tsx`. Nav itself owns the open/close state.
-// It's a client component (it needs `usePathname()` to hide itself on
-// /studio), so the menu data comes from the sync *Fallback content getters.
+// Sticky site header: hover menus on desktop, a drawer on mobile. Menu contents
+// live in `nav/menu-data.ts`; Nav owns the open state and hides on /studio, so
+// it reads the sync *Fallback content getters.
 
 type Submenu = "portfolio" | "services" | "about" | "clients";
 
@@ -80,7 +78,7 @@ export default function Nav() {
   const menuProps = { openSubmenu, setOpenSubmenu };
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--background)]/85 backdrop-blur-md border-b border-[var(--border)]">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md border-b border-border">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         <Link
           href="/"
@@ -120,12 +118,9 @@ export default function Nav() {
           <Link href="/inquire" className="nav-link">
             Inquire
           </Link>
-          <Link
-            href="/book"
-            className="ml-2 px-4 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-          >
+          <Button href="/book" className="ml-2">
             Book
-          </Link>
+          </Button>
         </nav>
 
         {/* Mobile toggle */}

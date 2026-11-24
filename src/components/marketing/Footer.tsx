@@ -24,16 +24,16 @@ export default function Footer() {
 
   const year = new Date().getFullYear();
   const socialIconClass =
-    "w-9 h-9 flex items-center justify-center rounded-full border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)] hover:border-[var(--foreground)] transition";
+    "w-9 h-9 flex items-center justify-center rounded-full border border-border text-foreground hover:bg-foreground hover:text-background hover:border-foreground transition";
   return (
-    <footer className="border-t border-[var(--border)] mt-24">
+    <footer className="border-t border-border mt-24">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-14 grid gap-10 md:grid-cols-4">
         <div className="md:col-span-2">
           <div className="font-serif text-2xl">{siteSettingsFallback.siteName}</div>
-          <p className="mt-3 text-sm text-[var(--muted)] max-w-sm">
+          <p className="mt-3 text-sm text-muted max-w-sm">
             {siteSettingsFallback.tagline}
           </p>
-          <p className="mt-3 text-sm text-[var(--muted)]">
+          <p className="mt-3 text-sm text-muted">
             {siteSettingsFallback.coverageArea}
           </p>
           <p className="mt-3 text-sm">
@@ -82,39 +82,39 @@ export default function Footer() {
         </div>
         <div className="text-sm">
           <div className="font-medium mb-3">Explore</div>
-          <ul className="space-y-2 text-[var(--muted)]">
+          <ul className="space-y-2 text-muted">
             <li>
-              <Link href="/portfolio" className="hover:text-[var(--foreground)]">
+              <Link href="/portfolio" className="hover:text-foreground">
                 Portfolio
               </Link>
             </li>
             <li>
-              <Link href="/services" className="hover:text-[var(--foreground)]">
+              <Link href="/services" className="hover:text-foreground">
                 Services &amp; Pricing
               </Link>
             </li>
             <li>
-              <Link href="/about" className="hover:text-[var(--foreground)]">
+              <Link href="/about" className="hover:text-foreground">
                 About
               </Link>
             </li>
             <li>
-              <Link href="/journal" className="hover:text-[var(--foreground)]">
+              <Link href="/journal" className="hover:text-foreground">
                 Journal
               </Link>
             </li>
             <li>
-              <Link href="/faq" className="hover:text-[var(--foreground)]">
+              <Link href="/faq" className="hover:text-foreground">
                 FAQ
               </Link>
             </li>
             <li>
-              <Link href="/inquire" className="hover:text-[var(--foreground)]">
+              <Link href="/inquire" className="hover:text-foreground">
                 Inquire
               </Link>
             </li>
             <li>
-              <Link href="/book" className="hover:text-[var(--foreground)]">
+              <Link href="/book" className="hover:text-foreground">
                 Book
               </Link>
             </li>
@@ -122,21 +122,21 @@ export default function Footer() {
         </div>
         <div className="text-sm">
           <div className="font-medium mb-3">For clients</div>
-          <ul className="space-y-2 text-[var(--muted)]">
+          <ul className="space-y-2 text-muted">
             <li>
-              <Link href="/portal" className="hover:text-[var(--foreground)]">
+              <Link href="/portal" className="hover:text-foreground">
                 Project portal
               </Link>
             </li>
             <li>
-              <Link href="/client" className="hover:text-[var(--foreground)]">
+              <Link href="/client" className="hover:text-foreground">
                 Client galleries
               </Link>
             </li>
             <li>
               <Link
                 href="/questionnaire"
-                className="hover:text-[var(--foreground)]"
+                className="hover:text-foreground"
               >
                 Plan your session
               </Link>
@@ -146,7 +146,7 @@ export default function Footer() {
                 href={siteSettingsFallback.clientGalleryUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="hover:text-[var(--foreground)]"
+                className="hover:text-foreground"
               >
                 Pic-Time portal ↗
               </a>
@@ -154,8 +154,8 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6 text-xs text-[var(--muted)] flex flex-col md:flex-row gap-3 justify-between">
+      <div className="border-t border-border">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6 text-xs text-muted flex flex-col md:flex-row gap-3 justify-between">
           <div>
             © {year} {siteSettingsFallback.siteName}. All rights reserved.
           </div>

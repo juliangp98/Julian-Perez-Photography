@@ -466,8 +466,8 @@ export function ClientConfirmationTemplate({
               lineHeight: "20px",
             }}
           >
-            A PDF copy of your Wedding Day Plan is attached to this email —
-            feel free to save or print it.
+            A PDF copy of your Wedding Day Plan is attached to this email.
+            Save or print it if you like.
           </Text>
         </Section>
       )}
@@ -538,7 +538,7 @@ export function MagicLinkEmailTemplate({
       >
         {isAdmin
           ? "Here's your secure link to the admin dashboard."
-          : "Here's your secure link to your client portal — no password needed."}
+          : "Here's your secure link to your client portal. No password needed."}
       </Text>
       <PillButton
         href={link}

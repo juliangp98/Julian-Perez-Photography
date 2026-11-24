@@ -4,15 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import EmailField from "@/components/ui/fields/EmailField";
 import TextField from "@/components/ui/fields/TextField";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 import { isValidEmail } from "@/lib/field-format";
 import { formatHumanDate, STUDIO_TIME_ZONE } from "@/lib/field-format";
 
 export type Collaborator = { email: string; name?: string; addedAt?: string };
 
-// Second-photographer access manager for one project: lists current
-// collaborators (read-only portal access), adds one by email with an optional
-// name + invite email, and removes one. Self-contained — posts to
-// /api/admin/collaborators and refreshes the server-rendered list.
+// Second-photographer access for one project: lists collaborators (read-only
+// portal access), adds one by email with an optional name and invite, and
+// removes one. Posts to /api/admin/collaborators and refreshes the page.
 export default function AdminCollaborators({
   projectId,
   collaborators,
@@ -40,7 +41,7 @@ export default function AdminCollaborators({
       router.refresh();
       return true;
     } catch {
-      setError("Couldn't update — please try again.");
+      setError("Couldn't update. Try again.");
       return false;
     } finally {
       setBusy(null);
@@ -71,7 +72,7 @@ export default function AdminCollaborators({
   return (
     <div>
       {collaborators.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">
+        <p className="text-sm text-muted">
           No one else has access yet. Add a second photographer below to give
           them read-only access to this project&rsquo;s details and documents.
         </p>
@@ -80,41 +81,42 @@ export default function AdminCollaborators({
           {collaborators.map((c) => (
             <li
               key={c.email}
-              className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] p-3"
+              className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
             >
               <div className="min-w-0">
                 <div className="truncate text-sm">{c.name || c.email}</div>
                 {c.name && (
-                  <div className="truncate text-xs text-[var(--muted)]">
+                  <div className="truncate text-xs text-muted">
                     {c.email}
                   </div>
                 )}
                 {c.addedAt && (
-                  <div className="text-xs text-[var(--muted)]">
+                  <div className="text-xs text-muted">
                     Added{" "}
                     {formatHumanDate(c.addedAt, { timeZone: STUDIO_TIME_ZONE })}
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                disabled={busy === c.email}
+              <Button
+                variant="text"
+                className="whitespace-nowrap"
+                loading={busy === c.email}
+                loadingLabel="Removing…"
                 onClick={() =>
                   post(
                     { action: "remove", projectId, email: c.email },
                     c.email,
                   )
                 }
-                className="whitespace-nowrap text-xs text-[var(--muted)] transition hover:text-red-700 disabled:opacity-50"
               >
-                {busy === c.email ? "Removing…" : "Remove"}
-              </button>
+                Remove
+              </Button>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
+      <div className="mt-4 space-y-3 border-t border-border pt-4">
         <EmailField
           id="collab-email"
           label="Add a second photographer"
@@ -128,7 +130,7 @@ export default function AdminCollaborators({
           value={name}
           onChange={setName}
         />
-        <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+        <label className="flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={sendInvite}
@@ -136,19 +138,17 @@ export default function AdminCollaborators({
           />
           Email them a one-click sign-in link
         </label>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={add}
-          disabled={busy === "add" || !email.trim()}
-          className="rounded-full border border-[var(--foreground)] px-4 py-1.5 text-sm transition hover:bg-[var(--foreground)] hover:text-[var(--background)] disabled:opacity-50"
+          disabled={!email.trim()}
+          loading={busy === "add"}
+          loadingLabel="Granting…"
         >
-          {busy === "add" ? "Granting…" : "Grant access"}
-        </button>
-        {error && (
-          <p role="alert" className="text-sm text-red-700">
-            {error}
-          </p>
-        )}
+          Grant access
+        </Button>
+        <FormStatus state={error ? "error" : "idle"} error={error ?? ""} className="block" />
       </div>
     </div>
   );

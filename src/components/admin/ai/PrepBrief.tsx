@@ -1,20 +1,18 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// On-demand AI shoot-prep brief. A button calls /api/admin/prep-brief, which
-// reads the project's submitted questionnaire server-side and returns a
-// structured brief (headline + sections of bullets). Rendered only when AI is
-// configured and the project actually has a questionnaire snapshot.
+// Builds a shoot-prep brief from the project's submitted questionnaire
+// (/api/admin/prep-brief): a headline and sections of bullets, copyable as text.
 
-import { useState } from "react";
 import Panel from "@/components/ui/Panel";
+import Button from "@/components/ui/Button";
+import CopyButton from "@/components/ui/CopyButton";
+import FormStatus from "@/components/ui/FormStatus";
+import { useAiAction } from "./useAiAction";
 
 type Brief = {
   headline: string;
   sections: { heading: string; bullets: string[] }[];
 };
-
-type Status = "idle" | "loading" | "done" | "copied" | "error";
 
 function briefToText(brief: Brief): string {
   const parts: string[] = [];
@@ -26,64 +24,24 @@ function briefToText(brief: Brief): string {
 }
 
 export default function PrepBrief({ projectId }: { projectId: string }) {
-  const [status, setStatus] = useState<Status>("idle");
-  const [brief, setBrief] = useState<Brief | null>(null);
-
-  async function run() {
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/admin/prep-brief", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.generated && data.brief) {
-        setBrief(data.brief as Brief);
-        setStatus("done");
-      } else {
-        setStatus("idle");
-      }
-    } catch {
-      setStatus("error");
-    }
-  }
-
-  async function copy() {
-    if (!brief) return;
-    try {
-      await navigator.clipboard.writeText(briefToText(brief));
-      setStatus("copied");
-    } catch {
-      setStatus("error");
-    }
-  }
+  const { run, status, result: brief, error } = useAiAction<Brief>(
+    "/api/admin/prep-brief",
+    (json) => (json.generated ? (json.brief as Brief) : null),
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <AiButton
-          onClick={run}
+        <Button
+          variant="secondary"
+          onClick={() => run({ projectId })}
           loading={status === "loading"}
           loadingLabel="Reading the questionnaire…"
         >
           {brief ? "Re-generate brief" : "Generate prep brief"}
-        </AiButton>
-        {brief && (
-          <button
-            type="button"
-            onClick={copy}
-            className="text-xs underline underline-offset-4 hover:text-[var(--accent)]"
-          >
-            {status === "copied" ? "Copied ✓" : "Copy brief"}
-          </button>
-        )}
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t build the brief — please try again.
-          </span>
-        )}
+        </Button>
+        {brief && <CopyButton text={briefToText(brief)} label="Copy brief" />}
+        <FormStatus state={status} error={error} />
       </div>
 
       {brief && (
@@ -93,7 +51,7 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
           )}
           {brief.sections.map((s, i) => (
             <div key={i}>
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted">
                 {s.heading}
               </div>
               <ul className="mt-1.5 list-disc pl-5 text-sm space-y-1">
@@ -103,8 +61,8 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
               </ul>
             </div>
           ))}
-          <p className="text-xs text-[var(--muted)]">
-            AI-generated from the questionnaire — skim before the shoot and
+          <p className="text-xs text-muted">
+            AI-generated from the questionnaire. Skim it before the shoot and
             confirm anything marked to check.
           </p>
         </Panel>

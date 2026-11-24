@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AssistedTextarea, { type AssistContext } from "@/components/forms/AssistedTextarea";
 import { inputClass } from "@/components/ui/fields/Field";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 
 // The client's side of the thread: write to Julian from the portal. It lands
 // on the project's thread and in his inbox.
@@ -63,23 +65,20 @@ export default function PortalMessageBox({
         }}
       />
       <div className="flex flex-wrap items-center gap-4">
-        <button
+        <Button
           type="submit"
-          disabled={state === "sending" || !body.trim()}
-          className="px-6 py-3 bg-foreground text-background rounded-full hover:opacity-90 transition disabled:opacity-60"
+          size="lg"
+          disabled={!body.trim()}
+          loading={state === "sending"}
+          loadingLabel="Sending…"
         >
-          {state === "sending" ? "Sending…" : "Send"}
-        </button>
-        {state === "sent" && (
-          <span role="status" className="text-sm text-muted">
-            Sent. Julian gets it by email too.
-          </span>
-        )}
-        {state === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            {error}
-          </span>
-        )}
+          Send
+        </Button>
+        <FormStatus
+          state={state === "sent" ? "ok" : state}
+          ok="Sent. Julian gets it by email too."
+          error={error}
+        />
       </div>
     </form>
   );

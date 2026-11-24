@@ -6,6 +6,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Button from "@/components/ui/Button";
+import Panel from "@/components/ui/Panel";
+import FormStatus from "@/components/ui/FormStatus";
 
 export default function DeleteProjectButton({
   projectId,
@@ -40,18 +43,14 @@ export default function DeleteProjectButton({
 
   if (!confirming) {
     return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="text-sm rounded-full border border-red-300 text-red-700 px-5 py-2.5 hover:bg-red-50 transition"
-      >
+      <Button variant="danger" onClick={() => setConfirming(true)}>
         Delete project
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="rounded-lg border border-red-300 bg-red-50/50 p-5">
+    <Panel tone="danger">
       <p className="text-sm">
         This permanently deletes <strong>{projectName}</strong>
         {" and can’t be undone. Type "}
@@ -68,32 +67,30 @@ export default function DeleteProjectButton({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="DELETE"
-          className="px-4 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-red-400"
+          className="px-4 py-2 rounded border border-border bg-white text-sm focus:outline-none focus:border-danger/60"
         />
-        <button
-          type="button"
-          disabled={text !== "DELETE" || busy}
+        <Button
+          variant="danger"
+          disabled={text !== "DELETE"}
+          loading={busy}
+          loadingLabel="Deleting…"
           onClick={remove}
-          className="text-sm rounded-full bg-red-700 text-white px-5 py-2.5 hover:bg-red-800 transition disabled:opacity-40"
         >
-          {busy ? "Deleting…" : "Delete permanently"}
-        </button>
-        <button
-          type="button"
+          Delete permanently
+        </Button>
+        <Button
+          variant="text"
           onClick={() => {
             setConfirming(false);
             setText("");
           }}
-          className="text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
         >
           Cancel
-        </button>
+        </Button>
       </div>
       {error && (
-        <p role="alert" className="mt-3 text-sm text-red-700">
-          Couldn&rsquo;t delete — please try again.
-        </p>
+        <FormStatus state="error" error="Couldn't delete. Try again." className="mt-3 block" />
       )}
-    </div>
+    </Panel>
   );
 }

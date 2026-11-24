@@ -175,7 +175,7 @@ export async function sendCollaboratorInviteEmail(opts: {
   const settings = await getSiteSettings();
   const lines = [
     `Julian has shared the project "${opts.projectName}" with you for second-photographer access.`,
-    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes — everything you need to show up prepared. The button below signs you straight in.",
+    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes: everything you need to show up prepared. The button below signs you straight in.",
   ];
   const html = await render(
     BrandedEmailLayout({

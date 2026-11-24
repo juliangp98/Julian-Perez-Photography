@@ -15,7 +15,7 @@ const schema = z.object({
 });
 
 const SYSTEM_PROMPT =
-  "You write concise image alt text for accessibility on a photographer's portfolio website. Describe what is visibly in the photograph in one natural phrase, under 125 characters. Do not start with 'image of' / 'photo of' / 'picture of'. Return only the alt text — no quotes, no label.";
+  "You write concise image alt text for accessibility on a photographer's portfolio website. Describe what is visibly in the photograph in one natural phrase, under 125 characters. Do not start with 'image of' / 'photo of' / 'picture of'. Return only the alt text: no quotes, no label.";
 
 export const POST = defineRoute({
   route: "admin/draft-alt",

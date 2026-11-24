@@ -1,13 +1,8 @@
 "use client";
 
-// Root-level error boundary. Catches failures inside the root layout
-// itself (where the usual `error.tsx` has no working ancestor to mount
-// into). This component must emit its own <html> and <body> because
-// Next replaces the entire tree when the root layout throws.
-//
-// The styling is intentionally minimal and inline: a stylesheet loaded
-// from the failing root layout is not guaranteed to be available when
-// this renders.
+// Root-level error boundary for failures in the root layout. It renders its
+// own <html> and <body>, and styles inline because the site stylesheet may not
+// have loaded. The hex values mirror the theme tokens in globals.css.
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";

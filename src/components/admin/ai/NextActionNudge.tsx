@@ -1,12 +1,13 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// On-demand AI "what's the next step?" for a project. A button calls
-// /api/admin/next-action, which reasons over the project's pipeline state
-// server-side and returns the recommended next move (and, when relevant, which
-// email template fits). Rendered only when AI is configured.
+// Suggests a project's next step from its pipeline state (/api/admin/next-action),
+// with the email template that fits when there is one.
 
-import { useState } from "react";
+import Link from "next/link";
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
+import { useAiAction } from "./useAiAction";
 
 type Action = {
   nextStep: string;
@@ -15,86 +16,55 @@ type Action = {
   suggestedTemplate: { id: string; name: string } | null;
 };
 
-type Status = "idle" | "loading" | "done" | "error";
-
-const URGENCY: Record<Action["urgency"], { label: string; cls: string }> = {
-  high: { label: "Soon", cls: "bg-red-50 text-red-700 border-red-200" },
-  medium: {
-    label: "This week",
-    cls: "bg-amber-50 text-amber-800 border-amber-200",
-  },
-  low: {
-    label: "No rush",
-    cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]",
-  },
+const URGENCY: Record<Action["urgency"], [string, BadgeTone]> = {
+  high: ["Soon", "bad"],
+  medium: ["This week", "warn"],
+  low: ["No rush", "muted"],
 };
 
 export default function NextActionNudge({ projectId }: { projectId: string }) {
-  const [status, setStatus] = useState<Status>("idle");
-  const [action, setAction] = useState<Action | null>(null);
-
-  async function run() {
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/admin/next-action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.suggested && data.action) {
-        setAction(data.action as Action);
-        setStatus("done");
-      } else {
-        setStatus("idle");
-      }
-    } catch {
-      setStatus("error");
-    }
-  }
+  const { run, status, result: action, error } = useAiAction<Action>(
+    "/api/admin/next-action",
+    (json) => (json.suggested ? (json.action as Action) : null),
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <AiButton
-          onClick={run}
+        <Button
+          variant="secondary"
+          onClick={() => run({ projectId })}
           loading={status === "loading"}
           loadingLabel="Thinking…"
         >
           {action ? "Re-check next step" : "Suggest next step"}
-        </AiButton>
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t suggest a step — please try again.
-          </span>
-        )}
+        </Button>
+        <FormStatus state={status} error={error} />
       </div>
 
       {action && (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-5 space-y-3">
+        <div className="rounded-lg border border-border bg-background p-5 space-y-3">
           <div className="flex items-start gap-3">
-            <span
-              className={`mt-0.5 shrink-0 inline-block rounded-full border px-3 py-1 text-xs font-medium ${URGENCY[action.urgency].cls}`}
-            >
-              {URGENCY[action.urgency].label}
-            </span>
+            <Badge tone={URGENCY[action.urgency][1]} className="mt-0.5 shrink-0">
+              {URGENCY[action.urgency][0]}
+            </Badge>
             <p className="text-sm font-medium leading-relaxed">
               {action.nextStep}
             </p>
           </div>
           {action.why && (
-            <p className="text-sm text-[var(--muted)]">{action.why}</p>
+            <p className="text-sm text-muted">{action.why}</p>
           )}
           {action.suggestedTemplate && (
             <p className="text-sm">
               Suggested email:{" "}
-              <span className="font-medium">
+              <Link
+                href={`?compose=${action.suggestedTemplate.id}#compose`}
+                scroll={false}
+                className="font-medium underline underline-offset-4 hover:text-accent"
+              >
                 {action.suggestedTemplate.name}
-              </span>{" "}
-              <span className="text-[var(--muted)]">
-                — pick it in the Compose panel below.
-              </span>
+              </Link>
             </p>
           )}
         </div>

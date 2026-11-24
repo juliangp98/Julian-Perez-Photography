@@ -117,7 +117,7 @@ const yourDetailsSection: Section = {
       label: "Instagram handle (optional)",
       type: "text",
       placeholder: "@yourhandle",
-      help: "I love connecting with my clients — totally optional!",
+      help: "I like connecting with clients there, but it's optional.",
     },
   ],
 };
@@ -128,7 +128,7 @@ function bookingStatusSection(): Section {
   return {
     title: "Booking status",
     description:
-      "This questionnaire is built for clients who have already booked, but I welcome serious prospects too — your answers help me give you a more accurate quote.",
+      "This questionnaire is built for clients who have already booked, but serious prospects are welcome too. Your answers help me give you a more accurate quote.",
     fields: [
       {
         id: "bookingStatus",
@@ -136,8 +136,8 @@ function bookingStatusSection(): Section {
         type: "radio",
         required: true,
         options: [
-          "I'm already booked — let's plan",
-          "I'm strongly considering and want a tailored quote",
+          "I'm already booked, let's plan",
+          "I'm strongly considering and want an accurate quote",
         ],
       },
       {
@@ -167,7 +167,7 @@ const weddingQuestionnaire: Questionnaire = {
   slug: "weddings",
   title: "Wedding planning questionnaire",
   intro:
-    "Welcome! This is the questionnaire I send to every booked wedding couple — it's how I learn your day inside and out so I can show up prepared and stress-free. Take your time. You can save your answers and come back later.",
+    "Welcome! This is the questionnaire I send to every booked wedding couple. It's how I learn your day inside and out, so I show up prepared. Take your time. You can save your answers and come back later.",
   audience: "Booked and prospective wedding couples",
   estimatedMinutes: 30,
   sections: [
@@ -193,7 +193,7 @@ const weddingQuestionnaire: Questionnaire = {
     {
       title: "Your photography style",
       description:
-        "How you want the day to feel when you look back at the gallery. There's no wrong answer — it just helps me lean the right direction.",
+        "How you want the day to feel when you look back at the gallery. There's no wrong answer. It just helps me lean the right direction.",
       fields: [
         {
           id: "stylePreference",
@@ -201,10 +201,10 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: [
-            "Candid / photojournalistic — captured as it happens",
-            "Classic / posed — timeless, directed portraits",
-            "A blend of both — candid moments plus polished portraits",
-            "Editorial / fashion-forward — bold, styled, dramatic",
+            "Candid / photojournalistic: captured as it happens",
+            "Classic / posed: directed portraits",
+            "A blend of both: candid moments plus polished portraits",
+            "Editorial / fashion-forward: bold and styled",
             "Other",
           ],
         },
@@ -226,7 +226,7 @@ const weddingQuestionnaire: Questionnaire = {
     {
       title: "Engagement session",
       description:
-        "Your package includes an engagement session — a relaxed shoot before the wedding. It's a great way for us to get comfortable together, and perfect for save-the-dates.",
+        "Your package includes an engagement session: a relaxed shoot before the wedding. It helps us get comfortable working together, and the photos work well for save-the-dates.",
       // Silver, Premium, and Platinum include a session. (On Premium it's
       // the couple's choice of session vs. a heirloom album, handled by
       // the help text on the field below.) Essentials and Mini don't, so
@@ -239,7 +239,7 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: ["Yes, let's do it!", "No, we'll skip it", "Not sure yet"],
-          help: "On Premium, the session is your choice vs. a heirloom album — pick 'No' here if you'd rather take the album.",
+          help: "On Premium, you choose between the session and an heirloom album. Pick 'No' here if you'd rather take the album.",
         },
         {
           id: "engagementLocationIdeas",
@@ -290,7 +290,7 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: YES_NO,
-          help: "Silver, Premium, and Platinum include a second shooter — this is the ideal use of them. Essentials is solo unless you've added a second shooter.",
+          help: "Silver, Premium, and Platinum include a second shooter, and this is the best use of them. Essentials is solo unless you've added a second shooter.",
           showIf: { id: "package", notEquals: "Essentials" },
         },
         {
@@ -319,7 +319,7 @@ const weddingQuestionnaire: Questionnaire = {
             "First touch (no eye contact)",
             "First look with parent / family member",
             "First look with bridal party",
-            "No first look — we want to see each other at the aisle",
+            "No first look. We want to see each other at the aisle",
             "Still deciding",
           ],
         },
@@ -334,12 +334,12 @@ const weddingQuestionnaire: Questionnaire = {
     {
       title: "Wedding party & details",
       description:
-        "Everyone and everything involved in making your day perfect.",
+        "The people and details involved in your day.",
       showIf: { id: "package", notEquals: "Mini" },
       fields: [
         {
           id: "weddingParty",
-          label: "Wedding party — how many on each side?",
+          label: "Wedding party: how many on each side?",
           type: "text",
           required: true,
           placeholder: "e.g. 5 bridesmaids, 5 groomsmen, 2 flower kids",
@@ -361,7 +361,7 @@ const weddingQuestionnaire: Questionnaire = {
             "Vow books",
             "Something old / new / borrowed / blue",
           ],
-          help: "Bring these items together in one place when I arrive — I'll grab them quickly during getting-ready.",
+          help: "Gather these items in one place before I arrive. I'll photograph them quickly during getting-ready.",
         },
         {
           id: "mustTakePhotos",
@@ -384,7 +384,7 @@ const weddingQuestionnaire: Questionnaire = {
     {
       title: "Family portrait groupings",
       description:
-        "Names and groupings for formal portraits — so I can call people by name and keep the session moving.",
+        "Names and groupings for formal portraits, so I can call people by name and keep the session moving.",
       showIf: { id: "package", notEquals: "Mini" },
       fields: [
         {
@@ -393,9 +393,9 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: [
-            "Yes — during cocktail hour / after ceremony",
-            "Yes — before the ceremony",
-            "Minimal — just immediate family",
+            "Yes, during cocktail hour / after ceremony",
+            "Yes, before the ceremony",
+            "Minimal: just immediate family",
             "No formal family portraits",
           ],
         },
@@ -407,7 +407,7 @@ const weddingQuestionnaire: Questionnaire = {
             id: "familyPortraitsPlanned",
             notEquals: "No formal family portraits",
           },
-          help: "First names only — so I can call people by name during portraits.",
+          help: "First names only, so I can call people by name during portraits.",
         },
         {
           id: "groomParentsNames",
@@ -505,7 +505,7 @@ const weddingQuestionnaire: Questionnaire = {
             "Indoor backup space at the venue",
             "Tent on standby",
             "Other (I'll describe below)",
-            "No backup plan yet — open to suggestions",
+            "No backup plan yet (open to suggestions)",
           ],
           help: "Helps me scout and plan for either scenario so we're never caught off guard. Check any that apply.",
           showIf: {
@@ -543,12 +543,12 @@ const weddingQuestionnaire: Questionnaire = {
           label: "Expected ceremony length",
           type: "radio",
           required: true,
-          help: "An honest estimate is fine — I'll cover whatever the day actually runs.",
+          help: "An honest estimate is fine. I'll cover whatever the day actually runs.",
           options: [
-            "Short — under 30 minutes (courthouse, civil)",
-            "Standard — 30–45 minutes",
-            "Full — 45 minutes to an hour",
-            "Extended — over an hour (full Mass, multilingual, cultural)",
+            "Short: under 30 minutes (courthouse, civil)",
+            "Standard: 30–45 minutes",
+            "Full: 45 minutes to an hour",
+            "Extended: over an hour (full Mass, multilingual, cultural)",
           ],
         },
         {
@@ -580,7 +580,7 @@ const weddingQuestionnaire: Questionnaire = {
           type: "textarea",
           required: true,
           placeholder:
-            "e.g. no flash, photographer must stay in back, no photos during certain religious moments — write 'none' if there are none.",
+            "e.g. no flash, photographer must stay in back, no photos during certain religious moments. Write 'none' if there are none.",
         },
       ],
     },
@@ -593,7 +593,7 @@ const weddingQuestionnaire: Questionnaire = {
       fields: [
         {
           id: "receptionVenue",
-          label: "Reception venue (if different) — name and full address",
+          label: "Reception venue (if different): name and full address",
           type: "textarea",
           required: true,
           help: "Same as the ceremony venue? Just write 'same as ceremony'.",
@@ -641,7 +641,7 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: ["Yes, please", "No thanks", "Up to you / surprise me"],
-          help: "This is almost always a highlight of the gallery — I highly recommend it.",
+          help: "This is almost always a highlight of the gallery, and I recommend it.",
         },
         {
           id: "sunsetTime",
@@ -685,14 +685,14 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: YES_NO,
-          help: "I'm happy either way — I just plan my breaks differently.",
+          help: "Either way is fine. I just plan my breaks differently.",
         },
       ],
     },
     {
       title: "Vendors & coordination",
       description:
-        "Your other vendors and key contacts. Check the ones you've booked and a box will open up for each — you can always send the rest later as you lock them in.",
+        "Your other vendors and key contacts. Check the ones you've booked and a box opens for each. You can send the rest later as you lock them in.",
       showIf: { id: "package", notEquals: "Mini" },
       fields: [
         {
@@ -709,60 +709,60 @@ const weddingQuestionnaire: Questionnaire = {
             "Officiant",
             "Venue coordinator (if separate)",
           ],
-          help: "Check any that apply — a contact box appears below for each. One box per type; use the catch-all at the bottom for anyone else (or a second of the same kind).",
+          help: "Check any that apply. A contact box appears below for each. One box per type; use the catch-all at the bottom for anyone else (or a second of the same kind).",
         },
         {
           id: "plannerInfo",
-          label: "Planner / coordinator — name + contact",
+          label: "Planner / coordinator: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Planner / coordinator" },
         },
         {
           id: "videographerInfo",
-          label: "Videographer — name + contact",
+          label: "Videographer: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Videographer" },
         },
         {
           id: "djInfo",
-          label: "DJ / band — name + contact",
+          label: "DJ / band: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "DJ / band" },
         },
         {
           id: "floristInfo",
-          label: "Florist — name + contact",
+          label: "Florist: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Florist" },
         },
         {
           id: "catererInfo",
-          label: "Caterer — name + contact",
+          label: "Caterer: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Caterer" },
         },
         {
           id: "hmuaInfo",
-          label: "Hair & makeup — name + contact",
+          label: "Hair & makeup: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Hair & makeup" },
         },
         {
           id: "officiantInfo",
-          label: "Officiant — name + contact",
+          label: "Officiant: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: { id: "bookedVendors", equals: "Officiant" },
         },
         {
           id: "venueCoordinatorInfo",
-          label: "Venue coordinator — name + contact",
+          label: "Venue coordinator: name + contact",
           type: "textarea",
           placeholder: "Name, email, phone",
           showIf: {
@@ -775,14 +775,14 @@ const weddingQuestionnaire: Questionnaire = {
           label: "Any other vendors or key contacts?",
           type: "textarea",
           placeholder:
-            "Anyone not listed above — baker, rentals, transportation, a second of any vendor type, etc.",
+            "Anyone not listed above: baker, rentals, transportation, a second of any vendor type, etc.",
         },
       ],
     },
     {
       title: "Day-of timeline",
       description:
-        "Fill in the times you know — leave blank any you haven't nailed down yet. This builds the schedule section of your wedding day plan.",
+        "Fill in the times you know and leave the rest blank. This builds the schedule section of your wedding day plan.",
       showIf: { id: "package", notEquals: "Mini" },
       fields: [
         {
@@ -805,7 +805,7 @@ const weddingQuestionnaire: Questionnaire = {
           showIf: {
             id: "firstLook",
             notEqualsAny: [
-              "No first look — we want to see each other at the aisle",
+              "No first look. We want to see each other at the aisle",
               "Still deciding",
             ],
           },
@@ -850,7 +850,7 @@ const weddingQuestionnaire: Questionnaire = {
           id: "elopementWitnesses",
           label: "How many people will be there besides the two of you?",
           type: "number",
-          help: "Officiant, witnesses, immediate family — anyone in the room counts.",
+          help: "Officiant, witnesses, immediate family: anyone in the room counts.",
         },
         {
           id: "elopementPortraitTime",
@@ -858,7 +858,7 @@ const weddingQuestionnaire: Questionnaire = {
             "Roughly how long do you want for couple + newlywed portraits after the ceremony?",
           type: "text",
           placeholder: "e.g. 30 minutes, an hour walking the venue grounds",
-          help: "Mini coverage runs ~2 hours total — we'll plan ceremony + portraits inside that.",
+          help: "Mini coverage runs ~2 hours total. We'll plan ceremony + portraits inside that.",
         },
         {
           id: "elopementOutfitChange",
@@ -883,11 +883,11 @@ const weddingQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: [
-            "Yes — share anywhere (website, social, blog, vendor features)",
-            "No — please keep all our photos private",
-            "Partial — I'll specify below",
+            "Yes, share anywhere (website, social, blog, vendor features)",
+            "No, please keep all our photos private",
+            "Partial (I'll specify below)",
           ],
-          help: "This never affects your own gallery or print release — it's only about whether I feature your images in my portfolio and marketing.",
+          help: "This never affects your own gallery or print release. It's only about whether I feature your images in my portfolio and marketing.",
         },
         {
           id: "sharingChannels",
@@ -898,7 +898,7 @@ const weddingQuestionnaire: Questionnaire = {
             "Instagram / Facebook",
             "Blog / vendor features",
           ],
-          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+          showIf: { id: "sharingConsent", equals: "Partial (I'll specify below)" },
         },
         {
           id: "sharingPhotoTypes",
@@ -912,20 +912,20 @@ const weddingQuestionnaire: Questionnaire = {
             "Reception is fine",
             "Please avoid photos with our kids / specific guests",
           ],
-          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+          showIf: { id: "sharingConsent", equals: "Partial (I'll specify below)" },
         },
         {
           id: "sharingLimits",
           label: "Any limit on how many, or where? (optional)",
           type: "text",
           placeholder: "e.g. up to 15 on your site, 5 on social",
-          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+          showIf: { id: "sharingConsent", equals: "Partial (I'll specify below)" },
         },
         {
           id: "sharingNotes",
           label: "Anything else about sharing? (optional)",
           type: "textarea",
-          showIf: { id: "sharingConsent", equals: "Partial — I'll specify below" },
+          showIf: { id: "sharingConsent", equals: "Partial (I'll specify below)" },
         },
         {
           id: "inspirationFiles",
@@ -938,7 +938,7 @@ const weddingQuestionnaire: Questionnaire = {
           label: "Anything else I should know?",
           type: "textarea",
           placeholder:
-            "Family dynamics, accessibility needs, surprises, things you're nervous about — this is a safe space.",
+            "Family dynamics, accessibility needs, surprises, things you're nervous about. Nothing here gets shared.",
         },
       ],
     },
@@ -1031,7 +1031,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
           id: "ceremonyRestrictions",
           label: "Photography restrictions during the ceremony?",
           type: "textarea",
-          placeholder: "e.g. no flash, photographer in balcony only — write 'none' if none.",
+          placeholder: "e.g. no flash, photographer in balcony only. Write 'none' if none.",
         },
       ],
     },
@@ -1055,7 +1055,7 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
         },
         {
           id: "courtSize",
-          label: "Court / chambelanes / damas — how many?",
+          label: "Court / chambelanes / damas: how many?",
           type: "text",
           placeholder: "e.g. 7 damas + 7 chambelanes, or 'no court'",
         },
@@ -1092,14 +1092,14 @@ const culturalMilestonesQuestionnaire: Questionnaire = {
       fields: [
         {
           id: "preEventSession",
-          label: "Pre-event portrait session — date you'd like to schedule",
+          label: "Pre-event portrait session: date you'd like to schedule",
           type: "date",
         },
         {
           id: "preEventLocation",
           label: "Preferred location(s) for the pre-event session",
           type: "textarea",
-          placeholder: "Park, monument, garden — I'm happy to suggest if you're not sure.",
+          placeholder: "Park, monument, garden. I can suggest one if you're not sure.",
         },
       ],
     },
@@ -1187,7 +1187,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
           label: "Venue full address",
           type: "textarea",
           required: true,
-          help: "Backyard, restaurant, event hall — wherever it's happening.",
+          help: "Backyard, restaurant, event hall: wherever it's happening.",
         },
         {
           id: "guestCount",
@@ -1227,7 +1227,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
             "If you had to pick the three moments that absolutely cannot be missed, what are they?",
           type: "textarea",
           required: true,
-          help: "The Gathering package is 2 hours of coverage — call out your top 3 so I prioritize them if the schedule gets tight.",
+          help: "The Gathering package is 2 hours of coverage. Call out your top 3 so I prioritize them if the schedule gets tight.",
           showIf: { id: "package", equals: "Gathering" },
         },
         {
@@ -1241,7 +1241,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
         },
         {
           id: "formalPortraits",
-          label: "Family / group portraits — list the combinations you want",
+          label: "Family / group portraits: list the combinations you want",
           type: "textarea",
           placeholder:
             "e.g. immediate family, all grandparents with the baby, all cousins, etc.",
@@ -1251,7 +1251,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
           label: "Anything unique or sensitive I should know?",
           type: "textarea",
           placeholder:
-            "Family dynamics, accessibility needs, traditions, surprises, custodial considerations — anything.",
+            "Family dynamics, accessibility needs, traditions, surprises, custodial considerations, anything.",
         },
       ],
     },
@@ -1281,7 +1281,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
   slug: "corporate-community-events",
   title: "Corporate / community event planning questionnaire",
   intro:
-    "This brief helps me show up dialed in to your program — who matters, what to capture, and how the photos will be used.",
+    "This brief tells me who matters, what to capture, and how the photos will be used.",
   audience: "Booked and prospective corporate / community event clients",
   estimatedMinutes: 10,
   sections: [
@@ -1348,7 +1348,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
         },
         {
           id: "conferenceSchedule",
-          label: "Multi-day program — paste the daily schedule",
+          label: "Multi-day program: paste the daily schedule",
           type: "textarea",
           required: true,
           placeholder:
@@ -1367,7 +1367,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
       fields: [
         {
           id: "runOfShow",
-          label: "Schedule / run-of-show — paste it or summarize key moments",
+          label: "Schedule / run-of-show: paste it or summarize key moments",
           type: "textarea",
           required: true,
         },
@@ -1411,7 +1411,7 @@ const corporateEventsQuestionnaire: Questionnaire = {
           label: "Same-day social selects needed?",
           type: "radio",
           required: true,
-          options: ["Yes — during event", "Yes — by end of day", "No"],
+          options: ["Yes, during event", "Yes, by end of day", "No"],
         },
         {
           id: "usage",
@@ -1484,7 +1484,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
   slug: "concerts-performances",
   title: "Concert / performance planning questionnaire",
   intro:
-    "Concert and stage photography is its own discipline — fast light, no second chances. This brief helps me work with your stage manager and lighting crew so I'm never in the way of the show.",
+    "Concert and stage photography is its own discipline. The light changes fast and there are no second chances. This brief helps me work with your stage manager and lighting crew so I'm never in the way of the show.",
   audience: "Booked and prospective artists, venues, and event organizers",
   estimatedMinutes: 8,
   sections: [
@@ -1534,7 +1534,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
     {
       title: "Access & restrictions",
       description:
-        "Concert-specific access (soundcheck, backstage, 3-song rule) is hidden automatically when you book the Recital / Showcase package — those shows have different etiquette.",
+        "Concert-specific access (soundcheck, backstage, 3-song rule) is hidden automatically when you book the Recital / Showcase package. Those shows have different etiquette.",
       fields: [
         {
           id: "soundcheckAccess",
@@ -1585,7 +1585,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
           label: "Does the artist enforce a 3-song / no-flash rule?",
           type: "radio",
           required: true,
-          options: ["Yes — 3 songs no flash", "Yes — other restriction (describe below)", "No"],
+          options: ["Yes, 3 songs no flash", "Yes, other restriction (describe below)", "No"],
           showIf: { id: "package", notEquals: "Recital / Showcase" },
         },
         {
@@ -1605,7 +1605,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
           label: "What should I prioritize?",
           type: "checkbox",
           options: [
-            "Headliner — full set",
+            "Headliner: full set",
             "Openers",
             "Crowd / audience reactions",
             "Lighting moments / stage atmosphere",
@@ -1637,7 +1637,7 @@ const concertsPerformancesQuestionnaire: Questionnaire = {
           label: "Same-day social selects?",
           type: "radio",
           required: true,
-          options: ["Yes — during set", "Yes — by end of night", "No"],
+          options: ["Yes, during set", "Yes, by end of night", "No"],
         },
         {
           id: "usage",
@@ -1742,7 +1742,7 @@ const maternityQuestionnaire: Questionnaire = {
         },
         {
           id: "siblingDetails",
-          label: "If yes — names and ages",
+          label: "If yes, names and ages",
           type: "text",
           showIf: { id: "siblings", equals: "Yes" },
         },
@@ -1764,7 +1764,7 @@ const maternityQuestionnaire: Questionnaire = {
             "Any pacing, comfort, or health considerations I should plan around?",
           type: "textarea",
           placeholder:
-            "Bed rest, swelling, stairs, time of day that feels best, etc. — I'll plan accordingly.",
+            "Bed rest, swelling, stairs, time of day that feels best, etc. I'll plan around it.",
         },
         {
           id: "inspiration",
@@ -1978,7 +1978,7 @@ const portraitureQuestionnaire: Questionnaire = {
           label: "Describe your outfit ideas",
           type: "textarea",
           placeholder:
-            "Color, formal vs. casual, anything you're excited about — I can help finalize if you're stuck.",
+            "Color, formal vs. casual, anything you have in mind. I can help finalize if you're stuck.",
         },
         {
           id: "wardrobeHelp",
@@ -2010,7 +2010,7 @@ const portraitureQuestionnaire: Questionnaire = {
           label: "Specific locations you have in mind",
           type: "textarea",
           placeholder:
-            "Park, neighborhood, your studio, monument, a meaningful spot — list anything, or write 'none — surprise me'.",
+            "Park, neighborhood, your studio, monument, a meaningful spot. List anything, or write 'none, surprise me'.",
         },
       ],
     },
@@ -2022,7 +2022,7 @@ const portraitureQuestionnaire: Questionnaire = {
           label: "Inspiration links or references",
           type: "textarea",
           placeholder:
-            "Pinterest, Instagram saves, photos you love — drop links or describe.",
+            "Pinterest, Instagram saves, photos you love. Drop links or describe.",
         },
         {
           id: "inspirationFiles",
@@ -2034,7 +2034,7 @@ const portraitureQuestionnaire: Questionnaire = {
           id: "pacingNotes",
           label: "Anything I should plan around (pacing, accessibility, anxiety with cameras, etc.)?",
           type: "textarea",
-          help: "I shoot at the pace that works for you — the more I know, the smoother it goes.",
+          help: "I shoot at the pace that works for you. The more I know, the smoother it goes.",
         },
         {
           id: "referral",
@@ -2059,7 +2059,7 @@ const graduationQuestionnaire: Questionnaire = {
   slug: "graduation",
   title: "Graduation session planning questionnaire",
   intro:
-    "Graduation day is once in a lifetime. This brief helps me plan around your school, your locations, and the people who got you here — plus handle any National Mall permits ahead of time.",
+    "This brief helps me plan around your school, your locations, and the people who got you here. It also lets me handle any National Mall permits ahead of time.",
   audience: "Booked and prospective graduation clients",
   estimatedMinutes: 6,
   sections: [
@@ -2073,7 +2073,7 @@ const graduationQuestionnaire: Questionnaire = {
           label: "Graduate's full name",
           type: "text",
           required: true,
-          help: "If this is a Study Group session, list yours — we'll capture each grad's name in the next section.",
+          help: "If this is a Study Group session, list yours. We'll capture each grad's name in the next section.",
         },
         {
           id: "school",
@@ -2154,7 +2154,7 @@ const graduationQuestionnaire: Questionnaire = {
           label: "Must-take family / group combinations",
           type: "textarea",
           placeholder:
-            "Specific combos you absolutely want — solo with mom, all siblings, grandparents, etc.",
+            "Specific combos you want: solo with mom, all siblings, grandparents, etc.",
           showIf: { id: "sessionType", equals: "Family Graduation Session" },
         },
       ],
@@ -2181,7 +2181,7 @@ const graduationQuestionnaire: Questionnaire = {
         },
         {
           id: "campusName",
-          label: "If on-campus — what campus and what spots?",
+          label: "If on-campus, what campus and what spots?",
           type: "textarea",
           placeholder:
             "Specific landmarks, buildings, or areas of campus that mean something to you.",
@@ -2302,7 +2302,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
           label: "Space available for setup",
           type: "textarea",
           placeholder:
-            "I need ~10x10 ft of clear floor space and a power outlet. Conference room, open office, lobby — whatever you have.",
+            "I need ~10x10 ft of clear floor space and a power outlet. Conference room, open office, lobby: whatever you have.",
           showIf: { id: "locationType", equals: "On-site (I come to you)" },
         },
         {
@@ -2342,7 +2342,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
         },
         {
           id: "brandColors",
-          label: "If branded — what are your brand colors?",
+          label: "If branded, what are your brand colors?",
           type: "text",
           showIf: { id: "background", equals: "Branded / colored (match brand palette)" },
         },
@@ -2352,9 +2352,9 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: [
-            "Natural — clean up obvious distractions only",
-            "Polished — softer skin, even tones",
-            "Heavier — magazine-style finish",
+            "Natural: clean up obvious distractions only",
+            "Polished: softer skin, even tones",
+            "Heavier: magazine-style finish",
           ],
           help: "All packages include retouched final selects.",
         },
@@ -2390,7 +2390,7 @@ const corporateHeadshotsQuestionnaire: Questionnaire = {
           label: "Accessibility or pacing considerations for the team",
           type: "textarea",
           placeholder:
-            "Mobility, lighting sensitivity, language considerations, scheduling around prayer / breaks — anything I should plan around.",
+            "Mobility, lighting sensitivity, language considerations, scheduling around prayer / breaks. Anything I should plan around.",
         },
         {
           id: "onSiteContact",
@@ -2421,7 +2421,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
   slug: "engagements-couples",
   title: "Engagement & couples session questionnaire",
   intro:
-    "A few questions so I can plan a session that feels like the two of you. Whether it's an engagement, an anniversary, a surprise proposal, or just because — your answers help me show up with the right plan.",
+    "A few questions so I can plan a session that feels like the two of you. Whether it's an engagement, an anniversary, a surprise proposal, or just because, your answers help me show up with the right plan.",
   audience: "Booked and prospective engagement / couples clients",
   estimatedMinutes: 8,
   sections: [
@@ -2486,7 +2486,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           label: "Proposed location (the spot itself)",
           type: "textarea",
           required: true,
-          help: "Be as specific as possible — the bench by the south fountain, the second overlook on the trail, etc.",
+          help: "Be as specific as possible: the bench by the south fountain, the second overlook on the trail, etc.",
         },
         {
           id: "proposalArrival",
@@ -2522,7 +2522,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
         {
           id: "proposalAfterPlan",
           label:
-            "Plan for the portrait session right after — same spot, or move somewhere?",
+            "Plan for the portrait session right after: same spot, or move somewhere?",
           type: "textarea",
           required: true,
         },
@@ -2582,7 +2582,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           id: "locationIdeas",
           label: "Locations you've been thinking about",
           type: "textarea",
-          help: "DC monuments, Rock Creek, Annapolis, Old Town, Brookside Gardens, your favorite coffee shop — anything goes.",
+          help: "DC monuments, Rock Creek, Annapolis, Old Town, Brookside Gardens, your favorite coffee shop. Anything goes.",
         },
         {
           id: "outfitCount",
@@ -2590,7 +2590,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
           type: "radio",
           options: ["1 outfit", "2 outfits", "Not sure yet"],
           showIf: { id: "package", notEquals: "Essentials" },
-          help: "Essentials is a single-look session — for multiple outfits, take a look at Premium.",
+          help: "Essentials is a single-look session. For multiple outfits, take a look at Premium.",
         },
         {
           id: "outfitIdeas",
@@ -2675,7 +2675,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
   slug: "family-portraits",
   title: "Family portrait questionnaire",
   intro:
-    "A few questions so the session feels like your family — not a stiff formal portrait. Tell me who's coming, how they show up, and what you'd actually want printed afterward.",
+    "A few questions so the session feels like your family and not a stiff formal portrait. Tell me who's coming, how they show up, and what you'd actually want printed afterward.",
   audience: "Booked and prospective family portrait clients",
   estimatedMinutes: 7,
   sections: [
@@ -2726,7 +2726,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
     {
       title: "Extended family heads-up",
       description:
-        "Premium covers larger groups (up to 15) across multiple looks and locations — these questions help me prep for that scale.",
+        "Premium covers larger groups (up to 15) across multiple looks and locations. These questions help me prep for that scale.",
       showIf: { id: "package", equals: "Premium" },
       fields: [
         {
@@ -2766,7 +2766,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           label: "Outfit color palette / coordination plan",
           type: "textarea",
           placeholder:
-            "e.g. earth tones, white and denim, holiday reds — or 'still figuring it out'.",
+            "e.g. earth tones, white and denim, holiday reds, or 'still figuring it out'.",
         },
         {
           id: "outfitChanges",
@@ -2782,7 +2782,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
           type: "radio",
           options: ["Yes please", "I've got it handled"],
           showIf: { id: "package", equals: "Premium" },
-          help: "Included in Premium — I can review outfit photos and suggest tweaks before the day.",
+          help: "Included in Premium. I can review outfit photos and suggest tweaks before the day.",
         },
         {
           id: "inspirationFiles",
@@ -2811,7 +2811,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
             "Posed and polished",
             "Mostly candid with a few group shots",
             "Bring on the chaos",
-            "Not sure — open to ideas",
+            "Not sure, open to ideas",
           ],
         },
         {
@@ -2898,7 +2898,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
   slug: "brand-commercial",
   title: "Brand & commercial shoot questionnaire",
   intro:
-    "A planning brief so we hit the ground running. Tell me about your brand, where the photos will live, and the specific scope of this shoot — I'll build the shot list around your answers.",
+    "A planning brief so we hit the ground running. Tell me about your brand, where the photos will live, and the specific scope of this shoot. I'll build the shot list around your answers.",
   audience: "Booked and prospective brand / commercial clients",
   estimatedMinutes: 9,
   sections: [
@@ -2952,7 +2952,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
     },
     {
       title: "Where the photos will live",
-      description: "Pick everything that applies — it shapes the aspect ratios and edit style.",
+      description: "Pick everything that applies. It shapes the aspect ratios and edit style.",
       fields: [
         {
           id: "endUse",
@@ -2982,7 +2982,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
     {
       title: "Class / workshop details",
       description:
-        "Coverage of a fitness, yoga, or workshop session — instructor, participants, branded space.",
+        "Coverage of a fitness, yoga, or workshop session: instructor, participants, branded space.",
       showIf: {
         id: "package",
         equalsAny: ["Class / Workshop Shoot", "Brand Half-Day"],
@@ -3058,7 +3058,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
     {
       title: "Product / lifestyle details",
       description:
-        "Flatlay or in-context product photography — for catalog, marketing, or content series.",
+        "Flatlay or in-context product photography for catalog, marketing, or content series.",
       showIf: {
         id: "package",
         equalsAny: ["Product / Lifestyle", "Brand Half-Day"],
@@ -3090,7 +3090,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
         },
         {
           id: "stylingMaterials",
-          label: "Props / styling materials — who's bringing what?",
+          label: "Props / styling materials: who's bringing what?",
           type: "textarea",
         },
         {
@@ -3134,7 +3134,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
     {
       title: "Storefront / instructor mini",
       description:
-        "Brand Mini is a focused 45-minute session — one location, one deliverable.",
+        "Brand Mini is a focused 45-minute session: one location, one deliverable.",
       showIf: { id: "package", equals: "Brand Mini" },
       fields: [
         {
@@ -3173,7 +3173,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
     {
       title: "Brand half-day planning",
       description:
-        "The 4-hour scope deserves a real run of show — let's plan it.",
+        "The 4-hour scope needs a real run of show, so let's plan it.",
       showIf: { id: "package", equals: "Brand Half-Day" },
       fields: [
         {
@@ -3298,7 +3298,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
   slug: "wedding-films",
   title: "Wedding films planning questionnaire",
   intro:
-    "Welcome! This is the questionnaire I send to every booked wedding-films couple — it's how I learn the day inside and out so the crew shows up ready to roll camera. Hybrid couples (photo + video) fill this alongside the photo questionnaire; on the last screen I'll offer a one-click jump to the other side with your basics already filled in. Take your time. Answers autosave in your browser.",
+    "Welcome! This is the questionnaire I send to every booked wedding-films couple. It's how I learn the day inside and out, so the crew shows up ready to roll camera. Hybrid couples (photo + video) fill this alongside the photo questionnaire; on the last screen I'll offer a one-click jump to the other side with your basics already filled in. Take your time. Answers autosave in your browser.",
   audience: "Booked and prospective wedding-films couples",
   estimatedMinutes: 20,
   sections: [
@@ -3324,7 +3324,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
     {
       title: "Lead-role preference",
       description:
-        "Each booking, my crew configures around your priorities. Tell me which way you're leaning and we'll lock the call on our consult. Skip if you've booked a Solo tier — those are inherently solo coverage.",
+        "Each booking, my crew configures around your priorities. Tell me which way you're leaning and we'll lock the call on our consult. Skip this if you've booked a Solo tier, since those are solo coverage.",
       showIf: { id: "package", notEqualsAny: SOLO_TIERS },
       fields: [
         {
@@ -3333,8 +3333,8 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           type: "radio",
           required: true,
           options: [
-            "Photo led — I bring a partner videographer to cover film",
-            "Video led — I bring a partner photographer to cover photo",
+            "Photo led: I bring a partner videographer to cover film",
+            "Video led: I bring a partner photographer to cover photo",
             "Defer to your recommendation on the consult call",
           ],
         },
@@ -3391,12 +3391,12 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           label: "Expected ceremony length",
           type: "radio",
           help:
-            "Drives the multi-cam ceremony cut length. Honest estimate is fine — we'll cover whatever the day actually runs.",
+            "Drives the multi-cam ceremony cut length. An honest estimate is fine. We'll cover whatever the day actually runs.",
           options: [
-            "Short — under 30 minutes (courthouse, civil)",
-            "Standard — 30–45 minutes",
-            "Full — 45 minutes to an hour",
-            "Extended — over an hour (full Mass, multilingual, cultural)",
+            "Short: under 30 minutes (courthouse, civil)",
+            "Standard: 30–45 minutes",
+            "Full: 45 minutes to an hour",
+            "Extended: over an hour (full Mass, multilingual, cultural)",
           ],
         },
       ],
@@ -3404,7 +3404,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
     {
       title: "Cultural and multilingual elements",
       description:
-        "Anything in the ceremony or reception that affects runtime, crew positioning, or audio coverage. Weddings I love working hardest on are the ones where these traditions are central — tell me what matters.",
+        "Anything in the ceremony or reception that affects runtime, crew positioning, or audio coverage. The weddings I love working on most are the ones where these traditions are central, so tell me what matters.",
       fields: [
         {
           id: "culturalElements",
@@ -3431,7 +3431,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
             "DJ provides a board feed for reception speeches",
             "Live band performing (will need a separate mic plan)",
             "Acoustic ceremony only (no amplification)",
-            "Outdoor ceremony — wind / ambient noise considerations",
+            "Outdoor ceremony (wind / ambient noise considerations)",
           ],
         },
         {
@@ -3446,7 +3446,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
     {
       title: "Drone footage",
       description:
-        "Drone establishing shots are included at Cinematic and Signature when conditions allow. Verify with your venue ahead of time — many DMV-area venues restrict drones, and the FAA gates anything within 5 miles of an airport without a waiver.",
+        "Drone establishing shots are included at Cinematic and Signature when conditions allow. Verify with your venue ahead of time. Many DMV-area venues restrict drones, and the FAA gates anything within 5 miles of an airport without a waiver.",
       showIf: { id: "package", equalsAny: TIERS_WITH_DRONE },
       fields: [
         {
@@ -3454,10 +3454,10 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           label: "Does your venue allow drone use?",
           type: "radio",
           options: [
-            "Yes — venue confirmed in writing",
-            "Yes — verbal confirmation, will follow up before the day",
-            "No — venue or local ordinance restricts",
-            "Not sure yet — will verify",
+            "Yes, venue confirmed in writing",
+            "Yes, verbal confirmation, will follow up before the day",
+            "No, venue or local ordinance restricts",
+            "Not sure yet, will verify",
           ],
         },
       ],
@@ -3465,14 +3465,14 @@ const weddingFilmsQuestionnaire: Questionnaire = {
     {
       title: "Reception structure",
       description:
-        "Speakers, dances, and any custom moments. Order matters — I plan multi-cam coverage around the run-of-show.",
+        "Speakers, dances, and any custom moments. Order matters. I plan multi-cam coverage around the run-of-show.",
       fields: [
         {
           id: "speakers",
           label: "Speakers and rough order",
           type: "textarea",
           placeholder:
-            "e.g. 1) Best man — toast, 2) Maid of honor — toast, 3) Father of the bride — speech, 4) Couple — thank-you",
+            "e.g. 1) Best man: toast, 2) Maid of honor: toast, 3) Father of the bride: speech, 4) Couple: thank-you",
         },
         {
           id: "danceOrder",
@@ -3494,7 +3494,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
     {
       title: "Pre-wedding interview prep",
       description:
-        "The interview is what turns a music montage into a documentary. We'll sit down for ~30–45 min in a quiet space ahead of the day; the audio cuts in as voiceover under highlight footage. Use the prompts below to start gathering your thoughts — no need to write polished answers, just bullet points work.",
+        "The interview is what turns a music montage into a documentary. We'll sit down for ~30–45 min in a quiet space ahead of the day; the audio cuts in as voiceover under highlight footage. Use the prompts below to start gathering your thoughts. Bullet points are fine; no need for polished answers.",
       showIf: { id: "package", equalsAny: TIERS_WITH_INTERVIEWS },
       fields: [
         {
@@ -3544,7 +3544,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
             "Songs or artists you'd love to hear in the highlight",
           type: "textarea",
           help:
-            "Note: copyrighted commercial tracks usually can't be licensed for online distribution at our budget — we'll find similar-feel music from licensing-friendly catalogs. But knowing what moves you helps me direct the search.",
+            "Note: copyrighted commercial tracks usually can't be licensed for online distribution at our budget. We'll find similar-feel music from licensing-friendly catalogs. But knowing what moves you helps me direct the search.",
         },
         {
           id: "musicAvoid",
@@ -3578,8 +3578,8 @@ const weddingFilmsQuestionnaire: Questionnaire = {
             "Want b-roll captured during the engagement session?",
           type: "radio",
           options: [
-            "Yes — bring a video body to the engagement session",
-            "No — keep the engagement session photo-only",
+            "Yes, bring a video body to the engagement session",
+            "No, keep the engagement session photo-only",
             "Discuss on the consult call",
           ],
         },
@@ -3613,8 +3613,8 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           type: "radio",
           showIf: { id: "liveStreamPlanned", equals: "Yes" },
           options: [
-            "Yes — confirmed adequate bandwidth",
-            "Not yet — will verify",
+            "Yes, confirmed adequate bandwidth",
+            "Not yet, will verify",
             "No Wi-Fi at the venue (we'll need a hotspot)",
           ],
         },
@@ -3631,7 +3631,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
             "How will you share the film?",
           type: "radio",
           options: [
-            "Publicly (social, YouTube, blog) — license music accordingly",
+            "Publicly (social, YouTube, blog): license music accordingly",
             "Privately only (family + close friends)",
             "Discuss case-by-case",
           ],
@@ -3643,8 +3643,8 @@ const weddingFilmsQuestionnaire: Questionnaire = {
           help:
             "Available as a $900 a la carte; free with paid-in-full at signing.",
           options: [
-            "Yes — already in my package or I want to add it",
-            "No — the highlight + multi-cam cuts are enough",
+            "Yes, already in my package or I want to add it",
+            "No, the highlight + multi-cam cuts are enough",
             "Discuss",
           ],
         },
@@ -3756,14 +3756,14 @@ function buildBundleInterestSection(slug: string): Section | null {
   return {
     title: "Related sessions",
     description:
-      "Many clients pair these sessions together, and bundling can save you. Ticking a box just tells me to include it in your quote — no commitment.",
+      "Many clients pair these sessions together, and bundling can save you. Ticking a box just tells me to include it in your quote. It's not a commitment.",
     fields: [
       {
         id: "bundleInterest",
         label: "Interested in adding any of these?",
         type: "checkbox",
         options,
-        help: "Optional — leave unticked if it's just this session for now.",
+        help: "Optional. Leave unticked if it's just this session for now.",
       },
     ],
   };

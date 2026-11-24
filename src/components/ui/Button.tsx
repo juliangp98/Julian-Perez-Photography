@@ -1,60 +1,91 @@
 import Link from "next/link";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-// The single source for the site's pill call-to-action buttons. Renders an
-// internal `next/link`, or an external anchor when `external`. One place owns
-// the variant colors and the size scale, so every CTA reads identically — no
-// more drifting px-5/px-6 padding or one-off color combinations. (Interactive
-// state buttons — form submit/save with disabled + loading — stay inline in
-// their forms; this is for navigational CTAs.)
+// The site's buttons. With `href` it renders a link (an anchor when external);
+// without, a <button> that takes the usual button props plus `loading`, which
+// disables it and swaps in `loadingLabel`. Variants and sizes live here only.
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "text";
 export type ButtonSize = "sm" | "md" | "lg";
 
-const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-full font-medium transition";
+const PILL = "inline-flex items-center justify-center gap-2 rounded-full font-medium transition disabled:opacity-50";
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "px-4 py-1.5 text-sm",
+  sm: "px-4 py-1.5 text-xs",
   md: "px-5 py-2.5 text-sm",
   lg: "px-6 py-3",
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90",
-  secondary:
-    "border border-[var(--foreground)] hover:bg-[var(--foreground)] hover:text-[var(--background)]",
-  ghost: "border border-[var(--border)] hover:border-[var(--foreground)]",
+  primary: "bg-foreground text-background hover:opacity-90",
+  secondary: "border border-foreground hover:bg-foreground hover:text-background",
+  ghost: "border border-border hover:border-foreground",
+  danger: "border border-danger text-danger hover:bg-danger hover:text-white",
+  text: "",
 };
 
-// Class string for an inline form-submit pill — the primary Button's look with a
-// disabled state. The interactive submit/save buttons keep their own loading
-// state, so they render as a plain <button> referencing this single class.
-export const submitButtonClass =
-  "px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50";
+// A quiet inline action: small, muted, underlined on hover.
+const TEXT =
+  "inline-flex items-center gap-1 text-xs text-muted underline-offset-4 hover:text-foreground hover:underline transition disabled:opacity-50";
 
-export default function Button({
-  href,
-  external = false,
-  variant = "primary",
-  size = "md",
-  className = "",
-  children,
-}: {
-  href: string;
-  external?: boolean;
+export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md") {
+  return variant === "text" ? TEXT : `${PILL} ${SIZES[size]} ${VARIANTS[variant]}`;
+}
+
+type Common = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
-  children: React.ReactNode;
-}) {
-  const cls = `${BASE} ${SIZES[size]} ${VARIANTS[variant]} ${className}`.trim();
-  return external ? (
-    <a href={href} target="_blank" rel="noreferrer" className={cls}>
-      {children}
-    </a>
-  ) : (
-    <Link href={href} className={cls}>
-      {children}
-    </Link>
+  children: ReactNode;
+};
+type AsLink = Common & { href: string; external?: boolean };
+type AsButton = Common &
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & {
+    href?: undefined;
+    loading?: boolean;
+    loadingLabel?: string;
+  };
+
+export default function Button(props: AsLink | AsButton) {
+  const { variant = "primary", size = "md", className = "", children } = props;
+  const cls = `${buttonClass(variant, size)} ${className}`.trim();
+
+  if (props.href !== undefined) {
+    return props.external ? (
+      <a href={props.href} target="_blank" rel="noreferrer" className={cls}>
+        {children}
+      </a>
+    ) : (
+      <Link href={props.href} className={cls}>
+        {children}
+      </Link>
+    );
+  }
+
+  const {
+    loading = false,
+    loadingLabel = "Working…",
+    type = "button",
+    disabled,
+    variant: _v,
+    size: _s,
+    className: _c,
+    children: _ch,
+    ...rest
+  } = props;
+  void _v;
+  void _s;
+  void _c;
+  void _ch;
+  return (
+    <button
+      {...rest}
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={cls}
+    >
+      {loading ? loadingLabel : children}
+    </button>
   );
 }

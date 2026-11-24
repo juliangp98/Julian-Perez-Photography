@@ -22,16 +22,16 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     id: "inquiry-reply",
     name: "Inquiry reply",
     stage: "new-inquiry",
-    subject: "Thanks for reaching out, {{firstName}}!",
+    subject: "Your {{serviceNoun}} inquiry",
     body: `Hi {{firstName}},
 
-Thank you so much for reaching out about your {{serviceNoun}} — congratulations, and I'd love to be part of it!
+Thanks for getting in touch about your {{serviceNoun}}, and congratulations.
 
-[A line or two responding to something specific they shared.]
+[A line or two answering something specific they shared.]
 
-The best next step is a quick call so I can hear all about your vision and answer any questions. Are you free for a 15–20 minute chat this week? You can grab a time here: {{bookingUrl}}
+The easiest next step is a short call, 15 to 20 minutes, so I can hear what you have in mind and answer your questions. You can pick a time here: {{bookingUrl}}
 
-Looking forward to connecting,
+Talk soon,
 Julian`,
   },
   {
@@ -41,45 +41,44 @@ Julian`,
     subject: "About your {{serviceNoun}} date",
     body: `Hi {{firstName}},
 
-Thank you so much for thinking of me for your {{serviceNoun}} — it genuinely means a lot. I hate to say it, but I'm already booked on {{eventDate}} and won't be able to photograph your day.
+Thank you for thinking of me for your {{serviceNoun}}. I'm already booked on {{eventDate}}, so I can't photograph it.
 
-[Optional: I'd be glad to recommend a couple of photographers I trust for your date — just say the word and I'll send their info.]
+[Optional: I'm glad to recommend a couple of photographers I trust for your date. Just say so and I'll send their details.]
 
-If your plans ever shift, please do reach out — I'd love the chance to work together down the road.
+If your plans change, please write again. I'd like to work with you another time.
 
-Wishing you all the best,
+All the best,
 Julian`,
   },
   {
     id: "discovery-invite",
     name: "Discovery-call invite",
     stage: "responded",
-    subject: "Let's find a time to chat, {{firstName}}",
+    subject: "A quick call about your {{serviceNoun}}",
     body: `Hi {{firstName}},
 
-I'd love to hear more about your {{serviceNoun}} and how I can help tell your story. The easiest next step is a quick call — 15–20 minutes — so I can answer your questions and get a feel for what you're picturing.
+I'd like to hear more about your {{serviceNoun}}. A 15 to 20 minute call is the easiest way for me to answer your questions and get a sense of what you're picturing.
 
-Grab whatever time works best for you here: {{bookingUrl}}
+Pick any time that works here: {{bookingUrl}}
 
-If none of those slots fit, just reply with a couple of times that suit you and I'll make it work.
+If none of those fit, reply with a couple of times that suit you and I'll make one work.
 
-Talk soon,
 Julian`,
   },
   {
     id: "discovery-recap",
     name: "Discovery-call recap",
     stage: "in-conversation",
-    subject: "So great talking, {{firstName}} — next steps",
+    subject: "Next steps for {{projectName}}",
     body: `Hi {{firstName}},
 
-It was so good to connect today — thank you for sharing your vision for {{projectName}}.
+Thanks for the call today and for walking me through {{projectName}}.
 
-From everything you described — [recap 2–3 of their priorities] — I really think we'd be a great fit, and I'd be honored to be the one to capture it.
+You mentioned [2 or 3 of their priorities]. That's the kind of day I photograph best, and I'd like to be there for it.
 
-I've attached a proposal with the collection I'd recommend, plus a gallery so you can see how I'd tell your story. Your date is open and I'm happy to hold it for you for [X days] while you decide.
+I've attached a proposal with the collection I'd recommend, and a gallery so you can see how I work. Your date is open, and I can hold it for [X days] while you decide.
 
-Any questions at all, just reply — I'm glad to hop back on a call too.
+If anything's unclear, reply here or we can talk again.
 
 Julian`,
   },
@@ -87,16 +86,16 @@ Julian`,
     id: "proposal",
     name: "Proposal / collections",
     stage: "proposal-sent",
-    subject: "Your proposal — {{projectName}}",
+    subject: "Your proposal for {{projectName}}",
     body: `Hi {{firstName}},
 
-As promised, here's everything for {{projectName}} on {{eventDate}}.
+As promised, here's the proposal for {{projectName}} on {{eventDate}}.
 
-Based on what you're after, I'd recommend [collection], which includes [coverage hours · number of images · etc.]. The full proposal is attached, along with a gallery so you can picture the day.
+For what you described, I'd recommend [collection]: [coverage hours, number of images, and so on]. The full proposal is attached, with a gallery so you can picture the day.
 
-To book, it's a signed agreement + [X]% retainer. Your date is open and I can hold it for [X days].
+Booking is a signed agreement and a [X]% retainer. Your date is open, and I can hold it for [X days].
 
-Reply with any questions, or we can hop on a quick call anytime.
+Reply with any questions, or we can set up a call.
 
 Julian`,
   },
@@ -107,9 +106,9 @@ Julian`,
     subject: "Holding {{eventDate}} for you",
     body: `Hi {{firstName}},
 
-Just a quick note — I'm holding {{eventDate}} for you for the next [X days], no obligation, while you look everything over.
+I'm holding {{eventDate}} for you for the next [X days], with no obligation, while you look everything over.
 
-After that I'll need to open the date back up, so if you're ready to lock it in, a signed agreement + [X]% retainer secures it. Happy to answer anything in the meantime.
+After that I'll need to open the date again. When you're ready, a signed agreement and a [X]% retainer secure it. Ask me anything in the meantime.
 
 Julian`,
   },
@@ -117,32 +116,31 @@ Julian`,
     id: "proposal-follow-up",
     name: "Proposal follow-up",
     stage: "proposal-sent",
-    subject: "Following up on your proposal, {{firstName}}",
+    subject: "Following up on your proposal",
     body: `Hi {{firstName}},
 
-Just floating back to the top of your inbox — I wanted to make sure my proposal for {{projectName}} reached you, and to see if any questions have come up since.
+I wanted to check that my proposal for {{projectName}} reached you, and see whether any questions have come up.
 
-No pressure at all; I know there's a lot that goes into choosing your photographer. If it'd help to talk anything through — collections, coverage, the timeline — I'm happy to hop on a quick call.
+Choosing a photographer takes time, so there's no rush. If it would help to talk through collections, coverage or the timeline, I'm happy to get on a call.
 
-[Optional: your date is still open as of today, but I've had some interest in it, so I wanted to keep you in the loop.]
+[Optional: your date is still open as of today, but someone else has asked about it, so I wanted you to know.]
 
-Warmly,
 Julian`,
   },
   {
     id: "booking-welcome",
     name: "Booking welcome",
     stage: "booked",
-    subject: "You're booked! Welcome, {{firstName}}",
+    subject: "You're booked for {{eventDate}}",
     body: `Hi {{firstName}},
 
-It's official — I'm so excited to be photographing {{projectName}}! Thank you for trusting me with your day.
+It's official: I'm photographing {{projectName}}. Thank you for choosing me.
 
-Here's what's next:
-- I've set up your private client portal — sign in anytime to see your status, dates, documents, and to add details: {{portalUrl}}
-- As we get closer, I'll send a planning questionnaire so I show up fully prepared.
+What happens next:
+- Your client portal is set up. Sign in any time to see your status, dates and documents, and to add details: {{portalUrl}}
+- Closer to the date, I'll send a planning questionnaire so I arrive prepared.
 
-For now, just enjoy the moment — I've got you. Reply anytime with questions.
+Reply any time with questions.
 
 Julian`,
   },
@@ -150,17 +148,17 @@ Julian`,
     id: "contract-deposit",
     name: "Contract & deposit",
     stage: "contract-signed",
-    subject: "Let's make it official — {{projectName}}",
+    subject: "Two steps to reserve {{eventDate}}",
     body: `Hi {{firstName}},
 
-I'm so glad we're moving forward! Two quick things lock in your date:
+Two things reserve your date:
 
 1. Sign the agreement: [contract link]
-2. Submit the retainer of [amount]: [payment link]
+2. Pay the retainer of [amount]: [payment link]
 
-Once both are in, your date is officially reserved and we can dive into the fun part — planning. Everything will live in your client portal as we go: {{portalUrl}}
+Once both are in, the date is yours and we can start planning. Everything will be in your client portal as we go: {{portalUrl}}
 
-Let me know if any questions come up. Can't wait!
+Let me know if anything comes up.
 
 Julian`,
   },
@@ -168,46 +166,45 @@ Julian`,
     id: "payment-reminder",
     name: "Payment reminder",
     stage: "contract-signed",
-    subject: "A friendly reminder — {{projectName}}",
+    subject: "Payment due on [date] for {{projectName}}",
     body: `Hi {{firstName}},
 
-Just a gentle heads-up that your [deposit / balance] of [amount] for {{projectName}} is due on [date].
+A reminder that your [retainer / balance] of [amount] for {{projectName}} is due on [date].
 
-You can take care of it here whenever it's convenient: [payment link]
+You can pay here whenever it suits you: [payment link]
 
-If you have any questions about your invoice, or need anything at all, just reply — I'm happy to help.
+If you have questions about the invoice, just reply.
 
-Thank you!
+Thank you,
 Julian`,
   },
   {
     id: "planning-kickoff",
     name: "Planning kickoff",
     stage: "planning",
-    subject: "Let's plan your {{serviceNoun}}, {{firstName}}",
+    subject: "Planning your {{serviceNoun}}",
     body: `Hi {{firstName}},
 
-Your {{serviceNoun}} is getting close — time for the fun part: planning!
+Your {{serviceNoun}} is getting close, so it's time to plan.
 
-When you have a few minutes, fill out your planning questionnaire so I can show up fully prepared. It's prefilled with what I already have: {{questionnaireUrl}}
+When you have a few minutes, please fill out the planning questionnaire. It's already filled in with what I have: {{questionnaireUrl}}
 
-It covers your timeline, must-have shots, key people, and any details you want me to capture. You can always check your portal here too: {{portalUrl}}
+It covers your timeline, the shots you care about most, the key people, and any details you want me to catch. Your portal is here too: {{portalUrl}}
 
-Reply with any questions,
 Julian`,
   },
   {
     id: "questionnaire-reminder",
     name: "Questionnaire reminder",
     stage: "planning",
-    subject: "Quick nudge on your planning questionnaire",
+    subject: "Your planning questionnaire",
     body: `Hi {{firstName}},
 
-No rush at all, but whenever you have a few minutes, finishing your planning questionnaire really helps me show up fully prepared for your {{serviceNoun}}. It's already prefilled with what I have: {{questionnaireUrl}}
+When you have a few minutes, finishing the planning questionnaire helps me arrive prepared for your {{serviceNoun}}. It's already filled in with what I have: {{questionnaireUrl}}
 
-It covers your timeline, the must-have shots, key people, and any details you want me to capture. You can always peek at your portal too: {{portalUrl}}
+It covers your timeline, the shots you care about most, the key people, and any details you want me to catch. Your portal is here too: {{portalUrl}}
 
-Reply with any questions — I'm here.
+Reply with any questions.
 
 Julian`,
   },
@@ -215,18 +212,18 @@ Julian`,
     id: "timeline-details",
     name: "Timeline & final details",
     stage: "scheduled",
-    subject: "Your day-of timeline, {{firstName}}",
+    subject: "Your photography timeline for {{eventDate}}",
     body: `Hi {{firstName}},
 
-I've put together a photography timeline for {{eventDate}} based on everything we've talked through. Take a look and tell me if anything looks off:
+Here's the photography timeline for {{eventDate}}, based on everything we've talked through. Tell me if anything looks off:
 
-[Paste or attach the timeline — e.g. getting ready, first look, ceremony, portraits, reception highlights.]
+[Paste or attach the timeline: getting ready, first look, ceremony, portraits, reception.]
 
-A few things I'd still love to confirm:
+A few things I still need to confirm:
 - [detail]
 - [detail]
 
-Once we're aligned on this, you can share it with your other vendors so we're all on the same page. Getting excited!
+Once it's settled, share it with your other vendors so everyone works from the same plan.
 
 Julian`,
   },
@@ -234,31 +231,30 @@ Julian`,
     id: "week-of",
     name: "Week-of / final details",
     stage: "scheduled",
-    subject: "Almost here! Final details for {{eventDate}}",
+    subject: "Final details for {{eventDate}}",
     body: `Hi {{firstName}},
 
-Your day is almost here and I can't wait! A few final notes:
+Your day is almost here. A few final notes:
 
-- Start time / first location: [details]
+- Start time and first location: [details]
 - Anything you should know: [details]
 - Weather backup: [plan]
 
-If anything's changed, just reply and let me know. Otherwise — relax, soak it in, and leave the photos to me. See you soon!
+If anything has changed, reply and let me know. Otherwise, enjoy the day and leave the photos to me.
 
+See you soon,
 Julian`,
   },
   {
     id: "post-shoot-thank-you",
     name: "Post-shoot thank-you",
     stage: "shot",
-    subject: "Thank you for an incredible day, {{firstName}}!",
+    subject: "Thank you, {{firstName}}",
     body: `Hi {{firstName}},
 
-What a day — thank you for letting me be part of it. [A specific favorite moment from the day.]
+Thank you for having me. [A specific favorite moment from the day.]
 
-Here's what's next: your photos are now in editing. You can expect [a sneak peek within X days / your full gallery in X weeks]. I'll keep you posted, and everything will land in your portal: {{portalUrl}}
-
-Thank you again — I can't wait for you to see these.
+Your photos are in editing now. Expect [a sneak peek within X days / the full gallery in X weeks]. I'll keep you posted, and everything will arrive in your portal: {{portalUrl}}
 
 Julian`,
   },
@@ -266,127 +262,118 @@ Julian`,
     id: "sneak-peek",
     name: "Sneak peek",
     stage: "editing",
-    subject: "A little sneak peek of your {{serviceNoun}}",
+    subject: "A first look at your {{serviceNoun}} photos",
     body: `Hi {{firstName}},
 
-I couldn't wait — here are a few favorites from your {{serviceNoun}} while I finish editing the rest:
+Here are a few favorites from your {{serviceNoun}} while I finish editing the rest:
 
-[Attach 3–5 preview images, or paste a preview link.]
+[Attach 3 to 5 preview images, or paste a preview link.]
 
-Your full gallery is on its way. [Optional: feel free to share these — just tag me so I can follow along!]
+The full gallery is on its way. [Optional: feel free to share these, and tag me if you post them.]
 
-More soon,
 Julian`,
   },
   {
     id: "gallery-delivery",
     name: "Gallery delivery",
     stage: "delivered",
-    subject: "Your gallery is ready, {{firstName}}!",
+    subject: "Your {{projectName}} gallery is ready",
     body: `Hi {{firstName}},
 
-The moment you've been waiting for — your {{projectName}} gallery is ready!
-
-View, download, and share your photos here: {{galleryUrl}}
+Your {{projectName}} gallery is ready. View, download and share your photos here: {{galleryUrl}}
 
 [A favorite moment or two from the day.]
 
-It was such an honor to capture your day. If you love the images, prints and albums are available — just reply and I'll help. And if you have a minute to leave a review, it means the world to a small business like mine.
+If you'd like prints or an album, reply and I'll help. And if you have a minute to leave a review, it makes a real difference to a small business like mine.
 
-With gratitude,
+Thank you,
 Julian`,
   },
   {
     id: "prints-albums",
     name: "Prints & albums",
     stage: "delivered",
-    subject: "Bring your photos to life — prints & albums",
+    subject: "Prints and albums from your gallery",
     body: `Hi {{firstName}},
 
-I hope you're loving your gallery! If you'd like to hold these memories in your hands, I'd be glad to help with prints, wall art, or a heirloom album.
+If you'd like some of these photos on paper, I can help with prints, wall art or an album.
 
-[A line about your album / print options and any starting prices.]
+[A line about your album and print options, with starting prices.]
 
-You can order fine-art prints right from your gallery: {{galleryUrl}}
-For a custom album, just reply and I'll walk you through it.
+Fine-art prints can be ordered straight from your gallery: {{galleryUrl}}
+For a custom album, reply and I'll walk you through it.
 
-With gratitude,
 Julian`,
   },
   {
     id: "review-request",
     name: "Review request",
     stage: "complete",
-    subject: "Thank you, {{firstName}} — a small favor?",
+    subject: "Would you leave a review?",
     body: `Hi {{firstName}},
 
-I hope you're still floating from your {{serviceNoun}}! It was genuinely a joy to be part of it.
+I really enjoyed photographing your {{serviceNoun}}.
 
-If you have a couple of minutes, would you mind leaving a quick review? Word of mouth means everything for a small business, and it helps others find me: [review link]
+If you have a couple of minutes, would you leave a short review? Most of my clients find me through people like you, and a review helps them decide: [review link]
 
-Thank you again for trusting me with your story.
-
+Thank you,
 Julian`,
   },
   {
     id: "referral-ask",
     name: "Referral ask",
     stage: "complete",
-    subject: "Know someone I could help, {{firstName}}?",
+    subject: "Know someone with a date coming up?",
     body: `Hi {{firstName}},
 
-It was such a joy working with you on {{projectName}}. If you have friends or family with something special coming up, I'd be so grateful if you sent them my way — referrals from past clients are the heart of my little business.
+I enjoyed working with you on {{projectName}}. If a friend or family member has something coming up, I'd be grateful if you passed my name along. Most of my work comes from past clients.
 
-[Optional: as a thank-you, I'd love to offer you (and them) (incentive).]
+[Optional: as a thank-you, I can offer you and them (incentive).]
 
-Either way, thank you for trusting me with your story.
-
+Thanks either way,
 Julian`,
   },
   {
     id: "anniversary",
     name: "Anniversary / re-engagement",
     stage: "complete",
-    subject: "Happy anniversary, {{firstName}}!",
+    subject: "Happy anniversary, {{firstName}}",
     body: `Hi {{firstName}},
 
-Happy anniversary! I was just thinking back to {{projectName}} — [a warm memory from the day]. I hope this year has been good to you.
+Happy anniversary. I was thinking back to {{projectName}}: [a memory from the day]. I hope the year has been good to you.
 
-If you've been thinking about updated portraits — an anniversary session, or family photos as things grow and change — I'd love to be behind the camera again. Here's where to start whenever you're ready: {{bookingUrl}}
+If you'd like new portraits, an anniversary session or family photos, I'd be glad to photograph you again. You can start here whenever you're ready: {{bookingUrl}}
 
-Wishing you the very best,
+All the best,
 Julian`,
   },
   {
     id: "re-engagement",
     name: "Re-engagement (cooled lead)",
     stage: "lost",
-    subject: "Still here whenever you're ready, {{firstName}}",
+    subject: "Checking in about your {{serviceNoun}}",
     body: `Hi {{firstName}},
 
-I know life gets busy, so I wanted to gently check back in about your {{serviceNoun}}. If you're still looking for a photographer, I'd genuinely love to help — and if your plans have changed, no worries at all.
+I wanted to check in about your {{serviceNoun}}. If you're still looking for a photographer, I'd like to help. If your plans have changed, no problem at all.
 
-[Optional: a line picking up from where we last left off.]
+[Optional: a line picking up where we left off.]
 
-If now's a good time to pick things back up, just reply or grab a call here: {{bookingUrl}}
+If now's a good time, reply here or book a call: {{bookingUrl}}
 
-Either way, I'm wishing you well,
 Julian`,
   },
   {
     id: "booked-elsewhere",
     name: "Booked elsewhere (graceful goodbye)",
     stage: "declined",
-    subject: "Thank you, {{firstName}} — wishing you all the best",
+    subject: "Thanks for considering me",
     body: `Hi {{firstName}},
 
-Thank you so much for reaching out about your {{serviceNoun}} and for taking the time to consider me. I understand you've decided to move forward with another photographer — that's completely okay, and I want to wish you a beautiful day and an easy lead-up to it.
+Thank you for considering me for your {{serviceNoun}}. I understand you've chosen another photographer, and I hope the day and the lead-up to it go well.
 
-If anything shifts down the road — a second shooter, a last-minute gap, or future sessions like engagement, family, or anniversary photos — my door is always open. And if you ever need a recommendation, I'm happy to point you toward someone great.
+If anything changes, or you'd like photos later on (engagement, family, an anniversary), you're welcome to come back any time. And if you ever need a recommendation, I'm glad to point you to someone good.
 
-Congratulations again, {{firstName}}. Wishing you all the best.
-
-Warmly,
+Congratulations again,
 Julian`,
   },
 ];
@@ -402,3 +389,15 @@ export function fillTemplate(
     return v && v.trim() ? v : `[${key}]`;
   });
 }
+
+// Consecutive same-stage templates grouped together, so the compose picker
+// reads in pipeline order.
+export const GROUPED_TEMPLATES: { stage: string; items: EmailTemplate[] }[] = (() => {
+  const groups: { stage: string; items: EmailTemplate[] }[] = [];
+  for (const t of EMAIL_TEMPLATES) {
+    const last = groups[groups.length - 1];
+    if (last && last.stage === t.stage) last.items.push(t);
+    else groups.push({ stage: t.stage, items: [t] });
+  }
+  return groups;
+})();

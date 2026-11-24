@@ -39,6 +39,6 @@ export function formatReferral(
 ): string {
   if (!referral) return "—";
   const base = REFERRAL_LABELS[referral] ?? referral;
-  if (referral === "other" && referralOther) return `${base} — ${referralOther}`;
+  if (referral === "other" && referralOther) return `${base}: ${referralOther}`;
   return base;
 }

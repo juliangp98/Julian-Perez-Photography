@@ -5,9 +5,12 @@
 // default to keep the board clean. Posts to /api/admin/quick-log.
 
 import { useState } from "react";
+import Select from "@/components/ui/fields/Select";
 import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { compactInputClass } from "@/components/ui/fields/Field";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 
 export default function AdminQuickLog({
   projectId,
@@ -61,7 +64,7 @@ export default function AdminQuickLog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-[10px] uppercase tracking-widest text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0 p-0"
+        className="text-[10px] uppercase tracking-widest text-muted hover:text-foreground cursor-pointer bg-transparent border-0 p-0"
       >
         Quick update +
       </button>
@@ -70,24 +73,26 @@ export default function AdminQuickLog({
 
   return (
     <div className="space-y-2">
-      <select
+      <Select
+        density="compact"
         value={status}
         onChange={(e) => setStatus(e.target.value)}
-        className={`w-full ${compactInputClass}`}
+        aria-label="Status"
+        className="w-full"
       >
         {CLIENT_STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
             {o.title}
           </option>
         ))}
-      </select>
+      </Select>
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="Add a note…"
         className={`w-full ${compactInputClass}`}
       />
-      <label className="flex items-center gap-2 text-xs text-[var(--muted)] cursor-pointer">
+      <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
         <input
           type="checkbox"
           checked={notifyClient}
@@ -96,27 +101,14 @@ export default function AdminQuickLog({
         Email the client
       </label>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={!canSave || busy}
-          onClick={save}
-          className="px-4 py-1.5 text-xs bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer bg-transparent border-0"
-        >
+        <Button size="sm" disabled={!canSave} loading={busy} loadingLabel="Saving…" onClick={save}>
+          Save
+        </Button>
+        <Button variant="text" onClick={() => setOpen(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
-      {error && (
-        <p role="alert" className="text-xs text-red-700">
-          {error}
-        </p>
-      )}
+      <FormStatus state={error ? "error" : "idle"} error={error} className="block" />
     </div>
   );
 }

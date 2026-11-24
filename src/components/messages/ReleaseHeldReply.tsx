@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Button from "@/components/ui/Button";
 
 // Sends a held reply (from the owner's address, unverified) to the client.
 export default function ReleaseHeldReply({ messageId }: { messageId: string }) {
@@ -24,16 +25,11 @@ export default function ReleaseHeldReply({ messageId }: { messageId: string }) {
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        onClick={release}
-        disabled={busy}
-        className="px-4 py-1.5 text-xs bg-foreground text-background rounded-full hover:opacity-90 transition disabled:opacity-50"
-      >
-        {busy ? "Sending…" : "It's mine, send it to the client"}
-      </button>
+      <Button size="sm" onClick={release} loading={busy} loadingLabel="Sending…">
+        It&apos;s mine, send it to the client
+      </Button>
       {error && (
-        <span role="alert" className="text-xs text-red-700">
+        <span role="alert" className="text-xs text-danger">
           {error}
         </span>
       )}

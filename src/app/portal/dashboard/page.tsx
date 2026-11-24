@@ -12,7 +12,7 @@ import {
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
 import PortalBundles from "@/components/portal/PortalBundles";
-import PortalNewProjectForm from "@/components/forms/PortalNewProjectForm";
+import NewProjectForm from "@/components/forms/NewProjectForm";
 import { projectDisplayName } from "@/lib/project-name";
 import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
 
@@ -46,18 +46,18 @@ function ProjectCard({
       href={`/portal/projects/${p.id}`}
       className={`block rounded-lg border bg-white p-5 transition ${
         bundled
-          ? "border-[var(--accent)] hover:border-[var(--foreground)]"
-          : "border-[var(--border)] hover:border-[var(--foreground)]"
+          ? "border-accent hover:border-foreground"
+          : "border-border hover:border-foreground"
       }`}
     >
       <div className="flex items-baseline justify-between gap-3">
         <div className="font-serif text-xl">{title}</div>
-        <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+        <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
           {CLIENT_STATUS_CLIENT_LABEL[p.status as ClientStatus] ?? "In progress"}
         </span>
       </div>
       {p.eventDate && (
-        <div className="mt-2 text-sm text-[var(--muted)]">{p.eventDate}</div>
+        <div className="mt-2 text-sm text-muted">{p.eventDate}</div>
       )}
       {milestone >= 0 && (
         <div className="mt-3 flex items-center gap-1" aria-hidden>
@@ -65,7 +65,7 @@ function ProjectCard({
             <span
               key={i}
               className={`h-1 flex-1 rounded-full ${
-                i <= milestone ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+                i <= milestone ? "bg-accent" : "bg-border"
               }`}
             />
           ))}
@@ -118,20 +118,20 @@ export default async function PortalProjectsMenuPage() {
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
-      <div className="mt-8 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+      <div className="mt-8 text-xs uppercase tracking-[0.2em] text-muted">
         Your projects
       </div>
       <h1 className="mt-2 font-serif text-4xl">Welcome back</h1>
-      <p className="mt-3 text-[var(--muted)]">
+      <p className="mt-3 text-muted">
         Pick a project to see its status, dates, documents, and to add details.
       </p>
 
       <div className="mt-8">
-        <PortalNewProjectForm />
+        <NewProjectForm audience="portal" />
       </div>
 
       {all.length === 0 ? (
-        <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
+        <div className="mt-12 p-8 border border-dashed border-border rounded-lg text-center text-muted">
           Nothing here yet. Once you&rsquo;ve inquired or started a
           questionnaire, your projects will show up here.
         </div>
@@ -141,12 +141,12 @@ export default async function PortalProjectsMenuPage() {
           {[...bundles.entries()].map(([bundleId, b]) => (
             <div
               key={bundleId}
-              className="rounded-lg border-2 border-[var(--accent)]/40 bg-[var(--accent)]/[0.03] p-5 lg:p-6"
+              className="rounded-lg border-2 border-accent/40 bg-accent/[0.03] p-5 lg:p-6"
             >
               <div className="flex items-center gap-2">
-                <span className="text-[var(--accent)]">↔</span>
+                <span className="text-accent">↔</span>
                 <h2 className="font-serif text-2xl">{b.label}</h2>
-                <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                <span className="text-xs uppercase tracking-[0.18em] text-muted">
                   Bundle
                 </span>
               </div>
@@ -177,7 +177,7 @@ export default async function PortalProjectsMenuPage() {
           {shared.length > 0 && (
             <div>
               <h2 className="font-serif text-2xl">Shared with you</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
+              <p className="mt-1 text-sm text-muted">
                 Projects you&rsquo;ve been added to as a second photographer
                 (view-only).
               </p>

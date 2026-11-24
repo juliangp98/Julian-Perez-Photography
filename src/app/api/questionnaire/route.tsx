@@ -18,6 +18,7 @@ import { formatSubjectDate } from "@/lib/email/email-helpers";
 import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
+import { formatHumanDate } from "@/lib/field-format";
 import { attachQuestionnaire } from "@/lib/clients";
 import { storePdf } from "@/lib/blob";
 import * as Sentry from "@sentry/nextjs";
@@ -127,13 +128,7 @@ export async function POST(req: Request) {
     "Unknown client";
   const clientEmail =
     typeof answers["email"] === "string" ? answers["email"] : undefined;
-  const submittedAt = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const submittedAt = formatHumanDate(new Date(), { withTime: true });
   const isWedding = slug === "weddings";
 
   // Durable capture into the private client store. Snapshots the
@@ -177,7 +172,7 @@ export async function POST(req: Request) {
 
   // Also build a plain-text fallback alongside.
   const lines: string[] = [];
-  lines.push(`New questionnaire — ${q.title}`);
+  lines.push(`New questionnaire: ${q.title}`);
   lines.push(`Service: ${serviceTitle}`);
   lines.push(`Submitted: ${submittedAt}`);
   lines.push("");
@@ -227,7 +222,7 @@ export async function POST(req: Request) {
         emailFields.push({ label: f.label, files });
         lines.push(`${f.label}:`);
         for (const file of files) {
-          lines.push(`  • ${file.name} — ${file.url}`);
+          lines.push(`  • ${file.name}: ${file.url}`);
         }
         lines.push("");
         continue;
@@ -256,7 +251,7 @@ export async function POST(req: Request) {
   const referralLabel = referralRaw
     ? REFERRAL_LABELS[referralRaw] ?? referralRaw
     : "";
-  const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
+  const subject = `New questionnaire: ${serviceTitle}, ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
 
   const settings = await getSiteSettings();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
@@ -326,8 +321,8 @@ export async function POST(req: Request) {
     const userMessage = msg.includes("valid")
       ? "The email address doesn't appear to be valid. Please double-check and try again."
       : msg.includes("rate")
-        ? "Too many submissions — please wait a moment and try again."
-        : `Could not send right now — please email ${settings.contactEmail} directly.`;
+        ? "Too many submissions. Wait a moment and try again."
+        : `Could not send right now. Email ${settings.contactEmail} directly.`;
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 
@@ -358,7 +353,7 @@ export async function POST(req: Request) {
     try {
       const confirmHtml = await render(
         <BrandedEmailLayout
-          preview={`Thanks for your ${q.title.toLowerCase()} — I'll be in touch soon`}
+          preview={`Thanks for your ${q.title.toLowerCase()}. I'll be in touch soon.`}
         >
           <ClientConfirmationTemplate
             clientName={clientName}
@@ -381,7 +376,7 @@ export async function POST(req: Request) {
         replyTo: settings.contactEmail,
         to: clientEmail,
         ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
-        subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
+        subject: `Thanks for your ${q.title.toLowerCase()} | Julian Perez Photography`,
         html: confirmHtml,
         text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
         ...(confirmAttachments.length > 0

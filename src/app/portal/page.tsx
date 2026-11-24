@@ -37,12 +37,12 @@ export default async function PortalLoginPage({
       <div className="mx-auto mt-8 max-w-4xl lg:grid lg:grid-cols-2 lg:gap-12 lg:items-start">
         <div>
           <h1 className="font-serif text-4xl">Sign in</h1>
-          <p className="mt-4 text-[var(--muted)] leading-relaxed">
+          <p className="mt-4 text-muted leading-relaxed">
             Enter the email you used with me and I&rsquo;ll send you a secure
-            sign-in link — no password needed.
+            sign-in link. No password needed.
           </p>
           {errorMsg && (
-            <p role="alert" className="mt-4 text-sm text-red-700">
+            <p role="alert" className="mt-4 text-sm text-danger">
               {errorMsg}
             </p>
           )}

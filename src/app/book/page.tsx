@@ -15,8 +15,8 @@ export default async function BookPage() {
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={FUNNEL_TABS} />
       <h1 className="mt-6 font-serif text-5xl">Book a session</h1>
-      <p className="mt-4 text-[var(--muted)] max-w-2xl">
-        Pick a service and a time below — my Square calendar is live, so what
+      <p className="mt-4 text-muted max-w-2xl">
+        Pick a service and a time below. My Square calendar is live, so what
         you see is real availability. A small deposit holds the date.
       </p>
 
@@ -24,23 +24,23 @@ export default async function BookPage() {
           Stacks on mobile. Sits above the embed so people see the
           context before they reach the calendar. */}
       <div className="mt-10 grid gap-5 lg:grid-cols-2">
-        <div className="p-6 border border-[var(--accent)] rounded-lg bg-white">
-          <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+        <div className="p-6 border border-accent rounded-lg bg-white">
+          <div className="text-xs uppercase tracking-[0.2em] text-accent">
             Payment preferences
           </div>
-          <p className="mt-2 text-[var(--foreground)]">
+          <p className="mt-2 text-foreground">
             {settings.paymentPreferences}
           </p>
-          <p className="mt-3 text-sm text-[var(--muted)]">
+          <p className="mt-3 text-sm text-muted">
             Zelle and Venmo details are shared in the booking confirmation
             email.
           </p>
         </div>
-        <div className="p-6 border border-[var(--border)] rounded-lg bg-white">
-          <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        <div className="p-6 border border-border rounded-lg bg-white">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted">
             What to expect
           </div>
-          <ul className="mt-2 space-y-2 text-sm text-[var(--foreground)]">
+          <ul className="mt-2 space-y-2 text-sm text-foreground">
             <li>
               <strong>1.</strong> Choose a service and time on the calendar
               below.
@@ -69,10 +69,10 @@ export default async function BookPage() {
           and refuses to navigate at all). The "Open in new tab" button
           below + the note about it are the supported fallback for
           users who'd rather complete booking on squareup.com directly. */}
-      <div className="mt-12 rounded-lg overflow-hidden border border-[var(--border)] bg-white">
+      <div className="mt-12 rounded-lg overflow-hidden border border-border bg-white">
         <iframe
           src={settings.bookingUrl}
-          title="Square Appointments — book a session"
+          title="Square Appointments: book a session"
           className="w-full h-[85vh] min-h-[800px]"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
@@ -80,9 +80,9 @@ export default async function BookPage() {
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-xs text-[var(--muted)]">
-          Embed not loading? Use the &ldquo;Open in new tab&rdquo; button —
-          some browsers block cross-site iframes by default.
+        <p className="text-xs text-muted">
+          Embed not loading? Use the &ldquo;Open in new tab&rdquo; button.
+          Some browsers block cross-site iframes by default.
         </p>
         <Button href={settings.bookingUrl} external>
           Open in new tab →
@@ -96,12 +96,12 @@ export default async function BookPage() {
           description="Start your service-specific planning questionnaire so I can show up with everything I need on the day. It autosaves in your browser, so you can fill it out in pieces."
           actions={[{ label: "Plan your session →", href: "/questionnaire" }]}
         >
-          <div className="mt-8 pt-8 border-t border-[var(--border)]">
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+          <div className="mt-8 pt-8 border-t border-border">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted">
               Or, prefer to talk first?
             </div>
-            <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              No need to pick a time today — send a note and I&rsquo;ll help you
+            <p className="mt-2 text-sm text-muted leading-relaxed">
+              No need to pick a time today. Send a note and I&rsquo;ll help you
               figure out the right fit, or email me directly.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">

@@ -54,8 +54,6 @@ export default function DateField({
   // Re-sync the visible text when the ISO value changes from outside (prefill).
   // Guarded so an incomplete in-progress entry (which maps to "") isn't wiped.
   useEffect(() => {
-    // Guarded one-way re-sync from an external value change (prefill) — only
-    // fires when the parsed display genuinely disagrees with the new value.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (displayToIso(display) !== value) setDisplay(isoToDisplay(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +128,7 @@ export default function DateField({
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? "Close calendar" : "Open calendar"}
           aria-expanded={open}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-2 text-[var(--muted)] transition hover:text-[var(--accent)]"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-2 text-muted transition hover:text-accent"
         >
           <svg
             viewBox="0 0 24 24"
@@ -147,7 +145,7 @@ export default function DateField({
           </svg>
         </button>
         {open && (
-          <div className="absolute left-0 z-30 mt-2 rounded-lg border border-[var(--accent)] bg-white p-3 shadow-xl">
+          <div className="absolute left-0 z-30 mt-2 rounded-lg border border-accent bg-white p-3 shadow-xl">
             {/* The theme vars go on the DayPicker root (not the wrapper): the
                 base stylesheet sets `--rdp-accent-color` on `.rdp-root` itself,
                 which beats an inherited value — only an inline style on the same

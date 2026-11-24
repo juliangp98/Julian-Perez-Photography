@@ -205,7 +205,7 @@ function Paragraph({ label, value }: { label: string; value: string }) {
 function PageFooter({ pageLabel }: { pageLabel: string }) {
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>Julian Perez Photography — Wedding Films</Text>
+      <Text style={s.footerText}>Julian Perez Photography · Wedding Films</Text>
       <Text style={s.footerText}>{pageLabel}</Text>
     </View>
   );
@@ -217,7 +217,7 @@ const AUDIO_OPTIONS = [
   "DJ provides a board feed for reception speeches",
   "Live band performing (will need a separate mic plan)",
   "Acoustic ceremony only (no amplification)",
-  "Outdoor ceremony — wind / ambient noise considerations",
+  "Outdoor ceremony (wind / ambient noise considerations)",
 ];
 
 export function WeddingFilmsPlan({ answers }: { answers: Answers }) {
@@ -249,7 +249,7 @@ export function WeddingFilmsPlan({ answers }: { answers: Answers }) {
         {tier && <Text style={s.coverMeta}>Coverage: {tier}</Text>}
         <View style={{ marginTop: 32 }}>
           <Text style={[s.coverMeta, { fontSize: 10 }]}>
-            Wedding Films planning summary — generated from your questionnaire
+            Wedding Films planning summary, generated from your questionnaire
             answers. Bring this to the consult call so we can lock the lead-role
             decision, audio plan, and ceremony coverage strategy.
           </Text>

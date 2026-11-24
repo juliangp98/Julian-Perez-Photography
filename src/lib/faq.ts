@@ -36,28 +36,28 @@ export const GENERAL_FAQS: FaqItem[] = [
     scope: "general",
     question: "What areas do you serve, and do you travel?",
     answer:
-      "I'm based in Northern Virginia and cover the entire DMV — DC, Maryland, and Virginia — at no extra travel charge. For weddings and sessions further out, I'm glad to travel; just reach out and I'll put together a custom quote that includes travel.",
+      "I'm based in Northern Virginia and cover the whole DMV (DC, Maryland, and Virginia) at no extra travel charge. I also travel for weddings and sessions further out. Reach out and I'll send a custom quote that includes travel.",
   },
   {
     id: "general-booking",
     scope: "general",
     question: "How do I book a session or wedding?",
     answer:
-      "Start by sending an inquiry through the contact form with your date and what you have in mind. I'll get back to you, we can hop on a quick discovery call if you'd like, and a deposit holds your date on the calendar. That's it — you're booked.",
+      "Start by sending an inquiry through the contact form with your date and what you have in mind. I'll get back to you, we can hop on a quick discovery call if you'd like, and a deposit holds your date on the calendar. Once the deposit is in, you're booked.",
   },
   {
     id: "general-availability",
     scope: "general",
     question: "Are you available for my date?",
     answer:
-      "Quite possibly — popular dates do book ahead, so the surest way to know is to send your date through the inquiry form. I'll confirm availability and walk you through the next steps.",
+      "Popular dates do book ahead, so the surest way to know is to send your date through the inquiry form. I'll confirm availability and walk you through the next steps.",
   },
   {
     id: "general-payment",
     scope: "general",
     question: "How do deposits and payments work?",
     answer:
-      "A deposit secures your date and is handled through Square. The remaining balance can be paid by Zelle, Venmo, or cash and is typically due around the time of your session or event — I'll lay out the exact schedule when we book.",
+      "A deposit secures your date and is handled through Square. The remaining balance can be paid by Zelle, Venmo, or cash and is typically due around the time of your session or event. I'll lay out the exact schedule when we book.",
   },
   {
     id: "general-delivery",
@@ -78,14 +78,14 @@ export const GENERAL_FAQS: FaqItem[] = [
     scope: "general",
     question: "Can I combine more than one type of session?",
     answer:
-      "Absolutely — some of my favorite work pairs naturally, like an engagement session with a wedding, or maternity with a newborn session. Tell me what you're picturing in your inquiry and I'll suggest the right combination.",
+      "Yes. Some sessions pair naturally, like an engagement session with a wedding, or maternity with a newborn session. Tell me what you're picturing in your inquiry and I'll suggest the right combination.",
   },
   {
     id: "general-style",
     scope: "general",
     question: "What's your photography style?",
     answer:
-      "Natural, warm, and candid — I focus on real moments and the way a place actually feels, with editing that's bright and timeless rather than heavily filtered. I'll guide you on posing when you want it, and otherwise let the day unfold.",
+      "Candid and natural. I focus on real moments and the way a place actually feels, with bright editing rather than heavy filters. I'll guide you on posing when you want it, and otherwise let the day unfold.",
   },
 ];
 

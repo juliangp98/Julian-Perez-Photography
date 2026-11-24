@@ -63,7 +63,7 @@ export const POST = defineRoute({
       );
       await sendEmail({
         to: email,
-        subject: "Admin sign-in link — Julian Perez Photography",
+        subject: "Admin sign-in link | Julian Perez Photography",
         html,
         text: `Your admin sign-in link:\n\n${link}\n\nExpires in 20 minutes. If you didn't request it, ignore this email.`,
       });

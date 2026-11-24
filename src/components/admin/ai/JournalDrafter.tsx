@@ -1,15 +1,16 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// Draft a journal post with AI from a topic/brief. Calls /api/admin/draft-journal
-// and shows the title, excerpt, tags, and body — each copyable — for Julian to
-// paste into a new post in Sanity Studio (where he adds the cover image + date
-// and publishes). The AI never publishes; this only drafts the text.
+// Drafts a journal post from a topic (/api/admin/draft-journal): title, excerpt,
+// tags and body, each copyable into a new post in Studio. Nothing is published.
 
 import { useState } from "react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
 import CopyField from "@/components/ui/CopyField";
+import FormStatus from "@/components/ui/FormStatus";
+import SelectField from "@/components/ui/fields/SelectField";
 import { inputClass } from "@/components/ui/fields/Field";
+import { useAiAction } from "./useAiAction";
 
 type Post = {
   title: string;
@@ -17,8 +18,6 @@ type Post = {
   body: string;
   tags: string[];
 };
-
-type Status = "idle" | "drafting" | "drafted" | "error";
 
 const input = `${inputClass} text-sm`;
 
@@ -33,55 +32,31 @@ const POST_TYPES = [
 export default function JournalDrafter() {
   const [topic, setTopic] = useState("");
   const [postType, setPostType] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [post, setPost] = useState<Post | null>(null);
+  const { run, status, result: post, error } = useAiAction<Post>(
+    "/api/admin/draft-journal",
+    (json) => (json.drafted ? (json.post as Post) : null),
+  );
 
   async function draft() {
-    if (!topic.trim() || status === "drafting") return;
-    setStatus("drafting");
-    try {
-      const res = await fetch("/api/admin/draft-journal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic,
-          postType: postType || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.drafted && data.post) {
-        setPost(data.post as Post);
-        setStatus("drafted");
-      } else {
-        setStatus("idle");
-      }
-    } catch {
-      setStatus("error");
-    }
+    if (!topic.trim() || status === "loading") return;
+    await run({ topic, postType: postType || undefined });
   }
 
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
-        <div>
-          <label htmlFor="jd-type" className="block text-sm font-medium mb-1.5">
-            Post type{" "}
-            <span className="text-[var(--muted)] font-normal">(optional)</span>
-          </label>
-          <select
-            id="jd-type"
-            value={postType}
-            onChange={(e) => setPostType(e.target.value)}
-            className={input}
-          >
-            {POST_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t || "Julian's choice"}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          id="jd-type"
+          label={
+            <>
+              Post type{" "}
+              <span className="text-muted font-normal">(optional)</span>
+            </>
+          }
+          value={postType}
+          onChange={setPostType}
+          options={POST_TYPES.map((t) => ({ value: t, label: t || "Julian's choice" }))}
+        />
       </div>
       <div>
         <label htmlFor="jd-topic" className="block text-sm font-medium mb-1.5">
@@ -92,41 +67,38 @@ export default function JournalDrafter() {
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           rows={4}
-          placeholder="e.g. Why I shoot weddings documentary-style — and what that means for a couple's day. Or: 5 tips for a relaxed engagement session in the DMV."
+          placeholder="e.g. Why I shoot weddings documentary-style, and what that means for a couple's day. Or: 5 tips for a relaxed engagement session in the DMV."
           className={input}
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <AiButton
+        <Button
+          variant="secondary"
           onClick={draft}
-          loading={status === "drafting"}
+          loading={status === "loading"}
           loadingLabel="Drafting…"
           disabled={!topic.trim()}
         >
           Draft post
-        </AiButton>
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t draft — please try again.
-          </span>
-        )}
+        </Button>
+        <FormStatus state={status} error={error} />
       </div>
 
       {post && (
-        <div className="mt-2 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--background)] p-5">
+        <div className="mt-2 space-y-4 rounded-lg border border-border bg-background p-5">
           <CopyField label="Title" value={post.title} />
           <CopyField label="Excerpt" value={post.excerpt} />
           {post.tags.length > 0 && (
             <CopyField label="Tags" value={post.tags.join(", ")} />
           )}
           <CopyField label="Body" value={post.body} />
-          <p className="text-xs text-[var(--muted)]">
-            AI draft — review and edit it, then create a new post in{" "}
+          <p className="text-xs text-muted">
+            AI draft. Review and edit it, then create a new post in{" "}
             <Link
               href="/studio"
               target="_blank"
               rel="noreferrer"
-              className="underline underline-offset-4 hover:text-[var(--accent)]"
+              className="underline underline-offset-4 hover:text-accent"
             >
               Studio
             </Link>{" "}

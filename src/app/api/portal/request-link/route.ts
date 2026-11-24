@@ -63,7 +63,7 @@ export const POST = defineRoute({
       );
       await sendEmail({
         to: email,
-        subject: "Your sign-in link — Julian Perez Photography",
+        subject: "Your sign-in link | Julian Perez Photography",
         html,
         text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes and can only be used once. If you didn't request it, ignore this email.`,
       });

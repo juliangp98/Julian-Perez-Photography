@@ -1,45 +1,30 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// Draft an SEO meta description for a key static/index page with AI. Calls
-// /api/admin/draft-meta and shows the result (copyable, with a character count)
-// for Julian to apply to the page's metadata. The AI never publishes.
+// Drafts an SEO meta description for a key page (/api/admin/draft-meta), shown
+// copyable with a character count. Nothing is published.
 
 import { useState } from "react";
+import Button from "@/components/ui/Button";
 import CopyField from "@/components/ui/CopyField";
+import FormStatus from "@/components/ui/FormStatus";
+import SelectField from "@/components/ui/fields/SelectField";
 import { SEO_PAGES } from "@/lib/seo-pages";
 import { inputClass } from "@/components/ui/fields/Field";
-
-type Status = "idle" | "drafting" | "drafted" | "error";
+import { useAiAction } from "./useAiAction";
 
 const input = `${inputClass} text-sm`;
 
 export default function MetaDrafter() {
   const [page, setPage] = useState("");
   const [angle, setAngle] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [meta, setMeta] = useState<string | null>(null);
+  const { run, status, result: meta, error } = useAiAction<string>(
+    "/api/admin/draft-meta",
+    (json) => (json.drafted && typeof json.meta === "string" ? json.meta : null),
+  );
 
   async function draft() {
-    if (!page || status === "drafting") return;
-    setStatus("drafting");
-    try {
-      const res = await fetch("/api/admin/draft-meta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page, angle: angle.trim() || undefined }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.drafted && typeof data.meta === "string") {
-        setMeta(data.meta);
-        setStatus("drafted");
-      } else {
-        setStatus("idle");
-      }
-    } catch {
-      setStatus("error");
-    }
+    if (!page || status === "loading") return;
+    await run({ page, angle: angle.trim() || undefined });
   }
 
   const overLimit = meta != null && meta.length > 160;
@@ -47,28 +32,19 @@ export default function MetaDrafter() {
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="md-page" className="block text-sm font-medium mb-1.5">
-            Page
-          </label>
-          <select
-            id="md-page"
-            value={page}
-            onChange={(e) => setPage(e.target.value)}
-            className={input}
-          >
-            <option value="">Choose a page…</option>
-            {SEO_PAGES.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          id="md-page"
+          label="Page"
+          value={page}
+          onChange={setPage}
+          placeholder="Choose a page…"
+          clearable
+          options={SEO_PAGES.map((p) => ({ value: p.key, label: p.label }))}
+        />
         <div>
           <label htmlFor="md-angle" className="block text-sm font-medium mb-1.5">
             Emphasis{" "}
-            <span className="text-[var(--muted)] font-normal">(optional)</span>
+            <span className="text-muted font-normal">(optional)</span>
           </label>
           <input
             id="md-angle"
@@ -80,31 +56,24 @@ export default function MetaDrafter() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <AiButton
+        <Button
+          variant="secondary"
           onClick={draft}
-          loading={status === "drafting"}
+          loading={status === "loading"}
           loadingLabel="Drafting…"
           disabled={!page}
         >
           Draft meta description
-        </AiButton>
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t draft — please try again.
-          </span>
-        )}
+        </Button>
+        <FormStatus state={status} error={error} />
       </div>
 
       {meta && (
-        <div className="mt-2 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--background)] p-5">
+        <div className="mt-2 space-y-2 rounded-lg border border-border bg-background p-5">
           <CopyField label="Meta description" value={meta} />
-          <p
-            className={`text-xs ${
-              overLimit ? "text-amber-700" : "text-[var(--muted)]"
-            }`}
-          >
+          <p className={`text-xs ${overLimit ? "text-danger" : "text-muted"}`}>
             {meta.length} characters
-            {overLimit ? " — over 160; trim before using." : " (aim ≤ 160)."}{" "}
+            {overLimit ? ". Over 160; trim before using." : " (aim ≤ 160)."}{" "}
             Paste into the page&rsquo;s metadata (or hand it to your developer).
           </p>
         </div>

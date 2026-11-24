@@ -1,0 +1,79 @@
+{
+  "about": "Writing rules for anything a visitor or client reads. scripts/check-copy.mjs enforces them in npm run lint, and the AI drafting voice (src/lib/ai/ai-voice.ts) tells the model to avoid the same phrases.",
+  "banned": [
+    {
+      "phrase": "so excited"
+    },
+    {
+      "phrase": "can't wait",
+      "pattern": "can['’]t wait"
+    },
+    {
+      "phrase": "thrilled"
+    },
+    {
+      "phrase": "honored to",
+      "pattern": "honou?red to"
+    },
+    {
+      "phrase": "tailored to"
+    },
+    {
+      "phrase": "unique needs"
+    },
+    {
+      "phrase": "unforgettable"
+    },
+    {
+      "phrase": "seamlessly"
+    },
+    {
+      "phrase": "elevate",
+      "pattern": "\\belevat(e|es|ed|ing)\\b"
+    },
+    {
+      "phrase": "curated",
+      "pattern": "\\bcurat(e|ed|ion)\\b"
+    },
+    {
+      "phrase": "effortless",
+      "pattern": "effortless(ly)?"
+    },
+    {
+      "phrase": "cherish",
+      "pattern": "cherish(ed)?"
+    },
+    {
+      "phrase": "delve"
+    },
+    {
+      "phrase": "your journey"
+    },
+    {
+      "phrase": "I've got you",
+      "pattern": "I['’]ve got you"
+    },
+    {
+      "phrase": "your friend"
+    },
+    {
+      "phrase": "Absolutely (to open an answer)",
+      "pattern": "^Absolutely[.!,]",
+      "promptless": true
+    },
+    {
+      "phrase": "✨",
+      "promptless": true
+    },
+    {
+      "phrase": "🪄",
+      "promptless": true
+    }
+  ],
+  "allow": [
+    "White seamless",
+    "Colored seamless",
+    "My wife & I hired Julian"
+  ],
+  "allowNote": "Strings starting with these are exempt: backdrop names, and real client reviews quoted as written."
+}

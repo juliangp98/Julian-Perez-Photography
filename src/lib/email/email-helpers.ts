@@ -18,7 +18,7 @@ import { formatHumanDate } from "@/lib/field-format";
 export function formatSubjectDate(value: unknown): string {
   if (typeof value !== "string") return "";
   const formatted = formatHumanDate(value, { month: "short" });
-  return formatted ? ` — ${formatted}` : "";
+  return formatted ? ` (${formatted})` : "";
 }
 
 /**
@@ -39,7 +39,7 @@ export function resendFrom(): string {
   // RESEND_FROM override never breaks client mail unnoticed again.
   if (from.includes("onboarding@resend.dev")) {
     console.warn(
-      "[email] RESEND_FROM is the resend.dev sandbox sender — it only delivers to your own Resend account email. Set RESEND_FROM to an address on your verified domain (e.g. noreply@julianperezphotography.com).",
+      "[email] RESEND_FROM is the resend.dev sandbox sender. It only delivers to your own Resend account email. Set RESEND_FROM to an address on your verified domain (e.g. noreply@julianperezphotography.com).",
     );
   }
   return from;

@@ -27,12 +27,12 @@ export function MegaMenu({
 }) {
   return (
     <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-[760px]">
-      <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-6 grid grid-cols-2 gap-x-8 gap-y-6">
+      <div className="bg-background border border-border shadow-xl rounded-lg p-6 grid grid-cols-2 gap-x-8 gap-y-6">
         {groups
           .filter((g) => g.items.length > 0)
           .map((g) => (
             <div key={g.id}>
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)] mb-2">
+              <div className="text-xs uppercase tracking-[0.18em] text-accent mb-2">
                 {g.title}
               </div>
               <div className="flex flex-col">
@@ -40,7 +40,7 @@ export function MegaMenu({
                   <Link
                     key={item.slug}
                     href={`${hrefBase}/${item.slug}`}
-                    className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+                    className="py-1.5 text-sm hover:text-accent transition"
                   >
                     {item.title}
                   </Link>
@@ -48,10 +48,10 @@ export function MegaMenu({
               </div>
             </div>
           ))}
-        <div className="col-span-2 pt-3 border-t border-[var(--border)] text-xs">
+        <div className="col-span-2 pt-3 border-t border-border text-xs">
           <Link
             href={viewAllHref}
-            className="text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="text-muted hover:text-foreground"
           >
             {viewAllLabel}
           </Link>
@@ -64,12 +64,12 @@ export function MegaMenu({
 export function DropdownMenu({ links }: { links: NavLink[] }) {
   return (
     <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-56">
-      <div className="bg-[var(--background)] border border-[var(--border)] shadow-xl rounded-lg p-4 flex flex-col">
+      <div className="bg-background border border-border shadow-xl rounded-lg p-4 flex flex-col">
         {links.map((l) => (
           <Link
             key={l.href}
             href={l.href}
-            className="py-1.5 text-sm hover:text-[var(--accent)] transition"
+            className="py-1.5 text-sm hover:text-accent transition"
           >
             {l.label}
           </Link>

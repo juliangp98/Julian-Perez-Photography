@@ -31,11 +31,11 @@ const actionSchema = z.object({
 const negate = (n: number | null) => (n == null ? null : -n);
 
 const SYSTEM_PROMPT = [
-  "You help Julian Perez, a wedding and portrait photographer, decide the single best next step on a client project, based on where it sits in his pipeline. Be concrete, brief, and practical. Base your answer ONLY on the information provided — never invent facts.",
+  "You help Julian Perez, a wedding and portrait photographer, decide the single best next step on a client project, based on where it sits in his pipeline. Be concrete, brief, and practical. Base your answer ONLY on the information provided. Never invent facts.",
   "",
   "His pipeline, in order: new-inquiry → responded → in-conversation → proposal-sent → booked → contract-signed → planning → scheduled → shot → editing → delivered → complete (plus archived / lost off-ramps).",
   "",
-  "He has a library of email templates (listed in the prompt). If sending one is the right next move, pick the single best-fit template id; otherwise use null — e.g. when the next step is a call, an internal task, or simply waiting on the client.",
+  "He has a library of email templates (listed in the prompt). If sending one is the right next move, pick the single best-fit template id; otherwise use null (e.g. when the next step is a call, an internal task, or simply waiting on the client).",
   "",
   "Return STRICT JSON and nothing else:",
   "{",
@@ -97,14 +97,14 @@ export const POST = defineRoute({
     ];
 
     const templateList = EMAIL_TEMPLATES.map(
-      (t) => `- ${t.id} — ${t.name} (stage: ${t.stage})`,
+      (t) => `- ${t.id}: ${t.name} (stage: ${t.stage})`,
     ).join("\n");
 
     const prompt = [
       "Project state:",
       state.map((s) => `- ${s}`).join("\n"),
       "",
-      "Email templates available (id — name — stage):",
+      "Email templates available (id: name (stage)):",
       templateList,
       "",
       "What is the single best next step?",

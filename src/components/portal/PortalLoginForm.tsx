@@ -1,21 +1,18 @@
 "use client";
 
-// Passwordless sign-in form for the client portal. Posts an email to
-// /api/portal/request-link, which emails a one-time magic link. The response
-// is deliberately uniform (no enumeration), so the success state says "if that
-// email matches…" regardless. In dev, the route returns a `devLink` so the
-// loop can be completed without a mail provider — surfaced here as a clickable
-// link.
+// Passwordless sign-in: posts an email to `endpoint` (portal by default, admin
+// passes its own), which mails a magic link. The reply is uniform to avoid
+// enumeration; in dev it carries a `devLink`, shown as a clickable link.
 
 import { useState } from "react";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-// Shared passwordless sign-in form. Defaults to the client portal endpoint;
-// the admin login reuses it with `endpoint="/api/admin/request-link"`.
 export default function PortalLoginForm({
   endpoint = "/api/portal/request-link",
-  sentMessage = "Check your email — if that address matches a record, a secure sign-in link is on its way. It expires in 20 minutes.",
+  sentMessage = "Check your email. If that address matches a record, a secure sign-in link is on its way. It expires in 20 minutes.",
 }: {
   endpoint?: string;
   sentMessage?: string;
@@ -46,10 +43,10 @@ export default function PortalLoginForm({
 
   if (status === "sent") {
     return (
-      <div className="p-6 border border-[var(--border)] rounded-lg bg-white">
+      <div className="p-6 border border-border rounded-lg bg-white">
         <p className="text-sm leading-relaxed">{sentMessage}</p>
         {devLink && (
-          <p className="mt-4 text-xs text-[var(--muted)] break-all">
+          <p className="mt-4 text-xs text-muted break-all">
             Dev link:{" "}
             <a className="underline" href={devLink}>
               {devLink}
@@ -76,7 +73,7 @@ export default function PortalLoginForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition"
+          className="w-full px-4 py-3 rounded border border-border bg-white focus:outline-none focus:border-foreground transition"
         />
       </div>
       {/* Honeypot — kept empty; bots that fill it are silently ignored. */}
@@ -90,18 +87,19 @@ export default function PortalLoginForm({
         value=""
         onChange={() => {}}
       />
-      <button
+      <Button
         type="submit"
-        disabled={status === "sending"}
-        className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
+        size="lg"
+        loading={status === "sending"}
+        loadingLabel="Sending…"
       >
-        {status === "sending" ? "Sending…" : "Send my sign-in link"}
-      </button>
-      {status === "error" && (
-        <p role="alert" className="text-sm text-red-700">
-          Something went wrong — please try again.
-        </p>
-      )}
+        Send my sign-in link
+      </Button>
+      <FormStatus
+        state={status}
+        error="Something went wrong. Try again."
+        className="block"
+      />
     </form>
   );
 }

@@ -54,7 +54,7 @@ test("questionnaire: a bundled service ends with the consistent bundle prompt", 
     fullName: "Bundle Prompt Test",
     email: "bundle-prompt@example.com",
     phone: "(703) 555-7777",
-    bookingStatus: "I'm already booked — let's plan",
+    bookingStatus: "I'm already booked, let's plan",
     package: "Still deciding",
   });
   await page.goto(`/questionnaire/maternity?${params.toString()}`);

@@ -11,7 +11,7 @@ import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 export const metadata: Metadata = {
   title: "FAQ",
   description:
-    "Answers to common questions about Julian Perez Photography — services, pricing, booking, travel, and photo delivery across the DMV.",
+    "Answers to common questions about Julian Perez Photography: services, pricing, booking, travel, and photo delivery across the DMV.",
   alternates: { canonical: "/faq" },
 };
 
@@ -46,9 +46,9 @@ export default async function FaqPage() {
       <SubNav items={FUNNEL_TABS} />
 
       <h1 className="mt-6 font-serif text-5xl">Frequently asked questions</h1>
-      <p className="mt-3 text-[var(--muted)] max-w-2xl">
+      <p className="mt-3 text-muted max-w-2xl">
         Everything about services, pricing, booking, travel, and delivery.
-        Search or filter to find your answer — and if it&rsquo;s not here, ask
+        Search or filter to find your answer. If it&rsquo;s not here, ask
         below or send an inquiry.
       </p>
 
@@ -67,11 +67,11 @@ export default async function FaqPage() {
         {ai && (
           <aside className="mt-12 lg:mt-0 lg:sticky lg:top-24">
             <h2 className="font-serif text-2xl">Still have a question?</h2>
-            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
-              Ask the studio assistant — it can help with services, pricing, and
+            <p className="mt-1 mb-4 text-sm text-muted">
+              Ask the studio assistant. It can help with services, pricing, and
               booking.
             </p>
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] overflow-hidden">
+            <div className="rounded-2xl border border-border bg-background overflow-hidden">
               <ConciergeChat variant="docked" inquireHref="/inquire" />
             </div>
           </aside>

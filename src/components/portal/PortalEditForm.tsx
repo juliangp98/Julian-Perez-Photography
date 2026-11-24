@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import TextField from "@/components/ui/fields/TextField";
 import PhoneField from "@/components/ui/fields/PhoneField";
 import NumberField from "@/components/ui/fields/NumberField";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 import { formatPhone } from "@/lib/field-format";
 
 type Initial = {
@@ -67,7 +69,7 @@ export default function PortalEditForm({
         label={
           <>
             Project name{" "}
-            <span className="font-normal text-[var(--muted)]">
+            <span className="font-normal text-muted">
               (leave blank for the default)
             </span>
           </>
@@ -93,21 +95,19 @@ export default function PortalEditForm({
         />
       </div>
       <div className="flex items-center gap-4">
-        <button
+        <Button
           type="submit"
-          disabled={status === "saving"}
-          className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
+          size="lg"
+          loading={status === "saving"}
+          loadingLabel="Saving…"
         >
-          {status === "saving" ? "Saving…" : "Save changes"}
-        </button>
-        {status === "saved" && (
-          <span className="text-sm text-[var(--muted)]">Saved — thank you!</span>
-        )}
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t save — please try again.
-          </span>
-        )}
+          Save changes
+        </Button>
+        <FormStatus
+          state={status === "saved" ? "ok" : status}
+          ok="Saved. Thank you!"
+          error="Couldn’t save. Try again."
+        />
       </div>
     </form>
   );

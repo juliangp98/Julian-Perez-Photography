@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import {
   formatHumanDate as formatLongDate,
-  formatRelativeDays,
+  formatStamp,
   STUDIO_TIME_ZONE,
 } from "@/lib/field-format";
 import {
@@ -25,12 +25,9 @@ import PrepBrief from "@/components/admin/ai/PrepBrief";
 import QuestionnaireCallout from "@/components/portal/QuestionnaireCallout";
 import NextActionNudge from "@/components/admin/ai/NextActionNudge";
 import { aiEnabled } from "@/lib/ai/ai";
-import {
-  projectDisplayName,
-  autoProjectName,
-  serviceNoun,
-} from "@/lib/project-name";
+import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
+import { emailTokens } from "@/lib/email/email-tokens";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
 import AdminCollaborators from "@/components/admin/AdminCollaborators";
 import CopyField from "@/components/ui/CopyField";
@@ -41,34 +38,27 @@ import { listProjectMessages, ensureReplyToken } from "@/lib/messages";
 import { logAddress } from "@/lib/email/inbound";
 
 export const metadata: Metadata = {
-  title: "Project — Admin",
+  title: "Project · Admin",
   robots: { index: false, follow: false },
 };
 
-// Admin rail field — the shared Detail with the admin list's spacing + newline
-// handling, so the call sites below stay terse. RailCard is the shared one.
+// Admin rail field: Detail with the admin list's spacing and newline handling.
 function Read({ label, value }: { label: string; value?: string }) {
   return <Detail label={label} value={value} className="py-2" preLine />;
 }
 
-// "June 7, 2026 · 3 days ago" for a stored timestamp, in the studio timezone
-// (the server renders in UTC, which would otherwise shift evening records to
-// the next day).
-function stamp(iso?: string): string | undefined {
-  if (!iso) return undefined;
-  const date = formatLongDate(iso, { timeZone: STUDIO_TIME_ZONE });
-  if (!date) return undefined;
-  const rel = formatRelativeDays(iso);
-  return rel ? `${date} · ${rel}` : date;
-}
-
 export default async function AdminProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  // ?compose=<template id>&steer=<text>: triage and next-step suggestions open
+  // the compose panel on a template.
+  searchParams: Promise<{ compose?: string; steer?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
   const { id } = await params;
+  const { compose, steer } = await searchParams;
   const record = await getClientFull(id);
   // Siblings (same person) — offered as bundle-link choices.
   const siblings = record?.email
@@ -82,22 +72,7 @@ export default async function AdminProjectDetailPage({
   const origin = host
     ? `${h.get("x-forwarded-proto") ?? "https"}://${host}`
     : "";
-  const emailContext: Record<string, string | undefined> = record
-    ? {
-        firstName: record.clientName?.trim().split(/\s+/)[0],
-        clientName: record.clientName,
-        projectName: projectDisplayName(record),
-        serviceNoun: serviceNoun(record.serviceType)?.toLowerCase(),
-        eventDate: formatLongDate(record.eventDate),
-        venue: record.locations?.[0]?.label || record.locations?.[0]?.address,
-        galleryUrl: record.galleryUrl,
-        portalUrl: `${origin}/portal`,
-        bookingUrl: `${origin}/book`,
-        questionnaireUrl: record.serviceType
-          ? `${origin}/questionnaire/${record.serviceType}`
-          : undefined,
-      }
-    : {};
+  const emailContext = record ? emailTokens(record, origin) : {};
   const ai = aiEnabled();
   const [messages, replyToken] = record
     ? await Promise.all([listProjectMessages(record.id), ensureReplyToken(record.id)])
@@ -129,13 +104,13 @@ export default async function AdminProjectDetailPage({
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <Link
         href="/admin/projects"
-        className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+        className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-muted hover:text-foreground"
       >
         ← All projects
       </Link>
 
       {!record ? (
-        <div className="mt-8 p-8 border border-dashed border-[var(--border)] rounded-lg text-[var(--muted)]">
+        <div className="mt-8 p-8 border border-dashed border-border rounded-lg text-muted">
           That project couldn&rsquo;t be found.
         </div>
       ) : (
@@ -143,7 +118,7 @@ export default async function AdminProjectDetailPage({
           <div className="mt-4">
             <h1 className="font-serif text-4xl">{projectDisplayName(record)}</h1>
             {(record.clientName || record.email) && (
-              <p className="mt-1 text-sm text-[var(--muted)]">
+              <p className="mt-1 text-sm text-muted">
                 {[record.clientName, record.email].filter(Boolean).join(" · ")}
               </p>
             )}
@@ -157,7 +132,7 @@ export default async function AdminProjectDetailPage({
             <div className="min-w-0 space-y-12">
               <div>
                 <h2 className="font-serif text-2xl">Project details</h2>
-                <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
+                <p className="mt-2 mb-4 text-sm text-muted">
                   Edit contact info, status, service &amp; package, key dates,
                   the shoot plan, and internal notes.
                 </p>
@@ -187,7 +162,7 @@ export default async function AdminProjectDetailPage({
 
               {/* Inquiry + its AI triage, together. */}
               {record.inquiryMessage?.trim() && (
-                <div className="pt-8 border-t border-[var(--border)]">
+                <div className="pt-8 border-t border-border">
                   <h2 className="font-serif text-2xl">Inquiry</h2>
                   <p className="mt-3 text-sm whitespace-pre-line leading-relaxed">
                     {record.inquiryMessage}
@@ -195,7 +170,7 @@ export default async function AdminProjectDetailPage({
                   {ai && (
                     <Panel className="mt-5">
                       <h3 className="font-serif text-lg">Triage with AI</h3>
-                      <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+                      <p className="mt-1 mb-4 text-sm text-muted">
                         Fit, urgency, key details, and a suggested reply to start
                         from.
                       </p>
@@ -209,7 +184,7 @@ export default async function AdminProjectDetailPage({
                   callout starts collapsed (it's reference once filed); the
                   interactive prep brief sits outside it. */}
               {record.questionnaireSnapshot && (
-                <div className="pt-8 border-t border-[var(--border)]">
+                <div className="pt-8 border-t border-border">
                   <h2 className="mb-4 font-serif text-2xl">Questionnaire</h2>
                   <QuestionnaireCallout
                     groups={answerGroups}
@@ -218,8 +193,8 @@ export default async function AdminProjectDetailPage({
                   {ai && record.questionnaireSnapshot.trim() && (
                     <Panel className="mt-5">
                       <h3 className="font-serif text-lg">Shoot prep brief</h3>
-                      <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
-                        Turn this questionnaire into a skimmable prep brief —
+                      <p className="mt-1 mb-4 text-sm text-muted">
+                        Turn this questionnaire into a skimmable prep brief:
                         timeline, key people, must-have shots, logistics.
                       </p>
                       <PrepBrief projectId={record.id} />
@@ -250,13 +225,16 @@ export default async function AdminProjectDetailPage({
               </div>
 
               {/* Compose a pipeline email; it prefills from this project. */}
-              <div className="pt-8 border-t border-border">
+              <div id="compose" className="pt-8 border-t border-border scroll-mt-24">
                 <h2 className="font-serif text-2xl">Compose email</h2>
-                <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
-                  Pick a template for where this client is in the pipeline — it
+                <p className="mt-2 mb-4 text-sm text-muted">
+                  Pick a template for where this client is in the pipeline. It
                   prefills from the project. Edit, then send or copy.
                 </p>
                 <ComposeEmail
+                  key={`${compose ?? ""}|${steer ?? ""}`}
+                  initialTemplateId={compose}
+                  initialSteer={steer}
                   projectId={record.id}
                   hasEmail={!!record.email}
                   context={emailContext}
@@ -269,7 +247,7 @@ export default async function AdminProjectDetailPage({
             <aside className="min-w-0 space-y-8">
               {ai && (
                 <RailCard title="Suggested next step">
-                  <p className="mb-4 text-sm text-[var(--muted)]">
+                  <p className="mb-4 text-sm text-muted">
                     An AI read on where this project stands and the best next
                     move.
                   </p>
@@ -278,12 +256,12 @@ export default async function AdminProjectDetailPage({
               )}
 
               <RailCard title="Client completion link">
-                <p className="mb-3 text-sm text-[var(--muted)]">
+                <p className="mb-3 text-sm text-muted">
                   Send this so the client{" "}
                   {record.serviceType
                     ? "fills the planning questionnaire"
-                    : "sends an inquiry that sets the service"}{" "}
-                  — it attaches to this project, no duplicate.
+                    : "sends an inquiry that sets the service"}.
+                  It attaches to this project, so there is no duplicate.
                 </p>
                 <CopyField
                   label={
@@ -297,7 +275,7 @@ export default async function AdminProjectDetailPage({
               </RailCard>
 
               <RailCard title="Details">
-                <div className="divide-y divide-[var(--border)]">
+                <div className="divide-y divide-border">
                   <Read label="Source" value={sourceLabel(record.source)} />
                   <Read
                     label="Referral"
@@ -314,7 +292,7 @@ export default async function AdminProjectDetailPage({
                         .map((l) =>
                           [l.label, l.address, l.notes]
                             .filter(Boolean)
-                            .join(" — "),
+                            .join(", "),
                         )
                         .join("\n")}
                     />
@@ -333,7 +311,7 @@ export default async function AdminProjectDetailPage({
                   )}
                   {record.documents && record.documents.length > 0 && (
                     <div className="py-2">
-                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                      <div className="text-xs uppercase tracking-[0.18em] text-muted">
                         Documents
                       </div>
                       <ul className="mt-1 space-y-1">
@@ -343,11 +321,11 @@ export default async function AdminProjectDetailPage({
                               href={d.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="underline underline-offset-4 hover:text-[var(--accent)]"
+                              className="underline underline-offset-4 hover:text-accent"
                             >
                               {d.label}
                             </a>{" "}
-                            <span className="text-xs text-[var(--muted)]">
+                            <span className="text-xs text-muted">
                               {[
                                 documentTypeLabel(d.type),
                                 uploaderLabel(d.uploadedBy),
@@ -362,7 +340,7 @@ export default async function AdminProjectDetailPage({
                   )}
                   {record.statusHistory && record.statusHistory.length > 0 && (
                     <div className="py-2">
-                      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                      <div className="text-xs uppercase tracking-[0.18em] text-muted">
                         Status history
                       </div>
                       {/* Newest first — the latest move is what the rail is for. */}
@@ -372,7 +350,7 @@ export default async function AdminProjectDetailPage({
                             <div className="flex items-baseline justify-between gap-3">
                               <span>{statusTitle(he.status) || "Note"}</span>
                               {he.changedAt && (
-                                <span className="whitespace-nowrap text-xs text-[var(--muted)]">
+                                <span className="whitespace-nowrap text-xs text-muted">
                                   {formatLongDate(he.changedAt, {
                                     timeZone: STUDIO_TIME_ZONE,
                                   })}
@@ -380,7 +358,7 @@ export default async function AdminProjectDetailPage({
                               )}
                             </div>
                             {he.note && (
-                              <div className="text-xs text-[var(--muted)]">
+                              <div className="text-xs text-muted">
                                 {he.note}
                               </div>
                             )}
@@ -389,15 +367,15 @@ export default async function AdminProjectDetailPage({
                       </ul>
                     </div>
                   )}
-                  <Read label="Created" value={stamp(record.createdAt)} />
-                  <Read label="Last updated" value={stamp(record.updatedAt)} />
+                  <Read label="Created" value={formatStamp(record.createdAt)} />
+                  <Read label="Last updated" value={formatStamp(record.updatedAt)} />
                 </div>
               </RailCard>
 
               {siblings.length >= 2 && (
                 <div>
                   <h2 className="font-serif text-xl mb-3">Bundle</h2>
-                  <p className="mb-3 text-sm text-[var(--muted)]">
+                  <p className="mb-3 text-sm text-muted">
                     Link related projects (e.g. wedding + engagement) so they show
                     grouped in the portal and here.
                   </p>
@@ -413,9 +391,9 @@ export default async function AdminProjectDetailPage({
               )}
 
               <RailCard title="Second photographer access">
-                <p className="mb-4 text-sm text-[var(--muted)]">
+                <p className="mb-4 text-sm text-muted">
                   Grant a second photographer read-only portal access to this
-                  project — details, dates, documents, and the planning notes.
+                  project: details, dates, documents, and the planning notes.
                   Per project; remove anytime.
                 </p>
                 <AdminCollaborators
@@ -425,7 +403,7 @@ export default async function AdminProjectDetailPage({
               </RailCard>
 
               <RailCard title="Danger zone" tone="danger">
-                <p className="mb-4 text-sm text-[var(--muted)]">
+                <p className="mb-4 text-sm text-muted">
                   Permanently remove this project and its record. This can&rsquo;t
                   be undone.
                 </p>

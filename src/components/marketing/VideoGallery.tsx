@@ -1,19 +1,6 @@
-// Video grid + lightbox for the wedding-films portfolio (and any future
-// video portfolio that surfaces under /portfolio/<slug>). Mirrors the
-// shape of `PortfolioGallery` but renders video tiles and uses
-// `yet-another-react-lightbox`'s Video plugin for HTML5 video and a
-// custom slide renderer for YouTube embeds.
-//
-// Design notes:
-//   - The featured entry (most recent if multiple are flagged) renders
-//     as a hero tile that spans two columns at md+ breakpoints.
-//   - Sort precedence: featured first, then manual `order` ascending,
-//     then `date` descending (newest first natural fill).
-//   - YouTube thumbnails fall back to i.ytimg.com when no manual
-//     `thumbnail` path is set; blob videos must supply a thumbnail
-//     since blob URLs don't expose a frame extractor.
-//   - The lightbox carousel is finite (couples scroll a small archive,
-//     not infinite reels) and click-on-backdrop closes.
+// Video grid and lightbox for video portfolios. The featured entry spans two
+// columns at md+; YouTube slides use a custom iframe renderer and blob videos
+// use the lightbox Video plugin. Blob videos must supply their own thumbnail.
 
 "use client";
 
@@ -90,9 +77,9 @@ export default function VideoGallery({ videos }: Props) {
 
   if (ordered.length === 0) {
     return (
-      <div className="mt-16 p-10 border border-dashed border-[var(--border)] rounded-lg text-center">
-        <p className="text-[var(--muted)]">
-          Wedding films coming soon — recent films will be added here as they
+      <div className="mt-16 p-10 border border-dashed border-border rounded-lg text-center">
+        <p className="text-muted">
+          Wedding films coming soon. Recent films will be added here as they
           finish post-production.
         </p>
       </div>
@@ -134,8 +121,8 @@ export default function VideoGallery({ videos }: Props) {
               onClick={() => setIndex(i)}
               className={[
                 "group relative block w-full overflow-hidden rounded-lg",
-                "bg-[var(--border)]/40",
-                "focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2",
+                "bg-border/40",
+                "focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
                 featuredHero ? "md:col-span-2 md:row-span-2" : "",
               ]
                 .filter(Boolean)
@@ -162,7 +149,7 @@ export default function VideoGallery({ videos }: Props) {
                   className="object-cover transition duration-500 group-hover:scale-[1.02]"
                 />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[var(--muted)] text-xs uppercase tracking-[0.18em]">
+                <div className="absolute inset-0 flex items-center justify-center text-muted text-xs uppercase tracking-[0.18em]">
                   Thumbnail unavailable
                 </div>
               )}
@@ -177,7 +164,7 @@ export default function VideoGallery({ videos }: Props) {
                 </span>
               </div>
               {v.durationSeconds != null && (
-                <span className="absolute top-3 right-3 rounded bg-black/65 px-2 py-1 text-[11px] font-medium text-white tabular-nums">
+                <span className="absolute top-3 right-3 rounded bg-foreground/65 px-2 py-1 text-[11px] font-medium text-white tabular-nums">
                   {formatDuration(v.durationSeconds)}
                 </span>
               )}
@@ -214,7 +201,7 @@ export default function VideoGallery({ videos }: Props) {
         carousel={{ finite: true }}
         controller={{ closeOnBackdropClick: true }}
         styles={{
-          container: { backgroundColor: "rgba(14, 14, 14, 0.96)" },
+          container: { backgroundColor: "color-mix(in srgb, var(--foreground) 96%, transparent)" },
         }}
         render={{
           // Custom slide renderer for YouTube — the Video plugin handles
@@ -241,7 +228,7 @@ export default function VideoGallery({ videos }: Props) {
                     width: "min(100%, 1200px)",
                     aspectRatio: "16 / 9",
                     margin: "0 auto",
-                    background: "rgba(0,0,0,0.4)",
+                    background: "color-mix(in srgb, var(--foreground) 40%, transparent)",
                   }}
                 />
               );

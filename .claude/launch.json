@@ -5,12 +5,30 @@
       "name": "Next.js dev",
       "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
-        "PATH=/Users/julianperez/.nvm/versions/node/v22.22.2/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "/Users/julianperez/.nvm/versions/node/v22.22.2/bin/node",
+        "PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "node",
         "./node_modules/next/dist/bin/next",
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "Demo (local sign-in, no real sends)",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "ADMIN_EMAIL=admin@example.com",
+        "AUTH_SECRET=local-demo-secret-not-for-production-0123456789",
+        "RESEND_API_KEY=",
+        "GROQ_API_KEY=",
+        "TWILIO_ACCOUNT_SID=",
+        "node",
+        "./node_modules/next/dist/bin/next",
+        "dev",
+        "-p",
+        "3200"
+      ],
+      "port": 3200
     }
   ]
 }

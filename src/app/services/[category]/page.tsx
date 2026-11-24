@@ -144,15 +144,15 @@ export default async function ServiceCategoryPage({
         back={{ label: "All services", href: "/services" }}
       />
       <div className="mt-6 max-w-3xl">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+        <div className="text-xs uppercase tracking-[0.2em] text-accent">
           {s.tagline}
         </div>
         <h1 className="mt-3 font-serif text-5xl">{s.title}</h1>
-        <p className="mt-5 text-lg text-[var(--muted)]">{s.description}</p>
+        <p className="mt-5 text-lg text-muted">{s.description}</p>
       </div>
 
       {s.heroPhoto && (
-        <div className="relative mt-8 aspect-[21/9] overflow-hidden rounded-lg border border-[var(--border)]">
+        <div className="relative mt-8 aspect-[21/9] overflow-hidden rounded-lg border border-border">
           <Image
             src={s.heroPhoto.src}
             alt={s.heroPhoto.alt}
@@ -187,7 +187,7 @@ export default async function ServiceCategoryPage({
         if (!featured && !hasIntro) return null;
 
         const introBlock = hasIntro ? (
-          <div className="space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90">
+          <div className="space-y-5 text-lg leading-relaxed text-foreground/90">
             {s.intro!.map((p, i) => (
               <p key={i}>{renderInline(p)}</p>
             ))}
@@ -217,7 +217,7 @@ export default async function ServiceCategoryPage({
       })()}
 
       {s.comboNote && (
-        <div className="mt-10 max-w-3xl p-5 border-l-2 border-[var(--accent)] bg-white rounded-r text-[var(--foreground)]/90 italic">
+        <div className="mt-10 max-w-3xl p-5 border-l-2 border-accent bg-white rounded-r text-foreground/90 italic">
           {renderInline(s.comboNote)}
         </div>
       )}
@@ -263,16 +263,16 @@ export default async function ServiceCategoryPage({
       {s.addOns && s.addOns.length > 0 && (
         <div className="mt-16 max-w-3xl">
           <h2 className="font-serif text-3xl">Add-ons</h2>
-          <ul className="mt-6 border-t border-[var(--border)]">
+          <ul className="mt-6 border-t border-border">
             {s.addOns.map((a) => (
               <li
                 key={a.name}
-                className="flex justify-between items-baseline py-4 border-b border-[var(--border)] gap-6"
+                className="flex justify-between items-baseline py-4 border-b border-border gap-6"
               >
                 <div>
                   <div className="font-medium">{a.name}</div>
                   {a.description && (
-                    <div className="text-sm text-[var(--muted)] mt-1">
+                    <div className="text-sm text-muted mt-1">
                       {a.description}
                     </div>
                   )}
@@ -287,7 +287,7 @@ export default async function ServiceCategoryPage({
       )}
 
       {s.pricingNote && (
-        <p className="mt-10 text-sm text-[var(--muted)] italic max-w-2xl">
+        <p className="mt-10 text-sm text-muted italic max-w-2xl">
           {renderInline(s.pricingNote)}
         </p>
       )}
@@ -301,19 +301,19 @@ export default async function ServiceCategoryPage({
       {s.faqs && s.faqs.length > 0 && (
         <div className="mt-20 max-w-3xl">
           <h2 className="font-serif text-3xl">Frequently asked</h2>
-          <div className="mt-6 border-y border-[var(--border)] divide-y divide-[var(--border)]">
+          <div className="mt-6 border-y border-border divide-y divide-border">
             {s.faqs.map((faq) => (
               <details key={faq.question} className="group py-5">
                 <summary className="flex justify-between items-baseline gap-6 cursor-pointer list-none font-medium text-base md:text-lg [&::-webkit-details-marker]:hidden">
                   <span>{faq.question}</span>
                   <span
                     aria-hidden
-                    className="text-[var(--accent)] text-2xl leading-none transition-transform duration-200 group-open:rotate-45 shrink-0"
+                    className="text-accent text-2xl leading-none transition-transform duration-200 group-open:rotate-45 shrink-0"
                   >
                     +
                   </span>
                 </summary>
-                <div className="mt-3 text-[var(--muted)] leading-relaxed whitespace-pre-line">
+                <div className="mt-3 text-muted leading-relaxed whitespace-pre-line">
                   {faq.answer}
                 </div>
               </details>
@@ -322,27 +322,27 @@ export default async function ServiceCategoryPage({
         </div>
       )}
 
-      <div className="mt-16 max-w-3xl p-8 border border-[var(--accent)] rounded-lg bg-white">
+      <div className="mt-16 max-w-3xl p-8 border border-accent rounded-lg bg-white">
         {questionnaire ? (
           <>
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-accent">
               Booked or seriously considering?
             </div>
             <h2 className="mt-2 font-serif text-2xl">{questionnaire.title}</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
+            <p className="mt-2 text-sm text-muted">
               ~{questionnaire.estimatedMinutes} min · autosaves in your browser
             </p>
             <Button href={`/questionnaire/${s.slug}`} className="mt-4">
               Start the questionnaire →
             </Button>
-            <div className="mt-8 pt-8 border-t border-[var(--border)]">
-              <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            <div className="mt-8 pt-8 border-t border-border">
+              <div className="text-xs uppercase tracking-[0.2em] text-muted">
                 Or explore another way
               </div>
             </div>
           </>
         ) : (
-          <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted">
             Next steps
           </div>
         )}

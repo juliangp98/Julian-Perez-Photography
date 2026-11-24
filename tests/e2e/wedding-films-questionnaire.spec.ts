@@ -93,7 +93,7 @@ test("cross-prefill: multi-select (checkbox) answers round-trip via repeated par
   params.set("fullName", "Checkbox Test");
   params.set("email", "checkbox@example.com");
   params.set("phone", "(703) 555-2468");
-  params.set("bookingStatus", "I'm already booked — let's plan");
+  params.set("bookingStatus", "I'm already booked, let's plan");
   params.set("package", "Undecided");
   params.set("eventDate", "2027-03-03");
   params.append("purpose", "LinkedIn / professional");

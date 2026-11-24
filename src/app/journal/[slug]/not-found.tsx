@@ -10,13 +10,13 @@ import Button from "@/components/ui/Button";
 export default function JournalPostNotFound() {
   return (
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-24 text-center">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+      <div className="text-xs uppercase tracking-[0.2em] text-accent">
         Journal · not found
       </div>
       <h1 className="mt-4 font-serif text-5xl">
         That story isn&apos;t here.
       </h1>
-      <p className="mt-5 text-[var(--muted)]">
+      <p className="mt-5 text-muted">
         It may have been unpublished or moved. The full journal index is a
         good place to start.
       </p>
@@ -26,7 +26,7 @@ export default function JournalPostNotFound() {
         </Button>
         <Link
           href="/"
-          className="px-5 py-2 rounded-full bg-[var(--accent)] text-white hover:opacity-90 transition"
+          className="px-5 py-2 rounded-full bg-accent text-white hover:opacity-90 transition"
         >
           Back to home
         </Link>

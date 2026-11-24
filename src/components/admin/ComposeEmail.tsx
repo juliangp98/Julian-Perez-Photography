@@ -1,56 +1,24 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
 // Compose a pipeline email on a project: pick a template, it prefills from the
 // project's info (with `[brackets]` for the bits to complete), edit freely, then
 // Send (branded, via /api/admin/send-email) or Copy (paste into your own mail).
 
 import { useState } from "react";
+import Select from "@/components/ui/fields/Select";
 import { useRouter } from "next/navigation";
 import {
   EMAIL_TEMPLATES,
+  GROUPED_TEMPLATES,
   fillTemplate,
-  type EmailTemplate,
 } from "@/lib/email/email-pipeline";
+import { statusTitle } from "@/lib/labels";
 import { inputClass } from "@/components/ui/fields/Field";
+import Button from "@/components/ui/Button";
+import CopyButton from "@/components/ui/CopyButton";
+import FormStatus from "@/components/ui/FormStatus";
 
-// Friendly heading per pipeline stage for the picker's option groups.
-const STAGE_LABEL: Record<string, string> = {
-  "new-inquiry": "New inquiry",
-  responded: "Responded",
-  "in-conversation": "In conversation",
-  "proposal-sent": "Proposal",
-  booked: "Booked",
-  "contract-signed": "Contract & payment",
-  planning: "Planning",
-  scheduled: "Scheduled / week-of",
-  shot: "After the shoot",
-  editing: "Editing",
-  delivered: "Delivery",
-  complete: "Wrap-up",
-  lost: "Re-engagement",
-  declined: "Booked elsewhere",
-};
-
-// Group consecutive same-stage templates so the picker reads as a pipeline.
-const GROUPED_TEMPLATES: { stage: string; items: EmailTemplate[] }[] = (() => {
-  const groups: { stage: string; items: EmailTemplate[] }[] = [];
-  for (const t of EMAIL_TEMPLATES) {
-    const last = groups[groups.length - 1];
-    if (last && last.stage === t.stage) last.items.push(t);
-    else groups.push({ stage: t.stage, items: [t] });
-  }
-  return groups;
-})();
-
-type Status =
-  | "idle"
-  | "drafting"
-  | "drafted"
-  | "sending"
-  | "sent"
-  | "copied"
-  | "error";
+type Status = "idle" | "drafting" | "drafted" | "sending" | "sent" | "error";
 
 const input = `${inputClass} text-sm`;
 
@@ -59,7 +27,13 @@ export default function ComposeEmail({
   context,
   hasEmail,
   aiEnabled = false,
+  initialTemplateId,
+  initialSteer,
 }: {
+  // Opens on this template (and AI steer), as linked from triage or the
+  // suggested next step.
+  initialTemplateId?: string;
+  initialSteer?: string;
   projectId: string;
   context: Record<string, string | undefined>;
   hasEmail: boolean;
@@ -68,10 +42,11 @@ export default function ComposeEmail({
   aiEnabled?: boolean;
 }) {
   const router = useRouter();
-  const [templateId, setTemplateId] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [instructions, setInstructions] = useState("");
+  const initial = EMAIL_TEMPLATES.find((t) => t.id === initialTemplateId);
+  const [templateId, setTemplateId] = useState(initial?.id ?? "");
+  const [subject, setSubject] = useState(initial ? fillTemplate(initial.subject, context) : "");
+  const [body, setBody] = useState(initial ? fillTemplate(initial.body, context) : "");
+  const [instructions, setInstructions] = useState(initial ? (initialSteer ?? "") : "");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   // One key per version of the message: a retry or double click of the same
@@ -147,26 +122,17 @@ export default function ComposeEmail({
     }
   }
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
-      setStatus("copied");
-    } catch {
-      setStatus("error");
-    }
-  }
-
   return (
     <div className="space-y-4">
-      <select
+      <Select
         value={templateId}
         onChange={(e) => pick(e.target.value)}
         aria-label="Email template"
-        className={input}
+        className="text-sm"
       >
         <option value="">Choose a template…</option>
         {GROUPED_TEMPLATES.map((g) => (
-          <optgroup key={g.stage} label={STAGE_LABEL[g.stage] ?? g.stage}>
+          <optgroup key={g.stage} label={statusTitle(g.stage)}>
             {g.items.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -174,35 +140,36 @@ export default function ComposeEmail({
             ))}
           </optgroup>
         ))}
-      </select>
+      </Select>
 
       {templateId && (
         <>
           {aiEnabled && (
-            <div className="rounded-lg border border-[var(--border)] bg-white p-4 space-y-3">
+            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-medium">
                   Personalize this with AI
                 </p>
-                <AiButton
+                <Button
+                  variant="secondary"
                   size="sm"
                   onClick={draft}
                   loading={status === "drafting"}
                   loadingLabel="Drafting…"
                 >
                   Draft with AI
-                </AiButton>
+                </Button>
               </div>
               <input
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Optional steer — e.g. “mention the rain backup plan”, “warmer tone”"
+                placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
                 aria-label="Extra instructions for the AI draft"
                 className={input}
               />
-              <p className="text-xs text-[var(--muted)]">
+              <p className="text-xs text-muted">
                 Rewrites the template from this project&rsquo;s details in your
-                voice. It never sends — you always review and edit first.
+                voice. It never sends. You always review and edit first.
               </p>
             </div>
           )}
@@ -227,56 +194,35 @@ export default function ComposeEmail({
             className={`${input} font-sans leading-relaxed`}
           />
           {status === "drafted" && (
-            <p className="text-xs text-[var(--accent)]">
-              AI draft — review and edit before sending.
+            <p className="text-xs text-accent">
+              AI draft. Review and edit before sending.
             </p>
           )}
-          <p className="text-xs text-[var(--muted)]">
+          <p className="text-xs text-muted">
             Fill in any <code>[bracketed]</code> bits before sending. It goes
             to the client in your branded layout, you get a copy, and it joins
             the thread above.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
+            <Button
               onClick={send}
-              disabled={
-                status === "sending" ||
-                !hasEmail ||
-                !subject.trim() ||
-                !body.trim()
-              }
-              className="px-6 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
+              disabled={!hasEmail || !subject.trim() || !body.trim()}
+              loading={status === "sending"}
+              loadingLabel="Sending…"
             >
-              {status === "sending" ? "Sending…" : "Send to client"}
-            </button>
-            <button
-              type="button"
-              onClick={copy}
-              className="px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-            >
-              Copy
-            </button>
+              Send to client
+            </Button>
+            <CopyButton text={`Subject: ${subject}\n\n${body}`} />
             {!hasEmail && (
-              <span className="text-xs text-[var(--muted)]">
+              <span className="text-xs text-muted">
                 No email on file for this client.
               </span>
             )}
-            {status === "sent" && (
-              <span role="status" className="text-sm text-[var(--muted)]">
-                Sent to the client.
-              </span>
-            )}
-            {status === "copied" && (
-              <span className="text-sm text-[var(--muted)]">
-                Copied to clipboard ✓
-              </span>
-            )}
-            {status === "error" && (
-              <span role="alert" className="text-sm text-red-700">
-                {message || "Something went wrong. Try again."}
-              </span>
-            )}
+            <FormStatus
+              state={status === "sent" ? "ok" : status}
+              ok="Sent to the client."
+              error={message || "Something went wrong. Try again."}
+            />
           </div>
         </>
       )}

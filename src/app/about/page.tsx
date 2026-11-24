@@ -9,7 +9,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   return {
     title: "About",
-    description: `About ${settings.siteName} — Northeastern-trained engineer turned DMV wedding, portrait, and event photographer.`,
+    description: `About ${settings.siteName}: Northeastern-trained engineer turned DMV wedding, portrait, and event photographer.`,
   };
 }
 
@@ -32,7 +32,7 @@ export default async function AboutPage() {
 
       <div className="mt-8 lg:grid lg:grid-cols-3 lg:gap-12 lg:items-start">
         <div
-          className={`space-y-5 text-lg leading-relaxed text-[var(--foreground)]/90 ${
+          className={`space-y-5 text-lg leading-relaxed text-foreground/90 ${
             hasAside ? "lg:col-span-2" : "max-w-3xl"
           }`}
         >
@@ -40,7 +40,7 @@ export default async function AboutPage() {
             <p key={i}>{paragraph}</p>
           ))}
           {pressItems.length > 0 && (
-            <div className="pt-2 text-sm text-[var(--muted)]">
+            <div className="pt-2 text-sm text-muted">
               As featured in{" "}
               {pressItems.map((p, i) => (
                 <span key={p.url}>
@@ -49,7 +49,7 @@ export default async function AboutPage() {
                     href={p.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="underline underline-offset-4 hover:text-[var(--accent)]"
+                    className="underline underline-offset-4 hover:text-accent"
                   >
                     {p.name}: {p.title} →
                   </a>
@@ -61,7 +61,7 @@ export default async function AboutPage() {
         {hasAside && (
           <aside className="mt-10 lg:mt-0 lg:sticky lg:top-24 space-y-5">
             {headshot && (
-              <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)]">
+              <div className="relative aspect-square overflow-hidden rounded-lg border border-border">
                 <Image
                   src={headshot.src}
                   alt={headshot.alt}
@@ -76,7 +76,7 @@ export default async function AboutPage() {
             {photos.slice(0, 3).map((img) => (
               <div
                 key={img.src}
-                className="relative aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)]"
+                className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border"
               >
                 <Image
                   src={img.src}
@@ -93,7 +93,7 @@ export default async function AboutPage() {
         )}
       </div>
 
-      <div className="mt-12 max-w-3xl border-t border-[var(--border)] pt-8 text-sm text-[var(--muted)] space-y-2">
+      <div className="mt-12 max-w-3xl border-t border-border pt-8 text-sm text-muted space-y-2">
         <div>{settings.coverageArea}</div>
         <div>{settings.bookingStatus}</div>
         <div>
@@ -110,7 +110,7 @@ export default async function AboutPage() {
         <CalloutCard
           eyebrow="Let's work together"
           title="Ready when you are"
-          description="Tell me about your shoot and I'll be in touch — or browse recent work to get a feel for my style first."
+          description="Tell me about your shoot and I'll be in touch. Or browse recent work first to get a feel for my style."
           actions={[
             { label: "Start an inquiry", href: "/inquire" },
             { label: "See recent work", href: "/portfolio", variant: "secondary" },

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
+import Panel from "./Panel";
 
-// Shared rail modules for the project detail pages (admin + client), so both
-// portals render reference info identically. Pure presentational — safe to use
-// from server components.
+// Rail modules for the project pages (admin and portal), so both render
+// reference info the same way. Server-safe.
 
 export function RailCard({
   title,
@@ -13,14 +13,11 @@ export function RailCard({
   tone?: "default" | "danger";
   children: ReactNode;
 }) {
-  const border =
-    tone === "danger" ? "border-red-300" : "border-[var(--border)]";
-  const heading = tone === "danger" ? "text-red-700" : "";
   return (
-    <div className={`rounded-lg border ${border} bg-white p-5`}>
-      <h2 className={`font-serif text-xl ${heading}`}>{title}</h2>
+    <Panel tone={tone}>
+      <h2 className={`font-serif text-xl ${tone === "danger" ? "text-danger" : ""}`}>{title}</h2>
       <div className="mt-4">{children}</div>
-    </div>
+    </Panel>
   );
 }
 
@@ -41,7 +38,7 @@ export function Detail({
   if (!value) return null;
   return (
     <div className={className}>
-      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+      <div className="text-xs uppercase tracking-[0.18em] text-muted">
         {label}
       </div>
       <div className={`mt-1 text-sm ${preLine ? "whitespace-pre-line" : ""}`}>

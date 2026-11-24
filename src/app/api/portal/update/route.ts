@@ -60,7 +60,7 @@ export const POST = defineRoute({
         );
         await sendEmail({
           to,
-          subject: `Client updated their details — ${session.email}`,
+          subject: `Client updated their details: ${session.email}`,
           html,
           text: `${session.email} updated their portal details. Review it in your admin dashboard: ${origin}/admin/projects`,
         });

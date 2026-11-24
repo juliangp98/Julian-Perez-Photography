@@ -31,7 +31,7 @@ const KIND: Record<MessageKind, string> = {
 const TONE = {
   muted: "text-muted",
   good: "text-accent",
-  bad: "text-red-700",
+  bad: "text-danger",
 };
 
 export default function MessageThread({

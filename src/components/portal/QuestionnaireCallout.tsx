@@ -50,15 +50,15 @@ export default function QuestionnaireCallout({
   return (
     <details
       open={defaultOpen ?? false}
-      className="group p-6 border border-[var(--accent)] rounded-lg bg-white"
+      className="group p-6 border border-accent rounded-lg bg-white"
     >
       <summary className="flex items-start justify-between gap-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+            <span className="text-xs uppercase tracking-[0.2em] text-accent">
               Planning questionnaire
             </span>
-            <span className="inline-block rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.15em] text-[var(--accent)]">
+            <span className="inline-block rounded-full bg-accent/10 px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.15em] text-accent">
               ✓ Submitted
             </span>
           </div>
@@ -66,7 +66,7 @@ export default function QuestionnaireCallout({
         </div>
         <span
           aria-hidden
-          className="shrink-0 text-2xl leading-none text-[var(--accent)] transition-transform duration-200 group-open:rotate-45"
+          className="shrink-0 text-2xl leading-none text-accent transition-transform duration-200 group-open:rotate-45"
         >
           +
         </span>
@@ -77,16 +77,16 @@ export default function QuestionnaireCallout({
           <div className="space-y-5">
             {groups!.map((g) => (
               <div key={g.section}>
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                <div className="text-xs uppercase tracking-[0.18em] text-accent">
                   {g.section}
                 </div>
-                <dl className="mt-2 divide-y divide-[var(--border)]">
+                <dl className="mt-2 divide-y divide-border">
                   {g.items.map((it, i) => (
                     <div
                       key={i}
                       className="py-2 sm:grid sm:grid-cols-[12rem_1fr] sm:gap-4"
                     >
-                      <dt className="text-sm text-[var(--muted)]">{it.label}</dt>
+                      <dt className="text-sm text-muted">{it.label}</dt>
                       <dd className="mt-0.5 text-sm whitespace-pre-line sm:mt-0">
                         {it.value}
                       </dd>
@@ -97,17 +97,17 @@ export default function QuestionnaireCallout({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-[var(--muted)]">
+          <p className="text-sm text-muted">
             Your answers are saved to this project.
           </p>
         )}
 
         {rawSnapshot?.trim() && (
           <details className="mt-4">
-            <summary className="cursor-pointer text-xs text-[var(--muted)]">
+            <summary className="cursor-pointer text-xs text-muted">
               View raw JSON
             </summary>
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-[var(--border)]/30 p-4 text-xs">
+            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-border/30 p-4 text-xs">
               {rawSnapshot}
             </pre>
           </details>

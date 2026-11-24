@@ -1,14 +1,14 @@
 "use client";
 
 // Links two or more of one person's projects into a bundle (e.g. "Wedding +
-// Engagement") or unlinks one. Shared by the client portal menu and the admin
-// project page via the `endpoint` prop (defaulting to the portal route); both
-// endpoints enforce that a bundle stays within a single person. Collapsed by
-// default to keep the surrounding page clean.
+// Engagement") or unlinks one. Used by the portal and the admin project page
+// via `endpoint`; both routes keep a bundle within a single person.
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Panel from "@/components/ui/Panel";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 
 type Project = { id: string; title: string; bundleLabel?: string };
 
@@ -85,7 +85,7 @@ export default function PortalBundles({
             ? "Bundles"
             : "Link projects into a bundle"}
         </span>
-        <span className="text-[var(--accent)] text-xl leading-none">
+        <span className="text-accent text-xl leading-none">
           {open ? "–" : "+"}
         </span>
       </button>
@@ -95,16 +95,16 @@ export default function PortalBundles({
         <div className="mt-3 space-y-1.5">
           {existingBundles.map(([label, titles]) => (
             <div key={label} className="text-sm flex flex-wrap items-baseline gap-x-2">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+              <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
                 ↔ {label}
               </span>
-              <span className="capitalize text-[var(--muted)]">
+              <span className="capitalize text-muted">
                 {titles.join(", ")}
               </span>
             </div>
           ))}
           {!open && (
-            <p className="pt-1 text-xs text-[var(--muted)]">
+            <p className="pt-1 text-xs text-muted">
               Open to add more or unlink.
             </p>
           )}
@@ -113,7 +113,7 @@ export default function PortalBundles({
 
       {open && (
         <div className="mt-5">
-          <p className="text-xs text-[var(--muted)]">
+          <p className="text-xs text-muted">
             Tick the projects that go together (e.g. a wedding and its
             engagement session), name the bundle, and link them.
           </p>
@@ -132,22 +132,21 @@ export default function PortalBundles({
                   />
                   <span className="capitalize">{p.title}</span>
                   {p.bundleLabel && (
-                    <span className="text-[10px] uppercase tracking-widest text-[var(--accent)]">
+                    <span className="text-[10px] uppercase tracking-widest text-accent">
                       ↔ {p.bundleLabel}
                     </span>
                   )}
                 </label>
                 {p.bundleLabel && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="text"
                     disabled={busy}
                     onClick={() =>
                       post({ action: "unlink", projectId: p.id })
                     }
-                    className="text-xs text-[var(--muted)] underline hover:text-[var(--foreground)] disabled:opacity-50"
                   >
                     Unlink
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -159,29 +158,29 @@ export default function PortalBundles({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Bundle name (e.g. Wedding + Engagement)"
-              className="flex-1 min-w-[220px] px-4 py-2.5 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition text-sm"
+              className="flex-1 min-w-[220px] px-4 py-2.5 rounded border border-border bg-white focus:outline-none focus:border-foreground transition text-sm"
             />
             <datalist id="bundle-suggestions">
               {SUGGESTED.map((s) => (
                 <option key={s} value={s} />
               ))}
             </datalist>
-            <button
-              type="button"
-              disabled={!canLink || busy}
+            <Button
+              disabled={!canLink}
+              loading={busy}
+              loadingLabel="Saving…"
               onClick={() =>
                 post({ action: "link", projectIds: selected, label })
               }
-              className="px-5 py-2.5 text-sm bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-50"
             >
-              {busy ? "Saving…" : "Link selected"}
-            </button>
+              Link selected
+            </Button>
           </div>
-          {error && (
-            <p role="alert" className="mt-3 text-sm text-red-700">
-              Couldn&rsquo;t update — please try again.
-            </p>
-          )}
+          <FormStatus
+            state={error ? "error" : "idle"}
+            error="Couldn’t update. Try again."
+            className="mt-3 block"
+          />
         </div>
       )}
     </Panel>

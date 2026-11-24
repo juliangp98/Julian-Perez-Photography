@@ -101,7 +101,7 @@ export const portfoliosFallback: PortfolioCategory[] = [
     slug: "portraiture",
     umbrella: "portraits-pro",
     title: "Portraiture",
-    description: "Individual portraits — guided and natural.",
+    description: "Individual portraits, guided and natural.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
   },
@@ -203,7 +203,7 @@ export const portfoliosFallback: PortfolioCategory[] = [
     umbrella: "weddings-couples",
     title: "Wedding Films",
     description:
-      "A small archive of recent wedding films — hybrid bookings where photo led, video-led ceremonies, and solo coverage.",
+      "A small archive of recent wedding films: hybrid bookings where photo led, video-led ceremonies, and solo coverage.",
     coverImage: "/portfolio/placeholder.svg",
     images: [],
     videos: [

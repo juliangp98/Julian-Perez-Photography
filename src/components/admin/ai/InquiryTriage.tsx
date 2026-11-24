@@ -1,13 +1,14 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// On-demand AI triage of a project's inquiry. A button calls /api/admin/triage,
-// which reads the inquiry server-side and returns an assessment (summary, fit,
-// urgency, key details, a suggested reply). Rendered only when AI is configured
-// and the project actually has an inquiry message.
+// AI triage of a project's inquiry (/api/admin/triage): summary, fit, urgency
+// and key details, with a link that opens the reply composer steered by them.
 
-import { useState } from "react";
+import Link from "next/link";
 import Panel from "@/components/ui/Panel";
+import Badge, { type BadgeTone } from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
+import { useAiAction } from "./useAiAction";
 
 type Triage = {
   summary: string;
@@ -16,108 +17,50 @@ type Triage = {
   urgency: "high" | "medium" | "low";
   urgencyReason: string;
   keyDetails: string[];
-  suggestedReply: string;
 };
 
-type Status = "idle" | "loading" | "done" | "copied" | "error";
-
-const FIT: Record<Triage["fit"], { label: string; cls: string }> = {
-  good: { label: "Good fit", cls: "bg-green-50 text-green-800 border-green-200" },
-  maybe: {
-    label: "Possible fit",
-    cls: "bg-amber-50 text-amber-800 border-amber-200",
-  },
-  poor: {
-    label: "Likely not a fit",
-    cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]",
-  },
+const FIT: Record<Triage["fit"], [string, BadgeTone]> = {
+  good: ["Good fit", "good"],
+  maybe: ["Possible fit", "warn"],
+  poor: ["Likely not a fit", "muted"],
 };
-
-const URGENCY: Record<Triage["urgency"], { label: string; cls: string }> = {
-  high: { label: "High urgency", cls: "bg-red-50 text-red-700 border-red-200" },
-  medium: {
-    label: "Medium urgency",
-    cls: "bg-amber-50 text-amber-800 border-amber-200",
-  },
-  low: { label: "Low urgency", cls: "bg-[var(--border)]/40 text-[var(--muted)] border-[var(--border)]" },
+const URGENCY: Record<Triage["urgency"], [string, BadgeTone]> = {
+  high: ["High urgency", "bad"],
+  medium: ["Medium urgency", "warn"],
+  low: ["Low urgency", "muted"],
 };
-
-function Badge({ label, cls }: { label: string; cls: string }) {
-  return (
-    <span
-      className={`inline-block rounded-full border px-3 py-1 text-xs font-medium ${cls}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 export default function InquiryTriage({ projectId }: { projectId: string }) {
-  const [status, setStatus] = useState<Status>("idle");
-  const [triage, setTriage] = useState<Triage | null>(null);
-
-  async function run() {
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/admin/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.triaged && data.triage) {
-        setTriage(data.triage as Triage);
-        setStatus("done");
-      } else {
-        setStatus("idle");
-      }
-    } catch {
-      setStatus("error");
-    }
-  }
-
-  async function copyReply() {
-    if (!triage?.suggestedReply) return;
-    try {
-      await navigator.clipboard.writeText(triage.suggestedReply);
-      setStatus("copied");
-    } catch {
-      setStatus("error");
-    }
-  }
+  const { run, status, result: triage, error } = useAiAction<Triage>(
+    "/api/admin/triage",
+    (json) => (json.triaged ? (json.triage as Triage) : null),
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <AiButton
-          onClick={run}
+        <Button
+          variant="secondary"
+          onClick={() => run({ projectId })}
           loading={status === "loading"}
           loadingLabel="Reading the inquiry…"
         >
           {triage ? "Re-run triage" : "Triage this inquiry"}
-        </AiButton>
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t triage — please try again.
-          </span>
-        )}
+        </Button>
+        <FormStatus state={status} error={error} />
       </div>
 
       {triage && (
         <Panel className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Badge label={FIT[triage.fit].label} cls={FIT[triage.fit].cls} />
-            <Badge
-              label={URGENCY[triage.urgency].label}
-              cls={URGENCY[triage.urgency].cls}
-            />
+            <Badge tone={FIT[triage.fit][1]}>{FIT[triage.fit][0]}</Badge>
+            <Badge tone={URGENCY[triage.urgency][1]}>{URGENCY[triage.urgency][0]}</Badge>
           </div>
 
           <p className="text-sm leading-relaxed">{triage.summary}</p>
 
           {(triage.fitReason || triage.urgencyReason) && (
-            <ul className="text-sm text-[var(--muted)] space-y-1">
+            <ul className="text-sm text-muted space-y-1">
               {triage.fitReason && <li>Fit: {triage.fitReason}</li>}
               {triage.urgencyReason && <li>Timing: {triage.urgencyReason}</li>}
             </ul>
@@ -125,7 +68,7 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
 
           {triage.keyDetails.length > 0 && (
             <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted">
                 Key details
               </div>
               <ul className="mt-1.5 list-disc pl-5 text-sm space-y-1">
@@ -136,29 +79,16 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
             </div>
           )}
 
-          {triage.suggestedReply && (
-            <div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Suggested reply
-                </div>
-                <button
-                  type="button"
-                  onClick={copyReply}
-                  className="text-xs underline underline-offset-4 hover:text-[var(--accent)]"
-                >
-                  {status === "copied" ? "Copied ✓" : "Copy"}
-                </button>
-              </div>
-              <p className="mt-1.5 whitespace-pre-line rounded border border-[var(--border)] bg-white p-3 text-sm leading-relaxed">
-                {triage.suggestedReply}
-              </p>
-              <p className="mt-1.5 text-xs text-[var(--muted)]">
-                A starting point — refine and send it from the Compose panel
-                below. Always review before sending.
-              </p>
-            </div>
-          )}
+          <Link
+            href={`?${new URLSearchParams({
+              compose: "inquiry-reply",
+              steer: [triage.summary, ...triage.keyDetails].join(" ").slice(0, 600),
+            })}#compose`}
+            scroll={false}
+            className="inline-block text-sm underline underline-offset-4 hover:text-accent"
+          >
+            Draft a reply from this
+          </Link>
         </Panel>
       )}
     </div>

@@ -25,7 +25,7 @@ const copySchema = z.object({
 
 const MODE_INSTRUCTION: Record<string, string> = {
   tighten:
-    "Keep the existing meaning and Julian's voice — make it crisper, tighter, and more compelling. Cut filler; don't change the offering.",
+    "Keep the existing meaning and Julian's voice; make it crisper, tighter, and more compelling. Cut filler; don't change the offering.",
   rewrite:
     "Rewrite the copy fresh while keeping the same offering and facts. Vary the structure and phrasing from the current version.",
   fresh:
@@ -33,7 +33,7 @@ const MODE_INSTRUCTION: Record<string, string> = {
 };
 
 const SYSTEM_PROMPT_BASE = [
-  "You are helping Julian Perez, a wedding and portrait photographer in the DMV (DC, Maryland, Virginia), write the marketing copy for a page on his website. Write in his voice: warm, genuine, and confident without hype — benefit-focused and specific, never generic or salesy. Speak to the prospective client.",
+  "You are helping Julian Perez, a wedding and portrait photographer in the DMV (DC, Maryland, Virginia), write the marketing copy for a page on his website. Write in his voice: warm, genuine, and confident without hype; benefit-focused and specific, never generic or salesy. Speak to the prospective client.",
   "",
   "Use ONLY the facts in the current copy and the page's subject. Never invent prices, package names, specific statistics, or claims that aren't supported by what you're given.",
   "",

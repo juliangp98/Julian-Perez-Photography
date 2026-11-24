@@ -8,15 +8,15 @@ import type { ReactNode } from "react";
 // wrapper.
 
 export const inputClass =
-  "w-full px-4 py-3 rounded border border-[var(--border)] bg-white focus:outline-none focus:border-[var(--foreground)] transition";
-const inputErrorClass = "border-red-500 focus:border-red-500";
+  "w-full px-4 py-3 rounded border border-border bg-white focus:outline-none focus:border-foreground transition";
+const inputErrorClass = "border-danger focus:border-danger";
 export const labelClass = "block text-sm font-medium mb-1.5";
 
 // Dense variant for inline tool bars (quick log, list filters, upload rows)
 // where the full field padding would overwhelm the row. No width — callers add
 // `w-full`/`flex-1` as the layout needs.
 export const compactInputClass =
-  "px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)]";
+  "px-3 py-2 rounded border border-border bg-white text-sm focus:outline-none focus:border-foreground";
 
 // The control class with an error outline when `error` is set.
 export function controlClass(error?: boolean, extra = ""): string {
@@ -49,7 +49,7 @@ export default function Field({
         <label htmlFor={id} className={labelClass}>
           {label}
           {required && (
-            <span className="text-[var(--accent)]" aria-hidden>
+            <span className="text-accent" aria-hidden>
               {" "}
               *
             </span>
@@ -58,12 +58,12 @@ export default function Field({
       )}
       {children}
       {error && (
-        <p id={errorId(id)} className="mt-1 text-sm text-red-700">
+        <p id={errorId(id)} className="mt-1 text-sm text-danger">
           {error}
         </p>
       )}
       {help && !error && (
-        <p className="mt-1.5 text-xs text-[var(--muted)]">{help}</p>
+        <p className="mt-1.5 text-xs text-muted">{help}</p>
       )}
     </div>
   );

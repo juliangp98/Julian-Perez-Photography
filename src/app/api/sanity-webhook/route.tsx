@@ -245,7 +245,7 @@ export async function POST(req: Request) {
     // cause: a new schema landed in Studio without the corresponding
     // handler + queries.ts update. Log so Vercel runtime logs surface it.
     console.warn(
-      `[sanity-webhook] Received unknown _type "${_type}" — add it to KNOWN_TYPES or remove it from the Sanity webhook filter.`,
+      `[sanity-webhook] Received unknown _type "${_type}". Add it to KNOWN_TYPES or remove it from the Sanity webhook filter.`,
     );
     return NextResponse.json(
       { error: `Unknown _type: ${_type}` },

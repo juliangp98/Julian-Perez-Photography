@@ -14,8 +14,8 @@ import {
 import { serviceNoun } from "@/lib/project-name";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
-
 import Button from "@/components/ui/Button";
+
 // Three of the four Square call URLs (post-questionnaire wrap-up needs
 // everything except the top-of-funnel discovery call). Taken from
 // `SiteSettings["calls"]` so the shape can't drift from the parent.
@@ -390,7 +390,7 @@ export default function QuestionnaireForm({
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
       console.error("PDF preview error:", err);
-      setErrorMsg("Couldn't generate the preview — please try again.");
+      setErrorMsg("Couldn't generate the preview. Try again.");
       setStatus("error");
     } finally {
       setPreviewLoading(false);
@@ -467,32 +467,30 @@ export default function QuestionnaireForm({
         })
       : [];
     return (
-      <div className="p-10 border border-[var(--accent)] rounded-lg bg-white">
+      <div className="p-10 border border-accent rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
-        <p className="mt-3 text-[var(--muted)]">
+        <p className="mt-3 text-muted">
           Your answers are in my inbox. I&rsquo;ll review and reach out with next
           steps within 48 hours.
         </p>
         {pdfPlan && submittedAnswers && (
           <Panel className="mt-6">
             <p className="text-sm font-medium">Your {pdfPlan.label}</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-1 text-xs text-muted">
               A PDF copy was also sent to your email.
             </p>
-            <button
-              type="button"
+            <Button
               onClick={downloadPdf}
-              disabled={pdfDownloading}
-              className="mt-3 px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm hover:opacity-90 transition disabled:opacity-50"
+              loading={pdfDownloading}
+              loadingLabel="Generating PDF…"
+              className="mt-3"
             >
-              {pdfDownloading
-                ? "Generating PDF\u2026"
-                : `Download ${pdfPlan.label} (PDF)`}
-            </button>
+              {`Download ${pdfPlan.label} (PDF)`}
+            </Button>
             {pdfErrorMsg && (
               <p
                 role="alert"
-                className="mt-3 text-sm text-red-700"
+                className="mt-3 text-sm text-danger"
               >
                 {pdfErrorMsg}
               </p>
@@ -501,7 +499,7 @@ export default function QuestionnaireForm({
         )}
         <Panel className="mt-6">
           <p className="text-sm font-medium">Track your project</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs text-muted">
             Everything you just shared is saved to your project. Sign in to your
             client portal anytime to check your status, add more detail, and
             find your documents &mdash; same email, no password.
@@ -513,7 +511,7 @@ export default function QuestionnaireForm({
         {siblingLinks.length > 0 && (
           <Panel className="mt-6">
             <p className="text-sm font-medium">Booking more than one session?</p>
-            <p className="mt-1 mb-3 text-xs text-[var(--muted)]">
+            <p className="mt-1 mb-3 text-xs text-muted">
               Continue into a matching questionnaire &mdash; the details you just
               shared arrive prefilled, so you won&rsquo;t retype them.
             </p>
@@ -530,7 +528,7 @@ export default function QuestionnaireForm({
         <Panel className="mt-6 space-y-4">
           <div>
             <p className="text-sm font-medium">Ready to hop on a call?</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
+            <p className="mt-1 text-xs text-muted">
               Now that I have your answers, a quick call lets us align on the
               details. Pick the one that fits.
             </p>
@@ -568,19 +566,19 @@ export default function QuestionnaireForm({
           sections out of the flow. */}
       <div className="flex items-center justify-between mb-6">
         <div
-          className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]"
+          className="text-xs uppercase tracking-[0.2em] text-muted"
           aria-live="polite"
           aria-atomic="true"
         >
           Section {safeIndex + 1} of {visibleSections.length}
         </div>
-        <div className="text-xs text-[var(--muted)]">
+        <div className="text-xs text-muted">
           ~{questionnaire.estimatedMinutes} min total
         </div>
       </div>
-      <div className="h-1 w-full bg-[var(--border)] rounded-full overflow-hidden mb-10">
+      <div className="h-1 w-full bg-border rounded-full overflow-hidden mb-10">
         <div
-          className="h-full bg-[var(--accent)] transition-all"
+          className="h-full bg-accent transition-all"
           style={{
             width: `${((safeIndex + 1) / Math.max(visibleSections.length, 1)) * 100}%`,
           }}
@@ -601,7 +599,7 @@ export default function QuestionnaireForm({
 
       <h2 className="font-serif text-3xl">{section.title}</h2>
       {section.description && (
-        <p className="mt-2 text-[var(--muted)] max-w-2xl">{section.description}</p>
+        <p className="mt-2 text-muted max-w-2xl">{section.description}</p>
       )}
 
       <div className="mt-8 grid gap-6">
@@ -642,55 +640,49 @@ export default function QuestionnaireForm({
       <div
         role="alert"
         aria-live="polite"
-        className="mt-6 text-sm text-red-700 min-h-[1.25rem]"
+        className="mt-6 text-sm text-danger min-h-[1.25rem]"
       >
         {errorMsg || null}
       </div>
 
       <div className="mt-10 flex gap-3 flex-wrap">
         {!isFirst && (
-          <button
-            type="button"
-            onClick={prev}
-            className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
-          >
+          <Button variant="secondary" size="lg" onClick={prev}>
             ← Previous
-          </button>
+          </Button>
         )}
         {!isLast && (
-          <button
-            type="button"
-            onClick={next}
-            className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition"
-          >
+          <Button size="lg" onClick={next}>
             Next →
-          </button>
+          </Button>
         )}
         {isLast && (
-          <button
-            type="button"
+          <Button
+            size="lg"
             onClick={submit}
-            disabled={status === "submitting"}
-            className="px-8 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
+            loading={status === "submitting"}
+            loadingLabel="Sending…"
           >
-            {status === "submitting" ? "Sending…" : "Submit questionnaire"}
-          </button>
+            Submit questionnaire
+          </Button>
         )}
         {isLast && pdfPlan && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={previewPdf}
-            disabled={previewLoading || status === "submitting"}
-            className="px-6 py-3 border border-[var(--foreground)] rounded-full hover:bg-[var(--foreground)] hover:text-[var(--background)] transition text-sm disabled:opacity-60"
+            disabled={status === "submitting"}
+            loading={previewLoading}
+            loadingLabel="Generating preview…"
             title={`Open a PDF preview of your ${pdfPlan.label} in a new tab`}
           >
-            {previewLoading ? "Generating preview…" : "Preview my plan (PDF)"}
-          </button>
+            Preview my plan (PDF)
+          </Button>
         )}
       </div>
 
       {hydrated && (
-        <p className="mt-6 text-xs text-[var(--muted)]">
+        <p className="mt-6 text-xs text-muted">
           Your answers autosave in this browser. You can close the tab and come
           back.
         </p>

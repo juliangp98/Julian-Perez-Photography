@@ -12,7 +12,7 @@ import { getPortfolioAltOverrides } from "@/lib/portfolio-alt";
 import { aiEnabled } from "@/lib/ai/ai";
 
 export const metadata: Metadata = {
-  title: "Content tools — Admin",
+  title: "Content tools · Admin",
   robots: { index: false, follow: false },
 };
 
@@ -62,13 +62,13 @@ export default async function AdminContentPage() {
     <section className="max-w-3xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">Content tools</h1>
-      <p className="mt-2 text-[var(--muted)]">
+      <p className="mt-2 text-muted">
         Draft journal posts and polish your page copy with AI, then review and
         publish in Studio. Nothing goes live until you do it there.
       </p>
 
       {!ai ? (
-        <div className="mt-8 p-6 border border-dashed border-[var(--border)] rounded-lg text-sm text-[var(--muted)]">
+        <div className="mt-8 p-6 border border-dashed border-border rounded-lg text-sm text-muted">
           AI drafting isn&rsquo;t configured. Set <code>GROQ_API_KEY</code> to
           enable it (see the README). You can always edit content directly in{" "}
           <Link href="/studio" className="underline underline-offset-4">
@@ -80,31 +80,31 @@ export default async function AdminContentPage() {
         <div className="mt-10 space-y-14">
           <div>
             <h2 className="font-serif text-2xl">Journal post drafts</h2>
-            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
-              From a topic or brief — a title, excerpt, body, and tags to paste
-              into a new post.
+            <p className="mt-1 mb-4 text-sm text-muted">
+              Give it a topic or brief. You get a title, excerpt, body, and tags
+              to paste into a new post.
             </p>
             <JournalDrafter />
           </div>
-          <div className="pt-8 border-t border-[var(--border)]">
+          <div className="pt-8 border-t border-border">
             <h2 className="font-serif text-2xl">Service &amp; portfolio copy</h2>
-            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+            <p className="mt-1 mb-4 text-sm text-muted">
               Tighten or rewrite a page&rsquo;s tagline, description, and intro
               from what&rsquo;s currently live.
             </p>
             <CopyPolisher subjects={subjects} />
           </div>
-          <div className="pt-8 border-t border-[var(--border)]">
+          <div className="pt-8 border-t border-border">
             <h2 className="font-serif text-2xl">Page meta descriptions</h2>
-            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+            <p className="mt-1 mb-4 text-sm text-muted">
               SEO snippets for the main pages (~150&ndash;160 characters), to
               apply to each page&rsquo;s metadata.
             </p>
             <MetaDrafter />
           </div>
-          <div className="pt-8 border-t border-[var(--border)]">
+          <div className="pt-8 border-t border-border">
             <h2 className="font-serif text-2xl">Portfolio image alt text</h2>
-            <p className="mt-1 mb-4 text-sm text-[var(--muted)]">
+            <p className="mt-1 mb-4 text-sm text-muted">
               Describe gallery photos for screen readers and SEO &mdash; the easy
               way to fill in alt for a batch you uploaded in Studio without typing
               it per photo. Works for both Studio-uploaded and Lightroom

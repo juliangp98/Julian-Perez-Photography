@@ -25,7 +25,7 @@ export default function LoadingScreen({
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden
-        className="h-16 w-16 text-[var(--accent)] animate-pulse"
+        className="h-16 w-16 text-accent animate-pulse"
       >
         {/* Camera body */}
         <rect x="6" y="18" width="52" height="36" rx="4" />
@@ -37,7 +37,7 @@ export default function LoadingScreen({
         {/* Flash indicator */}
         <circle cx="49" cy="27" r="1.5" />
       </svg>
-      <div className="text-xs uppercase tracking-[0.25em] text-[var(--muted)]">
+      <div className="text-xs uppercase tracking-[0.25em] text-muted">
         {label}
       </div>
     </div>

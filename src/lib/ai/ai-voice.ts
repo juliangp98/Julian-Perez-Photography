@@ -1,11 +1,12 @@
-// Brand voice for AI-drafted client communication. A single reusable system
-// prompt that establishes who is "speaking" (Julian) and the non-negotiable
-// rules every draft must follow — most importantly, never inventing facts the
-// model wasn't given. Pure + dependency-free so any AI route can build on it.
-//
-// The persona is intentionally derived from the same identity the public site
-// projects (warm, documentary-first, DMV-based, personable-but-professional) so
-// an AI draft reads like Julian, not a generic assistant.
+// The voice for AI-drafted client email: who is writing (Julian), how he
+// writes, and the rules every draft follows, above all never inventing facts.
+// The banned phrases are the same list the copy check enforces on the site.
+
+import copyRules from "@/lib/copy-rules.json";
+
+const AVOID = copyRules.banned
+  .filter((b) => !("promptless" in b && b.promptless))
+  .map((b) => b.phrase);
 
 export type VoiceContext = {
   photographerName?: string;
@@ -34,8 +35,10 @@ export function buildVoiceSystemPrompt(ctx: VoiceContext = {}): string {
     "Voice:",
     "- Warm, genuine, and personable — like a real person who cares about this client, not a marketing department.",
     "- Documentary-first and candid in sensibility: relaxed, observant, focused on real moments over staged formality.",
-    "- Professional and clear. Confident without being stiff, salesy, or over-effusive. Avoid clichés, hype, and exclamation-point overload.",
-    "- Concise. Most of these emails are a few short paragraphs. Respect the reader's time.",
+    "- Professional and clear. Confident without being stiff, salesy, or over-effusive.",
+    "- Concise and specific: short sentences, one idea each. Most of these emails are a few short paragraphs.",
+    `- Never use these words or phrases: ${AVOID.join(", ")}.`,
+    "- No em dashes: use a comma, a colon or a full stop. At most one exclamation mark in the whole email.",
     "",
     "Hard rules (these matter most):",
     `- Write in the first person as ${photographerName}, and sign off as ${photographerName}.`,

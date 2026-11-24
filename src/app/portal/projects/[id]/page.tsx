@@ -72,12 +72,12 @@ export default async function PortalProjectPage({
         <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
         <Link
           href="/portal/dashboard"
-          className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+          className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-muted hover:text-foreground"
         >
           ← Your projects
         </Link>
         <h1 className="mt-4 font-serif text-3xl">Project not found</h1>
-        <p className="mt-3 text-[var(--muted)]">
+        <p className="mt-3 text-muted">
           That project isn&rsquo;t on your account. Head back to your projects.
         </p>
       </section>
@@ -126,30 +126,30 @@ export default async function PortalProjectPage({
       <SubNav items={CLIENT_TABS} logoutAction="/portal/logout" />
       <Link
         href="/portal/dashboard"
-        className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-[var(--muted)] hover:text-[var(--foreground)]"
+        className="mt-6 inline-block text-xs uppercase tracking-[0.2em] text-muted hover:text-foreground"
       >
         ← Your projects
       </Link>
 
       <h1 className="mt-4 font-serif text-4xl">{projectDisplayName(record)}</h1>
       <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <span className="inline-block px-3 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs uppercase tracking-[0.18em]">
+        <span className="inline-block px-3 py-1 rounded-full bg-accent/10 text-accent text-xs uppercase tracking-[0.18em]">
           {CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus] ??
             "In progress"}
         </span>
         {record.bundleLabel && (
-          <span className="inline-block px-3 py-1 rounded-full border border-[var(--accent)] text-[var(--accent)] text-xs uppercase tracking-[0.18em]">
+          <span className="inline-block px-3 py-1 rounded-full border border-accent text-accent text-xs uppercase tracking-[0.18em]">
             ↔ {record.bundleLabel}
           </span>
         )}
       </div>
 
       {isCollaborator && (
-        <div className="mt-6 rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.04] px-5 py-3 text-sm text-[var(--muted)]">
-          <span className="font-medium text-[var(--foreground)]">
+        <div className="mt-6 rounded-lg border border-accent/40 bg-accent/[0.04] px-5 py-3 text-sm text-muted">
+          <span className="font-medium text-foreground">
             Shared with you
           </span>{" "}
-          — you have second-photographer access to this project. Everything here
+          You have second-photographer access to this project. Everything here
           is view-only.
         </div>
       )}
@@ -162,15 +162,15 @@ export default async function PortalProjectPage({
           href={record.galleryUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-8 flex items-center justify-between gap-4 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/[0.04] p-5 hover:bg-[var(--accent)]/[0.08] transition"
+          className="mt-8 flex items-center justify-between gap-4 rounded-lg border border-accent bg-accent/[0.04] p-5 hover:bg-accent/[0.08] transition"
         >
           <div>
             <div className="font-serif text-xl">Your gallery is ready</div>
-            <div className="mt-1 text-sm text-[var(--muted)]">
+            <div className="mt-1 text-sm text-muted">
               View and download your photos.
             </div>
           </div>
-          <span className="px-5 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full text-sm whitespace-nowrap">
+          <span className="px-5 py-2 bg-foreground text-background rounded-full text-sm whitespace-nowrap">
             View gallery →
           </span>
         </a>
@@ -186,8 +186,8 @@ export default async function PortalProjectPage({
             answerGroups && answerGroups.length > 0 ? (
               <div>
                 <h2 className="font-serif text-2xl">Planning details</h2>
-                <p className="mt-2 mb-5 text-sm text-[var(--muted)]">
-                  The couple&rsquo;s questionnaire answers — shot priorities,
+                <p className="mt-2 mb-5 text-sm text-muted">
+                  The couple&rsquo;s questionnaire answers: shot priorities,
                   timeline, must-haves.
                 </p>
                 <QuestionnaireCallout
@@ -197,7 +197,7 @@ export default async function PortalProjectPage({
                 />
               </div>
             ) : (
-              <p className="text-sm text-[var(--muted)]">
+              <p className="text-sm text-muted">
                 The couple hasn&rsquo;t submitted their planning questionnaire
                 yet. Their details will appear here once they do.
               </p>
@@ -208,7 +208,7 @@ export default async function PortalProjectPage({
                 <CalloutCard
                   eyebrow="Tell me what you're planning"
                   title="Set up your service"
-                  description="You started this project without picking a service. Send a quick note and I'll get it set up — it stays attached to this project."
+                  description="You started this project without picking a service. Send a quick note and I'll get it set up. It stays attached to this project."
                   actions={[
                     {
                       label: "Tell me what you're thinking →",
@@ -268,8 +268,8 @@ export default async function PortalProjectPage({
 
               <div>
                 <h2 className="font-serif text-2xl">Upload a document</h2>
-                <p className="mt-2 mb-4 text-sm text-[var(--muted)]">
-                  Share anything useful — a venue floor plan, a timeline, an
+                <p className="mt-2 mb-4 text-sm text-muted">
+                  Share anything useful: a venue floor plan, a timeline, an
                   inspiration PDF. I&rsquo;ll see it attached to this project.
                 </p>
                 <PortalDocumentUpload projectId={record.id} />
@@ -309,18 +309,18 @@ export default async function PortalProjectPage({
               </div>
 
               {hasOtherDates && (
-                <div className="mt-5 border-t border-[var(--border)] pt-5">
-                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                <div className="mt-5 border-t border-border pt-5">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted">
                     Other dates
                   </div>
-                  <ul className="mt-2 divide-y divide-[var(--border)]">
+                  <ul className="mt-2 divide-y divide-border">
                     {record.secondaryDates!.map((d, i) => (
                       <li
                         key={i}
                         className="flex justify-between gap-4 py-2.5 text-sm first:pt-0"
                       >
                         <span>{d.label ?? "Date"}</span>
-                        <span className="text-[var(--muted)]">
+                        <span className="text-muted">
                           {formatDate(d.date)}
                         </span>
                       </li>
@@ -330,8 +330,8 @@ export default async function PortalProjectPage({
               )}
 
               {hasLocations && (
-                <div className="mt-5 border-t border-[var(--border)] pt-5">
-                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                <div className="mt-5 border-t border-border pt-5">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted">
                     Locations
                   </div>
                   <div className="mt-3 space-y-4">
@@ -339,19 +339,19 @@ export default async function PortalProjectPage({
                       <div
                         key={i}
                         className={
-                          i > 0 ? "border-t border-[var(--border)] pt-4" : ""
+                          i > 0 ? "border-t border-border pt-4" : ""
                         }
                       >
                         {l.label && (
                           <div className="text-sm font-medium">{l.label}</div>
                         )}
                         {l.address && (
-                          <div className="mt-1 whitespace-pre-line text-sm text-[var(--muted)]">
+                          <div className="mt-1 whitespace-pre-line text-sm text-muted">
                             {l.address}
                           </div>
                         )}
                         {l.notes && (
-                          <div className="mt-1 text-sm text-[var(--muted)]">
+                          <div className="mt-1 text-sm text-muted">
                             {l.notes}
                           </div>
                         )}
@@ -365,7 +365,7 @@ export default async function PortalProjectPage({
 
           {record.planSummary && (
             <RailCard title="Plan">
-              <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--foreground)]/90">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">
                 {record.planSummary}
               </p>
             </RailCard>
@@ -379,7 +379,7 @@ export default async function PortalProjectPage({
           {!isCollaborator && link && (
             <QuestionnaireCallout
               groups={answerGroups}
-              description="Fill it out so I show up fully prepared — your details here are carried over, and anything you add flows straight back to this project."
+              description="Fill it out so I show up prepared. Your details here carry over, and anything you add goes straight back to this project."
               action={{
                 label: questionnaireSubmitted
                   ? "Resubmit to update →"
@@ -391,17 +391,17 @@ export default async function PortalProjectPage({
 
           {record.documents && record.documents.length > 0 && (
             <RailCard title="Documents">
-              <ul className="divide-y divide-[var(--border)]">
+              <ul className="divide-y divide-border">
                 {record.documents.map((doc, i) => (
                   <li key={i}>
                     <a
                       href={doc.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex justify-between items-baseline py-2.5 gap-4 text-sm hover:text-[var(--accent)] transition first:pt-0"
+                      className="flex justify-between items-baseline py-2.5 gap-4 text-sm hover:text-accent transition first:pt-0"
                     >
                       <span>{doc.label}</span>
-                      <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)] whitespace-nowrap">
+                      <span className="text-xs uppercase tracking-[0.18em] text-muted whitespace-nowrap">
                         {doc.type ?? "file"} &#8599;
                       </span>
                     </a>

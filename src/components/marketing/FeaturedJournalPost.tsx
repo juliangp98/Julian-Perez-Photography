@@ -40,11 +40,11 @@ export default function FeaturedJournalPost({
     ? urlFor(cover).width(1200).height(1500).fit("crop").auto("format").url()
     : undefined;
   return (
-    <section className="border-t border-[var(--border)]">
+    <section className="border-t border-border">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
         <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted">
               From the journal
             </div>
             <h2 className="mt-2 font-serif text-4xl">Latest story</h2>
@@ -61,7 +61,7 @@ export default function FeaturedJournalPost({
           href={`/journal/${post.slug}`}
           className="group grid gap-8 lg:grid-cols-2 lg:gap-12 items-center"
         >
-          <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
+          <div className="aspect-[4/5] overflow-hidden rounded-lg border border-border group-hover:border-foreground transition bg-border/40">
             {coverUrl && (
               <SafeImage
                 src={coverUrl}
@@ -82,13 +82,13 @@ export default function FeaturedJournalPost({
             )}
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+            <div className="text-xs uppercase tracking-[0.18em] text-accent">
               {formatDate(post.publishedAt)}
             </div>
-            <h3 className="mt-3 font-serif text-3xl lg:text-4xl leading-tight group-hover:text-[var(--accent)] transition">
+            <h3 className="mt-3 font-serif text-3xl lg:text-4xl leading-tight group-hover:text-accent transition">
               {post.title}
             </h3>
-            <p className="mt-4 text-[var(--muted)] text-lg leading-relaxed line-clamp-4">
+            <p className="mt-4 text-muted text-lg leading-relaxed line-clamp-4">
               {post.excerpt}
             </p>
             {post.tags && post.tags.length > 0 && (
@@ -96,14 +96,14 @@ export default function FeaturedJournalPost({
                 {post.tags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)] border border-[var(--border)] rounded-full px-2 py-0.5"
+                    className="text-[10px] uppercase tracking-[0.14em] text-muted border border-border rounded-full px-2 py-0.5"
                   >
                     {tag}
                   </span>
                 ))}
               </div>
             )}
-            <div className="mt-8 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+            <div className="mt-8 text-xs uppercase tracking-widest text-accent group-hover:text-foreground">
               Read the story &rarr;
             </div>
           </div>

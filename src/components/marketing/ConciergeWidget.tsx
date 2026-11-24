@@ -1,10 +1,8 @@
 "use client";
 
-// Floating "Ask" launcher + popover that hosts the ConciergeChat. Rendered
-// site-wide from the root layout (only when AI is configured), but suppressed
-// on routes where it doesn't belong: /faq (the chat is docked there), and the
-// Studio / admin / portal app chrome. The popover is a non-modal dialog —
-// labelled, Escape-closable, and it restores focus to the launcher on close.
+// Floating "Ask" launcher and non-modal popover hosting ConciergeChat. Hidden on
+// /faq (where the chat is docked) and the Studio, admin, and portal chrome.
+// Escape closes it and focus returns to the launcher.
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -58,12 +56,12 @@ export default function ConciergeWidget({
           onKeyDown={(e) => {
             if (e.key === "Escape") close();
           }}
-          className="fixed z-50 bottom-[5.5rem] right-4 sm:right-6 flex flex-col w-[min(24rem,calc(100vw-2rem))] h-[32rem] max-h-[calc(100vh-9rem)] rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl overflow-hidden"
+          className="fixed z-50 bottom-[5.5rem] right-4 sm:right-6 flex flex-col w-[min(24rem,calc(100vw-2rem))] h-[32rem] max-h-[calc(100vh-9rem)] rounded-2xl border border-border bg-background shadow-2xl overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
               <div className="font-medium text-sm">Ask the studio</div>
-              <div className="text-[11px] text-[var(--muted)]">
+              <div className="text-[11px] text-muted">
                 Services · pricing · booking
               </div>
             </div>
@@ -72,7 +70,7 @@ export default function ConciergeWidget({
               type="button"
               onClick={close}
               aria-label="Close chat assistant"
-              className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--foreground)] transition"
+              className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full border border-border text-muted hover:text-foreground hover:border-foreground transition"
             >
               <span aria-hidden>✕</span>
             </button>
@@ -93,7 +91,7 @@ export default function ConciergeWidget({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={open ? "Close chat assistant" : "Open chat assistant"}
-        className="fixed z-50 bottom-5 right-4 sm:right-6 inline-flex items-center gap-2 rounded-full bg-[var(--foreground)] text-[var(--background)] pl-4 pr-5 py-3 shadow-lg hover:opacity-90 transition"
+        className="fixed z-50 bottom-5 right-4 sm:right-6 inline-flex items-center gap-2 rounded-full bg-foreground text-background pl-4 pr-5 py-3 shadow-lg hover:opacity-90 transition"
       >
         <svg
           aria-hidden

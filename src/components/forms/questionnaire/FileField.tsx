@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import type { Field } from "@/lib/questionnaires";
+import Button from "@/components/ui/Button";
 import type { Value } from "./types";
 
-// ----------------------------------------------------------------------------
-// File field — uploads to Vercel Blob on selection so the form submit payload
+// File field: uploads to Vercel Blob on selection so the form submit payload
 // stays JSON. State holds a JSON-encoded `{ url, name, size }[]`.
-// ----------------------------------------------------------------------------
 
 type UploadedFile = { url: string; name: string; size: number };
 
@@ -123,7 +122,7 @@ export default function FileField({
           void handleFiles(e.target.files);
           e.target.value = ""; // reset so selecting the same file twice re-fires
         }}
-        className="block w-full text-sm text-[var(--muted)] file:mr-3 file:px-4 file:py-2 file:border-0 file:rounded-full file:bg-[var(--foreground)] file:text-[var(--background)] hover:file:opacity-90 file:cursor-pointer file:disabled:opacity-60"
+        className="block w-full text-sm text-muted file:mr-3 file:px-4 file:py-2 file:border-0 file:rounded-full file:bg-foreground file:text-background hover:file:opacity-90 file:cursor-pointer file:disabled:opacity-60"
       />
       {/* Single live region for the uploader so screen readers announce
           in-progress uploads and summary results without the user
@@ -131,7 +130,7 @@ export default function FileField({
       <div
         role="status"
         aria-live="polite"
-        className="mt-2 text-xs text-[var(--muted)] min-h-[1rem]"
+        className="mt-2 text-xs text-muted min-h-[1rem]"
       >
         {uploading ? "Uploading…" : message || null}
       </div>
@@ -143,22 +142,18 @@ export default function FileField({
                 href={f.url}
                 target="_blank"
                 rel="noreferrer"
-                className="underline underline-offset-2 truncate text-[var(--foreground)] hover:text-[var(--accent)]"
+                className="underline underline-offset-2 truncate text-foreground hover:text-accent"
               >
                 {f.name}
               </a>
-              <button
-                type="button"
-                onClick={() => removeAt(i)}
-                className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
+              <Button variant="text" onClick={() => removeAt(i)}>
                 remove
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-1.5 text-xs text-[var(--muted)]">
+      <p className="mt-1.5 text-xs text-muted">
         Up to {maxFiles} files, {maxSizeMb} MB each. Images and PDFs.
       </p>
       {helpEl}
