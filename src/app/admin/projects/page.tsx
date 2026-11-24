@@ -17,6 +17,7 @@ import { compactInputClass } from "@/components/ui/fields/Field";
 import Button from "@/components/ui/Button";
 import { aiEnabled } from "@/lib/ai/ai";
 import Panel from "@/components/ui/Panel";
+import { missingInProduction } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Projects · Admin",
@@ -153,6 +154,22 @@ export default async function AdminProjectsPage({
           ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
           : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
       </p>
+
+      {process.env.NODE_ENV === "production" && missingInProduction().length > 0 && (
+        <Panel tone="danger" className="mt-6">
+          <h2 className="font-serif text-xl text-danger">Setup isn&rsquo;t finished</h2>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {missingInProduction().map((s) => (
+              <li key={s.name}>
+                <code>{s.name}</code> <span className="text-muted">{s.without}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">
+            Set these in Vercel, then redeploy. docs/configuration.md lists them all.
+          </p>
+        </Panel>
+      )}
 
       <div className="mt-6">
         <NewProjectForm />

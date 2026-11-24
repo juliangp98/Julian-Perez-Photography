@@ -14,7 +14,9 @@
     "upload-video": "tsx --env-file=.env.local scripts/upload-video.ts",
     "messages:backfill": "node --env-file-if-exists=.env.local scripts/backfill-messages.mjs",
     "deps:check": "node --env-file-if-exists=.env.local scripts/check-deps.mjs",
-    "deps:update": "node --env-file-if-exists=.env.local scripts/check-deps.mjs --update"
+    "deps:update": "node --env-file-if-exists=.env.local scripts/check-deps.mjs --update",
+    "env:docs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/env-docs.mjs",
+    "email:check": "node --env-file-if-exists=.env.local scripts/check-email.mjs"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.3",
