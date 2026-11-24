@@ -73,10 +73,16 @@ export default function ComposeEmail({
   const [body, setBody] = useState("");
   const [instructions, setInstructions] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+  const [message, setMessage] = useState("");
+  // One key per version of the message: a retry or double click of the same
+  // text sends once, and any edit makes it a new message.
+  const [sendKey, setSendKey] = useState(() => crypto.randomUUID());
+  const newVersion = () => setSendKey(crypto.randomUUID());
 
   function pick(id: string) {
     setTemplateId(id);
     setStatus("idle");
+    newVersion();
     const t = EMAIL_TEMPLATES.find((x) => x.id === id);
     setSubject(t ? fillTemplate(t.subject, context) : "");
     setBody(t ? fillTemplate(t.body, context) : "");
@@ -100,6 +106,7 @@ export default function ComposeEmail({
       if (data.drafted) {
         setSubject(data.subject);
         setBody(data.body);
+        newVersion();
         setStatus("drafted");
       } else {
         // AI not configured or no record resolved — keep the static fill.
@@ -111,18 +118,31 @@ export default function ComposeEmail({
   }
 
   async function send() {
-    if (!subject.trim() || !body.trim()) return;
+    if (!subject.trim() || !body.trim() || status === "sending") return;
     setStatus("sending");
+    setMessage("");
     try {
       const res = await fetch("/api/admin/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, subject, body }),
+        body: JSON.stringify({ projectId, subject, body, idempotencyKey: sendKey }),
       });
-      if (!res.ok) throw new Error();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(json.error || "Couldn't send. Try again.");
+        setStatus("error");
+        return;
+      }
+      if (!json.sent) {
+        setMessage(json.note || "Not sent.");
+        setStatus("error");
+        return;
+      }
       setStatus("sent");
+      newVersion();
       router.refresh();
     } catch {
+      setMessage("Couldn't reach the site. Check your connection and try again.");
       setStatus("error");
     }
   }
@@ -188,14 +208,20 @@ export default function ComposeEmail({
           )}
           <input
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => {
+              setSubject(e.target.value);
+              newVersion();
+            }}
             placeholder="Subject"
             aria-label="Subject"
             className={input}
           />
           <textarea
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              setBody(e.target.value);
+              newVersion();
+            }}
             rows={14}
             aria-label="Email body"
             className={`${input} font-sans leading-relaxed`}
@@ -237,7 +263,9 @@ export default function ComposeEmail({
               </span>
             )}
             {status === "sent" && (
-              <span className="text-sm text-[var(--muted)]">Sent ✓</span>
+              <span role="status" className="text-sm text-[var(--muted)]">
+                Sent to the client.
+              </span>
             )}
             {status === "copied" && (
               <span className="text-sm text-[var(--muted)]">
@@ -246,7 +274,7 @@ export default function ComposeEmail({
             )}
             {status === "error" && (
               <span role="alert" className="text-sm text-red-700">
-                Something went wrong — please try again.
+                {message || "Something went wrong. Try again."}
               </span>
             )}
           </div>

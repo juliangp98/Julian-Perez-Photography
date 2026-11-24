@@ -4,10 +4,7 @@ import { test, expect } from "./support/fixtures";
 // stage template on a project, it prefills, they edit, then send. The recipient
 // is resolved server-side from the project id (never trusted from the body).
 //
-// Admin sign-in needs only ADMIN_EMAIL, so the endpoint is testable end-to-end:
-// with the store blanked in this environment getClientFull returns nothing, so a
-// well-formed authenticated request is accepted but no-ops (sent: false) rather
-// than reaching out to a real client.
+// Guard coverage; real sends, retries and failures are in email-send.spec.ts.
 
 test("send-email: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/send-email", {
@@ -24,20 +21,4 @@ test("send-email: rejects a malformed body when authenticated", async ({ adminRe
     data: { projectId: "p1" },
   });
   expect(res.status()).toBe(400);
-});
-
-test("send-email: accepts a well-formed request, no-ops without a recipient", async ({ adminRequest: request }) => {
-  const res = await request.post("/api/admin/send-email", {
-    data: {
-      projectId: "p1",
-      subject: "Your gallery is ready!",
-      body: "Hi — your photos are ready to view.",
-    },
-  });
-  // Store is blanked here, so no recipient resolves — the route accepts the
-  // request and reports it as not sent rather than erroring.
-  expect(res.status()).toBe(200);
-  const json = await res.json();
-  expect(json.ok).toBe(true);
-  expect(json.sent).toBe(false);
 });

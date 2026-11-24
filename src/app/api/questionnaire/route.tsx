@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { getSiteSettings, getService } from "@/lib/content";
 import {
@@ -15,7 +14,8 @@ import {
   ClientConfirmationTemplate,
 } from "@/lib/email/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate, resendFrom } from "@/lib/email/email-helpers";
+import { formatSubjectDate } from "@/lib/email/email-helpers";
+import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
 import { attachQuestionnaire } from "@/lib/clients";
@@ -257,18 +257,6 @@ export async function POST(req: Request) {
     : "";
   const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    // Dev fallback — still capture the record (no PDF in this path) so local
-    // dev / e2e exercise the durable-store wiring.
-    console.log("[questionnaire] RESEND_API_KEY not set — logging instead:");
-    console.log(text);
-    await captureRecord();
-    return NextResponse.json({ ok: true, dev: true });
-  }
-
-  const resend = new Resend(apiKey);
-  const fromAddress = resendFrom();
   const settings = await getSiteSettings();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
@@ -319,8 +307,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { error } = await resend.emails.send({
-      from: fromAddress,
+    await sendEmail({
       to: toAddress,
       replyTo: clientEmail,
       subject,
@@ -328,7 +315,6 @@ export async function POST(req: Request) {
       text,
       ...(attachments.length > 0 ? { attachments } : {}),
     });
-    if (error) throw error;
   } catch (err: unknown) {
     console.error("[questionnaire] Resend error:", err);
     Sentry.captureException(err, {
@@ -369,8 +355,7 @@ export async function POST(req: Request) {
         });
       }
 
-      await resend.emails.send({
-        from: fromAddress,
+      await sendEmail({
         replyTo: settings.contactEmail,
         to: clientEmail,
         subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,

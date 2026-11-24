@@ -10,6 +10,7 @@ import { updateClientAdmin, getClientFull } from "@/lib/clients";
 import { projectDisplayName } from "@/lib/project-name";
 import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/email/notify";
 import * as Sentry from "@sentry/nextjs";
+import { describeEmailFailure } from "@/lib/email/send";
 
 const schema = z.object({
   id: z.string().min(1),
@@ -83,6 +84,7 @@ export async function POST(req: Request) {
   // Optional: notify the client their project was updated (admin opt-in). The
   // email lists the specific changes (status, date, package, …) — never the
   // internal note, budget, or raw service slug.
+  let notifyError: string | undefined;
   if (parsed.data.notifyClient && before?.email) {
     try {
       const f = parsed.data.fields;
@@ -114,8 +116,9 @@ export async function POST(req: Request) {
         tags: { route: "admin-update", stage: "notify" },
         level: "warning",
       });
+      notifyError = describeEmailFailure(err);
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, notifyError });
 }

@@ -24,7 +24,8 @@ function fresh() {
     emails: new Map(),
     inbound: new Map(),
     idempotency: new Map(),
-    script: { replies: [], models: null, retired: [] },
+    // emailFailures: how many upcoming sends answer 503 (to exercise retries).
+    script: { replies: [], models: null, retired: [], emailFailures: 0 },
   };
 }
 let state = fresh();
@@ -34,6 +35,10 @@ const notFound = [404, { statusCode: 404, name: "not_found", message: "Not found
 
 const routes = [
   ["POST", /^\/emails$/, "resend", (body, headers) => {
+    if (state.script.emailFailures > 0) {
+      state.script.emailFailures--;
+      return [503, { statusCode: 503, name: "internal_server_error", message: "Service unavailable" }];
+    }
     const to = [].concat(body?.to ?? []);
     if (to.some((a) => String(a).endsWith("@fail.test"))) {
       return [422, { statusCode: 422, name: "validation_error", message: "The recipient was rejected." }];

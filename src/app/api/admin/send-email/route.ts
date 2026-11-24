@@ -1,34 +1,41 @@
-// POST /api/admin/send-email — owner sends a (template-based, edited) email to a
-// client from a project. The recipient is resolved server-side from the project
-// id (never trusted from the body), the body renders through the shared branded
-// layout, and the send is logged to the project's status history.
+// POST /api/admin/send-email: the owner sends an edited pipeline email to a
+// project's client. The recipient comes from the record, never the body. The
+// response says plainly whether the email left, and why not when it didn't.
 
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
+import { render } from "@react-email/components";
+import * as Sentry from "@sentry/nextjs";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { getClientFull, addAdminLog } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
-import { resendFrom } from "@/lib/email/email-helpers";
-import { render } from "@react-email/components";
+import { rateLimitResponse } from "@/lib/request-guard";
+import { sendEmail, EmailError, describeEmailFailure } from "@/lib/email/send";
 import {
   BrandedEmailLayout,
   PipelineEmailTemplate,
 } from "@/lib/email/email-templates";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   projectId: z.string().min(1),
   subject: z.string().min(1).max(300),
   body: z.string().min(1).max(20000),
+  // One per composed message, so a retried or double-clicked send goes once.
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
   if (!(await getAdminSession())) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
+  const limited = rateLimitResponse(req, {
+    key: "admin-send-email",
+    max: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (limited) return limited;
 
   let body: unknown;
   try {
@@ -40,54 +47,62 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
+  const { projectId, subject, idempotencyKey } = parsed.data;
 
-  // Resolve the recipient from the record — never from the request body.
-  const record = await getClientFull(parsed.data.projectId);
-  if (!record?.email) {
-    return NextResponse.json({ ok: true, sent: false });
+  const record = await getClientFull(projectId);
+  if (!record) {
+    return NextResponse.json({ error: "That project wasn't found." }, { status: 404 });
   }
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ ok: true, sent: false });
+  if (!record.email) {
+    return NextResponse.json({ error: "No email on file for this client." }, { status: 409 });
   }
 
+  let id: string | null;
   try {
+    const settings = await getSiteSettings();
     const html = await render(
       BrandedEmailLayout({
-        preview: parsed.data.subject,
+        preview: subject,
         children: PipelineEmailTemplate({ body: parsed.data.body }),
       }),
     );
-    // Replies route to Julian's real inbox, not the no-reply send domain.
-    const settings = await getSiteSettings();
-    await new Resend(apiKey).emails.send({
-      from: resendFrom(),
-      replyTo: settings.contactEmail,
+    ({ id } = await sendEmail({
       to: record.email,
-      subject: parsed.data.subject,
+      replyTo: settings.contactEmail,
+      subject,
       html,
       text: parsed.data.body,
-    });
+      idempotencyKey,
+    }));
   } catch (err) {
-    console.error("[admin] send-email error:", err);
-    Sentry.captureException(err, { tags: { route: "admin-send-email" } });
+    Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });
+    const status =
+      err instanceof EmailError ? (err.reason === "not-configured" ? 503 : 502) : 500;
     return NextResponse.json(
-      { error: "Couldn't send — please try again." },
-      { status: 500 },
+      { error: `Not sent: ${describeEmailFailure(err)}.` },
+      { status },
     );
   }
 
-  // Log the send to status history (best-effort).
+  if (!id) {
+    return NextResponse.json({
+      ok: true,
+      sent: false,
+      note: "Resend isn't set up here, so the email was logged instead of sent.",
+    });
+  }
+
+  // Best-effort record on the project history, with Resend's id as proof.
   try {
-    await addAdminLog(parsed.data.projectId, {
-      note: `Emailed the client: "${parsed.data.subject}"`,
+    await addAdminLog(projectId, {
+      note: `Emailed the client: "${subject}" (Resend ${id})`,
     });
   } catch (err) {
     Sentry.captureException(err, {
-      tags: { route: "admin-send-email", stage: "log" },
+      tags: { route: "admin/send-email", stage: "log" },
       level: "warning",
     });
   }
 
-  return NextResponse.json({ ok: true, sent: true });
+  return NextResponse.json({ ok: true, sent: true, id });
 }

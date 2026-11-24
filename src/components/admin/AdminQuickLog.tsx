@@ -21,7 +21,7 @@ export default function AdminQuickLog({
   const [status, setStatus] = useState(currentStatus ?? "");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
   const [notifyClient, setNotifyClient] = useState(false);
 
   const statusChanged = !!status && status !== (currentStatus ?? "");
@@ -30,7 +30,7 @@ export default function AdminQuickLog({
   async function save() {
     if (!canSave) return;
     setBusy(true);
-    setError(false);
+    setError("");
     try {
       const res = await fetch("/api/admin/quick-log", {
         method: "POST",
@@ -43,11 +43,14 @@ export default function AdminQuickLog({
         }),
       });
       if (!res.ok) throw new Error();
+      const json = await res.json().catch(() => ({}));
       setNote("");
-      setOpen(false);
       router.refresh();
+      // Stay open to say so when the client email didn't go out.
+      if (json.notifyError) setError(`Saved, but the client email didn't send: ${json.notifyError}.`);
+      else setOpen(false);
     } catch {
-      setError(true);
+      setError("Couldn't save. Try again.");
     } finally {
       setBusy(false);
     }
@@ -111,7 +114,7 @@ export default function AdminQuickLog({
       </div>
       {error && (
         <p role="alert" className="text-xs text-red-700">
-          Couldn&rsquo;t save — please try again.
+          {error}
         </p>
       )}
     </div>

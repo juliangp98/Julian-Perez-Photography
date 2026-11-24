@@ -103,6 +103,7 @@ export default function AdminProjectEditForm({
   );
   const [status, setStatus] = useState<Status>("idle");
   const [notifyClient, setNotifyClient] = useState(false);
+  const [notifyError, setNotifyError] = useState("");
   const [planStatus, setPlanStatus] = useState<
     "idle" | "drafting" | "drafted" | "error"
   >("idle");
@@ -171,6 +172,8 @@ export default function AdminProjectEditForm({
         }),
       });
       if (!res.ok) throw new Error("save failed");
+      const json = await res.json().catch(() => ({}));
+      setNotifyError(json.notifyError ?? "");
       setStatus("saved");
       router.refresh();
     } catch {
@@ -385,8 +388,13 @@ export default function AdminProjectEditForm({
         >
           {status === "saving" ? "Saving…" : "Save changes"}
         </button>
-        {status === "saved" && (
-          <span className="text-sm text-[var(--muted)]">Saved.</span>
+        {status === "saved" && !notifyError && (
+          <span role="status" className="text-sm text-[var(--muted)]">Saved.</span>
+        )}
+        {status === "saved" && notifyError && (
+          <span role="alert" className="text-sm text-red-700">
+            Saved, but the client email didn&rsquo;t send: {notifyError}.
+          </span>
         )}
         {status === "error" && (
           <span role="alert" className="text-sm text-red-700">

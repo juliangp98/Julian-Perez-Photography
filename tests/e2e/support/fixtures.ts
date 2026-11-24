@@ -29,7 +29,12 @@ export type FakeCall = {
 };
 type Fakes = {
   calls(provider?: Provider): Promise<FakeCall[]>;
-  script(script: { replies?: string[]; models?: unknown[]; retired?: string[] }): Promise<void>;
+  script(script: {
+    replies?: string[];
+    models?: unknown[];
+    retired?: string[];
+    emailFailures?: number;
+  }): Promise<void>;
   inbound(email: Record<string, unknown>): Promise<void>;
 };
 

@@ -2,7 +2,6 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { getSiteSettings, getService } from "@/lib/content";
 import {
@@ -11,7 +10,8 @@ import {
   ClientConfirmationTemplate,
 } from "@/lib/email/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate, resendFrom } from "@/lib/email/email-helpers";
+import { formatSubjectDate } from "@/lib/email/email-helpers";
+import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
@@ -77,16 +77,6 @@ export async function POST(req: Request) {
   ]);
   const serviceName = svc?.title || data.service;
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    // Dev-mode fallback: log to console so you can iterate without Resend set up.
-    console.log("[inquire] RESEND_API_KEY not set — logging inquiry instead:");
-    console.log({ ...data, serviceName });
-    return NextResponse.json({ ok: true, dev: true });
-  }
-
-  const resend = new Resend(apiKey);
-  const fromAddress = resendFrom();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
   // Resolve the curated referral value → friendly label, and fold in the
@@ -128,15 +118,7 @@ export async function POST(req: Request) {
   );
 
   try {
-    const { error } = await resend.emails.send({
-      from: fromAddress,
-      to: toAddress,
-      replyTo: data.email,
-      subject,
-      html,
-      text,
-    });
-    if (error) throw error;
+    await sendEmail({ to: toAddress, replyTo: data.email, subject, html, text });
   } catch (err: unknown) {
     console.error("[inquire] Resend error:", err);
     Sentry.captureException(err, {
@@ -159,8 +141,7 @@ export async function POST(req: Request) {
         <ClientConfirmationTemplate clientName={data.name} />
       </BrandedEmailLayout>,
     );
-    await resend.emails.send({
-      from: fromAddress,
+    await sendEmail({
       replyTo: settings.contactEmail,
       to: data.email,
       subject: "Thanks for your inquiry — Julian Perez Photography",

@@ -12,6 +12,7 @@ import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { projectDisplayName } from "@/lib/project-name";
 import { sendClientUpdateEmail, summarizeClientChanges } from "@/lib/email/notify";
 import * as Sentry from "@sentry/nextjs";
+import { describeEmailFailure } from "@/lib/email/send";
 
 const STATUS_VALUES = CLIENT_STATUS_OPTIONS.map((s) => s.value) as [
   string,
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
 
   // Optional: notify the client (admin opt-in). The internal note is never
   // shared — only the client-facing status change, when the status moved.
+  let notifyError: string | undefined;
   if (parsed.data.notifyClient && before?.email) {
     try {
       const origin = req.headers.get("origin") || new URL(req.url).origin;
@@ -92,8 +94,9 @@ export async function POST(req: Request) {
         tags: { route: "admin-quick-log", stage: "notify" },
         level: "warning",
       });
+      notifyError = describeEmailFailure(err);
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, notifyError });
 }

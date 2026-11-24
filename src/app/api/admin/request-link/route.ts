@@ -6,9 +6,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { resendFrom } from "@/lib/email/email-helpers";
+import { sendEmail } from "@/lib/email/send";
 import {
   isAdminConfigured,
   isAdminEmail,
@@ -59,25 +58,19 @@ export async function POST(req: Request) {
     const origin = req.headers.get("origin") || new URL(req.url).origin;
     const link = `${origin}/admin/verify?token=${encodeURIComponent(token)}`;
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
+    // Local dev without Resend: hand the link back so sign-in still works.
+    if (!process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production") {
       console.log("[admin] magic link (dev):", link);
-      if (process.env.NODE_ENV !== "production") {
-        return NextResponse.json({ ok: true, devLink: link });
-      }
-      return uniform;
+      return NextResponse.json({ ok: true, devLink: link });
     }
 
-    const resend = new Resend(apiKey);
-    const from = resendFrom();
     const html = await render(
       BrandedEmailLayout({
         preview: "Your admin sign-in link",
         children: MagicLinkEmailTemplate({ link, kind: "admin" }),
       }),
     );
-    await resend.emails.send({
-      from,
+    await sendEmail({
       to: email,
       subject: "Admin sign-in link — Julian Perez Photography",
       html,

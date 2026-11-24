@@ -9,7 +9,6 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
 import { rateLimitResponse } from "@/lib/request-guard";
 import { getSession } from "@/lib/auth-cookies";
 import { updateClientFields, getProjectForEmail } from "@/lib/clients";
@@ -20,7 +19,7 @@ import {
   NotificationEmailTemplate,
 } from "@/lib/email/email-templates";
 import { clientEditNotifyEnabled } from "@/lib/email/notify";
-import { resendFrom } from "@/lib/email/email-helpers";
+import { sendEmail } from "@/lib/email/send";
 import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
@@ -81,11 +80,9 @@ export async function POST(req: Request) {
 
   // Notify Julian (fire-and-forget) so he knows to review the change.
   try {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey && clientEditNotifyEnabled()) {
+    if (clientEditNotifyEnabled()) {
       const settings = await getSiteSettings();
       const to = process.env.INQUIRY_TO || settings.contactEmail;
-      const from = resendFrom();
       const origin = req.headers.get("origin") || new URL(req.url).origin;
       const html = await render(
         BrandedEmailLayout({
@@ -100,8 +97,7 @@ export async function POST(req: Request) {
           }),
         }),
       );
-      await new Resend(apiKey).emails.send({
-        from,
+      await sendEmail({
         to,
         subject: `Client updated their details — ${session.email}`,
         html,
