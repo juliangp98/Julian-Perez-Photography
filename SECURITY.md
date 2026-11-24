@@ -98,7 +98,7 @@ suspected of being exposed, and as part of a quarterly audit.
       revoked after every successful seed.
 - [ ] sanity.io/manage → project → **API** → **Webhooks** — confirm the
       revalidation webhook is pointed at
-      `https://julianperezphotography.com/api/sanity-webhook`, filters
+      `https://www.julianperezphotography.com/api/sanity-webhook`, filters
       `_type in ["siteSettings","aboutPage","categoryUmbrella","serviceCategory","portfolioCategory","journalPost"]`,
       and its secret matches `SANITY_WEBHOOK_SECRET` in Vercel.
 - [ ] sanity.io/manage → project → **Members** — only Julian as Admin.
@@ -164,7 +164,7 @@ suspected of being exposed, and as part of a quarterly audit.
       org-wide keys. Revoke any key that leaves a laptop or an agent
       transcript.
 - [ ] Resend dashboard → **Webhooks**: one webhook, pointed at
-      `https://julianperezphotography.com/api/email/webhook`, sending delivery
+      `https://www.julianperezphotography.com/api/email/webhook`, sending delivery
       and received events. Its signing secret matches `RESEND_WEBHOOK_SECRET`.
 - [ ] Run `npm run email:check` after any DNS or Resend change. It reports
       SPF, DMARC, the sending domain and its DKIM records, the receiving MX,
