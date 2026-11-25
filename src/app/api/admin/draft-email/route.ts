@@ -18,7 +18,8 @@ import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
 import { pickVoiceSamples, voiceSection } from "@/lib/ai/voice-samples";
 import { listOwnerWriting } from "@/lib/messages";
-import { projectFacts } from "@/lib/ai/project-context";
+import { projectFacts, withoutContacts } from "@/lib/ai/project-context";
+import { SUMMARY_PARTS } from "@/lib/calls";
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -84,6 +85,15 @@ export const POST = defineRoute({
     // The project at the client tier (projectFacts): nothing private, since
     // the draft is written to the client.
     const facts = projectFacts(record, "client");
+    // The recap after a discovery call draws on what the client told Julian on
+    // it: the summary's first three parts, never his budget notes or to-dos.
+    const summary = record.calls?.discovery?.summary;
+    if (template.id === "discovery-recap" && summary) {
+      for (const part of SUMMARY_PARTS.filter((p) => p.clientSafe)) {
+        const text = summary[part.key]?.trim();
+        if (text) facts.push(`From the call, ${part.label.toLowerCase()}:\n${withoutContacts(text)}`);
+      }
+    }
     if (ctx.packagePrice) facts.push(`Package price: ${ctx.packagePrice}`);
     if (ctx.packageInclusions)
       facts.push(`What the package includes:\n${ctx.packageInclusions}`);

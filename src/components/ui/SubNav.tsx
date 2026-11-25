@@ -16,14 +16,20 @@ export type SubNavItem = { label: string; href: string };
 //   "← up to the index" link set off from the tabs by a divider.
 // - Authenticated portal pages (admin + client) pass `logoutAction`, which adds
 //   a right-aligned Sign out form so the one bar is the whole portal chrome.
+// - Tabs within one page (a ?tab= address) pass `activeHref`, the tab that's
+//   showing, since they share a pathname.
 export default function SubNav({
   items,
   back,
   logoutAction,
+  activeHref,
+  label = "Section",
 }: {
   items: SubNavItem[];
   back?: SubNavItem;
   logoutAction?: string;
+  activeHref?: string;
+  label?: string;
 }) {
   const pathname = usePathname();
   return (
@@ -45,10 +51,11 @@ export default function SubNav({
               />
             </>
           )}
-          <nav aria-label="Section" className="flex flex-wrap gap-x-6 gap-y-2">
+          <nav aria-label={label} className="flex flex-wrap gap-x-6 gap-y-2">
             {items.map((it) => {
-              const active =
-                pathname === it.href || pathname?.startsWith(`${it.href}/`);
+              const active = activeHref
+                ? it.href === activeHref
+                : pathname === it.href || pathname?.startsWith(`${it.href}/`);
               return (
                 <Link
                   key={it.href}

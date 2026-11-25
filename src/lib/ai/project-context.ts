@@ -12,6 +12,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { ClientRecordFull } from "@/lib/clients";
+import { isConversation, type ClientMessage } from "@/lib/messages";
 import { daysUntil, formatHumanDate } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import { formatReferral } from "@/lib/referral";
@@ -90,4 +91,21 @@ export function isCurrent(
   text: string | undefined,
 ): boolean {
   return !!saved && (!saved.basis || saved.basis === aiBasis(text));
+}
+
+// Text a client wrote, with email addresses, links and phone numbers taken out:
+// a model never needs them.
+export function withoutContacts(text: string): string {
+  return text
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]")
+    .replace(/https?:\/\/\S+/g, "[link]")
+    .replace(/(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g, "[phone]");
+}
+
+// What the tailored call guide was made from: the inquiry, the newest message
+// of the conversation (see isConversation) and the questionnaire. Any of them
+// changing makes it out of date.
+export function callGuideBasisText(record: ClientRecordFull, messages: ClientMessage[]): string {
+  const newest = messages.filter(isConversation).at(-1)?.id;
+  return [record.inquiryMessage ?? "", newest ?? "", record.questionnaireSnapshot ?? ""].join("\u0000");
 }

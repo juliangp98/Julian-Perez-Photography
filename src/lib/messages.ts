@@ -55,6 +55,18 @@ const SELECT =
 // What the client may see of their own thread: nothing held back for review.
 const CLIENT_VISIBLE: MessageStatus[] = ["sent", "delivered", "delayed", "received"];
 
+// Whether a message is part of the conversation with the client: a reply or
+// portal message that was received, or an email Julian wrote that went out.
+// Leaves out bounces, out-of-office replies held back, relays never sent, and
+// the site's automatic emails. Matches the client_last_contact view.
+const WRITTEN_KINDS: MessageKind[] = ["compose", "relay", "imported"];
+const WENT_OUT: MessageStatus[] = ["sent", "delivered", "delayed"];
+export function isConversation(m: Pick<ClientMessage, "direction" | "kind" | "status">): boolean {
+  return m.direction === "in"
+    ? m.status === "received"
+    : WRITTEN_KINDS.includes(m.kind) && WENT_OUT.includes(m.status);
+}
+
 export type NewMessage = {
   projectId: string;
   direction: MessageDirection;

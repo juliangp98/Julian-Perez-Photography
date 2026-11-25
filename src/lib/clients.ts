@@ -31,6 +31,7 @@ import {
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
 import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
+import type { CallKind, CallNotes, ProjectCalls } from "@/lib/calls";
 
 const TABLE = "client_records";
 
@@ -189,7 +190,20 @@ const aiGroup: ColumnGroup = {
   select: ", aiResults:ai_results",
   match: /ai_results/,
 };
-const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup, aiGroup];
+// Notes from calls with the client: read for one project's page only.
+const callsGroup: ColumnGroup = {
+  present: true,
+  select: ", calls",
+  match: /\bcalls\b/,
+};
+const COLUMN_GROUPS = [
+  optionalGroup,
+  termsGroup,
+  collaboratorGroup,
+  followUpGroup,
+  aiGroup,
+  callsGroup,
+];
 const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -207,9 +221,9 @@ function safeSelect(): string {
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
 }
-// One project's full read, with what the AI tools saved.
+// One project's full read, with what the AI tools saved and the call notes.
 function detailSelect(): string {
-  return fullSelect() + cols(aiGroup);
+  return fullSelect() + cols(aiGroup) + cols(callsGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -1016,6 +1030,8 @@ export type ClientRecordFull = ClientRecordSafe & {
   followUpNote?: string;
   // What the AI tools saved (getClientFull only).
   aiResults?: AiResults;
+  // Notes from calls with the client (getClientFull only).
+  calls?: ProjectCalls;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -1259,4 +1275,45 @@ export async function saveAiResult<K extends SavedAiKind>(
     p_result: saved,
   });
   if (error) throw error;
+}
+
+// What saving to a call found: the call had been saved since the copy the
+// patch was typed against (nothing changed), or it was saved, with whether the
+// call was already marked held and the project's status.
+export type CallSave =
+  | { conflict: true }
+  | { conflict: false; savedAt?: string; held: boolean; status?: string };
+
+// Merge a patch into one call (see merge_call in supabase/schema.sql): answers
+// and the questions they were typed under key by key, the held time kept once
+// set, anything else replaced. Answers and notes are stamped with the time
+// they were saved, the copy that saved them (`writer`) and that copy's count
+// of saves (`seq`), and with `base` (the stamp they were typed against, "" for
+// never saved) land only when nothing was saved since by another copy, or by
+// a later save of this one. Null without a store or for no such project.
+export async function saveCall(
+  id: string,
+  call: CallKind,
+  patch: CallNotes,
+  base?: string,
+  writer?: string,
+  seq?: number,
+): Promise<CallSave | null> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
+  const notes = patch.answers !== undefined || patch.notes !== undefined;
+  const savedAt = notes ? nowIso() : undefined;
+  const stamp = { savedAt, ...(writer ? { savedBy: writer, savedSeq: seq } : {}) };
+  const { data, error } = await db().rpc("merge_call", {
+    p_id: id,
+    p_call: call,
+    p_patch: savedAt ? { ...patch, ...stamp } : patch,
+    p_base: base ?? null,
+    p_writer: writer ?? null,
+    p_seq: seq ?? null,
+  });
+  if (error) throw error;
+  const found = data as { conflict: boolean; held?: boolean; status?: string } | null;
+  if (!found) return null;
+  if (found.conflict) return { conflict: true };
+  return { conflict: false, savedAt, held: !!found.held, status: found.status };
 }

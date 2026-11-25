@@ -267,3 +267,72 @@ revoke execute on function save_ai_result(uuid, text, jsonb) from public, anon, 
 grant execute on function save_ai_result(uuid, text, jsonb) to service_role;
 
 notify pgrst, 'reload schema';
+
+-- Notes from calls with the client, keyed by call ("discovery"): the answers
+-- typed under each question of the guide, free notes, and the summary written
+-- after the call. Owner-only, like the rest of the row.
+alter table client_records add column if not exists calls jsonb not null default '{}'::jsonb;
+
+-- Merges a patch into one call: the answers and the questions they were typed
+-- under key by key, the held time kept once set, everything else replaced, so
+-- two autosaves landing together each keep what they wrote. With p_base (the
+-- savedAt the patch was typed against, '' for never saved) it lands only if
+-- nothing was saved since, or if the last save came from the same copy
+-- (p_writer, matched against the savedBy the patch stamps) and this one isn't
+-- earlier in its order (p_seq, against savedSeq): a retry of a save whose
+-- reply was lost is that copy's own, the same save arriving twice still
+-- lands, a first try landing after its own retry is refused, and a copy left
+-- open elsewhere can't overwrite newer notes.
+-- Answers {conflict}, or {held, status}: whether the call was already marked
+-- held, and the project's status. Null for no such project. Doesn't change
+-- updated_at: notes aren't an edit to the project.
+drop function if exists merge_call(uuid, text, jsonb);
+drop function if exists merge_call(uuid, text, jsonb, text);
+drop function if exists merge_call(uuid, text, jsonb, text, text);
+create or replace function merge_call(
+  p_id uuid,
+  p_call text,
+  p_patch jsonb,
+  p_base text default null,
+  p_writer text default null,
+  p_seq int default null
+)
+returns jsonb language plpgsql as $$
+declare
+  prev jsonb;
+  cur_status text;
+begin
+  select coalesce(calls->p_call, '{}'::jsonb), status into prev, cur_status
+  from client_records where id = p_id for update;
+  if not found then
+    return null;
+  end if;
+  if p_base is not null
+     and coalesce(prev->>'savedAt', '') <> p_base
+     and (p_writer is null
+          or p_seq is null
+          or coalesce(prev->>'savedBy', '') <> p_writer
+          or p_seq < coalesce((prev->>'savedSeq')::int, 0)) then
+    return jsonb_build_object('conflict', true);
+  end if;
+  update client_records
+  set calls = jsonb_set(
+    coalesce(calls, '{}'::jsonb),
+    array[p_call],
+    prev
+      || (p_patch - 'answers' - 'asked' - 'heldAt')
+      || jsonb_build_object(
+           'answers', coalesce(prev->'answers', '{}'::jsonb) || coalesce(p_patch->'answers', '{}'::jsonb),
+           'asked', coalesce(prev->'asked', '{}'::jsonb) || coalesce(p_patch->'asked', '{}'::jsonb))
+      || case
+           when prev ? 'heldAt' or not p_patch ? 'heldAt' then '{}'::jsonb
+           else jsonb_build_object('heldAt', p_patch->'heldAt')
+         end)
+  where id = p_id;
+  return jsonb_build_object('conflict', false, 'held', prev ? 'heldAt', 'status', cur_status);
+end
+$$;
+revoke execute on function merge_call(uuid, text, jsonb, text, text, int) from public, anon, authenticated;
+grant execute on function merge_call(uuid, text, jsonb, text, text, int) to service_role;
+
+notify pgrst, 'reload schema';

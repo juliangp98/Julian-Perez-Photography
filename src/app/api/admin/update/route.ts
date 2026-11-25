@@ -1,9 +1,15 @@
 // POST /api/admin/update: owner-only edits to one project. The record id comes
 // from the body (the owner may edit any record). A request carries the edit
-// form's fields, or one change to the project's links and files: add an entry,
-// remove one, or change one (an invoice marked paid). Removing an entry takes
-// it off the project; an uploaded file itself stays in storage. Nothing here
-// emails the client; telling them is a Compose email.
+// form's fields, one change to the project's links and files (add an entry,
+// remove one, or change one, like an invoice marked paid), or the discovery
+// call's notes: an autosave of answers and notes, or the summary saved after
+// the call. The summary's first save moves a lead to In conversation and,
+// before a proposal has gone out, sets a follow-up to send the recap, then
+// marks the call held; saving it again changes only the summary. An autosave
+// names the save it was typed against and the open copy it came from, and is
+// refused (409) when another copy saved the notes since. Removing an entry takes it off the
+// project; an uploaded file itself stays in storage. Nothing here emails the
+// client; telling them is a Compose email.
 
 export const runtime = "nodejs";
 
@@ -12,10 +18,16 @@ import * as Sentry from "@sentry/nextjs";
 import { apiError, defineRoute } from "@/lib/api-route";
 import {
   addDocument,
+  advanceStatus,
   patchDocument,
   removeDocument,
+  saveCall,
+  setFollowUp,
   updateClientAdmin,
 } from "@/lib/clients";
+import { CALL_ANSWER_MAX, CALL_NOTES_MAX, SUMMARY_PART_MAX } from "@/lib/calls";
+import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
+import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 
 const OWNER_KINDS = OWNER_DOCUMENT_TYPES.map((t) => t.value) as [string, ...string[]];
@@ -29,6 +41,10 @@ const webUrl = z
   .url()
   .refine((u) => /^https?:\/\//i.test(u));
 const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// "<section>.<question>" or "tailored.<id>", as src/lib/discovery-guides.ts
+// keys answers.
+const answerKey = z.string().regex(/^[a-z0-9-]+\.[a-z0-9-]+$/).max(100);
+const summaryPart = z.string().max(SUMMARY_PART_MAX);
 const documentId = z.string().min(1).max(100);
 const documentLabel = z.string().trim().min(1).max(200);
 
@@ -74,6 +90,29 @@ const schema = z.object({
     })
     .optional(),
   removeDocumentId: documentId.optional(),
+  // The discovery call's notes as typed: only the answers that changed, the
+  // question each was typed under, the save they were typed against, and the
+  // open copy of the Call tab they came from with its count of saves.
+  call: z
+    .object({
+      answers: z.record(answerKey, z.string().max(CALL_ANSWER_MAX)).optional(),
+      asked: z.record(answerKey, z.string().max(1000)).optional(),
+      notes: z.string().max(CALL_NOTES_MAX).optional(),
+      base: z.string().max(40).optional(),
+      writer: z.string().max(64).optional(),
+      seq: z.number().int().min(1).optional(),
+    })
+    .optional(),
+  // The summary written after the call.
+  callSummary: z
+    .object({
+      background: summaryPart,
+      event: summaryPart,
+      priorities: summaryPart,
+      logistics: summaryPart,
+      actions: summaryPart,
+    })
+    .optional(),
   // A null clears that date (an invoice marked unpaid again).
   patchDocument: z
     .object({
@@ -91,8 +130,60 @@ export const POST = defineRoute({
   schema,
   invalid: "Invalid input.",
   failure: { status: 500, error: "Couldn't save. Try again." },
-  run: async ({ id, fields, addDocument: add, removeDocumentId, patchDocument: patch }) => {
+  run: async ({
+    id,
+    fields,
+    addDocument: add,
+    removeDocumentId,
+    patchDocument: patch,
+    call,
+    callSummary,
+  }) => {
     if (fields) await updateClientAdmin(id, fields);
+
+    // The call's notes. A failed autosave answers an error the panel retries
+    // on; it's reported at warning, since the notes are still on screen.
+    if (call || callSummary) {
+      try {
+        let savedAt: string | undefined;
+        if (call) {
+          const { base, writer, seq, ...patch } = call;
+          const saved = await saveCall(id, "discovery", patch, base, writer, seq);
+          if (saved?.conflict) {
+            return apiError(409, "These notes were saved somewhere else since this page opened.");
+          }
+          savedAt = saved?.savedAt;
+        }
+        let held = false;
+        let recapFollowUp = false;
+        if (callSummary) {
+          const saved = await saveCall(id, "discovery", { summary: callSummary });
+          // Until the call is marked held, a save moves the project on, and
+          // the mark comes last: if a step fails, saving again redoes them.
+          if (saved && !saved.conflict && !saved.held) {
+            await advanceStatus(id, "in-conversation", "Discovery call held");
+            const closed = CLIENT_STATUS_TERMINAL.includes(saved.status as ClientStatus);
+            if (!closed && statusRank(saved.status) < statusRank("proposal-sent")) {
+              await setFollowUp(
+                id,
+                shiftDay(studioToday(), { days: 1 }),
+                "Send the recap and proposal",
+              );
+              recapFollowUp = true;
+            }
+            await saveCall(id, "discovery", { heldAt: new Date().toISOString() });
+            held = true;
+          }
+        }
+        return { ok: true, savedAt: savedAt ?? null, held, followUp: recapFollowUp };
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "admin/update", stage: callSummary ? "call-summary" : "call" },
+          level: callSummary ? undefined : "warning",
+        });
+        return apiError(500, "Couldn't save the notes. Try again.");
+      }
+    }
 
     try {
       if (add) {
