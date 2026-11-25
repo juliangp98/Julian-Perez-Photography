@@ -151,16 +151,17 @@ create index if not exists client_records_follow_up_idx
 -- When each side last wrote, per project: the client's newest message in
 -- (received, so not an out-of-office notice or mail held from an unknown
 -- sender), and the owner's newest one out that actually went (composed here,
--- answered from Gmail, or filed from Gmail). Automatic emails don't count as
--- the owner writing. security_invoker keeps the view under the table's
--- row-level security, so it opens nothing the table doesn't.
+-- answered from Gmail, filed from Gmail, or a reply posted in the portal).
+-- Automatic emails don't count as the owner writing. security_invoker keeps
+-- the view under the table's row-level security, so it opens nothing the
+-- table doesn't.
 create or replace view client_last_contact with (security_invoker = true) as
 select
   project_id,
   max(sent_at) filter (where direction = 'in' and status = 'received') as last_in_at,
   max(sent_at) filter (
     where direction = 'out'
-      and kind in ('compose', 'relay', 'imported')
+      and kind in ('compose', 'relay', 'imported', 'portal')
       and status in ('sent', 'delivered', 'delayed')
   ) as last_out_at
 from client_messages
@@ -334,5 +335,23 @@ end
 $$;
 revoke execute on function merge_call(uuid, text, jsonb, text, text, int) from public, anon, authenticated;
 grant execute on function merge_call(uuid, text, jsonb, text, text, int) to service_role;
+
+notify pgrst, 'reload schema';
+
+-- The Today list on the projects board: what the owner has marked handled, or
+-- snoozed until a day, keyed by the row (the rule and what set it off, so the
+-- same rule firing for something new shows again). Owner-only.
+alter table client_records add column if not exists today_dismissed jsonb not null default '{}'::jsonb;
+
+-- Marks one row: "handled", or a calendar day it stays hidden until. Doesn't
+-- change updated_at: dismissing a reminder isn't an edit to the project.
+create or replace function dismiss_today(p_id uuid, p_key text, p_value text)
+returns void language sql as $$
+  update client_records
+  set today_dismissed = jsonb_set(coalesce(today_dismissed, '{}'::jsonb), array[p_key], to_jsonb(p_value))
+  where id = p_id
+$$;
+revoke execute on function dismiss_today(uuid, text, text) from public, anon, authenticated;
+grant execute on function dismiss_today(uuid, text, text) to service_role;
 
 notify pgrst, 'reload schema';

@@ -3,6 +3,7 @@
 
 import { services } from "./services-data";
 import { titleCaseSlug } from "./labels";
+import { eventDay } from "./field-format";
 
 // Service slug → a singular, human noun for the project name.
 export function serviceNoun(serviceType?: string): string | null {
@@ -17,14 +18,14 @@ function possessive(name: string): string {
   return `${name.trim()}'s`;
 }
 
-// "6/7" from an event-date string (ISO "2026-06-07", "6/7/2026", "Jun 7, 2026");
-// null if unparseable.
+// "6/7/2026" from an event date that names one day (any shape eventDay reads:
+// "2026-06-07", "6/7/2026", "Jun 7, 2026"); null otherwise, so a name never
+// carries a guessed day.
 function shortDate(d?: string): string | null {
-  if (!d) return null;
-  let date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) date = new Date(d);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+  const day = eventDay(d);
+  if (!day) return null;
+  const [y, m, dd] = day.split("-").map(Number);
+  return `${m}/${dd}/${y}`;
 }
 
 export type NameableRecord = {

@@ -4,7 +4,7 @@
 
 export const runtime = "nodejs";
 
-import { daysUntil } from "@/lib/field-format";
+import { daysBetween, daysUntil, studioDayOf, studioToday } from "@/lib/field-format";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
@@ -63,7 +63,8 @@ export const POST = defineRoute({
     const clientLabel = record.status
       ? CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus]
       : undefined;
-    const daysSinceUpdate = negate(daysUntil(record.updatedAt));
+    const updatedDay = record.updatedAt ? studioDayOf(record.updatedAt) : "";
+    const daysSinceUpdate = updatedDay ? daysBetween(updatedDay, studioToday()) : null;
     const daysToEvent =
       record.eventDate != null ? negate(daysUntil(record.eventDate)) : null;
     const recentNotes = (record.statusHistory ?? [])

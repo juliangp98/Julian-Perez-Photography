@@ -10,7 +10,7 @@ import { listClients, normalizeEmail, type ClientRecordFull } from "@/lib/client
 import type { ClientMessage } from "@/lib/messages";
 import { getAnyService } from "@/lib/content";
 import { discoveryGuide } from "@/lib/discovery-guides";
-import { formatHumanDate, studioToday } from "@/lib/field-format";
+import { formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { formatReferral } from "@/lib/referral";
 import { projectDisplayName } from "@/lib/project-name";
 import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
@@ -71,7 +71,7 @@ export default async function CallTab({
   const guide = discoveryGuide(record.serviceType);
   const venue = record.locations?.[0]?.label || record.locations?.[0]?.address;
   const facts = [
-    formatHumanDate(record.eventDate) || "No date yet",
+    formatEventDate(record.eventDate) || "No date yet",
     venue,
     record.guestCount != null ? `${record.guestCount} guests` : undefined,
     record.budget ? `Budget ${record.budget}` : undefined,

@@ -13,7 +13,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { ClientRecordFull } from "@/lib/clients";
 import { isConversation, type ClientMessage } from "@/lib/messages";
-import { daysUntil, formatHumanDate } from "@/lib/field-format";
+import { daysUntil, formatEventDate } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import { formatReferral } from "@/lib/referral";
 import { sourceLabel, statusTitle } from "@/lib/labels";
@@ -39,7 +39,7 @@ export function projectFacts(
     `Client: ${record.clientName || "not provided"}`,
     record.partnerName && `Partner: ${record.partnerName}`,
     record.eventDate
-      ? `Event date: ${formatHumanDate(record.eventDate) || record.eventDate}${when}`
+      ? `Event date: ${formatEventDate(record.eventDate)}${when}`
       : "Event date: not provided",
     `Venue / location: ${venue ?? "not provided"}`,
     record.guestCount != null && `Guest count: ${record.guestCount}`,

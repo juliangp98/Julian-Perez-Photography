@@ -1,21 +1,30 @@
-import { daysUntil } from "@/lib/field-format";
+import {
+  dayAgo,
+  daysUntil,
+  formatEventDate,
+  formatHumanDate,
+  studioDayOf,
+  studioToday,
+} from "@/lib/field-format";
 import { redirect } from "next/navigation";
-import Select from "@/components/ui/fields/Select";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
 import { listClients, type ClientRecordFull } from "@/lib/clients";
-import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { statusTitle } from "@/lib/labels";
 import { serviceTitle } from "@/lib/services-data";
 import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
 import AdminQuickLog from "@/components/admin/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
-import AdminSearch from "@/components/admin/AdminSearch";
+import ProjectSearch from "@/components/admin/ProjectSearch";
+import TodayList from "@/components/admin/TodayList";
 import NewProjectForm from "@/components/forms/NewProjectForm";
-import { compactInputClass } from "@/components/ui/fields/Field";
-import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import { aiEnabled } from "@/lib/ai/ai";
+import { getServices } from "@/lib/content";
+import { QUESTIONNAIRES } from "@/lib/questionnaires";
+import { todayRows } from "@/lib/today";
+import { heldUntil } from "@/lib/email/send-effects";
 import Panel from "@/components/ui/Panel";
 import { missingInProduction } from "@/lib/config";
 
@@ -24,58 +33,61 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Status groupings — mirrors the pipeline so the overview reads like a board.
-const GROUPS: { key: string; title: string; statuses: string[] }[] = [
-  { key: "new", title: "New inquiries", statuses: ["new-inquiry"] },
+// The board's phases, in pipeline order. Closed projects start folded away.
+const PHASES: { key: string; title: string; statuses: string[]; folded?: boolean }[] = [
   {
-    key: "active",
-    title: "Active",
-    statuses: [
-      "responded",
-      "in-conversation",
-      "proposal-sent",
-      "booked",
-      "contract-signed",
-      "planning",
-      "scheduled",
-      "shot",
-      "editing",
-    ],
+    key: "leads",
+    title: "Leads",
+    statuses: ["new-inquiry", "responded", "in-conversation", "proposal-sent"],
   },
-  { key: "delivered", title: "Delivered & complete", statuses: ["delivered", "complete"] },
-  {
-    key: "archived",
-    title: "Archived, lost & declined",
-    statuses: ["archived", "lost", "declined"],
-  },
+  { key: "booked", title: "Booked", statuses: ["booked", "contract-signed", "planning", "scheduled"] },
+  { key: "production", title: "In production", statuses: ["shot", "editing"] },
+  { key: "delivered", title: "Delivered", statuses: ["delivered", "complete"] },
+  { key: "closed", title: "Closed", statuses: ["archived", "lost", "declined"], folded: true },
 ];
 
-
-// Days elapsed since an ISO timestamp; null if unparseable. (Kept in a helper so
-// the "now" read stays out of the component render body.)
-function daysSince(iso?: string): number | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return null;
-  return (new Date().getTime() - t) / 86_400_000;
+// What's next on a project, in one line: its follow-up, or a date hold.
+function nextLine(r: ClientRecordFull, today: string): string | null {
+  if (r.followUpAt) {
+    return `Follow up ${formatHumanDate(r.followUpAt, { month: "short" })}${r.followUpNote ? `: ${r.followUpNote}` : ""}`;
+  }
+  const hold = heldUntil(r, undefined, today);
+  return hold ? `Date held until ${formatHumanDate(hold.until, { month: "short" })}` : null;
 }
 
-function ProjectCard({ r }: { r: ClientRecordFull }) {
+// When each side last wrote, in the studio's days as the Today list counts
+// them: "Client wrote 2 days ago, you 5 days ago", or "You wrote today".
+function contactLine(r: ClientRecordFull, today: string): string | null {
+  const ago = (iso?: string) => {
+    const day = iso ? studioDayOf(iso) : "";
+    return day ? dayAgo(day, today) : "";
+  };
+  const client = ago(r.lastInAt);
+  const you = ago(r.lastOutAt);
+  if (client && you) return `Client wrote ${client}, you ${you}`;
+  if (client) return `Client wrote ${client}`;
+  return you ? `You wrote ${you}` : null;
+}
+
+function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
+  const next = nextLine(r, today);
+  const contact = contactLine(r, today);
   return (
     <Panel className="hover:border-foreground transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div className="font-serif text-xl">{projectDisplayName(r)}</div>
-          <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
+          <Badge tone="muted" className="whitespace-nowrap">
             {statusTitle(r.status)}
-          </span>
+          </Badge>
         </div>
         <div className="mt-2 text-sm text-muted">
-          {[r.serviceType, r.eventDate].filter(Boolean).join(" · ") || "—"}
+          {[serviceTitle(r.serviceType), formatEventDate(r.eventDate, { month: "short" })]
+            .filter(Boolean)
+            .join(" · ") || "No service or date yet"}
         </div>
-        {r.email && (
-          <div className="mt-1 text-xs text-muted">{r.email}</div>
-        )}
+        {next && <div className="mt-1 text-sm">{next}</div>}
+        {contact && <div className="mt-1 text-xs text-muted">{contact}</div>}
         {r.bundleLabel && (
           <div className="mt-2 inline-block px-2 py-0.5 rounded-full border border-accent text-accent text-[10px] uppercase tracking-widest">
             ↔ {r.bundleLabel}
@@ -92,57 +104,60 @@ function ProjectCard({ r }: { r: ClientRecordFull }) {
 export default async function AdminProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; service?: string }>;
+  searchParams: Promise<{ q?: string; service?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
 
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
-  const qLower = q.toLowerCase();
-  const statusFilter = sp.status ?? "";
+  // Every word has to be there, in any order.
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const serviceFilter = sp.service ?? "";
 
-  const all = await listClients();
+  const [all, catalog] = await Promise.all([listClients(), getServices()]);
+  const today = studioToday();
 
-  // Needs attention — computed from the full list, independent of filters.
-  const staleInquiries = all.filter(
-    (r) => r.status === "new-inquiry" && (daysSince(r.updatedAt) ?? 0) > 3,
+  // Today: what needs the owner now, from every project, whatever the filters.
+  const terms = new Map(
+    catalog.map((svc) => [
+      svc.slug as string,
+      { turnaroundDays: svc.turnaroundDays, questionnaire: svc.slug in QUESTIONNAIRES },
+    ]),
   );
-  const DONE_STATUSES = new Set([
-    "delivered",
-    "complete",
-    "archived",
-    "lost",
-    "declined",
-  ]);
-  const upcomingShoots = all
-    .filter((r) => !DONE_STATUSES.has(r.status ?? ""))
-    .map((r) => ({ r, days: daysUntil(r.eventDate) }))
-    .filter((x): x is { r: ClientRecordFull; days: number } =>
-      x.days !== null && x.days >= 0 && x.days <= 30,
-    )
-    .sort((a, b) => a.days - b.days);
+  const rows = todayRows(
+    all.map((r) => ({ ...r, name: projectDisplayName(r) })),
+    today,
+    (slug) => (slug ? terms.get(slug) : undefined),
+  );
 
   // Service options for the dropdown — the distinct service types in play.
   const services = [
     ...new Set(all.map((r) => r.serviceType).filter(Boolean) as string[]),
-  ].sort();
+  ]
+    .sort()
+    .map((s) => ({ value: s, label: serviceTitle(s) ?? s }));
 
   const filtered = all.filter((r) => {
-    if (statusFilter && (r.status ?? "") !== statusFilter) return false;
     if (serviceFilter && (r.serviceType ?? "") !== serviceFilter) return false;
-    if (qLower) {
-      const hay = [r.clientName, r.email, r.serviceType, r.projectName]
+    if (words.length) {
+      const hay = [
+        r.clientName,
+        r.email,
+        r.serviceType,
+        serviceTitle(r.serviceType),
+        r.projectName,
+        projectDisplayName(r),
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      if (!hay.includes(qLower)) return false;
+      if (!words.every((w) => hay.includes(w))) return false;
     }
     return true;
   });
 
-  const hasFilters = !!(q || statusFilter || serviceFilter);
-  const known = new Set(GROUPS.flatMap((g) => g.statuses));
+  const hasFilters = !!(q || serviceFilter);
+  const known = new Set(PHASES.flatMap((g) => g.statuses));
   const other = filtered.filter((r) => !known.has(r.status ?? ""));
 
   return (
@@ -151,8 +166,8 @@ export default async function AdminProjectsPage({
       <h1 className="mt-8 font-serif text-4xl">Projects</h1>
       <p className="mt-2 text-muted">
         {hasFilters
-          ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
-          : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
+          ? `${filtered.length} of ${all.length} project${all.length === 1 ? "" : "s"}`
+          : `${all.length} project${all.length === 1 ? "" : "s"}`}
       </p>
 
       {process.env.NODE_ENV === "production" && missingInProduction().length > 0 && (
@@ -171,119 +186,24 @@ export default async function AdminProjectsPage({
         </Panel>
       )}
 
+      <div className="mt-8">
+        <TodayList rows={rows} today={today} />
+      </div>
+
       <div className="mt-6">
         <NewProjectForm />
       </div>
 
-      {(staleInquiries.length > 0 || upcomingShoots.length > 0) && (
-        <div className="mt-8 grid gap-5 md:grid-cols-2">
-          {staleInquiries.length > 0 && (
-            <div className="rounded-lg border border-accent/40 bg-accent/[0.04] p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-accent">
-                Awaiting a reply ({staleInquiries.length})
-              </div>
-              <ul className="mt-3 space-y-1.5">
-                {staleInquiries.slice(0, 5).map((r) => (
-                  <li key={r.id} className="text-sm">
-                    <Link
-                      href={`/admin/projects/${r.id}`}
-                      className="hover:text-accent"
-                    >
-                      {projectDisplayName(r)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {staleInquiries.length > 5 && (
-                <p className="mt-2 text-xs text-muted">
-                  + {staleInquiries.length - 5} more
-                </p>
-              )}
-            </div>
-          )}
-          {upcomingShoots.length > 0 && (
-            <Panel>
-              <div className="text-xs uppercase tracking-[0.2em] text-muted">
-                Upcoming shoots ({upcomingShoots.length})
-              </div>
-              <ul className="mt-3 space-y-1.5">
-                {upcomingShoots.slice(0, 5).map(({ r, days }) => (
-                  <li
-                    key={r.id}
-                    className="flex justify-between gap-3 text-sm"
-                  >
-                    <Link
-                      href={`/admin/projects/${r.id}`}
-                      className="hover:text-accent"
-                    >
-                      {projectDisplayName(r)}
-                    </Link>
-                    <span className="whitespace-nowrap text-xs text-muted">
-                      {days === 0
-                        ? "today"
-                        : days === 1
-                          ? "tomorrow"
-                          : `in ${days} days`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          )}
-        </div>
-      )}
-
-      {aiEnabled() && all.length > 0 && (
-        <div className="mt-8">
-          <AdminSearch />
-        </div>
-      )}
-
       {all.length > 0 && (
-        <form method="get" className="mt-6 flex flex-wrap items-center gap-3">
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Search name, email, service…"
-            aria-label="Search projects"
-            className={`flex-1 min-w-[200px] ${compactInputClass}`}
+        <div className="mt-8">
+          <ProjectSearch
+            initialQuery={q}
+            initialService={serviceFilter}
+            services={services}
+            canAsk={aiEnabled()}
+            filtered={hasFilters}
           />
-          <Select
-            density="compact"
-            name="status"
-            defaultValue={statusFilter}
-            aria-label="Filter by status"
-          >
-            <option value="">All statuses</option>
-            {CLIENT_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.title}
-              </option>
-            ))}
-          </Select>
-          {services.length > 0 && (
-            <Select
-              density="compact"
-              name="service"
-              defaultValue={serviceFilter}
-              aria-label="Filter by service"
-              className="capitalize"
-            >
-              <option value="">All services</option>
-              {services.map((s) => (
-                <option key={s} value={s}>
-                  {serviceTitle(s)}
-                </option>
-              ))}
-            </Select>
-          )}
-          <Button type="submit">Filter</Button>
-          {hasFilters && (
-            <Button variant="text" href="/admin/projects">
-              Clear
-            </Button>
-          )}
-        </form>
+        </div>
       )}
 
       {all.length === 0 ? (
@@ -293,34 +213,46 @@ export default async function AdminProjectsPage({
         </div>
       ) : filtered.length === 0 ? (
         <div className="mt-12 p-8 border border-dashed border-border rounded-lg text-center text-muted">
-          No projects match your filters.{" "}
+          No projects match your search.{" "}
           <Link
             href="/admin/projects"
             className="underline hover:text-foreground"
           >
-            Clear filters
+            Clear it
           </Link>
         </div>
       ) : (
         <div className="mt-10 space-y-14">
-          {GROUPS.map((g) => {
-            const items = filtered.filter((r) =>
-              g.statuses.includes(r.status ?? ""),
-            );
+          {PHASES.map((g) => {
+            const items = filtered.filter((r) => g.statuses.includes(r.status ?? ""));
             if (items.length === 0) return null;
-            return (
+            // Booked shoots read soonest first; the rest keep the latest activity first.
+            if (g.key === "booked") {
+              items.sort((a, b) => (daysUntil(a.eventDate) ?? 1e9) - (daysUntil(b.eventDate) ?? 1e9));
+            }
+            const grid = (
+              <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {items.map((r) => (
+                  <ProjectCard key={r.id} r={r} today={today} />
+                ))}
+              </div>
+            );
+            const heading = (
+              <>
+                {g.title} <span className="text-base text-muted">({items.length})</span>
+              </>
+            );
+            return g.folded ? (
+              <details key={g.key}>
+                <summary className="cursor-pointer">
+                  <h2 className="inline font-serif text-2xl">{heading}</h2>
+                </summary>
+                {grid}
+              </details>
+            ) : (
               <div key={g.key}>
-                <h2 className="font-serif text-2xl">
-                  {g.title}{" "}
-                  <span className="text-base text-muted">
-                    ({items.length})
-                  </span>
-                </h2>
-                <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                  {items.map((r) => (
-                    <ProjectCard key={r.id} r={r} />
-                  ))}
-                </div>
+                <h2 className="font-serif text-2xl">{heading}</h2>
+                {grid}
               </div>
             );
           })}
@@ -329,7 +261,7 @@ export default async function AdminProjectsPage({
               <h2 className="font-serif text-2xl">Other</h2>
               <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {other.map((r) => (
-                  <ProjectCard key={r.id} r={r} />
+                  <ProjectCard key={r.id} r={r} today={today} />
                 ))}
               </div>
             </div>

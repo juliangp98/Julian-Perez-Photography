@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
 import { listPortalProjects, type ClientRecordSafe } from "@/lib/clients";
+import { formatEventDate } from "@/lib/field-format";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   CLIENT_MILESTONES,
@@ -57,7 +58,7 @@ function ProjectCard({
         </span>
       </div>
       {p.eventDate && (
-        <div className="mt-2 text-sm text-muted">{p.eventDate}</div>
+        <div className="mt-2 text-sm text-muted">{formatEventDate(p.eventDate)}</div>
       )}
       {milestone >= 0 && (
         <div className="mt-3 flex items-center gap-1" aria-hidden>

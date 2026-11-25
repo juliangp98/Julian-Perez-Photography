@@ -4,7 +4,7 @@
 
 export const runtime = "nodejs";
 
-import { daysUntil } from "@/lib/field-format";
+import { daysUntil, eventMonthYear, formatEventDate, studioToday } from "@/lib/field-format";
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
 import { listClients } from "@/lib/clients";
@@ -34,14 +34,6 @@ const specSchema = z.object({
   summary: z.string().max(300).default(""),
 });
 type Spec = z.infer<typeof specSchema>;
-
-function eventParts(d?: string): { month: number; year: number } | null {
-  if (!d) return null;
-  const s = /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? `${d.trim()}T00:00:00` : d;
-  const date = new Date(s);
-  if (Number.isNaN(date.getTime())) return null;
-  return { month: date.getMonth() + 1, year: date.getFullYear() };
-}
 
 const SYSTEM_PROMPT = [
   "You convert a photographer's natural-language search over his client projects into a structured filter. Output ONLY JSON — no prose, no code fence.",
@@ -76,7 +68,7 @@ function applySpec(
       if (!hay.includes(text)) return false;
     }
     if (spec.eventMonth != null || spec.eventYear != null) {
-      const ep = eventParts(r.eventDate);
+      const ep = eventMonthYear(r.eventDate);
       if (!ep) return false;
       if (spec.eventMonth != null && ep.month !== spec.eventMonth) return false;
       if (spec.eventYear != null && ep.year !== spec.eventYear) return false;
@@ -111,7 +103,7 @@ export const POST = defineRoute({
     // Nothing to search: skip the provider entirely.
     if (clients.length === 0) return { ok: true, searched: true, matches: [] };
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = studioToday();
     const prompt = [
       `Today: ${today}.`,
       `Valid statuses (pipeline order): ${[...CLIENT_STATUS_FLOW, ...CLIENT_STATUS_TERMINAL].join(", ")}`,
@@ -138,7 +130,7 @@ export const POST = defineRoute({
       status: r.status ?? null,
       statusTitle: statusTitle(r.status) || null,
       serviceType: r.serviceType ?? null,
-      eventDate: r.eventDate ?? null,
+      eventDate: formatEventDate(r.eventDate, { month: "short" }) || null,
     }));
 
     return {

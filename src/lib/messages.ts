@@ -56,10 +56,11 @@ const SELECT =
 const CLIENT_VISIBLE: MessageStatus[] = ["sent", "delivered", "delayed", "received"];
 
 // Whether a message is part of the conversation with the client: a reply or
-// portal message that was received, or an email Julian wrote that went out.
-// Leaves out bounces, out-of-office replies held back, relays never sent, and
-// the site's automatic emails. Matches the client_last_contact view.
-const WRITTEN_KINDS: MessageKind[] = ["compose", "relay", "imported"];
+// portal message that was received, or something Julian wrote that went out,
+// by email or in the portal. Leaves out bounces, out-of-office replies held
+// back, relays never sent, and the site's automatic emails. Matches the
+// client_last_contact view.
+const WRITTEN_KINDS: MessageKind[] = ["compose", "relay", "imported", "portal"];
 const WENT_OUT: MessageStatus[] = ["sent", "delivered", "delayed"];
 export function isConversation(m: Pick<ClientMessage, "direction" | "kind" | "status">): boolean {
   return m.direction === "in"

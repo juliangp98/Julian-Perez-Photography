@@ -144,16 +144,127 @@ export function isoFromDate(d: Date = new Date()): string {
 // timestamp (not a plain calendar date) is displayed.
 export const STUDIO_TIME_ZONE = "America/New_York";
 
-// Today in the studio's time zone, `yyyy-MM-dd`. A server in UTC would
-// otherwise start tomorrow at 7 or 8 PM Eastern.
-export function studioToday(): string {
+// The calendar day of a moment in the studio's time zone, `yyyy-MM-dd`, or ""
+// when it can't be read. A server in UTC would otherwise move anything after
+// 7 or 8 PM Eastern to the next day.
+export function studioDayOf(input: string | Date = new Date()): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
   // en-CA formats a date as yyyy-MM-dd.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: STUDIO_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(d);
+}
+
+// Today in the studio's time zone, `yyyy-MM-dd`.
+export function studioToday(): string {
+  return studioDayOf(new Date());
+}
+
+// Whole days from one calendar day to another (`yyyy-MM-dd`), negative when
+// `to` comes first.
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+const MONTH_NAMES = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+// A month written out or cut short ("Aug", "Sept", "August"): 1 to 12, or 0.
+function monthNumber(name: string): number {
+  const n = name.toLowerCase().replace(/\.$/, "");
+  if (n.length < 3) return 0;
+  return MONTH_NAMES.findIndex((full) => full.startsWith(n)) + 1;
+}
+
+// A weekday written out or cut short ("Sat", "Thurs", "Saturday"): 0 (Sunday)
+// to 6, or -1.
+function weekdayNumber(name: string): number {
+  const n = name.toLowerCase().replace(/\.$/, "");
+  if (n === "weds") return 3;
+  if (n.length < 3) return -1;
+  return WEEKDAY_NAMES.findIndex((full) => full.startsWith(n));
+}
+
+// A calendar day from its parts, or "" for one that doesn't exist (Feb 30, a
+// year before 1000). With a weekday, it has to be that day's.
+function dayFromParts(y: number, m: number, d: number, weekday?: string): string {
+  const date = new Date(y, m - 1, d);
+  if (y < 1000 || m < 1 || m > 12 || date.getMonth() !== m - 1 || date.getDate() !== d) return "";
+  if (weekday !== undefined && weekdayNumber(weekday) !== date.getDay()) return "";
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Event-date text with its spacing folded, commas spaced one way and a
+// closing period dropped, for the readers below.
+function tidyEventText(d?: string | null): string {
+  return (d ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/ ?, ?/g, ", ")
+    .replace(/ ?\.$/, "")
+    .trim();
+}
+
+// An event date as a calendar day, `yyyy-MM-dd`, or "" when it can't be read.
+// The stored date is free text, so the whole text has to be one day in a
+// known shape: "2026-12-05", "12/05/2026", "Dec 5, 2026", "Saturday,
+// December 5th, 2026" or "5 December 2026" (spacing around commas and a
+// closing period don't matter; a weekday has to be the date's). A range
+// ("Nov 20-21, 2026"), a season, a month alone, a year alone or a hedge ("TBD
+// June 6, 2027") isn't a day, and reads as no date rather than a guessed one.
+export function eventDay(d?: string | null): string {
+  const text = tidyEventText(d);
+  let m: RegExpMatchArray | null;
+  if ((m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/))) return dayFromParts(+m[1], +m[2], +m[3]);
+  if ((m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return dayFromParts(+m[3], +m[1], +m[2]);
+  const ord = "(?:st|nd|rd|th)?";
+  const weekday = "(?:([a-z]+\\.?),? )?";
+  if ((m = text.match(new RegExp(`^${weekday}([a-z]+\\.?) (\\d{1,2})${ord},? (\\d{4})$`, "i")))) {
+    const month = monthNumber(m[2]);
+    return month ? dayFromParts(+m[4], month, +m[3], m[1]) : "";
+  }
+  if ((m = text.match(new RegExp(`^${weekday}(\\d{1,2})${ord} ([a-z]+\\.?),? (\\d{4})$`, "i")))) {
+    const month = monthNumber(m[3]);
+    return month ? dayFromParts(+m[4], month, +m[2], m[1]) : "";
+  }
+  return "";
+}
+
+// An event date for display: one day is written out ("June 6, 2026"), and
+// anything else shows as it was typed ("Fall 2027"), never as a guessed day.
+export function formatEventDate(d?: string | null, opts: { month?: "long" | "short" } = {}): string {
+  return formatHumanDate(eventDay(d), opts) || (d ?? "").trim();
+}
+
+// The month and year an event date names, for search: a day gives both, as
+// does "June 2027"; text with one four-digit year ("Fall 2027", "Nov 20-21,
+// 2026") gives the year alone. Null when no year can be told.
+export function eventMonthYear(d?: string | null): { month: number | null; year: number } | null {
+  const day = eventDay(d);
+  if (day) return { month: +day.slice(5, 7), year: +day.slice(0, 4) };
+  const text = tidyEventText(d);
+  const years = [...new Set(text.match(/\b\d{4}\b/g) ?? [])];
+  if (years.length !== 1) return null;
+  const m = text.match(/^([a-z]+\.?),? \d{4}$/i);
+  return { month: m ? monthNumber(m[1]) || null : null, year: +years[0] };
 }
 
 // A calendar day moved by whole days or months, `yyyy-MM-dd` in and out.
@@ -222,6 +333,16 @@ export function formatRelativeDays(iso?: string | null): string {
   if (Number.isNaN(t)) return "";
   const days = Math.floor((Date.now() - t) / 86_400_000);
   if (days < 0) return "";
+  return agoText(days);
+}
+
+// How long before `today` a calendar day was, in the same words: a day after
+// today reads "today".
+export function dayAgo(day: string, today: string): string {
+  return agoText(Math.max(0, daysBetween(day, today)));
+}
+
+function agoText(days: number): string {
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 14) return `${days} days ago`;
@@ -248,16 +369,11 @@ export function formatDateTime(iso?: string | null): string {
   });
 }
 
-// Whole calendar days from today to a date ("2026-10-10", "10/10/2026",
-// "Aug 15, 2027", or a full timestamp): negative when it's past, null when it
-// can't be read.
+// Whole calendar days from the studio's today to an event date (any shape
+// eventDay reads: "2026-10-10", "10/10/2026", "Aug 15, 2027"): negative when
+// it's past, null when it can't be read.
 export function daysUntil(d?: string | null): number | null {
-  if (!d) return null;
-  let date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) date = new Date(d);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  const day = eventDay(d);
+  const n = day ? daysBetween(studioToday(), day) : NaN;
+  return Number.isFinite(n) ? n : null;
 }
