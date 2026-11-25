@@ -1,7 +1,8 @@
 import {
+  dayAgo,
   daysUntil,
   formatHumanDate,
-  formatRelativeDays,
+  studioDayOf,
   studioToday,
 } from "@/lib/field-format";
 import { redirect } from "next/navigation";
@@ -53,18 +54,23 @@ function nextLine(r: ClientRecordFull, today: string): string | null {
   return hold ? `Date held until ${formatHumanDate(hold.until, { month: "short" })}` : null;
 }
 
-// When each side last wrote: "Client wrote 2 days ago, you 5 days ago".
-function contactLine(r: ClientRecordFull): string | null {
-  const parts = [
-    r.lastInAt && `Client wrote ${formatRelativeDays(r.lastInAt)}`,
-    r.lastOutAt && `you ${r.lastInAt ? "" : "wrote "}${formatRelativeDays(r.lastOutAt)}`,
-  ].filter(Boolean);
-  return parts.length ? parts.join(", ") : null;
+// When each side last wrote, in the studio's days as the Today list counts
+// them: "Client wrote 2 days ago, you 5 days ago", or "You wrote today".
+function contactLine(r: ClientRecordFull, today: string): string | null {
+  const ago = (iso?: string) => {
+    const day = iso ? studioDayOf(iso) : "";
+    return day ? dayAgo(day, today) : "";
+  };
+  const client = ago(r.lastInAt);
+  const you = ago(r.lastOutAt);
+  if (client && you) return `Client wrote ${client}, you ${you}`;
+  if (client) return `Client wrote ${client}`;
+  return you ? `You wrote ${you}` : null;
 }
 
 function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
   const next = nextLine(r, today);
-  const contact = contactLine(r);
+  const contact = contactLine(r, today);
   return (
     <Panel className="hover:border-foreground transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
@@ -97,14 +103,14 @@ function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
 export default async function AdminProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; service?: string }>;
+  searchParams: Promise<{ q?: string; service?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
 
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
-  const qLower = q.toLowerCase();
-  const statusFilter = sp.status ?? "";
+  // Every word has to be there, in any order.
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const serviceFilter = sp.service ?? "";
 
   const [all, catalog] = await Promise.all([listClients(), getServices()]);
@@ -131,19 +137,25 @@ export default async function AdminProjectsPage({
     .map((s) => ({ value: s, label: serviceTitle(s) ?? s }));
 
   const filtered = all.filter((r) => {
-    if (statusFilter && (r.status ?? "") !== statusFilter) return false;
     if (serviceFilter && (r.serviceType ?? "") !== serviceFilter) return false;
-    if (qLower) {
-      const hay = [r.clientName, r.email, r.serviceType, r.projectName, projectDisplayName(r)]
+    if (words.length) {
+      const hay = [
+        r.clientName,
+        r.email,
+        r.serviceType,
+        serviceTitle(r.serviceType),
+        r.projectName,
+        projectDisplayName(r),
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      if (!hay.includes(qLower)) return false;
+      if (!words.every((w) => hay.includes(w))) return false;
     }
     return true;
   });
 
-  const hasFilters = !!(q || statusFilter || serviceFilter);
+  const hasFilters = !!(q || serviceFilter);
   const known = new Set(PHASES.flatMap((g) => g.statuses));
   const other = filtered.filter((r) => !known.has(r.status ?? ""));
 
@@ -177,11 +189,8 @@ export default async function AdminProjectsPage({
         <TodayList rows={rows} today={today} />
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="mt-6">
         <NewProjectForm />
-        <p className="text-sm text-muted">
-          Booked through Square, or over the phone? Add the project here.
-        </p>
       </div>
 
       {all.length > 0 && (
@@ -234,7 +243,9 @@ export default async function AdminProjectsPage({
             );
             return g.folded ? (
               <details key={g.key}>
-                <summary className="cursor-pointer font-serif text-2xl">{heading}</summary>
+                <summary className="cursor-pointer">
+                  <h2 className="inline font-serif text-2xl">{heading}</h2>
+                </summary>
                 {grid}
               </details>
             ) : (

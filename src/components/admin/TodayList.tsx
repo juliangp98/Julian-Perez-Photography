@@ -3,9 +3,9 @@
 // The Today list at the top of the projects board (rows from src/lib/today.ts):
 // each row says why it's there, offers one thing to do, and can be marked
 // handled or snoozed. A follow-up row's "Mark handled" clears the follow-up
-// and its "Snooze" moves it; any other row is marked on the project, so the
-// same rule firing for something new shows again. Posts to /api/admin/update
-// and refreshes the board.
+// and its "Snooze" moves it, only while it's still the one shown; any other
+// row is marked on the project, so the same rule firing for something new
+// shows again. Posts to /api/admin/update and refreshes the board.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default function TodayList({ rows, today }: { rows: TodayRow[]; today: st
     const until = shiftDay(today, { days: SNOOZE_DAYS });
     const body =
       row.rule === "follow-up"
-        ? { followUp: { at: how === "handled" ? null : until } }
+        ? { followUp: { at: how === "handled" ? null : until, expect: row.due } }
         : { dismiss: { key: row.key, ...(how === "snooze" ? { until } : {}) } };
     setBusy(`${row.projectId}|${row.key}`);
     setError("");
@@ -39,6 +39,11 @@ export default function TodayList({ rows, today }: { rows: TodayRow[]; today: st
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: row.projectId, ...body }),
       });
+      if (res.status === 409) {
+        setError("That follow-up changed since the page loaded. Here's the list as it is now.");
+        router.refresh();
+        return;
+      }
       if (!res.ok) throw new Error();
       setDone(how === "handled" ? "Marked handled." : `Snoozed for ${SNOOZE_DAYS} days.`);
       router.refresh();

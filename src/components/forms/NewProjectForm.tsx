@@ -26,6 +26,8 @@ const CONFIG = {
     projectPath: "/admin/projects",
     idPrefix: "np",
     openLabel: "+ New project",
+    // Beside the closed button.
+    openHint: "Booked through Square, or over the phone? Add the project here.",
     heading: "New project",
     intro: null,
     serviceLabel: "Service",
@@ -39,6 +41,7 @@ const CONFIG = {
     projectPath: "/portal/projects",
     idPrefix: "pnp",
     openLabel: "+ Start a new project",
+    openHint: null,
     heading: "Start a new project",
     intro: (
       <p className="text-sm text-muted">
@@ -117,7 +120,12 @@ export default function NewProjectForm({ audience = "admin" }: { audience?: Audi
   }
 
   if (!open) {
-    return <Button onClick={() => setOpen(true)}>{c.openLabel}</Button>;
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button onClick={() => setOpen(true)}>{c.openLabel}</Button>
+        {c.openHint && <p className="text-sm text-muted">{c.openHint}</p>}
+      </div>
+    );
   }
 
   return (

@@ -144,16 +144,42 @@ export function isoFromDate(d: Date = new Date()): string {
 // timestamp (not a plain calendar date) is displayed.
 export const STUDIO_TIME_ZONE = "America/New_York";
 
-// Today in the studio's time zone, `yyyy-MM-dd`. A server in UTC would
-// otherwise start tomorrow at 7 or 8 PM Eastern.
-export function studioToday(): string {
+// The calendar day of a moment in the studio's time zone, `yyyy-MM-dd`, or ""
+// when it can't be read. A server in UTC would otherwise move anything after
+// 7 or 8 PM Eastern to the next day.
+export function studioDayOf(input: string | Date = new Date()): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return "";
   // en-CA formats a date as yyyy-MM-dd.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: STUDIO_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(d);
+}
+
+// Today in the studio's time zone, `yyyy-MM-dd`.
+export function studioToday(): string {
+  return studioDayOf(new Date());
+}
+
+// Whole days from one calendar day to another (`yyyy-MM-dd`), negative when
+// `to` comes first.
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+// An event date as a calendar day, `yyyy-MM-dd`, or "" when it can't be read.
+// The stored date is free text, so an older "12/05/2026" or "Aug 15, 2027"
+// still counts; one without a four-digit year doesn't (a parser would guess
+// the year).
+export function eventDay(d?: string | null): string {
+  const text = (d ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (!/\b\d{4}\b/.test(text)) return "";
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : isoFromDate(date);
 }
 
 // A calendar day moved by whole days or months, `yyyy-MM-dd` in and out.
@@ -222,6 +248,16 @@ export function formatRelativeDays(iso?: string | null): string {
   if (Number.isNaN(t)) return "";
   const days = Math.floor((Date.now() - t) / 86_400_000);
   if (days < 0) return "";
+  return agoText(days);
+}
+
+// How long before `today` a calendar day was, in the same words: a day after
+// today reads "today".
+export function dayAgo(day: string, today: string): string {
+  return agoText(Math.max(0, daysBetween(day, today)));
+}
+
+function agoText(days: number): string {
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
   if (days < 14) return `${days} days ago`;
@@ -252,12 +288,6 @@ export function formatDateTime(iso?: string | null): string {
 // "Aug 15, 2027", or a full timestamp): negative when it's past, null when it
 // can't be read.
 export function daysUntil(d?: string | null): number | null {
-  if (!d) return null;
-  let date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) date = new Date(d);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  const day = eventDay(d);
+  return day ? daysBetween(isoFromDate(new Date()), day) : null;
 }

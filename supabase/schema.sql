@@ -151,8 +151,8 @@ create index if not exists client_records_follow_up_idx
 -- When each side last wrote, per project: the client's newest message in
 -- (received, so not an out-of-office notice or mail held from an unknown
 -- sender), and the owner's newest one out that actually went (composed here,
--- answered from Gmail, or filed from Gmail). Automatic emails don't count as
--- the owner writing. security_invoker keeps the view under the table's
+-- answered from Gmail, filed from Gmail, or a reply posted in the portal).
+-- Automatic emails don't count as the owner writing. security_invoker keeps the view under the table's
 -- row-level security, so it opens nothing the table doesn't.
 create or replace view client_last_contact with (security_invoker = true) as
 select
@@ -160,7 +160,7 @@ select
   max(sent_at) filter (where direction = 'in' and status = 'received') as last_in_at,
   max(sent_at) filter (
     where direction = 'out'
-      and kind in ('compose', 'relay', 'imported')
+      and kind in ('compose', 'relay', 'imported', 'portal')
       and status in ('sent', 'delivered', 'delayed')
   ) as last_out_at
 from client_messages

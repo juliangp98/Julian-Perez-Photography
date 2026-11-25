@@ -2,11 +2,11 @@
 // from the projects with rules, not AI. Each row says why it's there and
 // offers one thing to do. Rows can be marked handled or snoozed; a row's key
 // names the rule and what set it off, so the same rule firing for something
-// new (a later message, a new hold) shows again. Pure, so the board, the
-// morning email and the specs share it.
+// new (a later message, a new hold, an invoice gone overdue) shows again.
+// Pure, so the board and the specs share it.
 
 import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "./client-status";
-import { formatHumanDate, shiftDay } from "./field-format";
+import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
 import { draftReplyHref } from "./triage";
 
 // The parts of a project the rules read.
@@ -25,6 +25,8 @@ export type TodayProject = {
   lastInAt?: string;
   lastOutAt?: string;
   todayDismissed?: Record<string, string>;
+  // When the project was created: an inquiry's arrival.
+  createdAt?: string;
 };
 
 export type TodayRule =
@@ -60,15 +62,9 @@ export type TodayServiceTerms = {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const isClosed = (status?: string) => CLIENT_STATUS_TERMINAL.includes(status as ClientStatus);
-// The calendar day of a stored timestamp, in UTC: close enough for "days ago".
-const dayOf = (iso?: string) => (iso ? iso.slice(0, 10) : "");
-const daysBetween = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
-
-function ago(day: string, today: string): string {
-  const d = daysBetween(day, today);
-  return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
-}
+// The studio's calendar day of a stored timestamp, so an evening message
+// counts on the day it was sent there.
+const dayOf = (iso?: string) => (iso ? studioDayOf(iso) : "");
 
 // The rows for one project, before dismissals.
 function rowsFor(
@@ -102,15 +98,16 @@ function rowsFor(
   const replied = !!p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt);
   if (replied) {
     const day = dayOf(p.lastInAt);
-    add("reply", `reply:${p.lastInAt}`, `${first} wrote ${ago(day, today)}, not answered yet`, day, {
+    add("reply", `reply:${p.lastInAt}`, `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
       href: compose("inquiry-reply"),
     });
   }
 
-  // A new inquiry nobody has answered, at any age.
+  // A new inquiry nobody has answered, at any age: due from the day it came.
   if (p.status === "new-inquiry" && !p.lastOutAt && !replied) {
-    add("inquiry", "inquiry", "New inquiry, not answered yet", today, {
+    const since = dayOf(p.createdAt) || today;
+    add("inquiry", "inquiry", `New inquiry ${dayAgo(since, today)}, not answered yet`, since, {
       label: "Draft a reply",
       href: draftReplyHref(page),
     });
@@ -127,15 +124,17 @@ function rowsFor(
     );
   }
 
-  // Unpaid invoices due within a week, or overdue.
+  // Unpaid invoices due within a week, or overdue. Going overdue is a new
+  // row, so one handled while it was coming due still shows once it's late.
   const week = shiftDay(today, { days: 7 });
   for (const doc of p.documents ?? []) {
     if (doc.type !== "invoice" || doc.paidAt || !doc.dueAt || !DAY.test(doc.dueAt) || doc.dueAt > week) continue;
     const label = doc.label || "Invoice";
+    const overdue = doc.dueAt < today;
     add(
       "invoice",
-      `invoice:${doc.id ?? label}:${doc.dueAt}`,
-      doc.dueAt < today
+      `invoice:${doc.id ?? label}:${doc.dueAt}:${overdue ? "overdue" : "due"}`,
+      overdue
         ? `${label} overdue since ${formatHumanDate(doc.dueAt)}`
         : `${label} due ${doc.dueAt === today ? "today" : formatHumanDate(doc.dueAt)}`,
       doc.dueAt,
@@ -144,38 +143,33 @@ function rowsFor(
   }
 
   // A booked shoot two weeks out with no questionnaire back.
+  const shoot = eventDay(p.eventDate);
   if (
     terms?.questionnaire &&
-    p.eventDate &&
-    DAY.test(p.eventDate) &&
+    shoot &&
     rank >= statusRank("booked") &&
     rank < statusRank("shot") &&
     !p.questionnaireSnapshot?.trim()
   ) {
-    const days = daysBetween(today, p.eventDate);
+    const days = daysBetween(today, shoot);
     if (days >= 0 && days <= 14) {
       add(
         "questionnaire",
-        `questionnaire:${p.eventDate}`,
-        `Shoot ${days === 0 ? "today" : `in ${days} days`}, no questionnaire yet`,
-        p.eventDate,
+        `questionnaire:${shoot}`,
+        `Shoot ${days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`}, no questionnaire yet`,
+        shoot,
         { label: "Send a reminder", href: compose("questionnaire-reminder") },
       );
     }
   }
 
   // Still editing past the service's turnaround.
-  if (
-    terms?.turnaroundDays &&
-    p.eventDate &&
-    DAY.test(p.eventDate) &&
-    (p.status === "shot" || p.status === "editing")
-  ) {
-    const dueDay = shiftDay(p.eventDate, { days: terms.turnaroundDays });
+  if (terms?.turnaroundDays && shoot && (p.status === "shot" || p.status === "editing")) {
+    const dueDay = shiftDay(shoot, { days: terms.turnaroundDays });
     if (dueDay < today) {
       add(
         "editing",
-        `editing:${p.eventDate}`,
+        `editing:${shoot}`,
         `Gallery was due ${formatHumanDate(dueDay)} (${terms.turnaroundDays}-day turnaround)`,
         dueDay,
         { label: "Open", href: page },
@@ -192,7 +186,8 @@ function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
   return mark === "handled" || (DAY.test(mark) && mark > today);
 }
 
-// Today's rows across projects, the longest-waiting first.
+// Today's rows across projects, by the day each fell due: the
+// longest-waiting first.
 export function todayRows(
   projects: TodayProject[],
   today: string,

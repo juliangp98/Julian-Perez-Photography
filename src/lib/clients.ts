@@ -840,18 +840,24 @@ export async function closeProject(
 
 // Set (or with null, clear) the project's next follow-up: a calendar day and
 // what it's for. One per project; a new one replaces the old. Without a note,
-// a moved follow-up keeps the one it had.
+// a moved follow-up keeps the one it had. With `expect` (the day of the
+// follow-up the change was made against), it changes only that follow-up, and
+// says false when the project has a different one now.
 export async function setFollowUp(
   id: string,
   at: string | null,
   note?: string | null,
-): Promise<void> {
-  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  expect?: string,
+): Promise<boolean> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return true;
   const patch: Record<string, unknown> = { follow_up_at: at, updated_at: nowIso() };
   if (at === null) patch.follow_up_note = null;
   else if (note !== undefined) patch.follow_up_note = note;
-  const { error } = await db().from(TABLE).update(patch).eq("id", id);
+  let q = db().from(TABLE).update(patch, { count: "exact" }).eq("id", id);
+  if (expect) q = q.eq("follow_up_at", expect);
+  const { error, count } = await q;
   if (error) throw error;
+  return !expect || (count ?? 0) > 0;
 }
 
 // Hold the project's date until a calendar day (or with null, release it).

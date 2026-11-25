@@ -118,8 +118,15 @@ const schema = z.object({
     .optional(),
   // The project's next follow-up: a new day (and what it's for), or null to
   // clear it.
+  // The follow-up set, moved or (with a null day) cleared. `expect` names the
+  // follow-up the change was made against: it changes only while that one is
+  // still set.
   followUp: z
-    .object({ at: calendarDay.nullable(), note: z.string().trim().max(200).optional() })
+    .object({
+      at: calendarDay.nullable(),
+      note: z.string().trim().max(200).optional(),
+      expect: calendarDay.optional(),
+    })
     .optional(),
   // A Today row marked handled, or snoozed until a day.
   dismiss: z
@@ -157,7 +164,9 @@ export const POST = defineRoute({
     dismiss,
   }) => {
     if (fields) await updateClientAdmin(id, fields);
-    if (followUp) await setFollowUp(id, followUp.at, followUp.note);
+    if (followUp && !(await setFollowUp(id, followUp.at, followUp.note, followUp.expect))) {
+      return apiError(409, "That follow-up changed since this page loaded.");
+    }
     if (dismiss) await dismissToday(id, dismiss.key, dismiss.until ?? "handled");
 
     // The call's notes. A failed autosave answers an error the panel retries

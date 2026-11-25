@@ -4,9 +4,10 @@
 // name, email or service contains the words (the page reads ?q= and
 // ?service=). "Ask", when AI is set up, reads the words as a plain-English
 // question instead (/api/admin/search) and lists the projects that answer it,
-// with how it read the question.
+// with how it read the question. The box follows the address, so Clear, Back
+// and Forward show the search the board is showing.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Select from "@/components/ui/fields/Select";
@@ -43,18 +44,34 @@ export default function ProjectSearch({
   const [status, setStatus] = useState<"idle" | "asking" | "done" | "error">("idle");
   const [summary, setSummary] = useState("");
   const [matches, setMatches] = useState<Match[] | null>(null);
+  // Each Ask is numbered, so one answered after a Search or Clear is dropped.
+  const askNumber = useRef(0);
+
+  // The address changed (a search, Clear it, Back or Forward): start from it.
+  const [shown, setShown] = useState({ q: initialQuery, service: initialService });
+  if (shown.q !== initialQuery || shown.service !== initialService) {
+    setShown({ q: initialQuery, service: initialService });
+    setQuery(initialQuery);
+    setService(initialService);
+    setMatches(null);
+    setStatus("idle");
+  }
 
   function search(e: React.FormEvent) {
     e.preventDefault();
+    if (status === "asking") return;
+    askNumber.current++;
+    setMatches(null);
+    setStatus("idle");
     const params = new URLSearchParams();
     if (query.trim()) params.set("q", query.trim());
     if (service) params.set("service", service);
-    setMatches(null);
     router.push(`/admin/projects${params.size ? `?${params}` : ""}`);
   }
 
   async function ask() {
     if (!query.trim() || status === "asking") return;
+    const asking = ++askNumber.current;
     setStatus("asking");
     try {
       const res = await fetch("/api/admin/search", {
@@ -64,6 +81,7 @@ export default function ProjectSearch({
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
+      if (asking !== askNumber.current) return;
       if (data.searched) {
         setSummary(data.summary ?? "");
         setMatches((data.matches ?? []) as Match[]);
@@ -72,7 +90,7 @@ export default function ProjectSearch({
         setStatus("idle");
       }
     } catch {
-      setStatus("error");
+      if (asking === askNumber.current) setStatus("error");
     }
   }
 
@@ -105,7 +123,7 @@ export default function ProjectSearch({
             ))}
           </Select>
         )}
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" disabled={status === "asking"}>
           Search
         </Button>
         {canAsk && (
@@ -124,6 +142,7 @@ export default function ProjectSearch({
           <Button
             variant="text"
             onClick={() => {
+              askNumber.current++;
               setQuery("");
               setService("");
               setMatches(null);
@@ -139,7 +158,7 @@ export default function ProjectSearch({
 
       {matches && (
         <div>
-          <p className="text-sm text-muted">
+          <p role="status" className="text-sm text-muted">
             {matches.length} project{matches.length === 1 ? "" : "s"}
             {summary ? ` · ${summary}` : ""}
           </p>
