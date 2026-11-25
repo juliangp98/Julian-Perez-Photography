@@ -121,6 +121,9 @@ export type ClientRecordSafe = {
   // How the client will pay (a PAYMENT_METHODS value). Shown to the client,
   // not to a second photographer.
   paymentMethod?: string;
+  // The day a held date opens again (`yyyy-MM-dd`), while a proposal is out.
+  // Shown to the client, not to a second photographer.
+  holdUntil?: string;
   // The questionnaire answers (JSON keyed by field id). Selected ONLY by the
   // single-project reads, never in the list projection: the client's own in
   // full (getProjectForEmail), so they can review and resubmit them, and for a
@@ -160,11 +163,12 @@ const optionalGroup: ColumnGroup = {
   select: ", bundleId:bundle_id, bundleLabel:bundle_label, projectName:project_name",
   match: /(bundle_id|bundle_label|project_name)/,
 };
-// How the client will pay.
+// How the client will pay and the date hold: what the client sees of their
+// booking terms.
 const termsGroup: ColumnGroup = {
   present: true,
-  select: ", paymentMethod:payment_method",
-  match: /payment_method/,
+  select: ", paymentMethod:payment_method, holdUntil:hold_until",
+  match: /payment_method|hold_until/,
 };
 // Second-photographer access (collaborators jsonb + collaborator_emails text[]).
 const collaboratorGroup: ColumnGroup = {
@@ -172,7 +176,13 @@ const collaboratorGroup: ColumnGroup = {
   select: ", collaborators",
   match: /collaborator/,
 };
-const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup];
+// The owner's next follow-up on a project.
+const followUpGroup: ColumnGroup = {
+  present: true,
+  select: ", followUpAt:follow_up_at, followUpNote:follow_up_note",
+  match: /follow_up/,
+};
+const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup];
 const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -188,7 +198,7 @@ function safeSelect(): string {
   return VIEWER_SELECT_BASE + CLIENT_SELECT_EXTRA + cols(optionalGroup) + cols(termsGroup);
 }
 function fullSelect(): string {
-  return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup);
+  return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -600,8 +610,9 @@ export async function findDuplicateProject(
 }
 
 // Attach a questionnaire submission to the matching record (creating one if
-// none exists), snapshot the answers, link the generated PDF, and advance the
-// status toward "planning" without regressing a further-along record.
+// none exists), snapshot the answers and link the generated PDF. A booked
+// project moves on to "planning"; a prospect (not booked yet, or a new record)
+// keeps its place, since filling in the questionnaire isn't booking.
 export async function attachQuestionnaire(input: {
   name?: string;
   email: string;
@@ -616,8 +627,14 @@ export async function attachQuestionnaire(input: {
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
-  type QRow = { id: string; email?: string; service_type?: string; client_name?: string };
-  const SEL = "id, email, service_type, client_name";
+  type QRow = {
+    id: string;
+    email?: string;
+    service_type?: string;
+    client_name?: string;
+    status?: string;
+  };
+  const SEL = "id, email, service_type, client_name, status";
   let existing: QRow | undefined;
 
   // Attach-by-id when the project is unclaimed or already this email's.
@@ -671,13 +688,13 @@ export async function attachQuestionnaire(input: {
       .insert({
         client_name: input.name || null,
         email,
-        status: "planning",
+        status: "new-inquiry",
         service_type: input.service || null,
         source: "questionnaire",
         questionnaire_snapshot: input.answersJson,
         ...synced,
         status_history: [
-          { status: "planning", changedAt: ts, note: "Questionnaire submitted" },
+          { status: "new-inquiry", changedAt: ts, note: "Questionnaire submitted" },
         ],
         created_at: ts,
         updated_at: ts,
@@ -697,7 +714,9 @@ export async function attachQuestionnaire(input: {
     if (!existing?.client_name && input.name) patch.client_name = input.name;
     const { error } = await db().from(TABLE).update(patch).eq("id", id);
     if (error) throw error;
-    await advanceStatus(id, "planning", "Questionnaire submitted");
+    if (statusRank(existing?.status) >= statusRank("booked")) {
+      await advanceStatus(id, "planning", "Questionnaire submitted");
+    }
   }
 
   if (id && input.pdf) {
@@ -713,28 +732,88 @@ export async function attachQuestionnaire(input: {
 
 // Move a record forward in the pipeline. No-op if the target is the same or
 // earlier than the current status, or if the project is closed (archived, lost
-// or declined): those are only ever reopened by hand.
+// or declined): those are only ever reopened by hand. Says whether it moved.
 export async function advanceStatus(
   id: string,
   target: ClientStatus,
   note?: string,
-): Promise<void> {
-  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+): Promise<boolean> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return false;
   const { data: row, error: selErr } = await db()
     .from(TABLE)
     .select("status, status_history")
     .eq("id", id)
     .maybeSingle();
   if (selErr) throw selErr;
-  if (!row) return;
-  if (CLIENT_STATUS_TERMINAL.includes(row.status as ClientStatus)) return;
-  if (statusRank(target) <= statusRank(row.status as string)) return;
+  if (!row) return false;
+  if (CLIENT_STATUS_TERMINAL.includes(row.status as ClientStatus)) return false;
+  if (statusRank(target) <= statusRank(row.status as string)) return false;
   const ts = nowIso();
   const history = Array.isArray(row.status_history) ? row.status_history : [];
   history.push({ status: target, changedAt: ts, note });
   const { error } = await db()
     .from(TABLE)
     .update({ status: target, status_history: history, updated_at: ts })
+    .eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+// A closed project (archived, lost or declined) has nothing left to follow up
+// or hold, so whatever closes one clears both.
+const CLOSED_CLEARS = { follow_up_at: null, follow_up_note: null, hold_until: null };
+const closes = (from: unknown, to: unknown) =>
+  from !== to && CLIENT_STATUS_TERMINAL.includes(to as ClientStatus);
+
+// Close a project (archived, lost or declined), from any stage: the owner sent
+// the email that says so. No-op when it already has that status. Says whether
+// it changed.
+export async function closeProject(
+  id: string,
+  status: ClientStatus,
+  note: string,
+): Promise<boolean> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return false;
+  if (!CLIENT_STATUS_TERMINAL.includes(status)) return false;
+  const { data: row, error: selErr } = await db()
+    .from(TABLE)
+    .select("status, status_history")
+    .eq("id", id)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (!row || row.status === status) return false;
+  const ts = nowIso();
+  const history = Array.isArray(row.status_history) ? row.status_history : [];
+  history.push({ status, changedAt: ts, note });
+  const { error } = await db()
+    .from(TABLE)
+    .update({ status, status_history: history, ...CLOSED_CLEARS, updated_at: ts })
+    .eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+// Set (or with null, clear) the project's next follow-up: a calendar day and
+// what it's for. One per project; a new one replaces the old.
+export async function setFollowUp(
+  id: string,
+  at: string | null,
+  note: string | null = null,
+): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db()
+    .from(TABLE)
+    .update({ follow_up_at: at, follow_up_note: at ? note : null, updated_at: nowIso() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Hold the project's date until a calendar day (or with null, release it).
+export async function setHold(id: string, until: string | null): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db()
+    .from(TABLE)
+    .update({ hold_until: until, updated_at: nowIso() })
     .eq("id", id);
   if (error) throw error;
 }
@@ -914,6 +993,9 @@ export type ClientStatusEntry = {
 };
 export type ClientRecordFull = ClientRecordSafe & {
   budget?: string;
+  // The owner's next follow-up: a calendar day and what it's for.
+  followUpAt?: string;
+  followUpNote?: string;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -991,6 +1073,7 @@ export async function updateClientAdmin(
         : [];
       history.push({ status: patch.status, changedAt: ts, note: "Updated by admin" });
       patch.status_history = history;
+      if (closes(row.status, patch.status)) Object.assign(patch, CLOSED_CLEARS);
     }
   }
 
@@ -1029,6 +1112,7 @@ export async function addAdminLog(
     updated_at: ts,
   };
   if (statusChanged) patch.status = input.status;
+  if (statusChanged && closes(row.status, input.status)) Object.assign(patch, CLOSED_CLEARS);
 
   const { error: upErr } = await db().from(TABLE).update(patch).eq("id", id);
   if (upErr) throw upErr;

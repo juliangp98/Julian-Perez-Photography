@@ -253,6 +253,15 @@ export async function getService(
   return visible.find((s) => s.slug === slug);
 }
 
+// One service from the whole catalog, hidden ones included: for owner-side
+// work on existing projects (email tokens, what sending a template does), which
+// needs a service's terms even after it's hidden from the public site.
+export async function getAnyService(
+  slug: string,
+): Promise<ServiceCategory | undefined> {
+  return (await getServices()).find((s) => s.slug === slug);
+}
+
 /**
  * The four code-controlled umbrella groupings. Sanity-backed (editors
  * can rename the title/tagline without a deploy), with the hard-coded

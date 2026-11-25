@@ -11,6 +11,9 @@ import { getClientFull } from "@/lib/clients";
 import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email/email-pipeline";
 import { emailTokens } from "@/lib/email/email-tokens";
 import { projectLinks } from "@/lib/project-links";
+import { getAnyService } from "@/lib/content";
+import { holdUntilFor } from "@/lib/email/send-effects";
+import { formatHumanDate, studioToday } from "@/lib/field-format";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
 import { pickVoiceSamples, voiceSection } from "@/lib/ai/voice-samples";
@@ -65,9 +68,17 @@ export const POST = defineRoute({
     const filled = await emailTokens(record, origin);
     const realQuestionnaireUrl = filled.questionnaireUrl;
     const bareQuestionnaireUrl = projectLinks(record, origin).questionnaireBareUrl;
+    // The hold this template names: the running one, or the one sending it
+    // would start.
+    const service = record.serviceType ? await getAnyService(record.serviceType) : undefined;
+    const hold = holdUntilFor(template, record, {
+      today: studioToday(),
+      holdDays: service?.holdDays,
+    });
     const ctx: Record<string, string | undefined> = {
       ...filled,
       questionnaireUrl: bareQuestionnaireUrl,
+      holdUntil: formatHumanDate(hold) || undefined,
     };
     const withRealLinks = (text: string) =>
       bareQuestionnaireUrl && realQuestionnaireUrl
@@ -88,6 +99,9 @@ export const POST = defineRoute({
     if (eventDate) facts.push(`Event date: ${eventDate}`);
     if (venue) facts.push(`Venue / location: ${venue}`);
     if (record.package) facts.push(`Package: ${record.package}`);
+    if (ctx.packagePrice) facts.push(`Package price: ${ctx.packagePrice}`);
+    if (ctx.packageInclusions)
+      facts.push(`What the package includes:\n${ctx.packageInclusions}`);
     if (record.guestCount != null)
       facts.push(`Guest count: ${record.guestCount}`);
     if (record.planSummary) facts.push(`Plan summary: ${record.planSummary}`);
@@ -98,12 +112,20 @@ export const POST = defineRoute({
     if (ctx.invoiceUrl) facts.push(`Invoice link: ${ctx.invoiceUrl}`);
     if (ctx.highlightsUrl) facts.push(`Highlights link: ${ctx.highlightsUrl}`);
     if (ctx.galleryUrl) facts.push(`Gallery link: ${ctx.galleryUrl}`);
+    if (ctx.timelineUrl) facts.push(`Timeline link: ${ctx.timelineUrl}`);
+    if (ctx.invoiceDueDate) facts.push(`Invoice due: ${ctx.invoiceDueDate}`);
+    // Booking terms from the service, when set.
+    if (ctx.sampleGalleryUrl) facts.push(`Sample gallery link: ${ctx.sampleGalleryUrl}`);
+    if (ctx.retainerPercent) facts.push(`Retainer to book: ${ctx.retainerPercent}%`);
+    if (ctx.holdUntil) facts.push(`Date held for the client until: ${ctx.holdUntil}`);
     if (ctx.paymentInstructions)
       facts.push(`How this client is paying: ${ctx.paymentInstructions}`);
     facts.push(`Client portal link: ${ctx.portalUrl}`);
     if (ctx.questionnaireUrl)
       facts.push(`Planning questionnaire link: ${ctx.questionnaireUrl}`);
     facts.push(`Booking link: ${ctx.bookingUrl}`);
+    if (ctx.discoveryCallUrl) facts.push(`Link to book a discovery call: ${ctx.discoveryCallUrl}`);
+    if (ctx.reviewUrl) facts.push(`Link to leave a review: ${ctx.reviewUrl}`);
 
     const guide = fillTemplate(template.body, ctx);
     // Julian's own recent emails, so drafts sound more like him over time. A

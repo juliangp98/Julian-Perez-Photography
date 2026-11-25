@@ -10,12 +10,14 @@ import type { ClientDocumentEntry, ClientRecordSafe } from "@/lib/clients";
 
 // The link of one kind to hand a client: the newest entry of that kind. For
 // invoices, the newest one that isn't paid yet. A kind only Julian adds never
-// resolves to something a client uploaded under that name.
+// resolves to something a client uploaded under that name; `fromOwner` asks
+// for Julian's own entry of a kind both may add (the timeline he sends).
 export function projectLink(
   record: { documents?: ClientDocumentEntry[] },
   type: string,
+  { fromOwner = false }: { fromOwner?: boolean } = {},
 ): ClientDocumentEntry | undefined {
-  const ownerOnly = documentType(type)?.addedBy === "owner";
+  const ownerOnly = fromOwner || documentType(type)?.addedBy === "owner";
   return (record.documents ?? [])
     .filter(
       (d) =>
@@ -42,6 +44,7 @@ export type ProjectLinks = {
   invoiceUrl?: string;
   highlightsUrl?: string;
   galleryUrl?: string;
+  timelineUrl?: string;
 };
 
 // `origin` is the site's address for links that leave the app (emails, a link
@@ -78,5 +81,6 @@ export function projectLinks(record: ClientRecordSafe, origin: string): ProjectL
     invoiceUrl: projectLink(record, "invoice")?.url,
     highlightsUrl: projectLink(record, "highlights")?.url,
     galleryUrl: projectLink(record, "gallery")?.url,
+    timelineUrl: projectLink(record, "timeline", { fromOwner: true })?.url,
   };
 }

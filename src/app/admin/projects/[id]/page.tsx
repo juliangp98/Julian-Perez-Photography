@@ -23,6 +23,10 @@ import { aiEnabled } from "@/lib/ai/ai";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import { emailTokens } from "@/lib/email/email-tokens";
+import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
+import { heldUntil, planSendEffects, type SendEffectsPlan } from "@/lib/email/send-effects";
+import { getAnyService } from "@/lib/content";
+import { studioToday } from "@/lib/field-format";
 import { projectLink, projectLinks } from "@/lib/project-links";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
 import AdminCollaborators from "@/components/admin/AdminCollaborators";
@@ -71,6 +75,19 @@ export default async function AdminProjectDetailPage({
     ? `${h.get("x-forwarded-proto") ?? "https"}://${host}`
     : "";
   const emailContext = record ? await emailTokens(record, origin) : {};
+  // What sending each template would do to this project today, for Compose to
+  // say before sending and to name the hold a proposal starts.
+  const today = studioToday();
+  const service = record?.serviceType ? await getAnyService(record.serviceType) : undefined;
+  const sendPlans: Record<string, SendEffectsPlan> = record
+    ? Object.fromEntries(
+        EMAIL_TEMPLATES.map((t) => [
+          t.id,
+          planSendEffects(t, record, { today, holdDays: service?.holdDays }),
+        ]),
+      )
+    : {};
+  const runningHold = record ? heldUntil(record, undefined, today) : undefined;
   const ai = aiEnabled();
   const [messages, replyToken] = record
     ? await Promise.all([listProjectMessages(record.id), ensureReplyToken(record.id)])
@@ -235,6 +252,7 @@ export default async function AdminProjectDetailPage({
                   projectId={record.id}
                   hasEmail={!!record.email}
                   context={emailContext}
+                  sendPlans={sendPlans}
                   aiEnabled={ai}
                 />
               </div>
@@ -289,6 +307,21 @@ export default async function AdminProjectDetailPage({
 
               <RailCard title="Details">
                 <div className="divide-y divide-border">
+                  {/* Both are set by the emails sent from Compose. */}
+                  <Read
+                    label="Next follow-up"
+                    value={
+                      record.followUpAt
+                        ? [formatLongDate(record.followUpAt), record.followUpNote]
+                            .filter(Boolean)
+                            .join(": ")
+                        : undefined
+                    }
+                  />
+                  <Read
+                    label="Date held until"
+                    value={formatLongDate(runningHold?.until) || undefined}
+                  />
                   <Read label="Source" value={sourceLabel(record.source)} />
                   <Read
                     label="Referral"

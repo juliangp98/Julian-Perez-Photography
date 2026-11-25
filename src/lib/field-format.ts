@@ -144,6 +144,32 @@ export function isoFromDate(d: Date = new Date()): string {
 // timestamp (not a plain calendar date) is displayed.
 export const STUDIO_TIME_ZONE = "America/New_York";
 
+// Today in the studio's time zone, `yyyy-MM-dd`. A server in UTC would
+// otherwise start tomorrow at 7 or 8 PM Eastern.
+export function studioToday(): string {
+  // en-CA formats a date as yyyy-MM-dd.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: STUDIO_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// A calendar day moved by whole days or months, `yyyy-MM-dd` in and out.
+// Returns "" for a value that isn't a calendar day. A month step that lands
+// past the month's end (Jan 31 plus one month) keeps to the last day.
+export function shiftDay(iso: string, by: { days?: number; months?: number }): string {
+  const m = (iso || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
+  if (by.months) {
+    const last = new Date(y, mo + by.months + 1, 0).getDate();
+    return isoFromDate(new Date(y, mo + by.months, Math.min(d, last) + (by.days ?? 0)));
+  }
+  return isoFromDate(new Date(y, mo, d + (by.days ?? 0)));
+}
+
 // Human-readable date for UI + emails: "June 7, 2026" (or "Jun 7, 2026" with
 // `month: "short"`). Accepts an ISO calendar date (anchored to local midnight so
 // it never shifts a day in a negative-offset locale) or any Date-parseable
