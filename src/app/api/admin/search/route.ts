@@ -4,7 +4,7 @@
 
 export const runtime = "nodejs";
 
-import { daysUntil, eventMonthYear, studioToday } from "@/lib/field-format";
+import { daysUntil, eventMonthYear, formatEventDate, studioToday } from "@/lib/field-format";
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
 import { listClients } from "@/lib/clients";
@@ -130,7 +130,7 @@ export const POST = defineRoute({
       status: r.status ?? null,
       statusTitle: statusTitle(r.status) || null,
       serviceType: r.serviceType ?? null,
-      eventDate: r.eventDate ?? null,
+      eventDate: formatEventDate(r.eventDate, { month: "short" }) || null,
     }));
 
     return {

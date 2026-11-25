@@ -212,6 +212,17 @@ function dayFromParts(y: number, m: number, d: number, weekday?: string): string
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// Event-date text with its spacing folded, commas spaced one way and a
+// closing period dropped, for the readers below.
+function tidyEventText(d?: string | null): string {
+  return (d ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/ ?, ?/g, ", ")
+    .replace(/ ?\.$/, "")
+    .trim();
+}
+
 // An event date as a calendar day, `yyyy-MM-dd`, or "" when it can't be read.
 // The stored date is free text, so the whole text has to be one day in a
 // known shape: "2026-12-05", "12/05/2026", "Dec 5, 2026", "Saturday,
@@ -220,11 +231,7 @@ function dayFromParts(y: number, m: number, d: number, weekday?: string): string
 // ("Nov 20-21, 2026"), a season, a month alone, a year alone or a hedge ("TBD
 // June 6, 2027") isn't a day, and reads as no date rather than a guessed one.
 export function eventDay(d?: string | null): string {
-  const text = (d ?? "")
-    .replace(/\s+/g, " ")
-    .replace(/ ?, ?/g, ", ")
-    .replace(/ ?\.$/, "")
-    .trim();
+  const text = tidyEventText(d);
   let m: RegExpMatchArray | null;
   if ((m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/))) return dayFromParts(+m[1], +m[2], +m[3]);
   if ((m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return dayFromParts(+m[3], +m[1], +m[2]);
@@ -253,7 +260,7 @@ export function formatEventDate(d?: string | null, opts: { month?: "long" | "sho
 export function eventMonthYear(d?: string | null): { month: number | null; year: number } | null {
   const day = eventDay(d);
   if (day) return { month: +day.slice(5, 7), year: +day.slice(0, 4) };
-  const text = (d ?? "").trim().replace(/\s+/g, " ");
+  const text = tidyEventText(d);
   const years = [...new Set(text.match(/\b\d{4}\b/g) ?? [])];
   if (years.length !== 1) return null;
   const m = text.match(/^([a-z]+\.?),? \d{4}$/i);

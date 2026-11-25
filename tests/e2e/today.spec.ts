@@ -4,6 +4,7 @@ import { test, expect, hasTestStore } from "./support/fixtures";
 import { addMessage, patchProject, readProject } from "./support/test-store";
 import { todayRows, type TodayProject, type TodayServiceTerms } from "../../src/lib/today";
 import { eventDay, eventMonthYear, formatEventDate, shiftDay, studioToday } from "../../src/lib/field-format";
+import { autoProjectName } from "../../src/lib/project-name";
 
 // The Today list on the projects board (src/lib/today.ts): what needs the
 // owner now, worked out from the projects with rules. The rules are checked
@@ -99,6 +100,7 @@ test("an event date counts only when it names one day", () => {
     ["Sunday, August 15th, 2027", "2027-08-15"],
     ["June 6,2026", "2026-06-06"],
     ["June 6, 2026.", "2026-06-06"],
+    ["June 6, 2026. ", "2026-06-06"],
     ["Sat., June 6, 2026", "2026-06-06"],
     ["Jun 6 , 2026", "2026-06-06"],
   ]) {
@@ -133,6 +135,14 @@ test("an event date counts only when it names one day", () => {
   expect(eventMonthYear("Fall 2027")).toEqual({ month: null, year: 2027 });
   expect(eventMonthYear("Nov 20-21, 2026")).toEqual({ month: null, year: 2026 });
   expect(eventMonthYear("TBD")).toBeNull();
+  expect(eventMonthYear("June,2027")).toEqual({ month: 6, year: 2027 });
+  expect(eventMonthYear("Sept. 2027.")).toEqual({ month: 9, year: 2027 });
+  // A project's automatic name carries the day only when there is one.
+  const named = (eventDate: string) => autoProjectName({ clientName: "Jane Doe", serviceType: "weddings", eventDate });
+  for (const text of ["Fall 2027", "Nov 20-21, 2026", "TBD June 6, 2027"]) {
+    expect(named(text), text).not.toContain(" on ");
+  }
+  expect(named("Saturday, June 6th, 2026")).toMatch(/ on 6\/6\/2026$/);
   // A range isn't a shoot day: no editing row from a guessed date.
   expect(one({ status: "editing", eventDate: "Nov 20-21, 2026" }, terms(true, 30))).toEqual([]);
 });
@@ -273,8 +283,12 @@ test("one search box narrows the board to projects with every word", async ({ ad
   const stamp = Date.now();
   await newProject(adminRequest, `search-${stamp}`);
   await page.goto("/admin/projects");
-  // Words in any order, one of them the service.
-  await page.getByLabel("Search projects").fill(`weddings search-${stamp}`);
+  // Words in any order, one of them the service. (Typed again until the page
+  // is live, so the words reach the box's state.)
+  await expect(async () => {
+    await page.getByLabel("Search projects").fill(`weddings search-${stamp}`);
+    await expect(page.getByRole("button", { name: "Ask", exact: true })).toBeEnabled({ timeout: 1000 });
+  }).toPass();
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`q=weddings\\+search-${stamp}`));
   await expect(page.getByText(/^1 of \d+ projects?$/)).toBeVisible();
@@ -299,11 +313,16 @@ test("an Ask answered after the search changed is dropped", async ({ adminReques
   });
   await page.goto("/admin/projects");
   const box = page.getByLabel("Search projects");
+  const ask = page.getByRole("button", { name: "Ask", exact: true });
   const answer = page.getByRole("status").filter({ hasText: "Late answer" });
 
-  // With nothing changing, an Ask shows its answer.
-  await box.fill(`ask-${stamp}`);
-  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  // With nothing changing, an Ask shows its answer. (Typed again until the
+  // page is live, so the words reach the box's state.)
+  await expect(async () => {
+    await box.fill(`ask-${stamp}`);
+    await expect(ask).toBeEnabled({ timeout: 1000 });
+  }).toPass();
+  await ask.click();
   release();
   await expect(answer).toBeVisible();
 
@@ -313,7 +332,7 @@ test("an Ask answered after the search changed is dropped", async ({ adminReques
   await expect(page).toHaveURL(new RegExp(`q=ask-${stamp}`));
   await expect(answer).toHaveCount(0);
   held = new Promise<void>((r) => (release = r));
-  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await ask.click();
   await page.goBack();
   await expect(page).not.toHaveURL(/q=/);
   await expect(box).toHaveValue("");
