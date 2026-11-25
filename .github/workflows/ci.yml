@@ -11,7 +11,9 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.60 can't install
+    # Chromium. Move this forward together with a Playwright upgrade.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # Store-backed specs run when the test Supabase project's keys are set as
