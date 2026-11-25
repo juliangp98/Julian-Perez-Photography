@@ -76,7 +76,7 @@ test("admin collaborators: granting access on a project confirms and lists them"
   const { id } = await created.json();
   const second = `e2e-second-${stamp}@example.com`;
 
-  await adminPage.goto(`/admin/projects/${id}`);
+  await adminPage.goto(`/admin/projects/${id}?tab=details`);
   await adminPage.getByLabel("Add a second photographer").fill(second);
   await adminPage.getByLabel("Email them a one-click sign-in link").uncheck();
   await adminPage.getByRole("button", { name: "Grant access" }).click();

@@ -329,8 +329,8 @@ test("the summary is drafted from the notes, updates apply when accepted, and sa
   await page.getByRole("button", { name: "Save summary" }).click();
   await expect(page.getByRole("status").filter({ hasText: "The call is marked held" })).toBeVisible();
 
-  await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("in-conversation");
+  await page.goto(`/admin/projects/${p.id}?tab=details`);
+  await expect(page.locator("#project-status")).toHaveValue("in-conversation");
   await expect(page.locator("#a-guests")).toHaveValue("150");
   // A follow-up to send the recap, tomorrow.
   await expect(page.getByText(/: Send the recap and proposal$/)).toBeVisible();

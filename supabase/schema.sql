@@ -355,3 +355,39 @@ revoke execute on function dismiss_today(uuid, text, text) from public, anon, au
 grant execute on function dismiss_today(uuid, text, text) to service_role;
 
 notify pgrst, 'reload schema';
+
+-- The pipeline template an email was sent from, when there was one, so the
+-- project page knows which steps are done (the week-of email, the sneak peek).
+alter table client_messages add column if not exists template text;
+
+-- The project's activity log (status_history): each move in the pipeline and
+-- each note the owner adds, dated. Appends one entry in a single statement, so
+-- a note added while something else writes the log isn't lost. Says whether
+-- the project exists.
+create or replace function add_activity(p_id uuid, p_entry jsonb)
+returns boolean language sql as $$
+  with changed as (
+    update client_records
+    set status_history = coalesce(status_history, '[]'::jsonb) || jsonb_build_array(p_entry),
+        updated_at = now()
+    where id = p_id
+    returning 1
+  )
+  select exists (select 1 from changed)
+$$;
+revoke execute on function add_activity(uuid, jsonb) from public, anon, authenticated;
+grant execute on function add_activity(uuid, jsonb) to service_role;
+
+-- The private notes box is now the activity log. Notes kept in the box become
+-- the log's first entry, marked as such and undated. A project qualifies again
+-- only if its box holds text the log doesn't have yet, so a run after the
+-- deploy picks up a last edit without copying anything twice.
+update client_records
+set status_history = jsonb_build_array(
+      jsonb_build_object('kind', 'note', 'from', 'internal-notes', 'status', status, 'note', internal_notes)
+    ) || coalesce(status_history, '[]'::jsonb)
+where coalesce(btrim(internal_notes), '') <> ''
+  and not coalesce(status_history, '[]'::jsonb)
+    @> jsonb_build_array(jsonb_build_object('from', 'internal-notes', 'note', internal_notes));
+
+notify pgrst, 'reload schema';

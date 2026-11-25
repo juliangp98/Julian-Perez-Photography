@@ -1,9 +1,8 @@
 import {
-  dayAgo,
+  contactLine,
   daysUntil,
   formatEventDate,
   formatHumanDate,
-  studioDayOf,
   studioToday,
 } from "@/lib/field-format";
 import { redirect } from "next/navigation";
@@ -14,7 +13,6 @@ import { listClients, type ClientRecordFull } from "@/lib/clients";
 import { statusTitle } from "@/lib/labels";
 import { serviceTitle } from "@/lib/services-data";
 import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
-import AdminQuickLog from "@/components/admin/AdminQuickLog";
 import { projectDisplayName } from "@/lib/project-name";
 import ProjectSearch from "@/components/admin/ProjectSearch";
 import TodayList from "@/components/admin/TodayList";
@@ -55,23 +53,9 @@ function nextLine(r: ClientRecordFull, today: string): string | null {
   return hold ? `Date held until ${formatHumanDate(hold.until, { month: "short" })}` : null;
 }
 
-// When each side last wrote, in the studio's days as the Today list counts
-// them: "Client wrote 2 days ago, you 5 days ago", or "You wrote today".
-function contactLine(r: ClientRecordFull, today: string): string | null {
-  const ago = (iso?: string) => {
-    const day = iso ? studioDayOf(iso) : "";
-    return day ? dayAgo(day, today) : "";
-  };
-  const client = ago(r.lastInAt);
-  const you = ago(r.lastOutAt);
-  if (client && you) return `Client wrote ${client}, you ${you}`;
-  if (client) return `Client wrote ${client}`;
-  return you ? `You wrote ${you}` : null;
-}
-
 function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
   const next = nextLine(r, today);
-  const contact = contactLine(r, today);
+  const contact = contactLine(r.lastInAt, r.lastOutAt, today);
   return (
     <Panel className="hover:border-foreground transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
@@ -94,9 +78,6 @@ function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
           </div>
         )}
       </Link>
-      <div className="mt-3 pt-3 border-t border-border">
-        <AdminQuickLog projectId={r.id} currentStatus={r.status} />
-      </div>
     </Panel>
   );
 }

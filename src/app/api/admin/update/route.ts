@@ -7,11 +7,12 @@
 // before a proposal has gone out, sets a follow-up to send the recap, then
 // marks the call held; saving it again changes only the summary. An autosave
 // names the save it was typed against and the open copy it came from, and is
-// refused (409) when another copy saved the notes since. It also takes the
-// Today list's actions: a follow-up cleared or moved, and a row marked
-// handled or snoozed. Removing an entry takes it off the project; an uploaded
-// file itself stays in storage. Nothing here emails the client; telling them
-// is a Compose email.
+// refused (409) when another copy saved the notes since. It also takes a
+// follow-up set, moved or cleared (from the project page or the Today list),
+// a Today row marked handled or snoozed, and a dated note for the activity
+// log. Removing an entry takes it off the project; an uploaded file itself
+// stays in storage. Nothing here emails the client; telling them is a Compose
+// email.
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ import * as Sentry from "@sentry/nextjs";
 import { apiError, defineRoute } from "@/lib/api-route";
 import {
   addDocument,
+  addNote,
   advanceStatus,
   dismissToday,
   patchDocument,
@@ -66,7 +68,6 @@ const schema = z.object({
       guestCount: z.coerce.number().int().min(0).max(1000000).optional(),
       budget: z.string().max(100).optional(),
       planSummary: z.string().max(10000).optional(),
-      internalNotes: z.string().max(10000).optional(),
       projectName: z.string().max(200).optional(),
       // How the client will pay; an empty value clears the choice.
       paymentMethod: z.union([z.enum(METHODS), z.literal("")]).optional(),
@@ -117,15 +118,17 @@ const schema = z.object({
     })
     .optional(),
   // The follow-up set, moved or (with a null day) cleared. `expect` names the
-  // follow-up the change was made against: it changes only while that one is
-  // still set.
+  // follow-up the change was made against (null for none): it changes only
+  // while that one is still the project's.
   followUp: z
     .object({
       at: calendarDay.nullable(),
       note: z.string().trim().max(200).optional(),
-      expect: calendarDay.optional(),
+      expect: calendarDay.nullable().optional(),
     })
     .optional(),
+  // A note added to the activity log.
+  note: z.string().trim().min(1).max(2000).optional(),
   // A Today row marked handled, or snoozed until a day.
   dismiss: z
     .object({
@@ -160,8 +163,10 @@ export const POST = defineRoute({
     callSummary,
     followUp,
     dismiss,
+    note,
   }) => {
     if (fields) await updateClientAdmin(id, fields);
+    if (note && !(await addNote(id, note))) return apiError(404, "That project wasn't found.");
     if (followUp && !(await setFollowUp(id, followUp.at, followUp.note, followUp.expect))) {
       return apiError(409, "That follow-up changed since this page loaded.");
     }

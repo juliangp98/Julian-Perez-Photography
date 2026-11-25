@@ -147,7 +147,7 @@ const VIEWER_SELECT_BASE =
 const CLIENT_SELECT_EXTRA = ", package, lastClientUpdate:last_client_update";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
-  ", budget, source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
+  ", budget, source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, createdAt:created_at, updatedAt:updated_at";
 
 // Schema-drift guard. A deploy can land before a migration's columns are added
 // to the table; the first read that asks for them then fails with PostgREST's
@@ -840,24 +840,26 @@ export async function closeProject(
 
 // Set (or with null, clear) the project's next follow-up: a calendar day and
 // what it's for. One per project; a new one replaces the old. Without a note,
-// a moved follow-up keeps the one it had. With `expect` (the day of the
-// follow-up the change was made against), it changes only that follow-up, and
-// says false when the project has a different one now.
+// a moved follow-up keeps the one it had; an empty note clears it. With
+// `expect` (the day of the follow-up the change was made against, or null for
+// none), it changes only while the project still has that one, and says false
+// when it has a different one now.
 export async function setFollowUp(
   id: string,
   at: string | null,
   note?: string | null,
-  expect?: string,
+  expect?: string | null,
 ): Promise<boolean> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return true;
   const patch: Record<string, unknown> = { follow_up_at: at, updated_at: nowIso() };
   if (at === null) patch.follow_up_note = null;
-  else if (note !== undefined) patch.follow_up_note = note;
+  else if (note !== undefined) patch.follow_up_note = note?.trim() || null;
   let q = db().from(TABLE).update(patch, { count: "exact" }).eq("id", id);
-  if (expect) q = q.eq("follow_up_at", expect);
+  if (expect === null) q = q.is("follow_up_at", null);
+  else if (expect) q = q.eq("follow_up_at", expect);
   const { error, count } = await q;
   if (error) throw error;
-  return !expect || (count ?? 0) > 0;
+  return expect === undefined || (count ?? 0) > 0;
 }
 
 // Hold the project's date until a calendar day (or with null, release it).
@@ -1038,10 +1040,17 @@ export async function updateClientFields(
 // ever called from `/admin/*` pages + routes, which are gated by the admin
 // session.
 
+// One entry in a project's activity log (the status_history column): a move
+// in the pipeline, with what moved it, or a note the owner added (`kind:
+// "note"`, with the status the project had then). The notes once kept in the
+// private notes box are the log's first entry, undated, `from:
+// "internal-notes"`.
 export type ClientStatusEntry = {
   status?: string;
   changedAt?: string;
   note?: string;
+  kind?: "note";
+  from?: "internal-notes";
 };
 export type ClientRecordFull = ClientRecordSafe & {
   budget?: string;
@@ -1063,7 +1072,6 @@ export type ClientRecordFull = ClientRecordSafe & {
   inquiryMessage?: string;
   referral?: string;
   statusHistory?: ClientStatusEntry[];
-  internalNotes?: string;
   collaborators?: CollaboratorEntry[];
   createdAt?: string;
   updatedAt?: string;
@@ -1130,7 +1138,6 @@ const ADMIN_COLUMN: Record<string, string> = {
   guestCount: "guest_count",
   budget: "budget",
   planSummary: "plan_summary",
-  internalNotes: "internal_notes",
   projectName: "project_name",
   locations: "locations",
   paymentMethod: "payment_method",
@@ -1172,41 +1179,24 @@ export async function updateClientAdmin(
   if (error) throw error;
 }
 
-// Quick admin log entry from the projects overview: append a status-history note
-// and optionally change the status, without opening the full record. At least
-// one of `status` / `note` is expected (the route enforces this).
-export async function addAdminLog(
-  id: string,
-  input: { status?: string; note?: string },
-): Promise<void> {
-  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
-  const { data: row, error } = await db()
+// Add a dated note to the project's activity log, under the status it has
+// now. One statement (add_activity in supabase/schema.sql), so a note landing
+// while a send moves the project isn't lost. Says whether the project exists.
+export async function addNote(id: string, note: string): Promise<boolean> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return false;
+  const { data: row, error: selErr } = await db()
     .from(TABLE)
-    .select("status, status_history")
+    .select("status")
     .eq("id", id)
     .maybeSingle();
+  if (selErr) throw selErr;
+  if (!row) return false;
+  const { data, error } = await db().rpc("add_activity", {
+    p_id: id,
+    p_entry: { kind: "note", status: row.status, note, changedAt: nowIso() },
+  });
   if (error) throw error;
-  if (!row) return;
-
-  const ts = nowIso();
-  const statusChanged = !!input.status && input.status !== row.status;
-  const nextStatus = (input.status as string | undefined) ?? (row.status as string | undefined);
-  const note =
-    input.note?.trim() ||
-    (statusChanged ? "Status updated by admin" : "Note added by admin");
-
-  const history = Array.isArray(row.status_history) ? row.status_history : [];
-  history.push({ status: nextStatus, changedAt: ts, note });
-
-  const patch: Record<string, unknown> = {
-    status_history: history,
-    updated_at: ts,
-  };
-  if (statusChanged) patch.status = input.status;
-  if (statusChanged && closes(row.status, input.status)) Object.assign(patch, CLOSED_CLEARS);
-
-  const { error: upErr } = await db().from(TABLE).update(patch).eq("id", id);
-  if (upErr) throw upErr;
+  return data === true;
 }
 
 // List the full set of a person's projects (admin) — used to offer "link into

@@ -6,7 +6,7 @@
 // The panel says up front what sending the template does to the project (its
 // status, follow-up, date hold) and confirms what moved once it has gone.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "@/components/ui/fields/Select";
 import { useRouter } from "next/navigation";
 import {
@@ -57,7 +57,7 @@ function notMovedLine(notMoved?: string[]): string {
   if (!notMoved?.length) return "";
   const what = listOf(notMoved.map((n) => NOT_MOVED[n] ?? n));
   return `The email went, but ${what} couldn't be updated.${
-    notMoved.includes("status") ? " Set the status in the form above." : ""
+    notMoved.includes("status") ? " Set the status at the top of the page." : ""
   }`;
 }
 
@@ -90,7 +90,7 @@ export default function ComposeEmail({
   initialSteer,
 }: {
   // Opens on this template (and AI steer), as linked from triage or the
-  // suggested next step.
+  // project's next step.
   initialTemplateId?: string;
   initialSteer?: string;
   projectId: string;
@@ -124,6 +124,11 @@ export default function ComposeEmail({
   // text sends once, and any edit makes it a new message.
   const [sendKey, setSendKey] = useState(() => crypto.randomUUID());
   const newVersion = () => setSendKey(crypto.randomUUID());
+  // A hand-off (#compose) can come from another tab of the page, where the
+  // panel wasn't on screen to scroll to, so it brings itself into view.
+  useEffect(() => {
+    if (window.location.hash === "#compose") document.getElementById("compose")?.scrollIntoView();
+  }, []);
 
   function pick(id: string) {
     setTemplateId(id);

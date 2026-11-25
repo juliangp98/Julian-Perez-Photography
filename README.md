@@ -368,8 +368,8 @@ Inquiries and questionnaire submissions are captured as **client records** in a
 free, **private Supabase Postgres** table (`client_records`) — not Sanity,
 because client PII needs a private store and Sanity's private datasets are a
 paid feature. Julian manages records in the **owner dashboard at `/admin`** (a
-status-grouped projects overview with direct per-record editing, plus an
-external-links hub) — the Supabase Table Editor stays available as a fallback
+board of projects with a Today list of what needs doing, a page per project
+that follows its stage, plus an external-links hub) — the Supabase Table Editor stays available as a fallback
 for complex JSONB edits.
 
 **One row is one project; the email is the person.** A single client can hold
@@ -390,6 +390,13 @@ prefilled with their details.
 
 The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
 client portal, owner-only). Sign in at `/admin` with that email.
+
+Each project's admin page opens on where it stands: a stage tracker, the one
+next step with a button that does it (`ownerNextStep` in `src/lib/next-step.ts`,
+rules rather than AI), the status, the next follow-up and a Write email button.
+Below are tabs for the overview of the current stage, the discovery call, the
+message thread with Compose, links and files, and the details with a dated
+activity log.
 
 How the pieces fit:
 
@@ -453,7 +460,7 @@ and the portal stay off and the rest of the site is unaffected.
 
 ## Client messages
 
-Every email the site sends a client, and every reply, lives on the project's thread: the **Messages** section of `/admin/projects/[id]`, and the same thread (minus anything held for review) in the client's portal. Every send goes through `sendEmail()` in `src/lib/email/send.ts`. Inbound mail and delivery events arrive at `/api/email/webhook` and are handled in `src/lib/email/relay.ts`; `src/lib/messages.ts` reads and writes the threads (`client_messages`).
+Every email the site sends a client, and every reply, lives on the project's thread: the **Messages** tab of `/admin/projects/[id]`, and the same thread (minus anything held for review) in the client's portal. Every send goes through `sendEmail()` in `src/lib/email/send.ts`. Inbound mail and delivery events arrive at `/api/email/webhook` and are handled in `src/lib/email/relay.ts`; `src/lib/messages.ts` reads and writes the threads (`client_messages`).
 
 - **Sending.** A send on a project uses the reply address `reply+<token>@<RESEND_INBOUND_DOMAIN>`, so replies come back to the site. Emails composed in the admin also BCC the owner. Each send records Resend's id. Delivery, bounce and spam-complaint events update the message, and a bounce emails the owner. A daily check settles any message whose event never arrived.
 - **Replies.** A client's reply is filed on the thread and forwarded to the studio address, `julian@julianperezphotography.com`, which Cloudflare Email Routing delivers to the owner's Gmail. The forward carries the reply address as Reply-To, so answering from Gmail goes back through the site and reaches the client from the studio address, on the thread. The owner's reply is relayed only when its DKIM signature checks out; otherwise it waits on the thread for a one-click send. Mail from an address not on the project is held for review and never reaches the client. Out-of-office replies are filed and go nowhere.
@@ -470,8 +477,8 @@ Every AI feature runs on one setting, `GROQ_API_KEY` (server scope, never `NEXT_
 
 Groq's free tier has a tokens-per-minute ceiling. The public concierge uses the most, so its knowledge base (`src/lib/ai/concierge-kb.ts`) stays under a character budget. Heavier use needs Groq's Dev Tier or another provider through `AI_BASE_URL`. More design detail is in `CHANGELOG.md`.
 
-- **Discovery calls.** A project's Call tab (`?tab=call`) holds the call guide for its kind of shoot (`src/lib/discovery-guides.ts`, six families on one shared framework), an answer box under each question and free notes, all autosaved, a date check against booked and held projects, and, with AI, the guide fitted to the client and a summary drafted from the notes. The summary's first save moves a lead to In conversation and, unless a proposal has gone out or the project is closed, sets a follow-up to send the recap, then marks the call held; saving it again changes only the summary.
-- **Admin drafting.** Client email is drafted in one place: the compose panel on `/admin/projects/[id]` (`/api/admin/draft-email`). It turns a pipeline template and the project's client-safe facts into a draft for review. The AI never sends, never sees the internal note, the budget or the client's email and phone, and writes `[brackets]` instead of guessing. The brand voice lives in `src/lib/ai/ai-voice.ts`. The drafter also reads the owner's three most recent substantial emails to other clients (`src/lib/ai/voice-samples.ts`), with names, addresses, links and phone numbers redacted, and matches their wording and sign-off but none of their facts. An edited draft is stored as sent, so each edit teaches the next draft. Triage and the suggested next step open this panel on a template instead of writing their own email. Every new inquiry is assessed on arrival (fit, urgency, a summary, capped at 8 seconds and skipped on any failure) and the assessment is saved on the project, and the owner email links straight to this panel to draft the reply, steered by it; set `INQUIRY_SMS_TO` for a text about the leads worth one. The assessment, the shoot brief, the plan-summary draft and the discovery-call tools share one route (`/api/admin/ai`, by `kind`) and one context builder (`src/lib/ai/project-context.ts`) with a client tier and an internal tier. The same key powers journal and page copy, portfolio alt text, and admin search. A model that's still rate-limiting after retries hands the call to the fallback model.
+- **Discovery calls.** The project page's Call tab (`?tab=call`) holds the call guide for its kind of shoot (`src/lib/discovery-guides.ts`, six families on one shared framework), an answer box under each question and free notes, all autosaved, a date check against booked and held projects, and, with AI, the guide fitted to the client and a summary drafted from the notes. The summary's first save moves a lead to In conversation and, unless a proposal has gone out or the project is closed, sets a follow-up to send the recap, then marks the call held; saving it again changes only the summary.
+- **Admin drafting.** Client email is drafted in one place: the compose panel on `/admin/projects/[id]` (`/api/admin/draft-email`). It turns a pipeline template and the project's client-safe facts into a draft for review. The AI never sends, never sees the internal note, the budget or the client's email and phone, and writes `[brackets]` instead of guessing. The brand voice lives in `src/lib/ai/ai-voice.ts`. The drafter also reads the owner's three most recent substantial emails to other clients (`src/lib/ai/voice-samples.ts`), with names, addresses, links and phone numbers redacted, and matches their wording and sign-off but none of their facts. An edited draft is stored as sent, so each edit teaches the next draft. The assessment and the project's next step open this panel on a template instead of writing their own email. Every new inquiry is assessed on arrival (fit, urgency, a summary, capped at 8 seconds and skipped on any failure) and the assessment is saved on the project, and the owner email links straight to this panel to draft the reply, steered by it; set `INQUIRY_SMS_TO` for a text about the leads worth one. The assessment, the shoot brief, the plan-summary draft and the discovery-call tools share one route (`/api/admin/ai`, by `kind`) and one context builder (`src/lib/ai/project-context.ts`) with a client tier and an internal tier. The same key powers journal and page copy, portfolio alt text, and admin search. A model that's still rate-limiting after retries hands the call to the fallback model.
 - **Public concierge and FAQ.** `/faq` is a searchable directory built from one source (`src/lib/faq.ts`: a general set plus every visible service's `faqs[]`). It works without AI and emits `FAQPage` JSON-LD. The same source grounds the "Ask" chat (`POST /api/concierge`), which reads public content only, refuses to invent prices or follow instructions inside visitor messages, and is rate-limited and honeypotted like the inquiry route.
 
 ## Security

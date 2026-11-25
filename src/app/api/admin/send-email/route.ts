@@ -142,7 +142,7 @@ export const POST = defineRoute({
         html,
         text: body,
         idempotencyKey,
-        thread: { projectId, kind: "compose" },
+        thread: { projectId, kind: "compose", template: templateId },
       }));
     } catch (err) {
       Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });

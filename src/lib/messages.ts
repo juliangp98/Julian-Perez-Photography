@@ -47,10 +47,12 @@ export type ClientMessage = {
   statusDetail?: string;
   attachments: MessageAttachment[];
   sentAt: string;
+  // The pipeline template it was sent from, when there was one.
+  template?: string;
 };
 
 const SELECT =
-  "id, projectId:project_id, direction, channel, kind, fromAddr:from_addr, toAddr:to_addr, subject, bodyText:body_text, resendId:resend_id, messageId:message_id, inReplyTo:in_reply_to, status, statusDetail:status_detail, attachments, sentAt:sent_at";
+  "id, projectId:project_id, direction, channel, kind, fromAddr:from_addr, toAddr:to_addr, subject, bodyText:body_text, resendId:resend_id, messageId:message_id, inReplyTo:in_reply_to, status, statusDetail:status_detail, attachments, sentAt:sent_at, template";
 
 // What the client may see of their own thread: nothing held back for review.
 const CLIENT_VISIBLE: MessageStatus[] = ["sent", "delivered", "delayed", "received"];
@@ -85,6 +87,7 @@ export type NewMessage = {
   statusDetail?: string;
   attachments?: MessageAttachment[];
   sentAt?: string;
+  template?: string;
 };
 
 // Records a message and returns whether it was new. A repeat of the same Resend
@@ -109,6 +112,7 @@ export async function recordMessage(m: NewMessage): Promise<boolean> {
     status_detail: m.statusDetail,
     attachments: m.attachments ?? [],
     ...(m.sentAt ? { sent_at: m.sentAt } : {}),
+    ...(m.template ? { template: m.template } : {}),
   });
   if (error?.code === "23505") return false;
   if (error) throw error;

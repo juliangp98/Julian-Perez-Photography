@@ -18,7 +18,7 @@ Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writin
 
 ## One feature, one job
 
-Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`); triage and the suggested next step hand off to it rather than writing their own. Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
+Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`); the assessment and the project's next step hand off to it rather than writing their own. Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
 
 ## Writing
 
