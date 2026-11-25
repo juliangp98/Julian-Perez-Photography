@@ -1,18 +1,8 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Admin project deletion (/api/admin/delete-project). Owner-gated and
-// rate-limited. The store is blanked in the test env, so a well-formed delete
-// cleanly no-ops (`ok: true`) without touching a real database.
-
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
+// rate-limited. The well-formed delete names an id no project has, so it
+// answers `ok: true` without removing anything, with or without a store.
 
 test("delete-project: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/delete-project", {
@@ -22,19 +12,13 @@ test("delete-project: rejects an unauthenticated request", async ({ request }) =
   expect(res.status()).toBe(401);
 });
 
-test("delete-project: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.21.2");
+test("delete-project: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // Missing `projectId` — a schema violation (400), proving the session worked.
   const res = await request.post("/api/admin/delete-project", { data: {} });
   expect(res.status()).toBe(400);
 });
 
-test("delete-project: accepts a well-formed request, no-ops on the blanked store", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.21.3");
+test("delete-project: accepts a well-formed request for a project that doesn't exist", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/delete-project", {
     data: { projectId: "00000000-0000-0000-0000-000000000000" },
   });

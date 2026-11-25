@@ -4,6 +4,7 @@
 // @react-email/components and passed to Resend as HTML. A plain-text fallback
 // is always included alongside the HTML for email clients that don't render it.
 
+import { CONTACT_EMAIL } from "@/lib/site-settings-data";
 import {
   Html,
   Head,
@@ -16,6 +17,7 @@ import {
   Preview,
 } from "@react-email/components";
 import type { ReactNode } from "react";
+import { triageVerdict, type InquiryTriage } from "@/lib/triage";
 
 // ---------------------------------------------------------------------------
 // Brand tokens (mirrored from globals.css)
@@ -112,11 +114,8 @@ export function BrandedEmailLayout({
               julianperezphotography.com
             </Link>
             {" · "}
-            <Link
-              href="mailto:juliangperez98@gmail.com"
-              style={{ color: ACCENT }}
-            >
-              juliangperez98@gmail.com
+            <Link href={`mailto:${CONTACT_EMAIL}`} style={{ color: ACCENT }}>
+              {CONTACT_EMAIL}
             </Link>
           </Text>
           <Text
@@ -157,6 +156,14 @@ export function BrandedEmailLayout({
 // Inquiry email (sent to Julian)
 // ---------------------------------------------------------------------------
 
+const SECTION_LABEL = {
+  fontSize: "12px",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.1em",
+  color: MUTED,
+  margin: "0 0 8px 0",
+};
+
 type InquiryData = {
   name: string;
   email: string;
@@ -172,9 +179,15 @@ type InquiryData = {
 export function InquiryEmailTemplate({
   data,
   serviceName,
+  triage,
+  draftReplyUrl,
 }: {
   data: InquiryData;
   serviceName: string;
+  // The AI assessment, when one came back in time. Owner-only.
+  triage?: InquiryTriage | null;
+  // The project page with Compose open on a reply, when the inquiry was filed.
+  draftReplyUrl?: string;
 }) {
   const fields: [string, string | undefined][] = [
     ["Name", data.name],
@@ -200,6 +213,23 @@ export function InquiryEmailTemplate({
         New inquiry
       </Text>
 
+      {triage ? (
+        <Section style={{ border: `1px solid ${BORDER}`, padding: "12px 16px", margin: "0 0 24px 0" }}>
+          <Text style={SECTION_LABEL}>AI assessment</Text>
+          <Text style={{ fontSize: "14px", fontWeight: 600, color: FOREGROUND, margin: "0 0 6px 0" }}>
+            {triageVerdict(triage)}
+          </Text>
+          <Text style={{ fontSize: "14px", color: FOREGROUND, lineHeight: "20px", margin: "0 0 6px 0" }}>
+            {triage.summary}
+          </Text>
+          {triage.fitReason || triage.urgencyReason ? (
+            <Text style={{ fontSize: "12px", color: MUTED, lineHeight: "18px", margin: 0 }}>
+              {[triage.fitReason, triage.urgencyReason].filter(Boolean).join(" ")}
+            </Text>
+          ) : null}
+        </Section>
+      ) : null}
+
       {fields.map(([label, value]) =>
         value ? (
           <Text
@@ -223,17 +253,7 @@ export function InquiryEmailTemplate({
           margin: "20px 0",
         }}
       >
-        <Text
-          style={{
-            fontSize: "12px",
-            textTransform: "uppercase" as const,
-            letterSpacing: "0.1em",
-            color: MUTED,
-            margin: "0 0 8px 0",
-          }}
-        >
-          Message
-        </Text>
+        <Text style={SECTION_LABEL}>Message</Text>
         <Text
           style={{
             fontSize: "14px",
@@ -246,6 +266,8 @@ export function InquiryEmailTemplate({
           {data.message}
         </Text>
       </Section>
+
+      {draftReplyUrl ? <PillButton href={draftReplyUrl} label="Draft a reply" /> : null}
 
       <Text style={{ fontSize: "12px", color: MUTED, margin: "16px 0 0 0" }}>
         Reply directly to this email to respond to {data.name}.
@@ -466,8 +488,8 @@ export function ClientConfirmationTemplate({
               lineHeight: "20px",
             }}
           >
-            A PDF copy of your Wedding Day Plan is attached to this email —
-            feel free to save or print it.
+            A PDF copy of your Wedding Day Plan is attached to this email.
+            Save or print it if you like.
           </Text>
         </Section>
       )}
@@ -538,7 +560,7 @@ export function MagicLinkEmailTemplate({
       >
         {isAdmin
           ? "Here's your secure link to the admin dashboard."
-          : "Here's your secure link to your client portal — no password needed."}
+          : "Here's your secure link to your client portal. No password needed."}
       </Text>
       <PillButton
         href={link}

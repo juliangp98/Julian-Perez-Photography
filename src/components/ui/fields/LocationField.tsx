@@ -141,7 +141,7 @@ export default function LocationField({
           <ul
             id={listId}
             role="listbox"
-            className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-white py-1 shadow-xl"
+            className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-auto rounded-lg border border-border bg-white py-1 shadow-xl"
           >
             {predictions.map((p, i) => (
               <li
@@ -155,12 +155,12 @@ export default function LocationField({
                 }}
                 onMouseEnter={() => setActive(i)}
                 className={`cursor-pointer px-4 py-2 text-sm ${
-                  i === active ? "bg-[var(--accent)]/10" : ""
+                  i === active ? "bg-accent/10" : ""
                 }`}
               >
                 <div className="font-medium">{p.mainText}</div>
                 {p.secondaryText && (
-                  <div className="text-xs text-[var(--muted)]">
+                  <div className="text-xs text-muted">
                     {p.secondaryText}
                   </div>
                 )}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, magicLinkFor, ADMIN_EMAIL } from "./support/fixtures";
 
 // Admin area auth. Unlike the client portal (which needs a seeded record to
 // sign in), admin sign-in only requires the ADMIN_EMAIL match — so the full
@@ -29,6 +29,7 @@ test("admin: invalid magic token redirects to login with an error", async ({
 
 test("admin: request-link reveals nothing for a non-admin email", async ({
   request,
+  fakes,
 }) => {
   const res = await request.post("/api/admin/request-link", {
     headers: { "x-forwarded-for": "10.99.9.1" },
@@ -38,6 +39,8 @@ test("admin: request-link reveals nothing for a non-admin email", async ({
   const json = await res.json();
   expect(json.ok).toBe(true);
   expect(json.devLink).toBeUndefined();
+  // And no email went out.
+  expect(await fakes.calls("resend")).toHaveLength(0);
 });
 
 test("admin: update rejects an unauthenticated request", async ({ request }) => {
@@ -52,16 +55,13 @@ test("admin: full sign-in loop reaches the projects dashboard", async ({
   page,
   request,
 }) => {
-  // 1. Request a link for the configured admin email — dev mode returns it.
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": "10.99.9.3" },
-    data: { email: "admin@example.com", hp_company: "" },
+  // 1. Request a link for the configured admin email; it arrives by email.
+  await request.post("/api/admin/request-link", {
+    data: { email: ADMIN_EMAIL, hp_company: "" },
   });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
 
   // 2. Follow the link → sets the admin session and redirects to /admin/projects.
-  await page.goto(json.devLink);
+  await page.goto(await magicLinkFor(ADMIN_EMAIL));
   await expect(page).toHaveURL(/\/admin\/projects$/);
 
   // 3. The dashboard renders (store-agnostic — the heading is always present
@@ -79,9 +79,9 @@ test("admin: full sign-in loop reaches the projects dashboard", async ({
   ).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
-  // 4. External-links hub is reachable once authed. 30s timeout: the first
-  //    navigation to this route triggers a cold Turbopack compile that can
-  //    exceed the default 5s assertion window on a fresh suite run.
+  // 4. External-links hub is reachable once authed. 30s timeout: under the
+  //    dev server the first navigation to this route triggers a cold compile
+  //    that can outlast the configured assertion window on a fresh suite run.
   await page.getByRole("link", { name: "External links" }).click();
   await expect(
     page.getByRole("heading", { name: "External links", level: 1 }),
@@ -93,12 +93,10 @@ test("admin: logout is POST-only — a prefetch GET cannot end the session", asy
   request,
 }) => {
   // Sign in.
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": "10.99.9.4" },
-    data: { email: "admin@example.com", hp_company: "" },
+  await request.post("/api/admin/request-link", {
+    data: { email: ADMIN_EMAIL, hp_company: "" },
   });
-  const { devLink } = await res.json();
-  await page.goto(devLink);
+  await page.goto(await magicLinkFor(ADMIN_EMAIL));
   await expect(
     page.getByRole("heading", { name: "Projects", level: 1 }),
   ).toBeVisible();

@@ -27,21 +27,21 @@ export default function SubNav({
 }) {
   const pathname = usePathname();
   return (
-    <div className="border-b border-[var(--border)] pb-4">
+    <div className="border-b border-border pb-4">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {back && (
             <>
               <Link
                 href={back.href}
-                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-foreground"
               >
                 <span aria-hidden>←</span>
                 {back.label}
               </Link>
               <span
                 aria-hidden
-                className="h-4 w-px shrink-0 bg-[var(--border)]"
+                className="h-4 w-px shrink-0 bg-border"
               />
             </>
           )}
@@ -56,8 +56,8 @@ export default function SubNav({
                   aria-current={active ? "page" : undefined}
                   className={`text-xs uppercase tracking-[0.2em] transition ${
                     active
-                      ? "text-[var(--accent)]"
-                      : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                      ? "text-accent"
+                      : "text-muted hover:text-foreground"
                   }`}
                 >
                   {it.label}
@@ -70,7 +70,7 @@ export default function SubNav({
           <form action={logoutAction} method="post">
             <button
               type="submit"
-              className="cursor-pointer border-0 bg-transparent p-0 text-xs uppercase tracking-[0.2em] text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              className="cursor-pointer border-0 bg-transparent p-0 text-xs uppercase tracking-[0.2em] text-muted transition hover:text-foreground"
             >
               Sign out
             </button>

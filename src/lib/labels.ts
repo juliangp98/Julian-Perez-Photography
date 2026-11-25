@@ -1,17 +1,12 @@
 import { CLIENT_STATUS_OPTIONS } from "./client-status";
 
-// Display labels for client-record fields — the one place raw stored values
-// (source, status, document type, uploader) become UI text, so a slug never
-// reaches the screen and a wording change is a one-line edit. Scope note:
-// conversions with an existing domain home stay there — service titles in
-// `services-data.ts` (`serviceTitle`), referral labels in `referral.ts`
-// (`formatReferral`), the client-facing status phrasing in `client-status.ts`
-// (`CLIENT_STATUS_CLIENT_LABEL`), and date formatting in `field-format.ts`.
-// New record-field lookups belong here, not inline in a page.
+// Display labels for client-record fields (source, status, document type,
+// uploader), so a stored slug never reaches the screen. Service titles,
+// referral labels, and dates live in their own modules.
 
 // Title-case an unknown slug ("some-new-value" → "Some New Value") so a value
 // added to the data layer before its label still reads like words.
-function titleCaseSlug(slug: string): string {
+export function titleCaseSlug(slug: string): string {
   return slug
     .split("-")
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
@@ -20,9 +15,7 @@ function titleCaseSlug(slug: string): string {
 
 // ── Status (admin-facing pipeline titles) ──
 
-// The owner-facing status titles, keyed by status value. Built once from
-// CLIENT_STATUS_OPTIONS so the board, search results, and detail rail can't
-// drift from the canonical pipeline list.
+// The owner-facing status titles, keyed by status value.
 export const STATUS_TITLE: Record<string, string> = Object.fromEntries(
   CLIENT_STATUS_OPTIONS.map((o) => [o.value, o.title]),
 );
@@ -48,8 +41,7 @@ export function sourceLabel(source?: string): string {
 
 // ── Documents ──
 
-// The client-uploadable document kinds — drives the portal upload picker, so
-// the option list and the labels can't diverge.
+// The client-uploadable document kinds, shown in the portal upload picker.
 export const DOCUMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "other", label: "General" },
   { value: "contract", label: "Contract" },

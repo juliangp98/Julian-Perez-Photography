@@ -17,7 +17,7 @@ export const SEO_PAGES: SeoPage[] = [
     label: "Home",
     path: "/",
     purpose:
-      "Homepage introducing Julian Perez — a documentary-style wedding, portrait, and event photographer serving the DMV — and inviting prospective clients to explore his work and reach out.",
+      "Homepage introducing Julian Perez, a documentary-style wedding, portrait, and event photographer serving the DMV, and inviting prospective clients to explore his work and reach out.",
   },
   {
     key: "about",
@@ -31,14 +31,14 @@ export const SEO_PAGES: SeoPage[] = [
     label: "Services (index)",
     path: "/services",
     purpose:
-      "An overview of every photography service Julian offers — weddings, engagements, families, maternity and newborn, portraits, and events — across the DMV, with a path into each.",
+      "An overview of every photography service Julian offers across the DMV (weddings, engagements, families, maternity and newborn, portraits, and events), with a path into each.",
   },
   {
     key: "portfolio",
     label: "Portfolio (index)",
     path: "/portfolio",
     purpose:
-      "Galleries of Julian's photography across weddings, couples, family, portraits, and events — a look at his style and the moments he captures.",
+      "Galleries of Julian's photography across weddings, couples, family, portraits, and events, showing his style and the moments he captures.",
   },
   {
     key: "journal",
@@ -52,7 +52,7 @@ export const SEO_PAGES: SeoPage[] = [
     label: "Inquire / Contact",
     path: "/inquire",
     purpose:
-      "Where prospective clients check availability and start a booking — they tell Julian about their date, location, and vision to begin.",
+      "Where prospective clients check availability and start a booking by telling Julian their date, location, and vision.",
   },
 ];
 

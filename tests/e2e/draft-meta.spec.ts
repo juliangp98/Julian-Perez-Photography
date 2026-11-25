@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // AI page meta descriptions (/api/admin/draft-meta). The owner picks one of the
 // site's key pages and gets an SEO meta description to review and apply to the
@@ -8,16 +8,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // `drafted: false` BEFORE reaching the provider — a clean deterministic no-op
 // whether or not an AI key is configured.
 
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
-
 test("draft-meta: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/draft-meta", {
     headers: { "x-forwarded-for": "10.99.16.1" },
@@ -26,10 +16,7 @@ test("draft-meta: rejects an unauthenticated request", async ({ request }) => {
   expect(res.status()).toBe(401);
 });
 
-test("draft-meta: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.16.2");
+test("draft-meta: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // Missing `page` — a schema violation (400), proving the session was accepted.
   const res = await request.post("/api/admin/draft-meta", {
     data: { angle: "seasonal" },
@@ -37,10 +24,7 @@ test("draft-meta: rejects a malformed body when authenticated", async ({
   expect(res.status()).toBe(400);
 });
 
-test("draft-meta: accepts a well-formed request, no-ops for an unknown page", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.16.3");
+test("draft-meta: accepts a well-formed request, no-ops for an unknown page", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/draft-meta", {
     data: { page: "not-a-real-page" },
   });

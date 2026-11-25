@@ -27,7 +27,8 @@ const url = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let cached: SupabaseClient | null = null;
-function db(): SupabaseClient {
+// Shared with the other store modules (messages.ts, settings.ts).
+export function db(): SupabaseClient {
   if (!cached) {
     cached = createClient(url as string, serviceKey as string, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -97,10 +98,6 @@ export type ClientRecordSafe = {
   guestCount?: number;
   budget?: string;
   planSummary?: string;
-  // Client-authored notes / questions, and Julian's reply to them. Distinct
-  // from `planSummary` (the admin-authored shoot plan).
-  clientNotes?: string;
-  clientNotesReply?: string;
   documents?: ClientDocumentEntry[];
   lastClientUpdate?: string;
   bundleId?: string;
@@ -126,7 +123,7 @@ const SAFE_SELECT_BASE =
 // Columns added by post-launch migrations (bundles, gallery URL) — appended
 // only while the live table is known to have them.
 const OPTIONAL_COLUMNS =
-  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name, clientNotes:client_notes, clientNotesReply:client_notes_reply";
+  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
   ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
@@ -170,7 +167,7 @@ function isMissingOptionalColumn(error: DbResult["error"]): boolean {
   return (
     !!error &&
     error.code === "42703" &&
-    /(bundle_id|bundle_label|gallery_url|project_name|client_notes_reply|client_notes)/.test(
+    /(bundle_id|bundle_label|gallery_url|project_name)/.test(
       error.message ?? "",
     )
   );
@@ -204,11 +201,20 @@ async function readWithOptionalColumns(
   return retry ? build(projection()) : res;
 }
 
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+// Project ids are UUIDs. Anything else (a mistyped or truncated URL) can't
+// match a row, and handing it to Postgres fails the uuid cast rather than
+// finding nothing, so the helpers treat it as a missing row up front: lookups
+// answer "not found" and writes do nothing.
+const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isRecordId(id: string): boolean {
+  return RECORD_ID.test(id);
 }
 
 // ── Reads ──
@@ -216,7 +222,7 @@ function nowIso(): string {
 export async function getClientById(
   id: string,
 ): Promise<ClientRecordSafe | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
@@ -262,7 +268,7 @@ export async function getProjectForEmail(
   id: string,
   email: string,
 ): Promise<ClientRecordSafe | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(
     projectForOwnerSelect,
     (sel) =>
@@ -334,7 +340,7 @@ export async function listPortalProjects(
     } else {
       for (const p of (data as ClientRecordSafe[] | null) ?? []) {
         if (byId.has(p.id)) continue; // owner role wins
-        byId.set(p.id, { ...redactPrivateNotes(p), viewerRole: "collaborator" });
+        byId.set(p.id, { ...p, viewerRole: "collaborator" });
       }
     }
   }
@@ -349,7 +355,7 @@ export async function getProjectForViewer(
   id: string,
   email: string,
 ): Promise<{ record: ClientRecordSafe; viewerRole: PortalViewerRole } | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const e = normalizeEmail(email);
 
   // Owner path first — also covers the pre-migration window with no extra query.
@@ -378,19 +384,10 @@ export async function getProjectForViewer(
     ? row.collaborator_emails
     : [];
   if (!emails.includes(e)) return null;
-  // Strip the internal index column + the private notes before returning.
+  // Strip the internal index column before returning.
   const { collaborator_emails: _drop, ...rest } = row;
   void _drop;
-  return { record: redactPrivateNotes(rest), viewerRole: "collaborator" };
-}
-
-// Remove the private client↔Julian notes channel from a record shown to a
-// collaborator (they get full project visibility otherwise).
-function redactPrivateNotes(r: ClientRecordSafe): ClientRecordSafe {
-  const { clientNotes: _n, clientNotesReply: _r, ...rest } = r;
-  void _n;
-  void _r;
-  return rest;
+  return { record: rest, viewerRole: "collaborator" };
 }
 
 // ── Writes ──
@@ -435,7 +432,7 @@ export async function upsertClientFromInquiry(input: {
 
   // Attach-by-id: only when the project is unclaimed or already this email's, so
   // a leaked completion link can't write into someone else's record.
-  if (input.projectId) {
+  if (input.projectId && isRecordId(input.projectId)) {
     const { data: byId } = await db()
       .from(TABLE)
       .select(FILL)
@@ -584,7 +581,7 @@ export async function attachQuestionnaire(input: {
   let existing: QRow | undefined;
 
   // Attach-by-id when the project is unclaimed or already this email's.
-  if (input.projectId) {
+  if (input.projectId && isRecordId(input.projectId)) {
     const { data: byId } = await db()
       .from(TABLE)
       .select(SEL)
@@ -682,7 +679,7 @@ export async function advanceStatus(
   target: ClientStatus,
   note?: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error: selErr } = await db()
     .from(TABLE)
     .select("status, status_history")
@@ -705,7 +702,7 @@ export async function appendDocument(
   id: string,
   doc: ClientDocumentEntry,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error: selErr } = await db()
     .from(TABLE)
     .select("documents")
@@ -729,7 +726,7 @@ export async function addCollaborator(
   id: string,
   input: { email: string; name?: string },
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const email = normalizeEmail(input.email);
   const { data: row, error: selErr } = await db()
     .from(TABLE)
@@ -766,7 +763,7 @@ export async function removeCollaborator(
   id: string,
   email: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const e = normalizeEmail(email);
   const { data: row, error: selErr } = await db()
     .from(TABLE)
@@ -792,30 +789,20 @@ export async function removeCollaborator(
   if (error) throw error;
 }
 
-// Whitelisted client-portal edits. Only these fields are ever writable from the
-// portal; status, package, pricing, and internal fields are never exposed.
-// Fields a signed-in client may edit on their own project. `planSummary` is
-// deliberately NOT here — the shoot plan is admin-authored; clients write
-// `clientNotes` (their notes / questions) instead.
-const CLIENT_EDITABLE = [
-  "phone",
-  "partnerName",
-  "guestCount",
-  "clientNotes",
-  "projectName",
-] as const;
+// The only fields a signed-in client may edit on their own project. Status,
+// package, pricing, the admin-authored plan and internal fields never are;
+// questions and notes go in the message thread.
+const CLIENT_EDITABLE = ["phone", "partnerName", "guestCount", "projectName"] as const;
 const EDITABLE_COLUMN: Record<(typeof CLIENT_EDITABLE)[number], string> = {
   phone: "phone",
   partnerName: "partner_name",
   guestCount: "guest_count",
-  clientNotes: "client_notes",
   projectName: "project_name",
 };
 export type ClientEditableFields = Partial<{
   phone: string;
   partnerName: string;
   guestCount: number;
-  clientNotes: string;
   projectName: string;
 }>;
 
@@ -823,7 +810,7 @@ export async function updateClientFields(
   id: string,
   fields: ClientEditableFields,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const patch: Record<string, unknown> = {};
   for (const k of CLIENT_EDITABLE) {
     const v = fields[k];
@@ -871,7 +858,7 @@ export async function listClients(): Promise<ClientRecordFull[]> {
 export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
-  if (!isClientsStoreConfigured()) return null;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
@@ -891,7 +878,6 @@ const ADMIN_COLUMN: Record<string, string> = {
   guestCount: "guest_count",
   budget: "budget",
   planSummary: "plan_summary",
-  clientNotesReply: "client_notes_reply",
   internalNotes: "internal_notes",
   galleryUrl: "gallery_url",
   projectName: "project_name",
@@ -902,7 +888,7 @@ export async function updateClientAdmin(
   id: string,
   fields: Record<string, unknown>,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const patch: Record<string, unknown> = {};
   for (const [k, col] of Object.entries(ADMIN_COLUMN)) {
     if (k in fields && fields[k] !== undefined) patch[col] = fields[k];
@@ -938,7 +924,7 @@ export async function addAdminLog(
   id: string,
   input: { status?: string; note?: string },
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { data: row, error } = await db()
     .from(TABLE)
     .select("status, status_history")
@@ -1011,12 +997,13 @@ export async function setBundleForEmail(
   projectIds: string[],
   label: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  const asked = projectIds.filter(isRecordId);
+  if (!isClientsStoreConfigured() || asked.length < 2) return;
   const { data: owned, error } = await db()
     .from(TABLE)
     .select("id")
     .eq("email", normalizeEmail(email))
-    .in("id", projectIds);
+    .in("id", asked);
   if (error) throw error;
   const ids = (owned ?? []).map((r) => r.id as string);
   if (ids.length < 2) return;
@@ -1027,7 +1014,7 @@ export async function clearBundleForEmail(
   email: string,
   projectId: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(projectId)) return;
   const { data: owned, error } = await db()
     .from(TABLE)
     .select("id")
@@ -1044,11 +1031,12 @@ export async function setBundleAdmin(
   projectIds: string[],
   label: string,
 ): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  const ids = projectIds.filter(isRecordId);
+  if (!isClientsStoreConfigured() || ids.length < 2) return;
   const { data: rows, error } = await db()
     .from(TABLE)
     .select("id, email")
-    .in("id", projectIds);
+    .in("id", ids);
   if (error) throw error;
   const emails = new Set((rows ?? []).map((r) => r.email as string));
   if (emails.size !== 1 || (rows ?? []).length < 2) return;
@@ -1060,14 +1048,14 @@ export async function setBundleAdmin(
 }
 
 export async function clearBundleAdmin(projectId: string): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(projectId)) return;
   await applyBundle([projectId], null, null);
 }
 
 // Permanently delete one project row (admin-only). No-ops cleanly when the
 // store isn't configured. Bundle siblings are unaffected — only this row goes.
 export async function deleteClient(id: string): Promise<void> {
-  if (!isClientsStoreConfigured()) return;
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { error } = await db().from(TABLE).delete().eq("id", id);
   if (error) throw error;
 }

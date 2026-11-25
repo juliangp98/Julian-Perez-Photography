@@ -1,15 +1,9 @@
-// Pure-data module: exports the hard-coded `services` array (the 16
-// service categories with packages, add-ons, FAQs, etc.) with zero
-// runtime imports (just types). This isolation matters because the seed
-// script (`scripts/seed-sanity.ts`) imports from here under tsx without
-// pulling React, Next, or the Sanity client into scope — all of which
-// `src/lib/content.ts` transitively pulls in via `getSiteSettings`.
-//
-// Everyday call sites keep importing `services` from `@/lib/content`
-// (it re-exports from here); only the seed script reaches into this
-// file directly.
+// The hard-coded `services` catalog. Imports only pure modules (no React,
+// Next, or Sanity client) so `scripts/seed-sanity.ts` can load it under tsx;
+// app code imports `services` through `@/lib/content`.
 
 import type { ServiceCategory } from "./types";
+import { titleCaseSlug } from "./labels";
 
 export const services: ServiceCategory[] = [
   // ==========================================================================
@@ -17,25 +11,26 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "weddings",
+    noun: "Wedding",
     umbrella: "weddings-couples",
     title: "Weddings",
     tagline: "Your whole day, told honestly.",
     description:
       "Full wedding-day coverage across the DMV, built around your story.",
     intro: [
-      "Your wedding day is more than just a ceremony; it's a tapestry of genuine moments, from the quiet anticipation before the \u201CI do\u201D to the joyous energy of the dance floor.",
-      "I believe in a relaxed, artful approach to wedding photography. While I'll provide gentle direction for beautiful portraits and family photos, my main focus is on the authentic emotions and unscripted interactions that make your day uniquely yours.",
-      "My goal is to be both a friend and an observant eye, blending into the background to capture those fleeting, heartfelt moments you'll want to relive forever.",
-      "Ultimately, your job is to be fully present and celebrate. My job is to handle the rest, guiding you through the process with calm confidence and a stress-free attitude.",
-      "I'll be there to document your journey from the engagement session to the big day and beyond, ensuring every memory is beautifully preserved.",
+      "A wedding is more than the ceremony. It's the quiet wait before the \u201CI do\u201D, the noise of the dance floor, and everything in between.",
+      "I keep things relaxed. I'll give gentle direction for portraits and family photos, but most of my time goes to real reactions and the unscripted moments between people.",
+      "I try to be easy company and a quiet observer. For most of the day I stay in the background and photograph what happens.",
+      "Your job is to be present and celebrate. My job is to handle the rest and keep the day calm.",
+      "I can photograph your engagement session too, so we know each other well before the wedding.",
       "Every package below includes a private online gallery, full print release, and a 72-hour sneak peek so you can start sharing before the last dance.",
     ],
     comboNote:
-      "Packages are detailed below, but I also offer custom solutions tailored to your unique needs. For Wedding Packages that include an Engagement Session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Celebrating an anniversary or planning a vow renewal? See the dedicated package below — same documentary approach, scaled to the day you're planning.",
+      "Packages are below, and I can also put together a custom one. For wedding packages that include an engagement session, see the [Engagements & Couples page](/services/engagements-couples) for session details. Celebrating an anniversary or planning a vow renewal? See the dedicated package below. It's the same documentary approach, scaled to the day you're planning.",
     packages: [
       {
         name: "Platinum",
-        tagline: "The top choice for an all-in-one experience",
+        tagline: "Second shooter, album, engagement session and film, all included",
         price: "$3,600",
         duration: "Full day (prep → sendoff)",
         inclusions: [
@@ -49,7 +44,7 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Premium",
-        tagline: "Unforgettable details and moments, start to finish",
+        tagline: "A full day with a second shooter, plus an album or engagement session",
         price: "$3,200",
         duration: "Full day (prep → sendoff)",
         featured: true,
@@ -62,7 +57,7 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Silver",
-        tagline: "More time, more coverage, more you",
+        tagline: "A full day with a second shooter and an engagement session",
         price: "$2,800",
         duration: "Full day + formal group portraits",
         inclusions: [
@@ -74,7 +69,7 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Essentials",
-        tagline: "The go-to for essential wedding coverage",
+        tagline: "Prep, the ceremony and the key reception moments",
         price: "$2,400",
         duration: "Prep, ceremony, key reception events",
         inclusions: [
@@ -114,7 +109,7 @@ export const services: ServiceCategory[] = [
       { name: "Premium linen wedding album", price: "$350" },
     ],
     pricingNote:
-      "Traveling outside the DMV? Reach out — custom quotes available for destination and multi-day weddings.",
+      "Traveling outside the DMV? Reach out for a custom quote on destination and multi-day weddings.",
     faqs: [
       {
         question:
@@ -125,7 +120,7 @@ export const services: ServiceCategory[] = [
       {
         question: "Do you include a second photographer for weddings?",
         answer:
-          "Yes — a second shooter is included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) packages. For the Essentials package, you can add one for $400.",
+          "Yes. A second shooter is included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) packages. For the Essentials package, you can add one for $400.",
       },
       {
         question: "How long until we get our wedding photos back?",
@@ -136,7 +131,7 @@ export const services: ServiceCategory[] = [
         question:
           "Do you travel for weddings outside the DC / Maryland / Virginia area?",
         answer:
-          "Absolutely. I'm based in Northern Virginia and cover the entire DMV at no extra charge. For destination weddings further out, just reach out — I'll put together a custom quote that includes travel.",
+          "Yes. I'm based in Northern Virginia and cover the entire DMV at no extra charge. For destination weddings further out, reach out and I'll put together a custom quote that includes travel.",
       },
       {
         question:
@@ -148,15 +143,16 @@ export const services: ServiceCategory[] = [
   },
   {
     slug: "engagements-couples",
+    noun: "Engagement",
     umbrella: "weddings-couples",
     title: "Engagements & Couples",
     tagline: "A relaxed session to celebrate the two of you.",
     description:
-      "Engagement, anniversary, and couples sessions across the DMV — included with most wedding packages.",
+      "Engagement, anniversary, and couples sessions across the DMV. Included with most wedding packages.",
     intro: [
-      "Engagement and couples sessions are where we get to know each other before the big day — or just where we celebrate the two of you, no big day required. It's a low-pressure afternoon that doubles as a rehearsal: you practice being photographed, I learn your rhythm as a couple, and we both walk away with photos that look like the version of you that you actually want to remember.",
-      "Just married? Just got engaged? Five years in and overdue for new wall art? Anniversary, dating-app refresh, save-the-date — they all fit here. Come as yourselves, dress the way you'd actually want to be remembered, and let the session feel like a long walk together with a camera quietly tagging along.",
-      "Whether you're warming up for the wedding, marking a milestone, or surprising someone with a proposal — pick the pace below that fits your story.",
+      "An engagement or couples session is a chance to get to know each other before the big day. Or it's a celebration of the two of you, no big day required. It's a low-pressure afternoon that doubles as a rehearsal. You practice being photographed, I learn how you are together, and you get photos of the version of yourselves you want to remember.",
+      "Just married? Just got engaged? Five years in and overdue for new wall art? Anniversaries, dating-app refreshes and save-the-dates all fit here. Come as yourselves and wear what you'd want to be remembered in. The session should feel like a long walk together, with a camera quietly tagging along.",
+      "Warming up for the wedding, marking a milestone or planning a surprise proposal? Pick the session below that fits.",
     ],
     comboNote:
       "Booking a wedding? Engagement sessions are included with the Silver, Premium, and Platinum [wedding packages](/services/weddings).",
@@ -175,7 +171,7 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Surprise Proposal",
-        tagline: "I'll be hiding in the bushes — happy to coordinate",
+        tagline: "I'll be hiding in the bushes. Happy to coordinate.",
         price: "$350",
         duration: "1 hour",
         inclusions: [
@@ -211,19 +207,19 @@ export const services: ServiceCategory[] = [
         question:
           "Can you photograph a surprise proposal in Washington DC?",
         answer:
-          "Yes! I offer a dedicated Surprise Proposal package for $350. I'll coordinate timing and positioning with you ahead of time, stay hidden until the moment happens, and then transition into a portrait session right after the yes.",
+          "Yes. I offer a dedicated Surprise Proposal package for $350. I'll coordinate timing and positioning with you ahead of time, stay hidden until the moment happens, and then transition into a portrait session right after the yes.",
       },
       {
         question:
           "What's the best time of year for engagement photos in Northern Virginia?",
         answer:
-          "Golden hour in spring and fall is hard to beat in the DMV — the light is warm and the crowds thin out in the evening. That said, every season has something going for it. I'll help you pick a location and time that works for the look you want.",
+          "Golden hour in spring and fall is hard to beat in the DMV. The light is warm and the crowds thin out in the evening. That said, every season has something going for it. I'll help you pick a location and time that works for the look you want.",
       },
       {
         question:
           "Is an engagement session included with wedding packages?",
         answer:
-          "Yes — engagement sessions are included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) wedding packages. It's a great way for us to get comfortable working together before the big day.",
+          "Yes. Engagement sessions are included with the Silver ($2,800), Premium ($3,200), and Platinum ($3,600) wedding packages. It's a good way for us to get comfortable working together before the big day.",
       },
     ],
   },
@@ -233,15 +229,16 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "maternity",
+    noun: "Maternity Session",
     umbrella: "family-life",
     title: "Maternity",
-    tagline: "Soft, patient, and yours to keep.",
+    tagline: "Relaxed sessions, paced around how you feel.",
     description:
       "Outdoor or studio maternity sessions planned around your comfort.",
     intro: [
       "Maternity sessions should feel peaceful, not performative. I plan around how you're actually feeling that week: comfortable locations, relaxed pacing, and as many breaks as you need. Partner and sibling shots are always included at no extra cost.",
       "I can help with wardrobe ideas, sourcing flowy dresses, and scouting locations with shade and easy access. The goal is photos that look like a quiet love letter to the three, four, or five of you.",
-      "The tiers below range from a gentle portrait session to a full styled experience — choose whichever matches how much of the story you want told.",
+      "The packages below range from a short portrait session to a full styled session. Choose the one that fits how much you want covered.",
     ],
     comboNote:
       "Planning ahead? Bundle your maternity session with a [Newborn & First Year package](/services/newborn) for a discounted rate. Throwing a baby shower or gender reveal too? Those live on the [Family Celebrations](/services/family-celebrations) page.",
@@ -307,46 +304,47 @@ export const services: ServiceCategory[] = [
         question:
           "When should I schedule my maternity session?",
         answer:
-          "Most moms book between 28 and 34 weeks, but there's no strict rule — we'll plan around how you're feeling. I keep the pacing relaxed with plenty of breaks, and I'm happy to reschedule if the timing shifts.",
+          "Most moms book between 28 and 34 weeks, but there's no strict rule. We'll plan around how you're feeling. I keep the pacing relaxed with plenty of breaks, and I'm happy to reschedule if the timing shifts.",
       },
       {
         question:
           "Can my partner and kids be in the maternity photos?",
         answer:
-          "Absolutely — partner and sibling shots are always included at no extra charge, no matter which package you choose. The more the merrier.",
+          "Yes. Partner and sibling shots are always included at no extra charge, no matter which package you choose. The more the merrier.",
       },
       {
         question:
           "Do you help with outfits and wardrobe for maternity sessions?",
         answer:
-          "Yes! The Premium and Signature packages include wardrobe guidance, and I can help source flowy dresses and suggest colors that photograph beautifully. I'll also scout locations with shade and easy access so you're comfortable the whole time.",
+          "Yes. The Premium and Signature packages include wardrobe guidance, and I can help source flowy dresses and suggest colors that photograph beautifully. I'll also scout locations with shade and easy access so you're comfortable the whole time.",
       },
       {
         question:
           "Can I bundle maternity and newborn sessions together?",
         answer:
-          "You can — and you'll get a discounted rate when you do. A lot of families book maternity plus the First Year Bundle so the whole arc from bump to first birthday is captured in one cohesive style.",
+          "Yes, and you'll get a discounted rate when you do. A lot of families book maternity plus the First Year Bundle, so everything from bump to first birthday is shot in one consistent style.",
       },
     ],
   },
   {
     slug: "newborn",
+    noun: "Newborn Session",
     umbrella: "family-life",
     title: "Newborn & First Year",
     tagline: "The tiny days, the big year.",
     description:
       "In-home newborn sessions and first-year milestone bundles across the DMV.",
     intro: [
-      "Newborn sessions are quiet, slow, and built entirely around the baby. I shoot in your home so the baby stays in their own space and you don't have to pack the world into a diaper bag — natural light, simple wraps, and plenty of feeding and snuggle breaks.",
-      "If you want to document more than just the first weeks, the First Year Bundle covers newborn, 6-month sitter session, and the 1-year cake-smash so you have a single cohesive set of photos at the end of year one — all edited in the same style so they look like a series, not three random shoots.",
-      "Sibling and parent shots are always welcome — pick the package that fits the chapter you're in.",
+      "Newborn sessions are quiet, slow, and built entirely around the baby. I shoot in your home so the baby stays in their own space and you don't have to pack the world into a diaper bag. I use natural light and simple wraps, and we take plenty of feeding and snuggle breaks.",
+      "If you want more than the first weeks, the First Year Bundle covers the newborn session, a 6-month sitter session and the 1-year cake-smash. All three are edited in the same style, so by the end of year one they look like a series, not three random shoots.",
+      "Sibling and parent shots are always welcome. Pick the package that fits where you are.",
     ],
     comboNote:
-      "Booked a [maternity session](/services/maternity) with me? You'll get a discounted rate on any newborn or first-year package — ask when you book. If you'd rather mark the 1st birthday with a full party instead of the cake-smash mini, [Family Celebrations](/services/family-celebrations) has documentary event coverage built for it.",
+      "Booked a [maternity session](/services/maternity) with me? You'll get a discounted rate on any newborn or first-year package. Ask when you book. If you'd rather mark the 1st birthday with a full party instead of the cake-smash mini, [Family Celebrations](/services/family-celebrations) has documentary event coverage built for it.",
     packages: [
       {
         name: "First Year Bundle",
-        tagline: "Three sessions across the first year — newborn, 6mo, 1yr",
+        tagline: "Three sessions across the first year: newborn, 6mo, 1yr",
         price: "$1,400",
         duration: "3 sessions",
         featured: true,
@@ -394,19 +392,19 @@ export const services: ServiceCategory[] = [
       { name: "Print package (10 × 5×7)", price: "$110" },
     ],
     pricingNote:
-      "First Year Bundle is interest-free over three payments — one at each session.",
+      "The First Year Bundle is interest-free over three payments, one at each session.",
     faqs: [
       {
         question:
           "How much does newborn photography cost in the DMV area?",
         answer:
-          "A standalone in-home newborn session is $525 for 2 hours. If you'd like to capture the whole first year, the First Year Bundle is $1,400 and includes three sessions — newborn, 6-month, and 1-year cake smash — with interest-free payments split across each session.",
+          "A standalone in-home newborn session is $525 for 2 hours. If you'd like to capture the whole first year, the First Year Bundle is $1,400 and includes three sessions (newborn, 6-month, and 1-year cake smash), with interest-free payments split across each session.",
       },
       {
         question:
           "Do you come to our home for newborn photos?",
         answer:
-          "Yes — all newborn sessions are in-home so your baby stays comfortable in their own space. I use natural light from your windows and bring simple wraps and props. No packing up the diaper bag required.",
+          "Yes. All newborn sessions are in-home so your baby stays comfortable in their own space. I use natural light from your windows and bring simple wraps and props. No packing up the diaper bag required.",
       },
       {
         question:
@@ -418,12 +416,13 @@ export const services: ServiceCategory[] = [
         question:
           "What is the First Year Bundle and how does the payment plan work?",
         answer:
-          "The First Year Bundle ($1,400) covers three sessions across your baby's first year: newborn, 6-month sitter, and 1-year cake smash. It's split into three interest-free payments — one at each session — so you're never paying for the whole thing up front.",
+          "The First Year Bundle ($1,400) covers three sessions across your baby's first year: newborn, 6-month sitter, and 1-year cake smash. It's split into three interest-free payments, one at each session, so you're never paying for the whole thing up front.",
       },
     ],
   },
   {
     slug: "family-portraits",
+    noun: "Family Session",
     umbrella: "family-life",
     title: "Family Portraits",
     tagline: "The people who make home feel like home.",
@@ -439,7 +438,7 @@ export const services: ServiceCategory[] = [
     packages: [
       {
         name: "Premium",
-        tagline: "Multiple looks, multiple locations, full sneak peek",
+        tagline: "Two outfits, up to two locations, and a sneak peek",
         price: "$625",
         duration: "90 minutes",
         inclusions: [
@@ -498,40 +497,41 @@ export const services: ServiceCategory[] = [
         question:
           "What should we wear for a family photo session?",
         answer:
-          "I'll help you coordinate outfits before the session — the goal is complementary colors and textures, not everyone in matching white shirts. I send a wardrobe guide after booking and I'm always happy to review outfit options over text.",
+          "I'll help you coordinate outfits before the session. The goal is complementary colors and textures, not everyone in matching white shirts. I send a wardrobe guide after booking and I'm always happy to review outfit options over text.",
       },
       {
         question:
           "Can you handle a large extended family group?",
         answer:
-          "Absolutely. The Premium package covers up to 15 people, and for groups larger than that I offer an extended family add-on for $100. I'll organize the group shots efficiently so nobody's standing around too long.",
+          "Yes. The Premium package covers up to 15 people, and for groups larger than that I offer an extended family add-on for $100. I'll organize the group shots efficiently so nobody's standing around too long.",
       },
       {
         question:
           "Do you offer holiday card photo sessions in the DC area?",
         answer:
-          "I do — any family session can double as your holiday card shoot. I also offer a $75 holiday card design add-on so you get a ready-to-print digital file along with your gallery.",
+          "Yes. Any family session can double as your holiday card shoot. I also offer a $75 holiday card design add-on so you get a ready-to-print digital file along with your gallery.",
       },
     ],
   },
   {
     slug: "family-celebrations",
+    noun: "Family Celebration",
     umbrella: "family-life",
     title: "Family Celebrations",
     tagline: "Birthdays, reunions, and the ones you'll want to remember.",
     description:
       "Documentary coverage for 1st birthdays, baby showers, gender reveals, reunions, and milestone family parties.",
     intro: [
-      "Family celebrations deserve the same documentary eye as a wedding. Whether it's a 1st birthday, a baby shower, a gender reveal, a backyard reunion, or a milestone you've been waiting years to celebrate together — I treat every family event like a mini wedding. Full coverage, gentle direction for the group shots, and the kind of candids that get sent around the family group chat for years.",
+      "I photograph family celebrations the way I photograph weddings. A 1st birthday, a baby shower, a gender reveal, a backyard reunion, or a milestone you've waited years to celebrate together: I treat each one like a mini wedding. That means full coverage, gentle direction for the group shots, and the candids that get sent around the family group chat for years.",
       "I'll arrive early enough to get the setup details (cake, decor, table settings) before guests show up, then shift into documentary mode as the party fills out. You get the stress-free version of the event: be present with your people, and I'll handle the rest.",
-      "Pick the length of coverage below that fits the gathering — from a focused two-hour celebration to a full day-of milestone.",
+      "Pick the length of coverage below that fits the gathering, from a two-hour party to a four-hour milestone.",
     ],
     comboNote:
       "Just want a posed family session instead of full event coverage? Head over to [Family Portraits](/services/family-portraits).",
     packages: [
       {
         name: "Milestone",
-        tagline: "The full day — for groups you rarely get in one place",
+        tagline: "Four hours, for groups you rarely get in one place",
         price: "$950",
         duration: "4 hours",
         inclusions: [
@@ -590,33 +590,34 @@ export const services: ServiceCategory[] = [
         question:
           "Do you photograph first birthday parties and baby showers?",
         answer:
-          "Yes — 1st birthdays, baby showers, gender reveals, and family reunions are exactly what this service is built for. I treat each one like a mini wedding: I arrive early to capture the setup details, then shift to documentary mode once guests arrive.",
+          "Yes. 1st birthdays, baby showers, gender reveals, and family reunions are exactly what this service is built for. I treat each one like a mini wedding: I arrive early to capture the setup details, then shift to documentary mode once guests arrive.",
       },
       {
         question:
           "Can we get same-day photos for social media?",
         answer:
-          "You can! Same-day social selects (up to 10 edited photos) are available as a $150 add-on so you can post while the party is still fresh in everyone's mind.",
+          "Yes. Same-day social selects (up to 10 edited photos) are available as a $150 add-on, so you can post while the party is still fresh in everyone's mind.",
       },
       {
         question:
           "What's the difference between family celebrations and family portraits?",
         answer:
-          "Family portraits are posed and candid sessions focused on your family — think annual photos or holiday cards. Family celebrations are documentary event coverage for parties and gatherings where I'm capturing the whole scene as it unfolds.",
+          "Family portraits are posed and candid sessions focused on your family, like annual photos or holiday cards. Family celebrations are documentary event coverage for parties and gatherings where I'm capturing the whole scene as it unfolds.",
       },
     ],
   },
   {
     slug: "cultural-milestones",
+    noun: "Cultural Milestone",
     umbrella: "family-life",
     title: "Cultural Milestones",
     tagline: "The day everyone's been waiting for.",
     description:
       "Quinceañeras, Sweet 16s, Bar/Bat Mitzvahs, and cultural milestone celebrations across the DMV.",
     intro: [
-      "Cultural milestones — Quinceañeras, Sweet 16s, Bar and Bat Mitzvahs, debuts — are once-in-a-lifetime celebrations that deserve once-in-a-lifetime photos. I cover the full arc: pre-event portrait session in the dress or suit, getting-ready moments, ceremony or church service, formal portraits, and the reception from first dance to the last sparkler.",
-      "I work bilingual-friendly (Spanish or English) and I'm comfortable with traditional ceremonies — the waltz, the changing of the shoes, the doll, the father-daughter dance, the candle-lighting. I'll coordinate with your planner, your church, and your DJ ahead of time so the day runs smoothly.",
-      "Pick the level of coverage that fits your celebration — from a standalone portrait session in the dress to full-day documentary coverage.",
+      "Quinceañeras, Sweet 16s, Bar and Bat Mitzvahs and debuts happen once. I cover all of it: a pre-event portrait session in the dress or suit, getting-ready moments, the ceremony or church service, formal portraits, and the reception from first dance to the last sparkler.",
+      "I work in Spanish or English, and I'm comfortable with traditional ceremonies: the waltz, the changing of the shoes, the doll, the father-daughter dance, the candle-lighting. I'll coordinate with your planner, your church, and your DJ ahead of time so the day runs smoothly.",
+      "Pick the level of coverage that fits your celebration, from a standalone portrait session in the dress to full-day documentary coverage.",
     ],
     packages: [
       {
@@ -684,31 +685,32 @@ export const services: ServiceCategory[] = [
         question:
           "Do you photograph Bar Mitzvahs and Sweet 16s in the DMV?",
         answer:
-          "I do — Bar and Bat Mitzvahs, Sweet 16s, debuts, and other cultural milestone celebrations are all covered. The same packages and pricing apply, and I'll coordinate with your planner, venue, and DJ ahead of time.",
+          "Yes. Bar and Bat Mitzvahs, Sweet 16s, debuts, and other cultural milestone celebrations are all covered. The same packages and pricing apply, and I'll coordinate with your planner, venue, and DJ ahead of time.",
       },
       {
         question:
           "Do you speak Spanish for quinceañera coordination?",
         answer:
-          "Yes — I'm bilingual (English and Spanish) and comfortable coordinating with families, planners, and church staff in either language. I'm also familiar with traditional ceremony elements like the waltz, the changing of the shoes, and the last doll.",
+          "Yes. I'm bilingual (English and Spanish) and comfortable coordinating with families, planners, and church staff in either language. I'm also familiar with traditional ceremony elements like the waltz, the changing of the shoes, and the last doll.",
       },
       {
         question:
           "Can I book just a portrait session in the dress without full event coverage?",
         answer:
-          "Absolutely. The Pre-Event Portraits package is $525 for a 90-minute session at 1-2 locations and includes solo and family portraits — no event coverage needed.",
+          "Yes. The Pre-Event Portraits package is $525 for a 90-minute session at 1-2 locations and includes solo and family portraits. No event coverage needed.",
       },
     ],
   },
   {
     slug: "pet",
+    noun: "Pet Session",
     umbrella: "family-life",
     title: "Pet Photography",
     tagline: "The four-legged member of the family deserves wall art too.",
     description:
       "In-home and outdoor pet portrait sessions across the DMV.",
     intro: [
-      "Pets are family — and pet sessions are some of my favorite shoots. I work at the pace of the animal, not the other way around: lots of treats, plenty of breaks, and a relaxed approach that gets you photos that actually look like your pet's personality, not a stiff studio pose.",
+      "Pets are family, and pet sessions are some of my favorite shoots. I work at the animal's pace, not the other way around. That means lots of treats, plenty of breaks, and photos that show your pet's personality instead of a stiff studio pose.",
       "Sessions work for in-home portraits (ideal for older dogs, cats, or shy pups), outdoor adventures (great for high-energy dogs), or as a family-with-pet add-on. I'll bring squeakers, treats, and patience.",
       "Pick the version below that fits where your pet is most themselves.",
     ],
@@ -746,7 +748,7 @@ export const services: ServiceCategory[] = [
         price: "$275",
         duration: "45 minutes",
         inclusions: [
-          "Your home — no travel for your pet",
+          "Your home, so no travel for your pet",
           "1 pet (additional pets +$50)",
           "30+ edited photos",
           "Online gallery with print release",
@@ -756,12 +758,12 @@ export const services: ServiceCategory[] = [
     addOns: [
       { name: "Additional pet", price: "$50" },
       { name: "Extra 30 minutes", price: "$100" },
-      { name: "Memorial session (older pet, gentle pacing)", price: "Included — just ask" },
+      { name: "Memorial session (older pet, gentle pacing)", price: "Included, just ask" },
       { name: "Print package (5 × 8×10)", price: "$85" },
       { name: "Custom framed canvas (16×20)", price: "$120" },
     ],
     pricingNote:
-      "Memorial sessions for senior pets are handled with extra care — reach out and we'll find a pace that works.",
+      "Memorial sessions for senior pets are handled with extra care. Reach out and we'll find a pace that works.",
     faqs: [
       {
         question:
@@ -773,19 +775,19 @@ export const services: ServiceCategory[] = [
         question:
           "Do you offer memorial sessions for senior or aging pets?",
         answer:
-          "I do, and there's no extra charge — memorial sessions are included at the same rate as any other pet session. I'll work at a gentle pace with extra patience and breaks so your pet stays comfortable the whole time.",
+          "Yes, at no extra charge. Memorial sessions are the same rate as any other pet session. I'll work at a gentle pace with extra patience and breaks so your pet stays comfortable the whole time.",
       },
       {
         question:
           "Can you photograph my cat or is this only for dogs?",
         answer:
-          "Cats, dogs, rabbits, horses — I'm game for all of them. In-home sessions work especially well for cats and shy pets since they're already in their comfort zone. I bring treats, squeakers, and plenty of patience.",
+          "I'm game for cats, dogs, rabbits and horses. In-home sessions work especially well for cats and shy pets since they're already in their comfort zone. I bring treats, squeakers, and plenty of patience.",
       },
       {
         question:
           "What if my dog won't sit still for photos?",
         answer:
-          "That's totally normal and honestly makes for the best photos. I work at the pace of the animal, not the other way around — lots of treats, breaks, and a relaxed approach. High-energy dogs do great with the Outdoor Adventure session where they can just be themselves.",
+          "That's normal, and honestly it makes for the best photos. I work at the animal's pace, with lots of treats and breaks. High-energy dogs do great with the Outdoor Adventure session where they can just be themselves.",
       },
     ],
   },
@@ -795,15 +797,16 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "portraiture",
+    noun: "Portrait Session",
     umbrella: "portraits-pro",
     title: "Portraiture",
     tagline: "Portraits that actually look like you.",
     description:
       "Individual sessions for creatives, professionals, and personal branding.",
     intro: [
-      "A good portrait isn't about a perfect pose — it's about looking like yourself on a really good day. I lean on guided direction and natural conversation to make the session feel like hanging out, not a performance.",
+      "A good portrait isn't about a perfect pose. It's about looking like yourself on a really good day. I lean on guided direction and natural conversation to make the session feel like hanging out, not a performance.",
       "Sessions work for personal branding, creative portfolios, anniversary gifts, artist headshots, dating-app refreshes, or just because you deserve a set of photos you actually love. Studio or outdoors, I'll help you plan wardrobe, location, and pacing before we shoot.",
-      "Pick the tier below that matches how much room you want to explore — every package includes a full print release.",
+      "Pick the package below that gives you the time you want. Every package includes a full print release.",
     ],
     packages: [
       {
@@ -866,33 +869,34 @@ export const services: ServiceCategory[] = [
         question:
           "What kinds of portraits do you shoot?",
         answer:
-          "A little bit of everything — personal branding, creative portfolios, artist headshots, dating app refreshes, anniversary gifts, or just a set of photos you actually love. Studio or outdoor, I'll help plan wardrobe and location before the session.",
+          "Personal branding, creative portfolios, artist headshots, dating app refreshes, anniversary gifts, or just a set of photos you actually love. Studio or outdoor, I'll help plan wardrobe and location before the session.",
       },
       {
         question:
-          "I'm not photogenic — will I feel awkward?",
+          "I'm not photogenic. Will I feel awkward?",
         answer:
-          "Most people say that, and most people are wrong. I use gentle posing direction and natural conversation to keep things relaxed — it should feel like hanging out, not performing. You'll look like yourself on a really good day.",
+          "Most people say that, and most people are wrong. I use gentle posing direction and natural conversation to keep things relaxed. It should feel like hanging out, not performing. You'll look like yourself on a really good day.",
       },
       {
         question:
           "Can I use the portraits for my business or personal brand?",
         answer:
-          "Yes — every portrait package includes a full print release, so you can use the images on your website, LinkedIn, social media, or anywhere else you need them.",
+          "Yes. Every portrait package includes a full print release, so you can use the images on your website, LinkedIn, social media, or anywhere else you need them.",
       },
     ],
   },
   {
     slug: "graduation",
+    noun: "Graduation Session",
     umbrella: "portraits-pro",
     title: "Graduation",
     tagline: "Caps off to everything you earned.",
     description:
-      "Solo, group, and family grad sessions across the DMV — permit handling included.",
+      "Solo, group, and family grad sessions across the DMV, with permit handling included.",
     intro: [
-      "Your graduation marks a once-in-a-lifetime milestone — cap, gown, proud smiles, and all the people who helped you get here.",
-      "My goal is to capture every bit of that excitement in vibrant, timeless portraits. I handle the planning, posing, and permits (as needed) so you can celebrate stress-free.",
-      "Solo, squad, or full-family — pick the version of graduation day you're celebrating below, with permit handling for the National Mall and monuments available whenever you need it.",
+      "Graduation is a big milestone: the cap, the gown, and the people who helped you get here.",
+      "I handle the planning, the posing and any permits you need, so you can enjoy the day.",
+      "Pick a solo, group or family session below. Permit handling for the National Mall and monuments is available whenever you need it.",
     ],
     packages: [
       {
@@ -970,7 +974,7 @@ export const services: ServiceCategory[] = [
       { name: "Extra hour of coverage", price: "$150" },
     ],
     pricingNote:
-      "Questions or unique ideas? I'm all ears — use the inquiry form or email me directly to start planning your perfect graduation session.",
+      "Have a question or an idea for the shoot? Use the inquiry form or email me directly and we'll start planning.",
     faqs: [
       {
         question:
@@ -982,33 +986,34 @@ export const services: ServiceCategory[] = [
         question:
           "Can you take graduation photos at the National Mall or monuments?",
         answer:
-          "Yes — the National Mall, Lincoln Memorial, and other monuments are popular spots for DC-area graduation sessions. I handle the permit process for you as a $150 add-on so you don't have to worry about the paperwork.",
+          "Yes. The National Mall, Lincoln Memorial, and other monuments are popular spots for DC-area graduation sessions. I handle the permit process for you as a $150 add-on so you don't have to worry about the paperwork.",
       },
       {
         question:
           "Do you offer group graduation sessions for friends?",
         answer:
-          "I do! The Study Group Session starts at $360 for two graduates and adds $60 per additional grad. Each person gets at least 5 individual portraits plus group shots — a great way to split the cost and celebrate together.",
+          "Yes. The Study Group Session starts at $360 for two graduates and adds $60 per additional grad. Each person gets at least 5 individual portraits plus group shots, and you split the cost.",
       },
       {
         question:
           "Can my family be in the graduation photos too?",
         answer:
-          "Absolutely. The Family Graduation Session ($325 for 60 minutes) is designed for exactly that — solo cap-and-gown portraits mixed with proud family shots. Extra family members are just $25 each beyond the base group of four.",
+          "Yes. The Family Graduation Session ($325 for 60 minutes) mixes solo cap-and-gown portraits with family shots. Extra family members are just $25 each beyond the base group of four.",
       },
     ],
   },
   {
     slug: "corporate-headshots",
+    noun: "Headshots",
     umbrella: "portraits-pro",
     title: "Corporate Headshots",
-    tagline: "Professional, polished, and actually flattering.",
+    tagline: "Headshots that look professional and still look like you.",
     description:
       "On-location or studio headshots for teams and individuals across the DMV.",
     intro: [
       "Corporate headshots don't have to look corporate. I light every subject carefully, coach posture and expression in real time, and deliver images that are LinkedIn-ready without looking like a template.",
-      "For teams, I match lighting, framing, and background across every person so your About page looks cohesive — no more mismatched crops from five different photographers over the years.",
-      "Whether it's one person or a full office, there's a tier below that fits — from quick solo sessions to full on-site half-days.",
+      "For teams, I match lighting, framing, and background across every person so your About page looks consistent, instead of mismatched crops from five different photographers over the years.",
+      "One person or a full office, there's a package below for it, from quick solo sessions to on-site half-days.",
     ],
     packages: [
       {
@@ -1084,7 +1089,7 @@ export const services: ServiceCategory[] = [
         question:
           "Can you come to our office for team headshots?",
         answer:
-          "Yes — the On-site Half-Day package ($1,200) covers up to 20 headshots at your office. I bring a full mobile lighting kit and backdrop so we can set up in a conference room or lobby and keep everyone's day moving.",
+          "Yes. The On-site Half-Day package ($1,200) covers up to 20 headshots at your office. I bring a full mobile lighting kit and backdrop so we can set up in a conference room or lobby and keep everyone's day moving.",
       },
       {
         question:
@@ -1096,7 +1101,7 @@ export const services: ServiceCategory[] = [
         question:
           "Will our team headshots look consistent and match?",
         answer:
-          "That's the whole point — I match lighting, framing, background, and editing across every team member so your About page finally looks cohesive instead of a patchwork of different photographers over the years.",
+          "Yes. I match lighting, framing, background, and editing across every team member, so your About page finally looks consistent instead of a patchwork of different photographers over the years.",
       },
     ],
   },
@@ -1106,15 +1111,16 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "corporate-community-events",
+    noun: "Event",
     umbrella: "brand-events",
     title: "Corporate & Community Events",
-    tagline: "Conferences, galas, receptions — covered.",
+    tagline: "Coverage for conferences, galas and receptions.",
     description:
       "Conferences, galas, receptions, and community events across the DMV.",
     intro: [
-      "Corporate and community events deserve the same documentary eye as weddings. I cover the keynote and the grip-and-grins, but I also seek out the unscripted moments — the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, residents catching up over a beer at the apartment happy hour.",
-      "From multi-day conferences, speaker panels, and nonprofit galas to balls, corporate receptions, social-club anniversary dinners, and Hill receptions, all the way to apartment-community happy hours, holiday parties, and pop-up markets — if it's a live event with people in a room, this is the right page. Same-day social-media selects are available on request so your marketing team can post while the event is just winding down, with full gallery delivery within a week.",
-      "Pick the length of coverage below that fits your program — from a focused half-day to multi-day conference runs.",
+      "I shoot corporate and community events the same way I shoot weddings. I cover the keynote and the grip-and-grins, but I also look for the unscripted moments: the sidebar conversations, the laugh during the Q&A, the engineer frantically fixing the demo backstage, residents catching up over a beer at the apartment happy hour.",
+      "This page covers multi-day conferences, speaker panels, nonprofit galas, balls, corporate receptions, social-club anniversary dinners, Hill receptions, apartment-community happy hours, holiday parties, and pop-up markets. If it's a live event with people in a room, it belongs here. Same-day social-media selects are available on request so your marketing team can post while the event is winding down, and the full gallery arrives within a week.",
+      "Pick the length of coverage below that fits your program, from a half-day to a multi-day conference.",
     ],
     packages: [
       {
@@ -1178,7 +1184,7 @@ export const services: ServiceCategory[] = [
     comboNote:
       "Booking a live music show, a band's set, or a stage performance instead? That coverage lives on the [Concerts & Performances page](/services/concerts-performances).",
     pricingNote:
-      "Recurring schedules — monthly community events, quarterly conferences — get a discounted rate. Need video alongside stills? I've started taking on select video projects — ask about combined coverage.",
+      "Recurring schedules, like monthly community events or quarterly conferences, get a discounted rate. Need video alongside stills? I've started taking on select video projects, so ask about combined coverage.",
     faqs: [
       {
         question:
@@ -1190,40 +1196,41 @@ export const services: ServiceCategory[] = [
         question:
           "Do you photograph corporate conferences and galas in DC?",
         answer:
-          "Yes — conferences, galas, receptions, nonprofit events, and Hill receptions are all in my wheelhouse. I cover keynotes, panels, candid networking moments, and formal posed shots with the same documentary approach.",
+          "Yes. I cover conferences, galas, receptions, nonprofit events, and Hill receptions. I cover keynotes, panels, candid networking moments, and formal posed shots with the same documentary approach.",
       },
       {
         question:
           "Can we get same-day photos for social media during the event?",
         answer:
-          "Absolutely. Same-day social selects are included with most packages — up to 20 edited images for full-day coverage. Your marketing team can start posting while the event is still winding down.",
+          "Yes. Same-day social selects are included with most packages, up to 20 edited images for full-day coverage. Your marketing team can start posting while the event is still winding down.",
       },
       {
         question:
           "Do you offer discounts for recurring events?",
         answer:
-          "I do — recurring schedules like monthly community events, quarterly conferences, or regular apartment happy hours get a discounted rate. Reach out and I'll put together a retainer that makes sense for your calendar.",
+          "Yes. Recurring schedules like monthly community events, quarterly conferences, or regular apartment happy hours get a discounted rate. Reach out and I'll put together a retainer that makes sense for your calendar.",
       },
     ],
   },
   {
     slug: "concerts-performances",
+    noun: "Performance",
     umbrella: "brand-events",
     title: "Concerts & Performances",
-    tagline: "Stage lights, sweat, and the song you didn't want to end.",
+    tagline: "Live shows, from the openers to the last song.",
     description:
       "Live concerts, band sets, recitals, and stage performances across the DMV.",
     intro: [
-      "Concert and performance photography is its own discipline — fast-changing light, unpredictable movement, and a single chance to catch the moment the crowd loses it. I shoot the headliner and the openers, the soundcheck and the load-out, the front-row faces and the bassist's grin three songs in.",
-      "Whether you're a touring artist passing through DC, a local band playing your album release, a venue building a year-end recap, or an organizer documenting a recital, showcase, or stage performance — I'll work with your stage manager and lighting crew so I'm never in the way of the show. Same-day social selects are available so your team can post while people are still talking about the set.",
-      "Pick the package below that fits the run of the show — single set, full bill, or multi-night residency.",
+      "Concert and performance photography is its own discipline. The light changes fast, people move unpredictably, and you get one chance at the moment the crowd loses it. I shoot the headliner and the openers, the soundcheck and the load-out, the front-row faces and the bassist's grin three songs in.",
+      "You might be a touring artist passing through DC, a local band playing your album release, a venue building a year-end recap, or an organizer documenting a recital, showcase, or stage performance. Whichever it is, I'll work with your stage manager and lighting crew so I'm never in the way of the show. Same-day social selects are available so your team can post while people are still talking about the set.",
+      "Pick the package below that fits the run of the show: a single set, a full bill, or a multi-night residency.",
     ],
     comboNote:
       "Coverage for the brand or venue side of the night (sponsor activations, lobby photo wall, VIP meet-and-greet posed shots) lives on the [Brand & Commercial Content](/services/brand-commercial) page. If your event is more reception or gala than concert, [Corporate & Community Events](/services/corporate-community-events) is the right fit.",
     packages: [
       {
         name: "Multi-Night Residency",
-        tagline: "Multi-night runs, festivals, and full tours stops",
+        tagline: "Multi-night runs, festivals, and full tour stops",
         price: "Custom quote",
         inclusions: [
           "Dedicated photographer across the run",
@@ -1281,7 +1288,7 @@ export const services: ServiceCategory[] = [
       { name: "Vertical reels / BTS clips", price: "$200" },
     ],
     pricingNote:
-      "Press credentials and venue clearance are the artist's or venue's responsibility — I'm happy to coordinate directly with your tour manager or venue contact ahead of the show.",
+      "Press credentials and venue clearance are the artist's or venue's responsibility. I'm happy to coordinate directly with your tour manager or venue contact ahead of the show.",
     faqs: [
       {
         question:
@@ -1293,33 +1300,34 @@ export const services: ServiceCategory[] = [
         question:
           "Do you respect the 3-song rule at concerts?",
         answer:
-          "Always. I work within whatever access the venue or artist grants — whether that's the standard 3-song rule from the pit or full-set access. I'll coordinate with your tour manager or venue contact ahead of time.",
+          "Yes, always. I work within whatever access the venue or artist grants, whether that's the standard 3-song rule from the pit or full-set access. I'll coordinate with your tour manager or venue contact ahead of time.",
       },
       {
         question:
           "Can you deliver photos the same night for social media?",
         answer:
-          "Yes — same-day social selects are available with most packages, so your team can post while people are still talking about the show. Full galleries are delivered within a week.",
+          "Yes. Same-day social selects are available with most packages, so your team can post while people are still talking about the show. Full galleries are delivered within a week.",
       },
       {
         question:
           "Do you photograph school recitals and dance showcases too?",
         answer:
-          "I do. The Recital / Showcase package ($425 for 2 hours) covers the full performance plus posed group and cast shots afterward. It works great for dance recitals, school concerts, and theater showcases.",
+          "Yes. The Recital / Showcase package ($425 for 2 hours) covers the full performance plus posed group and cast shots afterward. It works well for dance recitals, school concerts, and theater showcases.",
       },
     ],
   },
   {
     slug: "brand-commercial",
+    noun: "Brand Shoot",
     umbrella: "brand-events",
     title: "Brand & Commercial Content",
     tagline: "Photography for studios, small businesses, and brand campaigns.",
     description:
       "Class shoots, instructor portraits, product, and lifestyle marketing content across the DMV.",
     intro: [
-      "If your business needs a steady stream of photos that actually look like your space, your people, and your vibe — that's what this category is for. I've shot fitness and yoga classes for promo, instructor portraits, product flatlays, and lifestyle marketing content for small DMV brands.",
-      "Every shoot is built around how you'll actually use the photos: social posts, web hero images, flyers, leasing decks, instructor headshots, recap reels, product listings — whatever the channel calls for. I'll plan a shot list with you ahead of time so we get the social-ready selects fast and the full gallery shortly after.",
-      "Pick the package below that fits the scope of your campaign — and reach out if you're running an ongoing series, since recurring schedules get a discounted rate.",
+      "This is for businesses that need a steady supply of photos of their own space and their own people. I've shot fitness and yoga classes for promo, instructor portraits, product flatlays, and lifestyle marketing content for small DMV brands.",
+      "Every shoot is built around how you'll actually use the photos: social posts, web hero images, flyers, leasing decks, instructor headshots, recap reels, or product listings. I'll plan a shot list with you ahead of time so we get the social-ready selects fast and the full gallery shortly after.",
+      "Pick the package below that fits the scope of your campaign. If you're running an ongoing series, reach out: recurring schedules get a discounted rate.",
     ],
     comboNote:
       "Hosting a live event for the brand (class showcase, launch party, resident happy hour)? Those live on the [Corporate & Community Events page](/services/corporate-community-events).",
@@ -1386,7 +1394,7 @@ export const services: ServiceCategory[] = [
       { name: "Additional product SKUs (per 5)", price: "$75" },
     ],
     pricingNote:
-      "Recurring schedules — monthly classes, quarterly product drops — get a discounted rate. Ask about a retainer.",
+      "Recurring schedules, like monthly classes or quarterly product drops, get a discounted rate. Ask about a retainer.",
     faqs: [
       {
         question:
@@ -1398,33 +1406,34 @@ export const services: ServiceCategory[] = [
         question:
           "Do you photograph fitness classes and yoga studios?",
         answer:
-          "I do — class and workshop shoots are one of my favorite brand sessions. The Class/Workshop package ($450 for 90 minutes) covers in-class action, instructor portraits, and studio interior shots, all with commercial usage rights included.",
+          "Yes. Class and workshop shoots are some of my favorite brand sessions. The Class/Workshop package ($450 for 90 minutes) covers in-class action, instructor portraits, and studio interior shots, all with commercial usage rights included.",
       },
       {
         question:
           "Are commercial usage rights included in the price?",
         answer:
-          "Yes — commercial usage rights are included with every brand and commercial package. You can use the images on your website, social media, ads, flyers, and any other marketing materials without additional licensing fees.",
+          "Yes. Commercial usage rights are included with every brand and commercial package. You can use the images on your website, social media, ads, flyers, and any other marketing materials without additional licensing fees.",
       },
       {
         question:
           "Do you offer discounted rates for recurring brand content?",
         answer:
-          "I do. If you're running a regular schedule — monthly class shoots, quarterly product drops, seasonal campaigns — I'll set up a retainer at a discounted per-session rate. Reach out and we'll find a rhythm that works.",
+          "Yes. If you're running a regular schedule, like monthly class shoots, quarterly product drops, or seasonal campaigns, I'll set up a retainer at a discounted per-session rate. Reach out and we'll find a rhythm that works.",
       },
     ],
   },
   {
     slug: "real-estate",
+    noun: "Real Estate Shoot",
     umbrella: "brand-events",
     title: "Real Estate & Airbnb",
     tagline: "Listing photos that actually move properties.",
     description:
       "Listing photography for agents, property managers, and short-term rental hosts across the DMV.",
     intro: [
-      "Listing photos sell the property before anyone walks through the door. I shoot wide, level, and bright — clean verticals, careful exposure blending, and natural light that makes every room look like the version buyers and renters want to imagine themselves in.",
+      "Listing photos sell the property before anyone walks through the door. I shoot wide, level, and bright, with clean verticals, careful exposure blending, and natural light, so every room looks like a place buyers and renters can picture themselves in.",
       "I work with realtors on single listings and bulk turnarounds, and with Airbnb / short-term-rental hosts who need a refresh every season or after a renovation. Twilight exterior shots are available as an add-on for the listings that need a marquee hero image.",
-      "Pick the tier below that fits the property — and ask about discounted rates for agents who need a steady weekly cadence.",
+      "Pick the package below that fits the property. Agents who need a steady weekly schedule can ask about discounted rates.",
     ],
     packages: [
       {
@@ -1509,13 +1518,13 @@ export const services: ServiceCategory[] = [
         question:
           "Do you offer drone photography for listings?",
         answer:
-          "Yes — drone aerial shots are available as a $200 add-on for any listing package. Drone flights are weather- and FAA-permitting, but I'll work with your schedule to get them done as close to the interior shoot as possible.",
+          "Yes. Drone aerial shots are available as a $200 add-on for any listing package. Drone flights are weather- and FAA-permitting, but I'll work with your schedule to get them done as close to the interior shoot as possible.",
       },
       {
         question:
           "Do you photograph Airbnb and short-term rental properties?",
         answer:
-          "I do. The Airbnb Refresh package ($275) is built for short-term rental hosts who need seasonal or post-renovation updates. It includes lifestyle vignettes — coffee setups, towel arrangements, table settings — optimized for Airbnb and VRBO listings.",
+          "I do. The Airbnb Refresh package ($275) is built for short-term rental hosts who need seasonal or post-renovation updates. It includes lifestyle vignettes (coffee setups, towel arrangements, table settings) optimized for Airbnb and VRBO listings.",
       },
     ],
   },
@@ -1525,6 +1534,7 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "modeling",
+    noun: "Modeling Session",
     umbrella: "portraits-pro",
     title: "Modeling",
     hidden: true,
@@ -1533,8 +1543,8 @@ export const services: ServiceCategory[] = [
       "Digitals, test shoots, and editorial work for working and aspiring models.",
     intro: [
       "Whether you're building your first book, updating digitals for your agency, or developing a creative concept for tear sheets, I love collaborating with models and creative teams to make something that actually stands out.",
-      "I'm happy to help coordinate hair, makeup, and styling referrals in the DMV — or work with your existing team. Every session starts with a quick concept call so we show up on the same page.",
-      "From fast-turnaround digitals to full editorial stories, the tiers below cover the full range — scroll down to find the one that matches where your book is headed.",
+      "I'm happy to help coordinate hair, makeup, and styling referrals in the DMV, or work with your existing team. Every session starts with a quick concept call so we show up on the same page.",
+      "The packages below run from fast-turnaround digitals to full editorial stories. Pick the one that fits where your book is headed.",
     ],
     packages: [
       {
@@ -1585,7 +1595,7 @@ export const services: ServiceCategory[] = [
       { name: "Studio rental", price: "$150" },
     ],
     pricingNote:
-      "Agencies and creative teams — reach out for multi-model day rates and recurring test-shoot programs.",
+      "Agencies and creative teams: reach out for multi-model day rates and recurring test-shoot programs.",
     faqs: [
       {
         question:
@@ -1597,13 +1607,13 @@ export const services: ServiceCategory[] = [
         question:
           "Do you shoot agency digitals for model submissions?",
         answer:
-          "I do. The Digitals package ($250 for 45 minutes) delivers clean, unretouched frames — full-length, 3/4, and headshot — on a neutral background with 24-hour turnaround. Agency-ready formats included.",
+          "I do. The Digitals package ($250 for 45 minutes) delivers clean, unretouched frames (full-length, 3/4, and headshot) on a neutral background with 24-hour turnaround. Agency-ready formats included.",
       },
       {
         question:
           "Can you help coordinate hair, makeup, and styling for a shoot?",
         answer:
-          "Absolutely. I have HMUA referrals in the DMV area and I'm happy to coordinate with your existing team. Every session starts with a concept call so we're on the same page before anyone shows up on set.",
+          "Yes. I have HMUA referrals in the DMV area and I'm happy to coordinate with your existing team. Every session starts with a concept call so we're on the same page before anyone shows up on set.",
       },
     ],
   },
@@ -1612,18 +1622,19 @@ export const services: ServiceCategory[] = [
   // ==========================================================================
   {
     slug: "wedding-films",
+    noun: "Wedding Film",
     umbrella: "weddings-couples",
     title: "Wedding Films",
     tagline: "Wedding films, told the way you'd tell the story yourself.",
     description:
-      "Wedding film coverage across the DMV — hybrid with photo or as a standalone production. Each booking configures around your priorities: photo-led with a partner videographer, video-led with a partner photographer, or solo coverage at lighter scopes.",
+      "Wedding film coverage across the DMV, either alongside photo or as a standalone production. Each booking is set up around your priorities: photo-led with a partner videographer, video-led with a partner photographer, or solo coverage at lighter scopes.",
     intro: [
-      "A photo album captures the day. A wedding film captures how it felt. Photo is what I shoot most weekends, but for couples who want both — or who want video to be the centerpiece — I lead a small crew that produces cinematic, story-driven films alongside the photo work.",
-      "Each booking, my crew configures around your priorities. If photo is the centerpiece of your day, I lead the photo side and bring a partner videographer to cover the film work. If video matters more — say, for a culturally significant ceremony, an out-of-town family member who can't attend, or a couple who values motion over stills — I'll lead the video team and bring a partner photographer. Same quality either way, single point of contact for both.",
+      "A photo album captures the day. A wedding film captures how it felt. Photo is what I shoot most weekends. For couples who want both, or who want video to be the centerpiece, I lead a small crew that produces cinematic, story-driven films alongside the photo work.",
+      "For each booking, I set up the crew around your priorities. If photo is the centerpiece of your day, I lead the photo side and bring a partner videographer to cover the film work. If video matters more (say, for a culturally significant ceremony, an out-of-town family member who can't attend, or a couple who values motion over stills), I'll lead the video team and bring a partner photographer. Same quality either way, single point of contact for both.",
       "Solo tiers are detailed first for couples who want only video coverage from me, or who want a single shooter who can switch into photography after the ceremony to keep the day-of cost down. Hybrid tiers are detailed below that.",
     ],
     comboNote:
-      "Already have a photo package booked? Reach out and we'll talk through which video tier slots in — see the [Weddings](/services/weddings) page for photo tier inclusions. Hybrid bookings get a single contract and a single point of contact.",
+      "Already have a photo package booked? Reach out and we'll talk through which video tier fits. See the [Weddings](/services/weddings) page for photo tier inclusions. Hybrid bookings get a single contract and a single point of contact.",
     packages: [
       // Hybrid tiers — Julian + partner crew. Lead role decided on the
       // consult call based on which craft is more central to the day.
@@ -1661,7 +1672,7 @@ export const services: ServiceCategory[] = [
       },
       {
         name: "Cinematic",
-        tagline: "The full feature — two videographers, multi-cam coverage of every key moment",
+        tagline: "The full feature: two videographers and multi-cam coverage of every key moment",
         price: "+$6,000 added to your photo package",
         duration: "Full day + extended pre-event",
         group: "Hybrid Photo + Video",
@@ -1693,7 +1704,7 @@ export const services: ServiceCategory[] = [
           "Custom production scoped to your day",
           "Extended interview work available",
           "Multi-event coverage (rehearsal dinner, day-after brunch) available",
-          "Travel-heavy weddings — domestic and international",
+          "Travel-heavy weddings, domestic and international",
           "Reach out for a quote",
         ],
       },
@@ -1721,7 +1732,7 @@ export const services: ServiceCategory[] = [
         group: "Solo",
         crewSize: "Solo",
         honestyNote:
-          "The first 10–15 minutes after the recessional are gear-switch time — breaking down audio recorders, lav mics, and camera tripods, then reconfiguring to photo bodies. Immediately-post-ceremony candids will be limited. From cocktail hour onward, full photo coverage. If you want zero coverage gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
+          "The first 10–15 minutes after the recessional are gear-switch time. I break down audio recorders, lav mics, and camera tripods, then switch to photo bodies. Immediately-post-ceremony candids will be limited. From cocktail hour onward, full photo coverage. If you want zero coverage gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
         inclusions: [
           "Photo gallery (matches Essentials photo package)",
           "3–5 minute ceremony highlight",
@@ -1788,7 +1799,7 @@ export const services: ServiceCategory[] = [
       {
         question: "Why do you offer this if you're primarily a photographer?",
         answer:
-          "Couples regularly ask for both, and the alternative — recommending two separate vendors — adds coordination work to a planning process that's already heavy. Hybrid coverage with a single point of contact is genuinely simpler.",
+          "Couples regularly ask for both. The alternative is two separate vendors, which adds coordination work to a planning process that's already heavy. Hybrid coverage with a single point of contact is simpler.",
       },
       {
         question: "How do you decide who leads photo vs. video?",
@@ -1798,22 +1809,22 @@ export const services: ServiceCategory[] = [
       {
         question: "Why is the multi-cam ceremony cut listed as 30–60 minutes?",
         answer:
-          "Because ceremonies vary. A short courthouse-style ceremony might land closer to 30 minutes. A full Mass with Communion, multilingual readings, or extended cultural elements can run an hour or more. The cut covers what the ceremony actually was — start to finish, multi-cam.",
+          "Because ceremonies vary. A short courthouse-style ceremony might land closer to 30 minutes. A full Mass with Communion, multilingual readings, or extended cultural elements can run an hour or more. The cut covers what the ceremony actually was, start to finish, multi-cam.",
       },
       {
         question: "Why is there a coverage gap in the Solo Hybrid tier?",
         answer:
-          "Because I'm switching gear bags between ceremony and reception — breaking down audio recorders, lav mics, and camera tripods, and reconfiguring to photo bodies. Usually 10–15 minutes. If you want zero gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
+          "Because I'm switching gear bags between ceremony and reception. I break down audio recorders, lav mics, and camera tripods, then set up the photo bodies. It usually takes 10–15 minutes. If you want zero gap, the Documentary or Story Film hybrid tiers (with a partner videographer covering the transition) are the better fit.",
       },
       {
         question: "Can I add video to my existing photo booking?",
         answer:
-          "Yes — reach out and we'll talk through which video tier slots into your existing package.",
+          "Yes. Reach out and we'll talk through which video tier fits your existing package.",
       },
       {
         question: "Who edits my video?",
         answer:
-          "I do the initial cut — culling, syncing, organizing footage, assembling a rough timeline. A partner editor polishes from there: color, grade, audio mix, music sync. Two rounds of revisions are included; additional rounds are $250 each.",
+          "I do the initial cut: culling, syncing, organizing footage, and assembling a rough timeline. A partner editor polishes from there with color, grade, audio mix, and music sync. Two rounds of revisions are included; additional rounds are $250 each.",
       },
       {
         question: "What's the turnaround on the final video?",
@@ -1828,22 +1839,15 @@ export const services: ServiceCategory[] = [
       {
         question: "What if I want a tier between Story Film and Cinematic?",
         answer:
-          "Custom quotes are available — reach out and we'll talk through what would slot in. Most often this means Story Film with one or two Cinematic-tier add-ons (drone, social teaser, bridal party interviews) layered on top.",
+          "I can put together a custom quote. Reach out and we'll talk through what would fit. Most often this means Story Film with one or two Cinematic-tier add-ons (drone, social teaser, bridal party interviews) layered on top.",
       },
     ],
   },
 ];
 
-// Slug → catalog display title (e.g. "wedding-films" → "Wedding Films"), used
-// wherever the service is shown to a client or admin so it never appears as a
-// raw slug or dash-split. Falls back to title-casing an unknown slug.
+// Slug → catalog display title (e.g. "wedding-films" → "Wedding Films").
+// Falls back to title-casing an unknown slug.
 export function serviceTitle(slug?: string): string | undefined {
   if (!slug) return undefined;
-  return (
-    services.find((s) => s.slug === slug)?.title ||
-    slug
-      .split("-")
-      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
-      .join(" ")
-  );
+  return services.find((s) => s.slug === slug)?.title || titleCaseSlug(slug);
 }

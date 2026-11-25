@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // AI journal post drafting (/api/admin/draft-journal). The owner gives a topic
 // and gets a draft (title, excerpt, body, tags) to refine and publish in Studio
@@ -11,16 +11,6 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 // after that depends on the environment: 200 (no key → `drafted: false`, or a
 // reachable provider → `drafted: true`) or 502 (key set but provider unreachable).
 
-async function signInAsAdmin(request: APIRequestContext, ip: string) {
-  const res = await request.post("/api/admin/request-link", {
-    headers: { "x-forwarded-for": ip },
-    data: { email: "admin@example.com", hp_company: "" },
-  });
-  const json = await res.json();
-  expect(json.devLink).toBeTruthy();
-  await request.get(json.devLink);
-}
-
 test("draft-journal: rejects an unauthenticated request", async ({ request }) => {
   const res = await request.post("/api/admin/draft-journal", {
     headers: { "x-forwarded-for": "10.99.14.1" },
@@ -29,10 +19,7 @@ test("draft-journal: rejects an unauthenticated request", async ({ request }) =>
   expect(res.status()).toBe(401);
 });
 
-test("draft-journal: rejects a malformed body when authenticated", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.14.2");
+test("draft-journal: rejects a malformed body when authenticated", async ({ adminRequest: request }) => {
   // Missing topic — a schema violation (400), proving the session was accepted.
   const res = await request.post("/api/admin/draft-journal", {
     data: { postType: "Educational / tips" },
@@ -40,10 +27,7 @@ test("draft-journal: rejects a malformed body when authenticated", async ({
   expect(res.status()).toBe(400);
 });
 
-test("draft-journal: a well-formed authed request passes the auth + schema guards", async ({
-  request,
-}) => {
-  await signInAsAdmin(request, "10.99.14.3");
+test("draft-journal: a well-formed authed request passes the auth + schema guards", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/draft-journal", {
     data: {
       topic: "5 tips for a relaxed engagement session in the DMV",

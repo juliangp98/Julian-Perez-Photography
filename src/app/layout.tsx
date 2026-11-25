@@ -24,7 +24,7 @@ const playfair = Playfair_Display({
 
 const SITE_URL = "https://julianperezphotography.com";
 const DEFAULT_DESCRIPTION =
-  "Julian Perez Photography — DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, concert, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
+  "Julian Perez Photography: DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, concert, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
 
 // `generateMetadata` is async so Julian-edited values in Studio (site
 // name, etc.) flow through without a redeploy. The keyword list,

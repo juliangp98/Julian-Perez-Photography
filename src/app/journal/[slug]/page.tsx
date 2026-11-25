@@ -140,13 +140,13 @@ export default async function JournalPostPage({
       <SubNav items={ABOUT_TABS} />
 
       <header className="mt-6">
-        <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+        <div className="text-xs uppercase tracking-[0.18em] text-accent">
           {formatDate(post.publishedAt)}
         </div>
         <h1 className="mt-3 font-serif text-4xl md:text-5xl leading-[1.1]">
           {post.title}
         </h1>
-        <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
+        <p className="mt-4 text-lg text-muted leading-relaxed">
           {post.excerpt}
         </p>
       </header>
@@ -165,7 +165,7 @@ export default async function JournalPostPage({
             className="w-full h-auto lg:rounded-lg"
           />
           {cover.alt && (
-            <figcaption className="mt-3 text-xs text-[var(--muted)] text-center px-6">
+            <figcaption className="mt-3 text-xs text-muted text-center px-6">
               {cover.alt}
             </figcaption>
           )}
@@ -177,15 +177,15 @@ export default async function JournalPostPage({
       </div>
 
       {post.tags && post.tags.length > 0 && (
-        <div className="mt-12 pt-6 border-t border-[var(--border)]">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)] mb-3">
+        <div className="mt-12 pt-6 border-t border-border">
+          <div className="text-xs uppercase tracking-[0.18em] text-muted mb-3">
             Tagged
           </div>
           <div className="flex flex-wrap gap-2">
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs tracking-wide text-[var(--muted)] border border-[var(--border)] rounded-full px-3 py-1"
+                className="text-xs tracking-wide text-muted border border-border rounded-full px-3 py-1"
               >
                 {tag}
               </span>
@@ -195,12 +195,12 @@ export default async function JournalPostPage({
       )}
 
       {related.length > 0 && (
-        <section className="mt-16 pt-10 border-t border-[var(--border)]">
+        <section className="mt-16 pt-10 border-t border-border">
           <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
             <h2 className="font-serif text-2xl">More stories</h2>
             <Link
               href="/journal"
-              className="text-xs uppercase tracking-[0.18em] text-[var(--muted)] hover:text-[var(--foreground)]"
+              className="text-xs uppercase tracking-[0.18em] text-muted hover:text-foreground"
             >
               All posts →
             </Link>
@@ -216,7 +216,7 @@ export default async function JournalPostPage({
                   href={`/journal/${r.slug}`}
                   className="group block"
                 >
-                  <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
+                  <div className="aspect-[4/5] overflow-hidden rounded-lg border border-border group-hover:border-foreground transition bg-border/40">
                     {rCover.asset?.url && (
                       <SafeImage
                         src={urlFor(rCover)
@@ -235,10 +235,10 @@ export default async function JournalPostPage({
                       />
                     )}
                   </div>
-                  <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
+                  <div className="mt-3 text-[10px] uppercase tracking-[0.18em] text-accent">
                     {formatDate(r.publishedAt)}
                   </div>
-                  <h3 className="mt-1 font-serif text-lg leading-tight group-hover:text-[var(--accent)] transition">
+                  <h3 className="mt-1 font-serif text-lg leading-tight group-hover:text-accent transition">
                     {r.title}
                   </h3>
                 </Link>

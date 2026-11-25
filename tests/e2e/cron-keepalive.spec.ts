@@ -1,40 +1,93 @@
-import { test, expect } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
+import { test, expect, hasTestStore, type FakeCall } from "./support/fixtures";
 
-// Supabase free-tier keep-alive cron. A daily Vercel Cron hits
-// /api/cron/keepalive, which runs one trivial count against the client store so
-// Postgres never goes idle long enough to auto-pause. The route is guarded by
-// CRON_SECRET (Vercel attaches it as a bearer on scheduled runs). The test
-// server sets CRON_SECRET to a known value and blanks the Supabase store, so
-// the happy path returns the "store-unconfigured" skip rather than touching a
-// real database — enough to prove the guard and wiring.
+// The daily cron (/api/cron/keepalive): one query against the client store so
+// the Supabase free tier never pauses, a delivery check for thread messages,
+// and a fresh pick of AI models from the provider's catalogue. Guarded by
+// CRON_SECRET, which Vercel sends as a bearer. The model checks run against the
+// fake catalogue and need the test store, where the choice is kept.
 
 const SECRET = "e2e-cron-secret";
+const OWNER = "owner@example.com"; // INQUIRY_TO in playwright.config.ts
 
-test("keepalive: rejects a request without the cron secret", async ({
-  request,
-}) => {
+const runCron = async (request: APIRequestContext) => {
+  const res = await request.get("/api/cron/keepalive", {
+    headers: { authorization: `Bearer ${SECRET}` },
+  });
+  expect(res.status()).toBe(200);
+  return res.json();
+};
+
+const ownerNotices = (calls: FakeCall[], subject: RegExp) =>
+  calls.filter(
+    (c) => c.path === "/emails" && [c.body?.to].flat().includes(OWNER) && subject.test(String(c.body?.subject)),
+  );
+
+test("keepalive: rejects a request without the cron secret", async ({ request }) => {
   const res = await request.get("/api/cron/keepalive");
   expect(res.status()).toBe(401);
 });
 
-test("keepalive: rejects a request with the wrong cron secret", async ({
-  request,
-}) => {
+test("keepalive: rejects a request with the wrong cron secret", async ({ request }) => {
   const res = await request.get("/api/cron/keepalive", {
     headers: { authorization: "Bearer not-the-secret" },
   });
   expect(res.status()).toBe(401);
 });
 
-test("keepalive: accepts a request carrying the cron secret", async ({
-  request,
-}) => {
-  const res = await request.get("/api/cron/keepalive", {
-    headers: { authorization: `Bearer ${SECRET}` },
+test("keepalive: without a store there's nothing to keep alive", async ({ request }) => {
+  test.skip(hasTestStore, "the test store is configured");
+  const json = await runCron(request);
+  expect(json).toMatchObject({ ok: true, skipped: "store-unconfigured" });
+});
+
+test.describe("the daily run against the test store", () => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+
+  test("pings the store and picks the preferred served model", async ({ request }) => {
+    const json = await runCron(request);
+    expect(json.ok).toBe(true);
+    expect(typeof json.count).toBe("number");
+    expect(typeof json.settled).toBe("number");
+    expect(json.models).toBe("openai/gpt-oss-120b");
   });
-  expect(res.status()).toBe(200);
-  const json = await res.json();
-  expect(json.ok).toBe(true);
-  // Store is blanked in the test env, so the ping short-circuits.
-  expect(json.skipped).toBe("store-unconfigured");
+
+  test("when the main model's family is retired, another family takes over and the owner hears once", async ({
+    request,
+    fakes,
+  }) => {
+    await runCron(request); // start from the default catalogue's choice
+    await fakes.script({
+      models: [
+        { id: "qwen/qwen3-32b", context_window: 131072, active: true },
+        { id: "llama-3.1-8b-instant", context_window: 131072, active: true },
+        { id: "qwen/qwen3.6-27b", context_window: 131072, active: true },
+      ],
+    });
+    expect((await runCron(request)).models).toBe("qwen/qwen3-32b");
+    await runCron(request);
+
+    const notices = ownerNotices(await fakes.calls("resend"), /^AI models: now qwen\/qwen3-32b$/);
+    expect(notices).toHaveLength(1);
+    expect(String(notices[0].body?.text)).toContain("Fallback: llama-3.1-8b-instant");
+  });
+
+  test("a request whose model was just retired is answered by the fallback", async ({
+    adminRequest,
+    request,
+    fakes,
+  }) => {
+    await runCron(request); // main openai/gpt-oss-120b, fallback qwen/qwen3-32b
+    const probes = (await fakes.calls("ai")).length; // the cron's test calls
+    await fakes.script({ retired: ["openai/gpt-oss-120b"] });
+    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).drafted).toBe(true);
+
+    const tried = (await fakes.calls("ai"))
+      .slice(probes)
+      .filter((c) => c.path === "/chat/completions")
+      .map((c) => c.body?.model);
+    expect(tried).toEqual(["openai/gpt-oss-120b", "qwen/qwen3-32b"]);
+  });
 });

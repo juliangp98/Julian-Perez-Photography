@@ -42,8 +42,8 @@ export default function SafeImage({ alt, ...rest }: ImageProps) {
     return (
       <div
         className={[
-          "bg-[var(--border)]/40 flex items-center justify-center",
-          "text-xs uppercase tracking-[0.18em] text-[var(--muted)]",
+          "bg-border/40 flex items-center justify-center",
+          "text-xs uppercase tracking-[0.18em] text-muted",
           className ?? "",
         ]
           .filter(Boolean)

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // Hammer /api/inquire and expect a 429 once the per-IP bucket is full.
 // Limit is 5 per 10 min — the test fires 6 and expects the last one
 // to be throttled. Uses request.post directly to avoid triggering the
-// full Resend send path (dev-mode fallback short-circuits anyway).
+// full send path (sends go to the fake provider anyway).
 test("rate limit: /api/inquire 429s after the bucket is drained", async ({
   request,
 }) => {
@@ -24,7 +24,7 @@ test("rate limit: /api/inquire 429s after the bucket is drained", async ({
     statuses.push(res.status());
   }
 
-  // First 5 should be 200 (dev-mode ok), 6th should be 429.
+  // First 5 should be 200, 6th should be 429.
   expect(statuses.slice(0, 5)).toEqual([200, 200, 200, 200, 200]);
   expect(statuses[5]).toBe(429);
 });

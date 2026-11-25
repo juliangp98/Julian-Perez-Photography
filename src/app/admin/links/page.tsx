@@ -4,7 +4,7 @@ import { getAdminSession } from "@/lib/auth-cookies";
 import SubNav, { ADMIN_TABS } from "@/components/ui/SubNav";
 
 export const metadata: Metadata = {
-  title: "External links — Admin",
+  title: "External links · Admin",
   robots: { index: false, follow: false },
 };
 
@@ -19,7 +19,7 @@ const GROUPS: {
     title: "Hosting & deployment",
     links: [
       {
-        label: "Vercel — Dashboard",
+        label: "Vercel dashboard",
         href: "https://vercel.com/dashboard",
         desc: "Deployments, environment variables, domains, logs, Web Analytics, firewall.",
       },
@@ -29,7 +29,7 @@ const GROUPS: {
     title: "Site Content (Sanity)",
     links: [
       {
-        label: "Sanity — Manage",
+        label: "Sanity Manage",
         href: "https://www.sanity.io/manage",
         desc: "Project settings, API tokens, datasets, members, revalidation webhook.",
       },
@@ -45,7 +45,7 @@ const GROUPS: {
     title: "Client data (Supabase)",
     links: [
       {
-        label: "Supabase — Dashboard",
+        label: "Supabase dashboard",
         href: "https://supabase.com/dashboard",
         desc: "The `client_records` table editor, SQL editor, and API keys for the CRM/portal.",
       },
@@ -57,12 +57,12 @@ const GROUPS: {
       {
         label: "Resend",
         href: "https://resend.com/overview",
-        desc: "Inquiry / questionnaire / portal emails — domains, API keys, delivery activity.",
+        desc: "Inquiry / questionnaire / portal emails: domains, API keys, delivery activity.",
       },
       {
-        label: "Twilio — Console",
+        label: "Twilio console",
         href: "https://console.twilio.com",
-        desc: "Optional SMS confirmations — phone numbers, usage, auth token.",
+        desc: "Optional SMS confirmations: phone numbers, usage, auth token.",
       },
     ],
   },
@@ -70,7 +70,7 @@ const GROUPS: {
     title: "AI",
     links: [
       {
-        label: "Groq — Console",
+        label: "Groq console",
         href: "https://console.groq.com",
         desc: 'API keys + usage for the admin "Draft with AI" email drafting. Free, non-training tier (safe for client PII).',
       },
@@ -85,7 +85,7 @@ const GROUPS: {
         desc: "Places API (New) key + restrictions, billing, daily quota.",
       },
       {
-        label: "Square — Dashboard",
+        label: "Square dashboard",
         href: "https://squareup.com/dashboard",
         desc: "Appointments booking embedded at /book.",
       },
@@ -105,7 +105,7 @@ const GROUPS: {
         desc: "Error + performance monitoring and session replay.",
       },
       {
-        label: "GitHub — Repository",
+        label: "GitHub repository",
         href: "https://github.com/juliangp98/Julian-Perez-Photography",
         desc: "Source, branches, pull requests, Actions, secrets.",
       },
@@ -140,7 +140,7 @@ export default async function AdminLinksPage() {
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">External links</h1>
-      <p className="mt-2 text-[var(--muted)]">
+      <p className="mt-2 text-muted">
         Every service this site connects to, in one place.
       </p>
 
@@ -156,15 +156,15 @@ export default async function AdminLinksPage() {
                   {...(l.internal
                     ? {}
                     : { target: "_blank", rel: "noreferrer" })}
-                  className="block rounded-lg border border-[var(--border)] bg-white p-5 hover:border-[var(--foreground)] transition"
+                  className="block rounded-lg border border-border bg-white p-5 hover:border-foreground transition"
                 >
                   <div className="font-medium">
                     {l.label}{" "}
-                    <span className="text-[var(--muted)]">
+                    <span className="text-muted">
                       {l.internal ? "→" : "↗"}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
+                  <p className="mt-2 text-sm text-muted leading-relaxed">
                     {l.desc}
                   </p>
                 </a>

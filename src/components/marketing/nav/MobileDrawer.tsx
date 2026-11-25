@@ -48,14 +48,14 @@ function CatalogList({
 }) {
   return (
     <div className="flex flex-col pl-4 gap-3 mt-2">
-      <Link href={allHref} onClick={onNavigate} className="py-1 text-[var(--muted)]">
+      <Link href={allHref} onClick={onNavigate} className="py-1 text-muted">
         {allLabel}
       </Link>
       {groups
         .filter((g) => g.items.length > 0)
         .map((g) => (
           <div key={g.id}>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)] mb-1">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent mb-1">
               {g.title}
             </div>
             {g.items.map((item) => (
@@ -76,7 +76,7 @@ function CatalogList({
 
 export default function MobileDrawer({ onNavigate }: { onNavigate: () => void }) {
   return (
-    <div className="lg:hidden border-t border-[var(--border)] bg-[var(--background)] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+    <div className="lg:hidden border-t border-border bg-background max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
       <div className="max-w-7xl mx-auto px-6 py-4 pb-10 flex flex-col gap-4 text-sm">
         <details>
           <summary className="cursor-pointer py-2">Portfolio</summary>
@@ -112,7 +112,7 @@ export default function MobileDrawer({ onNavigate }: { onNavigate: () => void })
         <Link
           href="/book"
           onClick={onNavigate}
-          className="mt-2 text-center px-4 py-2 bg-[var(--foreground)] text-[var(--background)] rounded-full"
+          className="mt-2 text-center px-4 py-2 bg-foreground text-background rounded-full"
         >
           Book
         </Link>

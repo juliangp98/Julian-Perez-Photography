@@ -27,8 +27,8 @@ export default async function InquirePage({
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={FUNNEL_TABS} />
       <h1 className="mt-6 font-serif text-5xl">Let&rsquo;s talk.</h1>
-      <p className="mt-4 text-[var(--muted)] max-w-xl">
-        This form is for general inquiries — questions about availability,
+      <p className="mt-4 text-muted max-w-xl">
+        This form is for general inquiries: questions about availability,
         pricing, custom packages, or anything you want to chat through before
         booking. I&rsquo;ll reply within 48 hours. Prefer email? Reach me
         directly at{" "}
@@ -68,7 +68,7 @@ export default async function InquirePage({
           />
         </div>
       </div>
-      <div className="mt-20 pt-12 border-t border-[var(--border)]">
+      <div className="mt-20 pt-12 border-t border-border">
         <GoogleReviews heading="What clients say" variant="carousel" />
       </div>
     </section>

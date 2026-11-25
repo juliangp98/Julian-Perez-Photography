@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.60 can't install
+    # Chromium. Move this forward together with a Playwright upgrade.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # Store-backed specs run when the test Supabase project's keys are set as
+      # repository secrets; without them those specs skip.
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      # playwright.config.ts builds and starts the app when CI is set, with every
+      # provider pointed at the local fakes.
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

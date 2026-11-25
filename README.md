@@ -6,8 +6,11 @@ The custom marketing site for [julianperezphotography.com](https://julianperezph
 
 - **[Next.js 16](https://nextjs.org)** (App Router, Turbopack) on **React 19** + **TypeScript**
 - **[Tailwind CSS v4](https://tailwindcss.com)** with custom CSS variables in `src/app/globals.css`
-- **[Resend](https://resend.com)** for inquiry-form email delivery (`/api/inquire`)
-- **[Twilio](https://twilio.com)** for optional SMS confirmations (silently skipped if env vars are unset)
+- **[Resend](https://resend.com)** for every email the site sends, and for receiving client replies onto project threads
+- **[Supabase](https://supabase.com)** Postgres for the private client store (projects, message threads, settings)
+- **[Twilio](https://twilio.com)** for optional SMS confirmations (skipped when its settings are unset)
+- **[Groq](https://groq.com)** (or any OpenAI-compatible provider) for the optional AI features
+- **[Sentry](https://sentry.io)** for error reporting
 - **[Square Appointments](https://squareup.com/us/en/appointments)** embedded at `/book`
 - **[Pic-Time](https://pic-time.com)** embedded at `/client`
 - **Google Places API (New)** for live Google reviews, with a manual-testimonial fallback chain
@@ -48,9 +51,13 @@ src/
 │   ├── portal/                # Client-portal pieces (edit form, uploads, status timeline)
 │   └── marketing/             # Public site chrome + content — Nav (nav/ menu internals), Footer, galleries, concierge
 ├── lib/                       # Data/content modules flat; cross-cutting clusters grouped
-│   ├── content.ts             # Runtime content getters — Sanity-backed with hard-coded fallbacks
-│   ├── email/                 # Pipeline templates, branded layouts, send helpers, notifications
-│   ├── ai/                    # Model client, brand voice, concierge knowledge base
+│   ├── content.ts             # Runtime content getters: Sanity first, hard-coded fallbacks
+│   ├── config.ts              # Every setting the code reads (source of .env.example and docs/configuration.md)
+│   ├── api-route.ts           # defineRoute(): auth, rate limit, parsing, honeypot and Sentry for JSON routes
+│   ├── messages.ts            # Project message threads (client_messages)
+│   ├── copy-rules.json        # Banned phrases for visible text, checked by npm run lint
+│   ├── email/                 # sendEmail(), templates, layouts, inbound relay and webhook handling
+│   ├── ai/                    # Model choice, request client, brand voice, voice samples, concierge knowledge base
 │   ├── pdf/                   # Printable plan documents (wedding day / wedding films)
 │   ├── labels.ts              # Display labels for client-record fields (source, status, document type)
 │   ├── site-settings-data.ts  # siteSettings fallback + seed source
@@ -68,11 +75,14 @@ src/
 sanity/
 ├── schemas/                   # Studio document schemas
 └── README.md                  # Content-model notes + webhook setup
-scripts/
-├── import-photos.mjs          # Lightroom-export → portfolio importer
-└── seed-sanity.ts             # Upserts code-owned content into the dataset
+scripts/                       # One file per npm script (see "Scripts" below)
+supabase/
+└── schema.sql                 # The one idempotent schema for production and the test project
+docs/
+├── configuration.md           # Every setting, generated from src/lib/config.ts
+└── contributing.md            # House rules and what enforces each one
 tests/
-└── e2e/                       # Playwright suite — see "Testing" below
+└── e2e/                       # Playwright suite (see "Testing" below); support/ holds the fake providers and fixtures
 public/
 └── portfolio/<slug>/          # Imported gallery images live here
 sanity.config.ts               # Studio config (registers every schema)
@@ -110,9 +120,9 @@ npm install
 npm run dev
 ```
 
-That's a complete local setup — with **zero env vars** the full site runs at [http://localhost:3000](http://localhost:3000) on the hard-coded fallback content, and every integration (email, SMS, CMS, CRM/portal, reviews, AI) silently no-ops. Add env vars from the table below only for the pieces you want live.
+That is a complete local setup. With no settings at all, the site runs at [http://localhost:3000](http://localhost:3000) on the hard-coded fallback content, and each integration (email, SMS, CMS, client store and portal, reviews, AI) stays off. Add settings only for the pieces you want live.
 
-### Environment variables
+### Settings
 
 Copy `.env.example` to `.env.local` and fill in the values you need:
 
@@ -120,55 +130,26 @@ Copy `.env.example` to `.env.local` and fill in the values you need:
 cp .env.example .env.local
 ```
 
-
-| Variable                        | Required                       | Purpose                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RESEND_API_KEY`                | yes (for inquiries)            | Resend API key — sends inquiry-form emails                                                                                                                                                                                                                                                                                                           |
-| `RESEND_FROM`                   | no                             | Override the verified sender. Defaults to `Julian Perez Photography <noreply@julianperezphotography.com>`. The domain must be verified in Resend (Domains → add the SPF/DKIM/DMARC records) before mail delivers; replies route to your inbox via each email's reply-to, so no domain mailbox is needed                                                  |
-| `INQUIRY_TO`                    | no                             | Where inquiries are delivered (defaults to `siteSettings.contactEmail`)                                                                                                                                                                                                                                                                              |
-| `NOTIFY_CLIENT_EDITS`           | no                             | Set to `false` to mute the "a client edited their portal details" email to Julian. Defaults on. (Admin-triggered client notifications are opt-in per update via a checkbox, not env-controlled.)                                                                                                                                                     |
-| `GOOGLE_PLACES_API_KEY`         | no                             | Enables live Google reviews. Without it, the site falls back to manual testimonials in `siteSettings.testimonials`                                                                                                                                                                                                                                   |
-| `GOOGLE_PLACE_ID`               | no                             | Must be a real Place ID from the [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) — **not** a CID. Both this and the API key must be set or the reviews call is silently skipped                                                                                                                      |
-| `TWILIO_ACCOUNT_SID`            | no                             | Twilio Account SID. All three `TWILIO_*` vars must be set to enable SMS confirmations; otherwise SMS is silently skipped and only the email fires                                                                                                                                                                                                    |
-| `TWILIO_AUTH_TOKEN`             | no                             | Twilio Auth Token (from the dashboard)                                                                                                                                                                                                                                                                                                               |
-| `TWILIO_PHONE_FROM`             | no                             | Twilio-provisioned phone number in E.164 format (e.g. `+15555550123`). Must be SMS-capable for US numbers                                                                                                                                                                                                                                            |
-| `NEXT_PUBLIC_SANITY_PROJECT_ID` | no                             | Sanity project ID (from Project → API). Without it, `/journal` shows a "coming soon" placeholder, `/studio` boots Sanity's project-connect screen, and every server page falls back to hard-coded defaults                                                                                                                                           |
-| `NEXT_PUBLIC_SANITY_DATASET`    | no                             | Sanity dataset name — defaults to `production`. Change only if you provisioned a different dataset                                                                                                                                                                                                                                                   |
-| `SANITY_API_WRITE_TOKEN`        | no (seed-only)                 | Editor-role token required **only** to run `npm run seed:sanity`. Create at sanity.io → Project → API → Tokens → +Add, seed, then delete from both `.env.local` and sanity.io — the runtime site never reads this value                                                                                                                              |
-| `SANITY_WEBHOOK_SECRET`         | yes (for instant revalidation) | Shared secret the `/api/sanity-webhook` route uses to verify HMAC signatures from Sanity. Without it, Studio edits still land on the site — the 60s fetch-cache TTL is the lag floor. Generate with `openssl rand -hex 32` and paste into both `.env.local` and the Sanity webhook config — see `sanity/README.md` for the full setup                |
-| `SUPABASE_URL`                  | no (for the CRM)               | Supabase project URL (Settings → API). Holds the private `client_records` table used for lead capture + the portal. Without it, capture + portal no-op (inquiries still email). See "Client portal & CRM" below                                                                                                                                      |
-| `SUPABASE_SERVICE_ROLE_KEY`     | no (for the CRM)               | Supabase **service-role** key — full DB access, **server-only**, never `NEXT_PUBLIC_`. The app is the access gatekeeper (the portal only reads the signed-in client's own row). Pairs with `SUPABASE_URL`                                                                                                                                            |
-| `CRON_SECRET`                   | no (recommended on Vercel)     | Shared secret the daily keep-alive cron uses to authorize `/api/cron/keepalive`. Vercel attaches it as `Authorization: Bearer …` on scheduled runs; with it set, the route rejects anything else. Generate with `openssl rand -hex 32`. See "Deployment → Supabase keep-alive" below                                                                  |
-| `AUTH_SECRET`                   | no (for the portal/admin)      | Secret that signs the portal + admin magic-link tokens and session cookies (≥16 chars; `openssl rand -hex 32`). Without it, `/portal` and `/admin` show the login page but can't issue links. Rotating it invalidates all active sessions                                                                                                            |
-| `ADMIN_EMAIL`                   | no (for the admin area)        | Owner email(s) allowed into `/admin` (projects overview, direct record editing, external-links hub). Comma-separate for more than one. Only these addresses ever receive an admin sign-in link                                                                                                                                                       |
-| `BLOB_READ_WRITE_TOKEN`         | yes (for blob uploads)         | Vercel Blob read-write token. Used by `/api/questionnaire-upload` for browser uploads, by `npm run upload-video` for the wedding-films self-hosted path, and to store captured plan PDFs. Pull via `vercel env pull .env.local` (production scope by default). Safe to leave permanently in `.env.local` — blast radius is limited to the blob store |
-| `NEXT_PUBLIC_SENTRY_DSN`        | no                             | Sentry DSN for error reporting. Without it the SDK is a no-op (no network calls, no console noise). Set in production for visibility into client + server failures. The DSN is public — exposing it in the client bundle is the intended path                                                                                                        |
-| `SENTRY_DSN`                    | no                             | Server-runtime alias for `NEXT_PUBLIC_SENTRY_DSN`. The server config falls back to the public var when this is unset, so most setups only need the public one                                                                                                                                                                                        |
-| `SENTRY_ORG`                    | no (build-time)                | Sentry organization slug. Build-time only — used by `withSentryConfig` to scope source-map uploads. Skipped silently when unset                                                                                                                                                                                                                      |
-| `SENTRY_PROJECT`                | no (build-time)                | Sentry project slug. Build-time only — pairs with `SENTRY_ORG`                                                                                                                                                                                                                                                                                       |
-| `SENTRY_AUTH_TOKEN`             | no (build-time)                | Sentry auth token used to upload source maps during the build. Build-time only — never lives in Vercel's runtime env. Source maps are deleted from the build output after upload, so the symbolicated stack traces never reach the public bundle                                                                                                     |
-| `GROQ_API_KEY`                    | no (for "Draft with AI")       | Enables the admin-only "Draft with AI" button in the compose-email panel. Default provider is **Groq** (free, non-training — safe for client PII); create a key at [console.groq.com](https://console.groq.com). **Server-only, never `NEXT_PUBLIC_`.** Without it, the compose panel omits the AI button and stays a manual template editor         |
-| `AI_MODEL`                      | no                             | Override the text model (default `openai/gpt-oss-120b`, Groq's recommended replacement for the retired Llama 3.3 70B). gpt-oss keeps its reasoning off-channel and returns clean output; a `qwen3`/`deepseek` override is auto-sent `reasoning_effort: "none"` and any stray `<think>` block is stripped, so drafts stay clean whichever reasoning model is used. Set to match your provider when pointing `AI_BASE_URL` elsewhere |
-| `AI_VISION_MODEL`               | no                             | Override the multimodal model used for portfolio image alt text (default `qwen/qwen3.6-27b`, Groq's recommended replacement for the retired Llama 4 Scout/Maverick). Groq keeps no stable production vision model, so this rides whatever multimodal model they offer and may need swapping over time. `qwen3`/`deepseek` reasoning models are sent `reasoning_effort: "none"` so alt text comes back without a chain-of-thought preamble. Drives both `import-photos --alt` and the admin alt-text tool |
-| `AI_BASE_URL`                   | no                             | Override the provider's OpenAI-compatible base URL (default `https://api.groq.com/openai/v1`). Point at OpenAI, Together, Fireworks, or any compatible endpoint                                                                                                                                                                                      |
-
+[`docs/configuration.md`](docs/configuration.md) lists every setting: what it is for, whether production needs it, and what happens without it. Both files are generated from `src/lib/config.ts` by `npm run env:docs`, so edit that file and regenerate rather than editing either by hand. Production logs any missing required setting once at boot, and the admin Projects page shows them on a Setup card.
 
 ## Scripts
 
-
-| Script                                    | Purpose                                                                                                                             |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                             | Start the Turbopack dev server at [http://localhost:3000](http://localhost:3000)                                                    |
-| `npm run build`                           | Production build (runs TypeScript + next build)                                                                                     |
-| `npm start`                               | Serve the production build locally                                                                                                  |
-| `npm run lint`                            | ESLint with `eslint.config.mjs`                                                                                                     |
-| `npm run test:e2e`                        | Playwright smoke tests against a local dev server                                                                                   |
-| `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts`                               |
-| `npm run upload-video -- <path>`          | Upload a local video file to Vercel Blob and print the public URL — used for music-blocked wedding films that can't live on YouTube |
-| `npm run seed:sanity`                     | Upsert the code-owned content graph into Sanity                                                                                     |
-| `npm run deps:check`                      | Dependency + integration health report: npm freshness, security audit, live Groq/Sanity/Supabase checks (read-only)                |
-| `npm run deps:update`                     | Apply the safe update layer: in-range bumps, same-major pins, `npm audit fix`, Playwright browsers — then verify (see Maintenance)  |
-
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Turbopack dev server at [http://localhost:3000](http://localhost:3000) |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build locally |
+| `npm run lint` | ESLint, then the copy check (`scripts/check-copy.mjs`): banned phrases and em dashes in visible text |
+| `npm run typecheck` | TypeScript with no output (`tsc --noEmit`) |
+| `npm run test:e2e` | The Playwright suite, against fake providers and its own app server on :3100 |
+| `npm run env:docs` | Regenerate `.env.example` and `docs/configuration.md` from `src/lib/config.ts` |
+| `npm run email:check` | Check SPF, DMARC, the Resend domain and DKIM, the receiving MX and the webhook, with a fix for each failure. `-- --send you@example.com` also sends a test email |
+| `npm run messages:backfill` | Dry run that lists past sends in Resend's log not yet on a project thread. `-- --apply` files them |
+| `npm run import-photos -- --source <dir>` | Copy Lightroom exports into `public/portfolio/<slug>/` and regenerate `src/lib/portfolio-manifest.ts` |
+| `npm run upload-video -- <path>` | Upload a video to Vercel Blob and print its public URL, for wedding films YouTube blocks for music |
+| `npm run seed:sanity` | Upsert the code-owned content into Sanity |
+| `npm run deps:check` | Read-only health report: outdated packages, security audit, live Groq, Sanity and Supabase checks |
+| `npm run deps:update` | Apply the safe update layer: in-range bumps, same-major pins, `npm audit fix`, Playwright browsers (see Maintenance) |
 
 ## Architecture notes
 
@@ -316,15 +297,15 @@ Schema-driven planning questionnaires live in `**src/lib/questionnaires.ts`**. E
 
 ## Testing
 
-A Playwright end-to-end suite lives in `tests/e2e/` (139 specs at last count) covering the public pages and forms, the API guards (validation / honeypot / rate limit), accessibility scans via axe, and the admin + portal surfaces:
+A Playwright end-to-end suite lives in `tests/e2e/`, covering the public pages and forms, the API guards (validation / honeypot / rate limit), accessibility scans via axe, and the admin + portal surfaces:
 
 ```bash
-npm run test:e2e                              # full suite — boots its own dev server
-npx playwright test --workers=1               # serial run; avoids Turbopack cold-compile flakiness on a fresh .next
+npm run test:e2e                              # full suite; boots the fakes and its own app server on :3100
+CI=1 npm run test:e2e                         # the same against a production build, as CI runs it
 npx playwright test tests/e2e/a11y.spec.ts    # a single spec file
 ```
 
-`playwright.config.ts` blanks the service env keys (Resend, Twilio, Supabase, auth, Places, AI) for the test server, so every integration no-ops: forms exercise the validation paths without sending anything, and the admin/portal specs sign in through the dev magic-link flow against the blanked store. The bar for every change is `npm run lint` + `npm run build` clean and the suite green; new code paths ship with a smoke-level spec alongside them (see `AGENTS.md`).
+The suite never reaches a real provider. `playwright.config.ts` starts `tests/e2e/support/fake-providers.mjs` (stand-ins for Resend, the AI provider and Twilio) and points the app at it, so sends, drafts and sign-in emails run their real code paths; specs read what was "sent" through the `fakes` fixture in `tests/e2e/support/fixtures.ts`, which also provides signed-in `adminRequest` / `adminPage` / `portalRequest` and a per-test client IP. The client store is a separate test Supabase project: put its keys in `.env.test` as `TEST_SUPABASE_URL` and `TEST_SUPABASE_SERVICE_ROLE_KEY` (run `supabase/schema.sql` on it once). Each run starts by clearing test records over an hour old from that project (projects on `example.com` and `.test` addresses, which every spec uses; `tests/e2e/support/reset-test-store.ts`), so the store doesn't grow without bound; specs create the records they assert on and don't need it empty. Runs share the store's AI model choice, so run one suite at a time against it. Without the keys the store stays blank and store-backed specs skip. CI (`.github/workflows/ci.yml`) runs lint, typecheck and the suite against a production build on every push and PR (locally, prefer `CI=1` for the whole suite: the dev server compiles each route on first use and can stall on a long run); the same two keys go in the repository's Actions secrets. New code paths ship with a spec alongside them (see `AGENTS.md`).
 
 ### Dependency & integration maintenance
 
@@ -333,25 +314,31 @@ Monthly (or before a burst of work), run the health check and apply the safe lay
 ```bash
 npm run deps:check     # report: outdated packages, vulnerabilities, live service checks
 npm run deps:update    # apply: in-range updates, same-major framework pins, audit fix
-npm run lint && npm run build && npx playwright test --workers=1   # verify
+npm run lint && npm run typecheck && npm run build && npm run test:e2e   # verify
 ```
 
-The script never crosses a major version — majors are listed for a deliberate decision (read the migration notes, or ask for a full audit). It preserves the exact pins on `next` / `react` / `react-dom` / `eslint-config-next`, and reinstalls Playwright's browsers when the test runner moves (a moved runner with stale browsers fails every page-based spec with launch errors). The integration checks confirm the configured Groq models are still served (Groq retires models) and that Sanity + Supabase answer. Security alerts between runs come from GitHub Dependabot (`.github/dependabot.yml`, security-only — no unattended version PRs since there's no CI to prove them).
+The script never crosses a major version — majors are listed for a deliberate decision (read the migration notes, or ask for a full audit). It preserves the exact pins on `next` / `react` / `react-dom` / `eslint-config-next`, and reinstalls Playwright's browsers when the test runner moves (a moved runner with stale browsers fails every page-based spec with launch errors). The integration checks confirm Groq answers and still serves any pinned model, and that Sanity and Supabase answer. Security alerts between runs come from GitHub Dependabot (`.github/dependabot.yml`, security-only).
 
 ## Deployment (Vercel)
 
-The site is deployed to Vercel.
+The site runs on Vercel. The domain's DNS is on Cloudflare.
 
-1. Push to `main` — Vercel auto-deploys via the GitHub integration.
-2. Set the environment variables above in **Project Settings → Environment Variables** (production + preview).
-3. Connect the custom domain `julianperezphotography.com` in **Project Settings → Domains**.
-4. Verify post-deploy:
-  - `/sitemap.xml` lists every visible service + portfolio
-  - `/robots.txt` is reachable
-  - The LocalBusiness JSON-LD in the `<head>` of `/` validates in [Google's Rich Results Test](https://search.google.com/test/rich-results)
-  - `/inquire` form delivers an email to `INQUIRY_TO`
-  - `/book` and `/client` iframes render and accept clicks
-  - Publishing in `/studio` propagates to the site in under a second (webhook wired)
+1. Push to `main`. Vercel deploys through the GitHub integration.
+2. Set the settings from [`docs/configuration.md`](docs/configuration.md) in **Project Settings → Environment Variables** (production and preview).
+3. Connect `julianperezphotography.com` in **Project Settings → Domains**.
+4. In Cloudflare, point the web records (root and `www`) at Vercel as **DNS only** (grey cloud). Proxied through Cloudflare, every request gets a Cloudflare challenge, including Sanity's and Resend's webhooks, which then fail.
+5. Check after a deploy:
+   - `/sitemap.xml` lists every visible service and portfolio
+   - `/robots.txt` is reachable
+   - The LocalBusiness JSON-LD on `/` validates in [Google's Rich Results Test](https://search.google.com/test/rich-results)
+   - The `/inquire` form delivers an email to the owner
+   - `/book` and `/client` iframes render and accept clicks
+   - Publishing in `/studio` reaches the site in under a second (webhook wired)
+   - `npm run email:check` passes
+
+### Email and DNS
+
+The studio address, `julian@julianperezphotography.com` (`CONTACT_EMAIL` in `src/lib/site-settings-data.ts`), is not a mailbox. Cloudflare Email Routing forwards it to the owner's Gmail, so the root domain's MX records belong to Email Routing. Resend sends from the records on the `send.` subdomain plus `resend._domainkey`, and the inbound relay uses its own `in.` subdomain. The three never share records, so each can change without touching the others. [`docs/configuration.md`](docs/configuration.md) → "Email relay setup" has the relay steps.
 
 ### Supabase keep-alive
 
@@ -368,7 +355,7 @@ unnecessary.)
 
 ### Pre-launch checklist
 
-- Verify a custom domain in Resend so inquiries don't ship from `onboarding@resend.dev`
+- Verify the sending domain in Resend and run `npm run email:check`
 - Restrict the Google Places API key to Places API (New) + the Vercel server IP range
 - Confirm pricing, booking status, and contact info are current — either in Studio or in the hard-coded `src/lib/*-data.ts` defaults (re-seed if you edited the latter)
 - Add the social-share image at `/public/og.jpg` (1200×630) — `layout.tsx` already points OpenGraph + JSON-LD at it, but the file doesn't exist yet, so shares currently render without a preview image
@@ -394,8 +381,9 @@ can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
 (from the admin project page) or the client (from their menu); bundled projects
 render together in their own accent-bordered group, labelled and tagged so the
 relationship is obvious at a glance. Clicking a project opens its detail view —
-status, dates, locations, plan, and documents — where the client can make
-limited edits, upload files, and jump into the matching planning questionnaire
+status, dates, locations, plan, documents, and the project's message thread
+(see "Client messages" below). There the client can make limited edits, upload
+files, write to the owner, and open the matching planning questionnaire
 prefilled with their details.
 
 The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
@@ -430,98 +418,9 @@ cookies are signed with `AUTH_SECRET` via `jose`.
 ### One-time setup
 
 1. **Create a free Supabase project** at [supabase.com](https://supabase.com).
-2. **Create the table** — Supabase → SQL Editor → run:
-  ```sql
-   create table if not exists client_records (
-     id uuid primary key default gen_random_uuid(),
-     client_name text,
-     email text not null,
-     phone text,
-     partner_name text,
-     status text not null default 'new-inquiry',
-     service_type text,
-     package text,
-     bundle_id uuid,
-     bundle_label text,
-     gallery_url text,
-     project_name text,
-     source text default 'manual',
-     event_date text,
-     secondary_dates jsonb not null default '[]'::jsonb,
-     locations jsonb not null default '[]'::jsonb,
-     guest_count integer,
-     budget text,
-     plan_summary text,
-     client_notes text,
-     client_notes_reply text,
-     questionnaire_snapshot text,
-     documents jsonb not null default '[]'::jsonb,
-     inquiry_message text,
-     referral text,
-     status_history jsonb not null default '[]'::jsonb,
-     last_client_update timestamptz,
-     internal_notes text,
-     collaborators jsonb not null default '[]'::jsonb,
-     collaborator_emails text[] not null default '{}',
-     created_at timestamptz not null default now(),
-     updated_at timestamptz not null default now()
-   );
-   -- One row = one project; the email is the person. A single client can hold
-   -- several projects (e.g. an engagement and a wedding), so the email index is
-   -- NON-unique. Capture matches on email + service to decide insert vs. update.
-   create index if not exists client_records_email_idx
-     on client_records (lower(email));
-   -- Bundle lookups (projects sharing a bundle_id render grouped).
-   create index if not exists client_records_bundle_idx
-     on client_records (bundle_id);
-   -- Reverse lookup for second-photographer access: which projects has this
-   -- email been granted? (collaborator_emails holds normalized lowercased emails.)
-   create index if not exists client_records_collab_emails_idx
-     on client_records using gin (collaborator_emails);
-   -- Lock the table down: the app's service-role key bypasses RLS; with no
-   -- policies, nothing else (including the anon key) can read it.
-   alter table client_records enable row level security;
-  ```
-   *Already created the table from an earlier version (unique email index, no
-   bundle columns)? Run this once to migrate it in place — it converts the email
-   index to non-unique so a person can hold multiple projects, and adds the
-   bundle columns. (The app tolerates the columns being absent: until you run
-   this, the portal and admin pages still load — they just omit bundle grouping,
-   and a second service for one person can't open a separate project — so a
-   deploy can land ahead of the migration without taking the portals down.)*
-  ```sql
-   drop index if exists client_records_email_idx;
-   create index if not exists client_records_email_idx
-     on client_records (lower(email));
-   alter table client_records add column if not exists bundle_id uuid;
-   alter table client_records add column if not exists bundle_label text;
-   create index if not exists client_records_bundle_idx
-     on client_records (bundle_id);
-   alter table client_records add column if not exists gallery_url text;
-   alter table client_records add column if not exists project_name text;
-   alter table client_records add column if not exists client_notes text;
-   alter table client_records add column if not exists client_notes_reply text;
-   -- Second-photographer (collaborator) per-project read access.
-   alter table client_records add column if not exists collaborators jsonb not null default '[]'::jsonb;
-   alter table client_records add column if not exists collaborator_emails text[] not null default '{}';
-   create index if not exists client_records_collab_emails_idx
-     on client_records using gin (collaborator_emails);
-  ```
-   *Optional — portfolio alt-text overrides.* The admin **Content tools →
-   Portfolio image alt text** panel persists reviewed alt here; it overlays the
-   import-generated baseline at render and survives re-imports. The app no-ops
-   cleanly without this table (galleries just use the manifest alt), so it's
-   only needed if you want to save alt edits from the admin tool. Same project,
-   service-role only:
-  ```sql
-   create table if not exists portfolio_image_alt (
-     src text primary key,
-     alt text not null,
-     updated_at timestamptz not null default now()
-   );
-   -- Service-role only, same as client_records: RLS on, no policies.
-   alter table portfolio_image_alt enable row level security;
-  ```
+2. **Create the tables**: Supabase → SQL Editor → paste and run
+   [`supabase/schema.sql`](supabase/schema.sql). It is idempotent, so the same
+   file brings an older table up to date and sets up the separate test project.
 3. **Copy the keys.** The dashboard's green **Connect** button surfaces both,
   or use Project Settings (gear, bottom-left):
   - **Project URL** (`SUPABASE_URL`) — Settings → **Data API** (e.g.
@@ -531,8 +430,8 @@ cookies are signed with `AUTH_SECRET` via `jose`.
   under the **Legacy API keys** tab as `**service_role`** (the long `eyJ…`
   JWT). Either works — it's the full-access backend key. **Not** the
   `anon` / publishable key.
-4. **Generate the portal secret** (this one is NOT a Supabase value — you make
-  it yourself; `openssl` is built into macOS):
+4. **Generate the sign-in secret.** This is not a Supabase value: run
+   `openssl rand -hex 32` and use the output as `AUTH_SECRET`.
 5. **Set the admin email** — `ADMIN_EMAIL=you@example.com` (the address you'll
   sign into `/admin` with; comma-separate for more than one owner).
 6. Add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_SECRET`, and
@@ -541,18 +440,30 @@ cookies are signed with `AUTH_SECRET` via `jose`.
 
 After setting the env vars, restart `npm run dev`, submit a test inquiry on
 `/inquire`, then sign in at `/admin` with your `ADMIN_EMAIL` and confirm the
-record shows up in the Projects overview. Manage records there (status, notes,
-contact, dates) — the Supabase Table Editor stays available for complex JSONB
-edits. Until the
-env is set, capture + portal cleanly no-op and the rest of the site is
-unaffected.
+record shows up in the Projects overview. Until these settings are set, capture
+and the portal stay off and the rest of the site is unaffected.
 
-## AI features (admin drafting + public concierge)
+## Client messages
 
-All AI features hang off one env var, `GROQ_API_KEY` (**server scope, never `NEXT_PUBLIC_`**) — create a free key at [console.groq.com](https://console.groq.com). Groq is the default provider because its API doesn't train on submitted data, which is what makes prompts carrying client details acceptable; any OpenAI-compatible provider works via `AI_BASE_URL` + `AI_MODEL`, but stick to no-train providers for the client-facing drafting tools. With no key set, every AI surface degrades cleanly: admin panels omit their AI buttons and the public chat falls back to a static FAQ pointer. Note Groq's **free-tier token-per-minute ceiling** (8k on the current gpt-oss/qwen models, down from 12k on the retired Llama 3.3 70B): the public concierge is the heaviest consumer, so its grounding KB (`src/lib/ai/concierge-kb.ts`) is held under a character budget to keep each request within that limit. Heavier concurrent AI use wants Groq's Dev Tier or a different provider via `AI_BASE_URL`. The same override can route through **Vercel's AI Gateway** (`AI_BASE_URL=https://ai-gateway.vercel.sh/v1`, a gateway key in `GROQ_API_KEY`, creator-prefixed model slugs — see `.env.example`) for spend dashboards and broader model choice — with the caveat that the gateway's enforced zero-data-retention routing is Pro-plan-gated, so direct Groq stays the default for prompts carrying client details. Design depth for all of it lives in `CHANGELOG.md` → "AI-assisted drafting".
+Every email the site sends a client, and every reply, lives on the project's thread: the **Messages** section of `/admin/projects/[id]`, and the same thread (minus anything held for review) in the client's portal. Every send goes through `sendEmail()` in `src/lib/email/send.ts`. Inbound mail and delivery events arrive at `/api/email/webhook` and are handled in `src/lib/email/relay.ts`; `src/lib/messages.ts` reads and writes the threads (`client_messages`).
 
-- **Admin drafting** — the compose-email panel on `/admin/projects/[id]` gains a "Draft with AI" button that turns a pipeline template + the project's client-appropriate facts into an on-brand draft for review (the AI never sends, never sees the internal note or budget, and returns `[brackets]` instead of guessing; the brand voice lives in `src/lib/ai/ai-voice.ts`). The same key powers inquiry triage, prep briefs, plan summaries, journal/copy/meta drafting, portfolio alt text, and natural-language admin search.
-- **Public concierge & FAQ** — `/faq` is a searchable, filterable directory built from one shared source (`src/lib/faq.ts`: a curated general set merged with every visible service's `faqs[]`), plain content that works without AI and emits `FAQPage` JSON-LD. The same source grounds the floating "Ask" chat widget (`POST /api/concierge`): grounded in public content only (`src/lib/ai/concierge-kb.ts` never touches the CRM store), guardrailed against inventing prices or following instructions embedded in visitor messages, and rate-limited + honeypotted like the inquiry route.
+- **Sending.** A send on a project uses the reply address `reply+<token>@<RESEND_INBOUND_DOMAIN>`, so replies come back to the site. Emails composed in the admin also BCC the owner. Each send records Resend's id. Delivery, bounce and spam-complaint events update the message, and a bounce emails the owner. A daily check settles any message whose event never arrived.
+- **Replies.** A client's reply is filed on the thread and forwarded to the studio address, `julian@julianperezphotography.com`, which Cloudflare Email Routing delivers to the owner's Gmail. The forward carries the reply address as Reply-To, so answering from Gmail goes back through the site and reaches the client from the studio address, on the thread. The owner's reply is relayed only when its DKIM signature checks out; otherwise it waits on the thread for a one-click send. Mail from an address not on the project is held for review and never reaches the client. Out-of-office replies are filed and go nowhere.
+- **Portal.** Clients read the thread and write on it from their project page. Collaborators don't see it.
+- **History.** `npm run messages:backfill` (dry run, then `-- --apply`) files past sends from Resend's log, as far back as Resend keeps them. For mail that only exists in Gmail, forward it to the filing address shown under the project's thread (`log+<token>@...`). It is filed with its original sender and date, and nothing is sent.
+
+Setup is in [`docs/configuration.md`](docs/configuration.md) → "Email relay setup". Run `supabase/schema.sql` first: it creates `client_messages`. Until `RESEND_INBOUND_DOMAIN` is set, sends are still recorded on the thread and replies go straight to the owner's inbox.
+
+## AI features (admin drafting and public concierge)
+
+Every AI feature runs on one setting, `GROQ_API_KEY` (server scope, never `NEXT_PUBLIC_`). Create a free key at [console.groq.com](https://console.groq.com). Groq is the default because its API doesn't train on what it receives, which is what makes prompts with client details acceptable. Any OpenAI-compatible provider works through `AI_BASE_URL`; keep to providers that don't train on prompts for the drafting tools. Without a key, admin panels hide their AI buttons and the public chat points to the FAQ.
+
+**Models choose themselves.** `src/lib/ai/models.ts` reads Groq's live catalogue, ranks models by family, and test-calls one before adopting it. The fallback comes from a different family, so one retirement wave can't take out both, and the vision model must pass an image test. The choice is stored in `app_settings`. The daily cron re-checks it and emails the owner when it changes, and a call to a retired model falls through to the fallback, then to a fresh pick. `AI_MODEL`, `AI_FALLBACK_MODEL` and `AI_VISION_MODEL` are optional pins that win while the provider still serves them.
+
+Groq's free tier has a tokens-per-minute ceiling. The public concierge uses the most, so its knowledge base (`src/lib/ai/concierge-kb.ts`) stays under a character budget. Heavier use needs Groq's Dev Tier or another provider through `AI_BASE_URL`. More design detail is in `CHANGELOG.md`.
+
+- **Admin drafting.** Client email is drafted in one place: the compose panel on `/admin/projects/[id]` (`/api/admin/draft-email`). It turns a pipeline template and the project's client-safe facts into a draft for review. The AI never sends, never sees the internal note or budget, and writes `[brackets]` instead of guessing. The brand voice lives in `src/lib/ai/ai-voice.ts`. The drafter also reads the owner's three most recent substantial emails to other clients (`src/lib/ai/voice-samples.ts`), with names, addresses, links and phone numbers redacted, and matches their wording and sign-off but none of their facts. An edited draft is stored as sent, so each edit teaches the next draft. Triage and the suggested next step open this panel on a template instead of writing their own email. Every new inquiry is assessed on arrival (fit, urgency, a summary, capped at 8 seconds and skipped on any failure), and the owner email links straight to this panel to draft the reply; set `INQUIRY_SMS_TO` for a text about the leads worth one. The same key powers prep briefs, plan summaries, journal and page copy, portfolio alt text, and admin search.
+- **Public concierge and FAQ.** `/faq` is a searchable directory built from one source (`src/lib/faq.ts`: a general set plus every visible service's `faqs[]`). It works without AI and emits `FAQPage` JSON-LD. The same source grounds the "Ask" chat (`POST /api/concierge`), which reads public content only, refuses to invent prices or follow instructions inside visitor messages, and is rate-limited and honeypotted like the inquiry route.
 
 ## Security
 
@@ -563,9 +474,9 @@ outside the codebase — are tracked in `SECURITY.md` at the repo root. Walk
 through that checklist whenever an integration is added, a credential is
 suspected of being exposed, or on a quarterly cadence.
 
-## Conventions
+## Contributing
 
-This project targets Next.js 16 specifically. Read `AGENTS.md` before writing framework-touching code, and consult the matching doc under `node_modules/next/dist/docs/` if anything seems off — the conventions in 16 diverge from earlier majors.
+House rules, and what enforces each one, are in [`docs/contributing.md`](docs/contributing.md). The project targets Next.js 16: read `AGENTS.md` and the matching guide under `node_modules/next/dist/docs/` before writing framework code.
 
 ## History
 

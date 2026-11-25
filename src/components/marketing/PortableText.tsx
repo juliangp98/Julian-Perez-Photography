@@ -57,7 +57,7 @@ function InlineImage({ value }: PortableTextTypeComponentProps<InlineImageValue>
         className="w-full h-auto rounded-lg"
       />
       {value.alt && (
-        <figcaption className="mt-3 text-xs text-[var(--muted)] text-center">
+        <figcaption className="mt-3 text-xs text-muted text-center">
           {value.alt}
         </figcaption>
       )}
@@ -77,7 +77,7 @@ function ExternalLink({
         href={href}
         target="_blank"
         rel="noreferrer noopener"
-        className="underline underline-offset-4 hover:text-[var(--accent)] transition"
+        className="underline underline-offset-4 hover:text-accent transition"
       >
         {children}
       </a>
@@ -87,7 +87,7 @@ function ExternalLink({
   return (
     <Link
       href={href}
-      className="underline underline-offset-4 hover:text-[var(--accent)] transition"
+      className="underline underline-offset-4 hover:text-accent transition"
     >
       {children}
     </Link>
@@ -107,7 +107,7 @@ const components: PortableTextComponents = {
       <h3 className="font-serif text-2xl mt-8 mb-3">{children}</h3>
     ),
     blockquote: ({ children }) => (
-      <blockquote className="my-6 pl-5 border-l-2 border-[var(--accent)] italic text-[var(--muted)]">
+      <blockquote className="my-6 pl-5 border-l-2 border-accent italic text-muted">
         {children}
       </blockquote>
     ),

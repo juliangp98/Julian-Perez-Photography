@@ -1,17 +1,14 @@
 "use client";
-import AiButton from "@/components/ui/AiButton";
 
-// Generate + review + persist accessibility alt text for portfolio gallery
-// images — the way to fill alt for a batch uploaded in Studio without typing it
-// per photo. Works for both Studio-uploaded galleries (cdn.sanity.io images) and
-// Lightroom-manifest galleries, since both resolve into `p.images` upstream.
-// Pick a gallery, optionally "Generate all", edit any line, and Save — each Save
-// persists an override (via /api/admin/save-alt) that wins at render over the
-// image's own alt and survives photo re-imports. Generation
-// (/api/admin/draft-alt) uses the vision model, one image at a time.
+// Drafts, reviews and saves alt text for a portfolio gallery's images. Generate
+// uses the vision model (/api/admin/draft-alt) one image at a time; Save stores
+// an override (/api/admin/save-alt) that wins over the image's own alt.
 
 import { useState } from "react";
 import Image from "next/image";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
+import SelectField from "@/components/ui/fields/SelectField";
 
 type Img = { src: string; alt: string };
 export type AltGallery = { slug: string; title: string; images: Img[] };
@@ -20,7 +17,7 @@ type RowStatus = "idle" | "generating" | "saving" | "saved" | "error";
 type Row = { alt: string; status: RowStatus };
 
 const input =
-  "w-full px-3 py-2 rounded border border-[var(--border)] bg-white text-sm focus:outline-none focus:border-[var(--foreground)] transition";
+  "w-full px-3 py-2 rounded border border-border bg-white text-sm focus:outline-none focus:border-foreground transition";
 
 export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
   const [slug, setSlug] = useState("");
@@ -90,33 +87,32 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
-        <div>
-          <label htmlFor="al-gallery" className="block text-sm font-medium mb-1.5">
-            Gallery
-          </label>
-          <select
-            id="al-gallery"
-            value={slug}
-            onChange={(e) => selectGallery(e.target.value)}
-            className={`${input} px-4 py-3`}
-          >
-            <option value="">Choose a gallery…</option>
-            {galleries.map((g) => (
-              <option key={g.slug} value={g.slug}>
-                {g.title} ({g.images.length})
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          id="al-gallery"
+          label="Gallery"
+          value={slug}
+          onChange={selectGallery}
+          placeholder="Choose a gallery…"
+          clearable
+          options={galleries.map((g) => ({
+            value: g.slug,
+            label: `${g.title} (${g.images.length})`,
+          }))}
+        />
         {gallery && gallery.images.length > 0 && (
-          <AiButton onClick={generateAll} loading={bulk} loadingLabel="Generating…">
+          <Button
+            variant="secondary"
+            onClick={generateAll}
+            loading={bulk}
+            loadingLabel="Generating…"
+          >
             Generate all
-          </AiButton>
+          </Button>
         )}
       </div>
 
       {gallery && gallery.images.length === 0 && (
-        <p className="text-sm text-[var(--muted)]">
+        <p className="text-sm text-muted">
           No images imported into this gallery yet.
         </p>
       )}
@@ -128,7 +124,7 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
             return (
               <li
                 key={img.src}
-                className="flex flex-wrap items-start gap-3 rounded-lg border border-[var(--border)] bg-white p-3"
+                className="flex flex-wrap items-start gap-3 rounded-lg border border-border bg-white p-3"
               >
                 <Image
                   src={img.src}
@@ -146,7 +142,8 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
                     className={input}
                   />
                   <div className="flex flex-wrap items-center gap-3">
-                    <AiButton
+                    <Button
+                      variant="secondary"
                       size="sm"
                       onClick={() => generate(img.src)}
                       loading={row.status === "generating"}
@@ -154,23 +151,21 @@ export default function AltDrafter({ galleries }: { galleries: AltGallery[] }) {
                       disabled={bulk}
                     >
                       Generate
-                    </AiButton>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      size="sm"
                       onClick={() => save(img.src)}
-                      disabled={row.status === "saving" || !row.alt.trim()}
-                      className="text-xs rounded-full bg-[var(--foreground)] text-[var(--background)] px-3 py-1 hover:opacity-90 transition disabled:opacity-50"
+                      loading={row.status === "saving"}
+                      loadingLabel="Saving…"
+                      disabled={!row.alt.trim()}
                     >
-                      {row.status === "saving" ? "Saving…" : "Save"}
-                    </button>
-                    {row.status === "saved" && (
-                      <span className="text-xs text-[var(--muted)]">Saved ✓</span>
-                    )}
-                    {row.status === "error" && (
-                      <span role="alert" className="text-xs text-red-700">
-                        Something went wrong.
-                      </span>
-                    )}
+                      Save
+                    </Button>
+                    <FormStatus
+                      state={row.status === "saved" ? "ok" : row.status}
+                      ok="Saved."
+                      error="Something went wrong."
+                    />
                   </div>
                 </div>
               </li>

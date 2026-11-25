@@ -1,9 +1,7 @@
 "use client";
 
-// Owner edit form for a single client record. Posts the editable scalar fields
-// to /api/admin/update (admin-gated). Array fields (locations, dates,
-// documents, status history) are shown read-only on the detail page; edit those
-// in Supabase if needed.
+// Owner edit form for one client record. Posts the editable fields and
+// locations to /api/admin/update (admin-gated).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -21,7 +19,8 @@ import BudgetField from "@/components/ui/fields/BudgetField";
 import AdminLocationsEditor, {
   type LocationEntry,
 } from "@/components/admin/AdminLocationsEditor";
-import AiButton from "@/components/ui/AiButton";
+import Button from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 import { formatPhone } from "@/lib/field-format";
 import { inputClass, labelClass } from "@/components/ui/fields/Field";
 
@@ -53,8 +52,6 @@ type Initial = {
   guestCount?: number;
   budget?: string;
   planSummary?: string;
-  clientNotes?: string;
-  clientNotesReply?: string;
   internalNotes?: string;
   galleryUrl?: string;
   locations?: LocationEntry[];
@@ -94,7 +91,6 @@ export default function AdminProjectEditForm({
     guestCount: initial.guestCount != null ? String(initial.guestCount) : "",
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
-    clientNotesReply: initial.clientNotesReply ?? "",
     internalNotes: initial.internalNotes ?? "",
     galleryUrl: initial.galleryUrl ?? "",
   });
@@ -103,6 +99,7 @@ export default function AdminProjectEditForm({
   );
   const [status, setStatus] = useState<Status>("idle");
   const [notifyClient, setNotifyClient] = useState(false);
+  const [notifyError, setNotifyError] = useState("");
   const [planStatus, setPlanStatus] = useState<
     "idle" | "drafting" | "drafted" | "error"
   >("idle");
@@ -171,6 +168,8 @@ export default function AdminProjectEditForm({
         }),
       });
       if (!res.ok) throw new Error("save failed");
+      const json = await res.json().catch(() => ({}));
+      setNotifyError(json.notifyError ?? "");
       setStatus("saved");
       router.refresh();
     } catch {
@@ -183,7 +182,7 @@ export default function AdminProjectEditForm({
       <div>
         <label htmlFor="a-project-name" className={labelClass}>
           Project name{" "}
-          <span className="text-[var(--muted)] font-normal">
+          <span className="text-muted font-normal">
             (leave blank for the auto name)
           </span>
         </label>
@@ -211,7 +210,7 @@ export default function AdminProjectEditForm({
           label="Service"
           value={v.serviceType}
           onChange={setService}
-          placeholder="— Select a service —"
+          placeholder="Select a service"
           clearable
           options={[
             ...services.map((s) => ({ value: s.slug, label: s.title })),
@@ -247,7 +246,7 @@ export default function AdminProjectEditForm({
           onChange={setStr("package")}
           disabled={!v.serviceType}
           placeholder={
-            v.serviceType ? "— Select a package —" : "Choose a service first"
+            v.serviceType ? "Select a package" : "Choose a service first"
           }
           clearable
           options={[
@@ -293,65 +292,35 @@ export default function AdminProjectEditForm({
         <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
           <label htmlFor="a-plan" className="text-sm font-medium">
             Plan summary{" "}
-            <span className="text-[var(--muted)] font-normal">
+            <span className="text-muted font-normal">
               (shown to the client)
             </span>
           </label>
           {aiEnabled && (
-            <AiButton
+            <Button
+              variant="secondary"
               size="sm"
               onClick={draftPlan}
               loading={planStatus === "drafting"}
               loadingLabel="Drafting…"
             >
               Draft with AI
-            </AiButton>
+            </Button>
           )}
         </div>
         <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={inputClass} />
         {planStatus === "drafted" && (
-          <p className="mt-1 text-xs text-[var(--accent)]">
-            AI draft — review and edit before saving.
+          <p className="mt-1 text-xs text-accent">
+            AI draft. Review and edit before saving.
           </p>
         )}
-        {planStatus === "error" && (
-          <p className="mt-1 text-xs text-red-700">
-            Couldn&rsquo;t draft — please try again.
-          </p>
-        )}
+        <FormStatus state={planStatus} error="Couldn't draft. Try again." className="mt-1 block" />
       </div>
-      {(initial.clientNotes || initial.clientNotesReply) && (
-        <div>
-          <label htmlFor="a-reply" className={labelClass}>
-            Client notes &amp; questions{" "}
-            <span className="text-[var(--muted)] font-normal">
-              (from the client — your reply is shown to them)
-            </span>
-          </label>
-          {initial.clientNotes ? (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm whitespace-pre-line">
-              {initial.clientNotes}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--muted)]">
-              No notes from the client yet.
-            </p>
-          )}
-          <textarea
-            id="a-reply"
-            rows={3}
-            value={v.clientNotesReply}
-            onChange={set("clientNotesReply")}
-            placeholder="Reply to the client…"
-            className={`${inputClass} mt-3`}
-          />
-        </div>
-      )}
       <div>
         <label htmlFor="a-gallery" className={labelClass}>
           Gallery URL{" "}
-          <span className="text-[var(--muted)] font-normal">
-            (Pic-Time link — shown to the client when set)
+          <span className="text-muted font-normal">
+            (Pic-Time link, shown to the client when set)
           </span>
         </label>
         <input
@@ -365,11 +334,11 @@ export default function AdminProjectEditForm({
       </div>
       <div>
         <label htmlFor="a-notes" className={labelClass}>
-          Internal notes <span className="text-[var(--muted)] font-normal">(private — never shown to the client)</span>
+          Internal notes <span className="text-muted font-normal">(private, never shown to the client)</span>
         </label>
         <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={inputClass} />
       </div>
-      <label className="flex items-center gap-2 text-sm text-[var(--muted)] cursor-pointer">
+      <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
         <input
           type="checkbox"
           checked={notifyClient}
@@ -378,21 +347,17 @@ export default function AdminProjectEditForm({
         Email the client about this update
       </label>
       <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={status === "saving"}
-          className="px-6 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
-        >
-          {status === "saving" ? "Saving…" : "Save changes"}
-        </button>
-        {status === "saved" && (
-          <span className="text-sm text-[var(--muted)]">Saved.</span>
-        )}
-        {status === "error" && (
-          <span role="alert" className="text-sm text-red-700">
-            Couldn&rsquo;t save — please try again.
-          </span>
-        )}
+        <Button type="submit" size="lg" loading={status === "saving"} loadingLabel="Saving…">
+          Save changes
+        </Button>
+        <FormStatus
+          state={status === "saved" ? (notifyError ? "error" : "ok") : status}
+          error={
+            status === "saved"
+              ? `Saved, but the client email didn't send: ${notifyError}.`
+              : "Couldn't save. Try again."
+          }
+        />
       </div>
     </form>
   );

@@ -1,11 +1,6 @@
-// POST /api/portal/upload — issues a short-lived Vercel Blob upload token for
-// an authenticated client. Mirrors /api/questionnaire-upload but gated on the
-// session: the token is only minted for signed-in clients, and the record id
-// is round-tripped in the token payload.
-//
-// The uploaded file is linked to the record by a follow-up call to
-// /api/portal/attach-document (which works in dev and prod alike, unlike Blob's
-// server-to-server onUploadCompleted callback that can't reach localhost).
+// POST /api/portal/upload: a short-lived Vercel Blob upload token for a
+// signed-in client. The file is linked to a project afterwards by
+// /api/portal/attach-document, which checks ownership.
 
 export const runtime = "nodejs";
 
@@ -29,17 +24,17 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  const session = await getSession();
+  if (body.type === "blob.generate-client-token" && !session) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
 
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async () => {
-        // Only mint a token for a signed-in client. The uploaded file is linked
-        // to a specific project (with an ownership check) by the follow-up call
-        // to /api/portal/attach-document, so no record id is needed here.
-        const session = await getSession();
-        if (!session) throw new Error("Not authenticated");
+        if (!session) throw new Error("Not signed in");
         return {
           allowedContentTypes: [
             "image/jpeg",
@@ -54,14 +49,12 @@ export async function POST(request: Request) {
           tokenPayload: JSON.stringify({ email: session.email }),
         };
       },
-      onUploadCompleted: async () => {
-        // Linking happens via /api/portal/attach-document so it works in dev
-        // too (Blob can't call back to localhost). Intentionally empty.
-      },
+      // Linking happens in attach-document, which also works locally.
+      onUploadCompleted: async () => {},
     });
     return NextResponse.json(jsonResponse);
   } catch (err) {
-    Sentry.captureException(err, { tags: { route: "portal-upload" } });
+    Sentry.captureException(err, { tags: { route: "portal/upload", stage: "token" }, level: "warning" });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Upload failed" },
       { status: 400 },

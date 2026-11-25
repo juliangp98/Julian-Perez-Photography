@@ -60,7 +60,7 @@ export default function EmailField({
             onChange(suggestion);
             setTouched(true);
           }}
-          className="mt-1 text-sm text-[var(--accent)] underline underline-offset-2 transition hover:text-[var(--foreground)]"
+          className="mt-1 text-sm text-accent underline underline-offset-2 transition hover:text-foreground"
         >
           Did you mean {suggestion}?
         </button>

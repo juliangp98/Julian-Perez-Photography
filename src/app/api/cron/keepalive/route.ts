@@ -1,23 +1,25 @@
+// The daily job (vercel.json): one query against the client store so the
+// Supabase free tier never pauses, settle thread messages whose delivery event
+// never arrived, and re-check the AI models against the provider's catalogue.
+
 export const runtime = "nodejs";
-// Never cache — every invocation must reach Postgres for the ping to count as
-// activity.
+// Every run must reach Postgres to count as activity.
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { pingClientsStore, isClientsStoreConfigured } from "@/lib/clients";
+import { reconcileUnsettledSends } from "@/lib/email/relay";
+import { aiEnabled, refreshAiModels } from "@/lib/ai/ai";
 
-// Keep-alive endpoint for the Supabase free tier, which auto-pauses a project
-// after ~7 days without database activity. The public site reads almost
-// entirely from Sanity, so Postgres can sit idle for long stretches between
-// admin/portal sessions. A daily Vercel Cron (see vercel.json) hits this route,
-// which runs one trivial count against `client_records` — enough to reset the
-// idle timer. Vercel automatically attaches `Authorization: Bearer $CRON_SECRET`
-// to scheduled invocations, so the guard below rejects anything else when the
-// secret is set; with no secret configured the route is open but harmless (it
-// only ever reads a count).
 export async function GET(req: Request) {
+  // Vercel sends `Authorization: Bearer $CRON_SECRET`. Without a secret the
+  // route only runs outside production, so a misconfigured deploy can't be
+  // triggered by anyone.
   const secret = process.env.CRON_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ ok: false, error: "CRON_SECRET is not set." }, { status: 503 });
+  }
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
@@ -27,13 +29,37 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, skipped: "store-unconfigured" });
   }
 
+  let count: number;
   try {
-    const count = await pingClientsStore();
-    return NextResponse.json({ ok: true, count });
+    count = await pingClientsStore();
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route: "cron/keepalive", stage: "ping" },
     });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+
+  // Settle thread messages whose delivery webhook never arrived.
+  let settled = 0;
+  try {
+    settled = await reconcileUnsettledSends();
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: "cron/keepalive", stage: "reconcile" },
+      level: "warning",
+    });
+  }
+  // Re-choose the AI models from the live catalogue (the owner hears if they change).
+  let models: string | undefined;
+  if (aiEnabled()) {
+    try {
+      models = (await refreshAiModels("daily check")).primary;
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "cron/keepalive", stage: "ai-models" },
+        level: "warning",
+      });
+    }
+  }
+  return NextResponse.json({ ok: true, count, settled, models });
 }

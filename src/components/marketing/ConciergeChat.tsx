@@ -1,13 +1,12 @@
 "use client";
 
-// Reusable concierge chat core — a grounded, multi-turn Q&A against
-// /api/concierge. Used two ways: inside the floating ConciergeWidget popover
-// (variant "panel") and docked on the /faq page (variant "docked"). It holds
-// only the real transcript in state (the greeting is presentational) and posts
-// the bounded conversation on each turn.
+// Multi-turn concierge chat against /api/concierge, shown in the ConciergeWidget
+// popover ("panel") or docked on /faq ("docked"). State holds only the real
+// transcript; the greeting is presentational.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
 
 type Role = "user" | "assistant";
 type Msg = { role: Role; content: string };
@@ -22,7 +21,7 @@ const GREETING =
   "Hi there! I can help with questions about services, pricing, and booking. What are you planning?";
 
 const ERROR_REPLY =
-  "Sorry — I couldn't answer just now. Please try again, or send an inquiry and Julian will follow up.";
+  "Sorry, I couldn't answer just now. Please try again, or send an inquiry and Julian will follow up.";
 
 export type ConciergeChatProps = {
   inquireHref?: string;
@@ -104,14 +103,14 @@ export default function ConciergeChat({
 
         {messages.length === 0 && (
           <div className="pt-1">
-            <p className="text-xs text-[var(--muted)] mb-2">Try asking:</p>
+            <p className="text-xs text-muted mb-2">Try asking:</p>
             <div className="flex flex-wrap gap-2">
               {STARTERS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => send(s)}
-                  className="text-xs rounded-full border border-[var(--border)] px-3 py-1.5 text-left hover:border-[var(--foreground)] transition"
+                  className="text-xs rounded-full border border-border px-3 py-1.5 text-left hover:border-foreground transition"
                 >
                   {s}
                 </button>
@@ -134,7 +133,7 @@ export default function ConciergeChat({
 
         {status === "sending" && (
           <Bubble role="assistant">
-            <span className="inline-flex gap-1 items-center text-[var(--muted)]">
+            <span className="inline-flex gap-1 items-center text-muted">
               <Dot /> <Dot /> <Dot />
               <span className="sr-only">Thinking…</span>
             </span>
@@ -142,15 +141,11 @@ export default function ConciergeChat({
         )}
 
         {status === "error" && (
-          <div role="alert" className="text-xs text-red-700 flex items-center gap-2">
+          <div role="alert" className="text-xs text-danger flex items-center gap-2">
             Something went wrong.
-            <button
-              type="button"
-              onClick={retry}
-              className="underline underline-offset-2"
-            >
+            <Button variant="text" onClick={retry}>
               Try again
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -161,7 +156,7 @@ export default function ConciergeChat({
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-[var(--border)] p-3"
+        className="border-t border-border p-3"
       >
         {/* Honeypot — visually hidden; real visitors never fill it. */}
         <input
@@ -190,18 +185,18 @@ export default function ConciergeChat({
             rows={2}
             maxLength={800}
             placeholder="Ask about services, pricing, or booking…"
-            className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm focus:outline-none focus:border-[var(--foreground)] transition"
+            className="flex-1 resize-none rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:border-foreground transition"
           />
-          <button
+          <Button
             type="submit"
             disabled={!input.trim() || status === "sending"}
-            className="shrink-0 rounded-lg bg-[var(--foreground)] text-[var(--background)] px-4 py-2 text-sm hover:opacity-90 transition disabled:opacity-40"
+            className="shrink-0"
           >
             Send
-          </button>
+          </Button>
         </div>
-        <p className="mt-2 text-[11px] leading-snug text-[var(--muted)]">
-          AI assistant — answers may be imperfect; confirm details by{" "}
+        <p className="mt-2 text-[11px] leading-snug text-muted">
+          AI assistant. Answers may be wrong, so confirm details by{" "}
           <Link href={inquireHref} className="underline underline-offset-2">
             sending an inquiry
           </Link>
@@ -235,8 +230,8 @@ function Bubble({
 }) {
   const isUser = role === "user";
   const base = isUser
-    ? "max-w-[85%] rounded-2xl rounded-br-sm bg-[var(--foreground)] text-[var(--background)] px-3.5 py-2 text-sm"
-    : "max-w-[85%] rounded-2xl rounded-bl-sm border border-[var(--border)] bg-[var(--background)] px-3.5 py-2 text-sm";
+    ? "max-w-[85%] rounded-2xl rounded-br-sm bg-foreground text-background px-3.5 py-2 text-sm"
+    : "max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-background px-3.5 py-2 text-sm";
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div className={plain ? `${base} whitespace-pre-line` : base}>

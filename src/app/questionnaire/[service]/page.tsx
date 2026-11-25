@@ -70,12 +70,12 @@ export default async function QuestionnairePage({
       <div className="mx-auto max-w-3xl">
         <div className="mt-6 mb-12">
           {svc && (
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-accent">
               {svc.title}
             </div>
           )}
           <h1 className="mt-3 font-serif text-4xl">{q.title}</h1>
-          <p className="mt-5 text-[var(--muted)]">{q.intro}</p>
+          <p className="mt-5 text-muted">{q.intro}</p>
         </div>
 
         <QuestionnaireForm

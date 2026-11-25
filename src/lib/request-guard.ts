@@ -120,7 +120,7 @@ export function rateLimitResponse(
   return NextResponse.json(
     {
       error:
-        "Too many requests — please wait a moment and try again.",
+        "Too many requests. Wait a moment and try again.",
     },
     {
       status: 429,

@@ -520,7 +520,7 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
 
       {/* ── Page 4: Shot Preferences — Details & Getting Ready ── */}
       <Page size="LETTER" style={s.page}>
-        <SectionHeader title="Shot Preferences — Details & Getting Ready" />
+        <SectionHeader title="Shot Preferences: Details & Getting Ready" />
 
         {detailPhotos.length > 0 && (
           <View style={{ marginBottom: 16 }}>
@@ -567,7 +567,7 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
 
       {/* ── Page 5: Shot Preferences — Ceremony & Reception ── */}
       <Page size="LETTER" style={s.page}>
-        <SectionHeader title="Shot Preferences — Ceremony & Reception" />
+        <SectionHeader title="Shot Preferences: Ceremony & Reception" />
 
         {ceremonyMoments.length > 0 && (
           <View style={{ marginBottom: 16 }}>
@@ -674,10 +674,10 @@ export function WeddingDayPlan({ answers }: { answers: Answers }) {
           label="Photo-sharing consent"
           value={a(answers, "sharingConsent")}
         />
-        <Field label="Sharing — channels OK" value={sharingChannels} />
-        <Field label="Sharing — photo types OK" value={sharingPhotoTypes} />
-        <Field label="Sharing — limits" value={a(answers, "sharingLimits")} />
-        <Field label="Sharing — notes" value={a(answers, "sharingNotes")} />
+        <Field label="Sharing: channels OK" value={sharingChannels} />
+        <Field label="Sharing: photo types OK" value={sharingPhotoTypes} />
+        <Field label="Sharing: limits" value={a(answers, "sharingLimits")} />
+        <Field label="Sharing: notes" value={a(answers, "sharingNotes")} />
         {inspirationCount > 0 && (
           <Field
             label="Inspiration files"

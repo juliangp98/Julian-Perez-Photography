@@ -23,7 +23,7 @@ export default function PortfolioGallery({ images }: Props) {
             key={img.src}
             type="button"
             onClick={() => setIndex(i)}
-            className="mb-4 w-full rounded break-inside-avoid overflow-hidden block cursor-zoom-in focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="mb-4 w-full rounded break-inside-avoid overflow-hidden block cursor-zoom-in focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             <Image
               src={img.src}
@@ -54,7 +54,7 @@ export default function PortfolioGallery({ images }: Props) {
         carousel={{ finite: false }}
         controller={{ closeOnBackdropClick: true }}
         styles={{
-          container: { backgroundColor: "rgba(14, 14, 14, 0.95)" },
+          container: { backgroundColor: "color-mix(in srgb, var(--foreground) 95%, transparent)" },
         }}
       />
     </>

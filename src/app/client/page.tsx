@@ -18,7 +18,7 @@ export default async function ClientGalleriesPage() {
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={CLIENT_TABS} />
       <h1 className="mt-8 font-serif text-5xl">Your gallery</h1>
-      <p className="mt-4 text-[var(--muted)] max-w-2xl">
+      <p className="mt-4 text-muted max-w-2xl">
         I deliver all client galleries through Pic-Time. Sign in with the link
         I sent you to view, favorite, download, and order prints. If you
         can&rsquo;t find your invite,{" "}
@@ -34,7 +34,7 @@ export default async function ClientGalleriesPage() {
       {/* Embedded Pic-Time portal. Pic-Time sets X-Frame-Options on some
           pages, so we give the iframe a reasonable height and fall back to
           the link above if the embed can't render. */}
-      <div className="mt-12 rounded-lg overflow-hidden border border-[var(--border)] bg-white">
+      <div className="mt-12 rounded-lg overflow-hidden border border-border bg-white">
         <iframe
           src={url}
           title="Pic-Time client galleries"
@@ -44,12 +44,12 @@ export default async function ClientGalleriesPage() {
         />
       </div>
 
-      <p className="mt-6 text-xs text-[var(--muted)]">
-        Embed not loading? Use the &ldquo;Open Pic-Time&rdquo; button above —
-        some browsers block cross-site iframes by default.
+      <p className="mt-6 text-xs text-muted">
+        Embed not loading? Use the &ldquo;Open Pic-Time&rdquo; button above.
+        Some browsers block cross-site iframes by default.
       </p>
 
-      <div className="mt-20 pt-12 border-t border-[var(--border)]">
+      <div className="mt-20 pt-12 border-t border-border">
         <GoogleReviews
           heading="What past clients have said"
           variant="carousel"
@@ -60,7 +60,7 @@ export default async function ClientGalleriesPage() {
         <CalloutCard
           eyebrow="Access your photos"
           title="Galleries & project portal"
-          description="Open Pic-Time to view and download your gallery. Or sign in to your project portal to track your booking, review key dates and locations, and find your documents — same email you used with me, no password needed."
+          description="Open Pic-Time to view and download your gallery. Or sign in to your project portal to track your booking, review key dates and locations, and find your documents. Use the same email you used with me. No password needed."
           actions={[
             { label: "Open Pic-Time →", href: url, external: true },
             {

@@ -1,15 +1,12 @@
-// POST /api/admin/collaborators — grant or revoke a second photographer's
-// per-project READ access to the portal. Add can optionally email the
-// collaborator a one-click sign-in link. Admin-gated; writes go through the
-// data-layer helpers that keep the collaborators array + the queryable
-// collaborator_emails index in lockstep.
+// POST /api/admin/collaborators: owner-only. Grants or revokes a second
+// photographer's read access to one project's portal; an add can also email a
+// sign-in link, and a failed invite never fails the grant.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
-import { rateLimitResponse } from "@/lib/request-guard";
+import * as Sentry from "@sentry/nextjs";
+import { defineRoute, originOf } from "@/lib/api-route";
 import {
   addCollaborator,
   removeCollaborator,
@@ -18,7 +15,6 @@ import {
 import { projectDisplayName } from "@/lib/project-name";
 import { signMagicToken } from "@/lib/auth";
 import { sendCollaboratorInviteEmail } from "@/lib/email/notify";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -35,35 +31,19 @@ const schema = z.discriminatedUnion("action", [
   }),
 ]);
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
-  const limited = rateLimitResponse(req, {
-    key: "admin-collaborators",
-    max: 30,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  try {
-    if (parsed.data.action === "remove") {
-      await removeCollaborator(parsed.data.projectId, parsed.data.email);
-      return NextResponse.json({ ok: true });
+export const POST = defineRoute({
+  route: "admin/collaborators",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 30, windowMs: 60_000 },
+  failure: { status: 500, error: "Couldn't update. Try again." },
+  run: async (data, { req }) => {
+    if (data.action === "remove") {
+      await removeCollaborator(data.projectId, data.email);
+      return { ok: true };
     }
 
-    const { projectId, email, name, sendInvite } = parsed.data;
+    const { projectId, email, name, sendInvite } = data;
     await addCollaborator(projectId, { email, name });
 
     if (sendInvite) {
@@ -74,24 +54,15 @@ export async function POST(req: Request) {
           ? projectDisplayName(record)
           : "your shared project";
         const token = await signMagicToken({ email });
-        const origin =
-          req.headers.get("origin") || new URL(req.url).origin;
-        const inviteLink = `${origin}/portal/verify?token=${encodeURIComponent(token)}`;
+        const inviteLink = `${originOf(req)}/portal/verify?token=${encodeURIComponent(token)}`;
         await sendCollaboratorInviteEmail({ to: email, projectName, inviteLink });
       } catch (err) {
         Sentry.captureException(err, {
-          tags: { route: "admin-collaborators", stage: "invite" },
+          tags: { route: "admin/collaborators", stage: "invite" },
           level: "warning",
         });
       }
     }
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("[admin] collaborators error:", err);
-    Sentry.captureException(err, { tags: { route: "admin-collaborators" } });
-    return NextResponse.json(
-      { error: "Couldn't update — please try again." },
-      { status: 500 },
-    );
-  }
-}
+    return { ok: true };
+  },
+});

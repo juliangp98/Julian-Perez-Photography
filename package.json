@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint && node scripts/check-copy.mjs",
+    "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "import-photos": "node scripts/import-photos.mjs",
     "seed:sanity": "tsx --env-file=.env.local scripts/seed-sanity.ts",
     "upload-video": "tsx --env-file=.env.local scripts/upload-video.ts",
+    "messages:backfill": "node --env-file-if-exists=.env.local scripts/backfill-messages.mjs",
     "deps:check": "node --env-file-if-exists=.env.local scripts/check-deps.mjs",
-    "deps:update": "node --env-file-if-exists=.env.local scripts/check-deps.mjs --update"
+    "deps:update": "node --env-file-if-exists=.env.local scripts/check-deps.mjs --update",
+    "env:docs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/env-docs.mjs",
+    "email:check": "node --env-file-if-exists=.env.local scripts/check-email.mjs"
   },
   "dependencies": {
     "@portabletext/react": "^6.0.3",
@@ -37,7 +41,6 @@
     "sanity": "^5.21.0",
     "styled-components": "^6.4.0",
     "suncalc": "^1.9.0",
-    "twilio": "^5.13.1",
     "tz-lookup": "^6.1.25",
     "yet-another-react-lightbox": "^3.30.1",
     "zod": "^4.3.6"

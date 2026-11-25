@@ -103,7 +103,7 @@ export const CLIENT_MILESTONES: { key: string; label: string; hint: string }[] =
   {
     key: "booked",
     label: "Booked",
-    hint: "You're booked — so excited! Next we'll start planning your day.",
+    hint: "You're booked. Next we'll start planning your day.",
   },
   {
     key: "planning",
@@ -113,17 +113,17 @@ export const CLIENT_MILESTONES: { key: string; label: string; hint: string }[] =
   {
     key: "shoot",
     label: "Shoot day",
-    hint: "Your day is captured! Your photos head into editing next.",
+    hint: "Your day is photographed. Your photos head into editing next.",
   },
   {
     key: "editing",
     label: "Editing",
-    hint: "Your photos are being carefully edited — your gallery is on its way.",
+    hint: "I'm editing your photos now. Your gallery comes next.",
   },
   {
     key: "delivered",
     label: "Delivered",
-    hint: "Your gallery is ready. Enjoy every moment!",
+    hint: "Your gallery is ready to view and download.",
   },
 ];
 

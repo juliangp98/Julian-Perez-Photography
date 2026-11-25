@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Client-side carousel for the GoogleReviews component. Renders a
-// horizontally scrolling rail of review cards with snap behavior, prev/next
-// buttons, and pagination dots. Used when GoogleReviews is mounted in
-// `variant="carousel"` mode (e.g. on /inquire and /client) so visitors can
-// browse the full set of reviews instead of a fixed grid of three.
+// Horizontally scrolling rail of review cards with snap, prev/next buttons,
+// and pagination dots, for GoogleReviews in `variant="carousel"` mode. Also
+// exports the Stars rating used by both review layouts.
 
 export type CarouselReview = {
   author: string;
@@ -16,15 +14,15 @@ export type CarouselReview = {
   text: string;
 };
 
-function Stars({ rating }: { rating: number }) {
+export function Stars({ rating }: { rating: number }) {
   const rounded = Math.round(rating);
   return (
     <div
       aria-label={`${rating} out of 5 stars`}
-      className="text-[var(--accent)] tracking-widest text-sm"
+      className="text-accent tracking-widest text-sm"
     >
       {"★".repeat(rounded)}
-      <span className="text-[var(--border)]">{"★".repeat(5 - rounded)}</span>
+      <span className="text-border">{"★".repeat(5 - rounded)}</span>
     </div>
   );
 }
@@ -113,7 +111,7 @@ export default function ReviewsCarousel({
         {reviews.map((r, i) => (
           <article
             key={`${r.author}-${i}`}
-            className="snap-start shrink-0 w-[85%] sm:w-[400px] border border-[var(--border)] rounded-lg p-6 bg-white flex flex-col"
+            className="snap-start shrink-0 w-[85%] sm:w-[400px] border border-border rounded-lg p-6 bg-white flex flex-col"
           >
             <div className="flex items-center gap-3">
               {r.authorPhotoUrl ? (
@@ -127,13 +125,13 @@ export default function ReviewsCarousel({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-[var(--border)]/60 flex items-center justify-center text-xs font-medium">
+                <div className="w-10 h-10 rounded-full bg-border/60 flex items-center justify-center text-xs font-medium">
                   {r.author.slice(0, 1)}
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{r.author}</div>
-                <div className="text-xs text-[var(--muted)]">
+                <div className="text-xs text-muted">
                   {r.relativeTime}
                 </div>
               </div>
@@ -141,7 +139,7 @@ export default function ReviewsCarousel({
             <div className="mt-3">
               <Stars rating={r.rating} />
             </div>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--foreground)]/90">
+            <p className="mt-4 text-sm leading-relaxed text-foreground/90">
               {r.text}
             </p>
           </article>
@@ -159,8 +157,8 @@ export default function ReviewsCarousel({
               onClick={() => scrollToIndex(i)}
               className={`h-2 rounded-full transition-all ${
                 i === activeIndex
-                  ? "w-6 bg-[var(--accent)]"
-                  : "w-2 bg-[var(--border)] hover:bg-[var(--muted)]"
+                  ? "w-6 bg-accent"
+                  : "w-2 bg-border hover:bg-muted"
               }`}
             />
           ))}
@@ -171,7 +169,7 @@ export default function ReviewsCarousel({
             onClick={onPrev}
             disabled={!canPrev}
             aria-label="Previous review"
-            className="w-9 h-9 rounded-full border border-[var(--border)] flex items-center justify-center hover:bg-[var(--border)]/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-border/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
           >
             ←
           </button>
@@ -180,7 +178,7 @@ export default function ReviewsCarousel({
             onClick={onNext}
             disabled={!canNext}
             aria-label="Next review"
-            className="w-9 h-9 rounded-full border border-[var(--border)] flex items-center justify-center hover:bg-[var(--border)]/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-border/40 disabled:opacity-30 disabled:cursor-not-allowed transition"
           >
             →
           </button>

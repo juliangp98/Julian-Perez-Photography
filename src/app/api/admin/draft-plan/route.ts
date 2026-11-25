@@ -1,24 +1,15 @@
-// POST /api/admin/draft-plan — owner-only. Drafts the client-facing plan summary
-// (the `planSummary` field shown in the portal) from the project's questionnaire
-// answers + booking facts, in Julian's voice. Julian reviews/edits the draft in
-// the form and saves it like any other field.
-//
-// Client-facing on purpose: this deliberately does NOT read internal notes or
-// budget — only the client's own questionnaire answers and neutral facts — so a
-// private note can never leak into a portal-visible field. No-ops gracefully
-// (`drafted: false`) when AI isn't configured or the project can't be resolved.
+// POST /api/admin/draft-plan: owner-only. Drafts the portal-visible plan summary
+// from the client's questionnaire answers and booking facts. It never reads internal
+// notes or budget; no-ops (`drafted: false`) without a key or an unknown project.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
+import { defineRoute } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
-import { rateLimitResponse } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildAnswerDigest } from "@/lib/questionnaire-digest";
 import { serviceNoun } from "@/lib/project-name";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -34,42 +25,21 @@ const SYSTEM_PROMPT = [
   "Return ONLY the plan-summary text — no subject line, no preamble, no sign-off, and no quotation marks around it.",
 ].join("\n");
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/draft-plan",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't draft right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async ({ projectId }) => {
+    if (!aiEnabled()) return { ok: true, drafted: false };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-draft-plan",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    const record = await getClientFull(projectId);
+    if (!record) return { ok: true, drafted: false };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  const record = await getClientFull(parsed.data.projectId);
-  if (!record) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  try {
     const noun = serviceNoun(record.serviceType)?.toLowerCase();
-    const venue =
-      record.locations?.[0]?.label || record.locations?.[0]?.address;
+    const venue = record.locations?.[0]?.label || record.locations?.[0]?.address;
     const digest = record.questionnaireSnapshot?.trim()
       ? buildAnswerDigest(record.serviceType, record.questionnaireSnapshot)
       : null;
@@ -102,21 +72,10 @@ export async function POST(req: Request) {
       temperature: 0.6,
     });
 
-    if (!raw?.trim()) {
-      return NextResponse.json({ ok: true, drafted: false });
-    }
+    if (!raw?.trim()) return { ok: true, drafted: false };
 
     // Strip stray wrapping quotes the model sometimes adds.
     const summary = raw.trim().replace(/^["'“]+|["'”]+$/g, "").trim();
-    return NextResponse.json({ ok: true, drafted: true, summary });
-  } catch (err) {
-    console.error("[admin] draft-plan error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-draft-plan", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, drafted: true, summary };
+  },
+});

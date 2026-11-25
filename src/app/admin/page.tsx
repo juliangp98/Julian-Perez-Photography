@@ -28,15 +28,15 @@ export default async function AdminLoginPage({
 
   return (
     <section className="max-w-md mx-auto px-6 lg:px-10 py-20">
-      <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+      <div className="text-xs uppercase tracking-[0.2em] text-muted">
         Admin
       </div>
       <h1 className="mt-2 font-serif text-4xl">Owner sign-in</h1>
-      <p className="mt-4 text-[var(--muted)] leading-relaxed">
+      <p className="mt-4 text-muted leading-relaxed">
         Enter your owner email and I&rsquo;ll send a secure sign-in link.
       </p>
       {errorMsg && (
-        <p role="alert" className="mt-4 text-sm text-red-700">
+        <p role="alert" className="mt-4 text-sm text-danger">
           {errorMsg}
         </p>
       )}

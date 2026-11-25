@@ -1,12 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-// Guard-path coverage for /api/questionnaire. The route now also captures a
-// durable client record (backlog #11), so these assert the early guards still
-// behave and the route module loads cleanly with the new store/Blob imports.
-// The happy-path record creation is exercised manually against a scratch
-// `clients` dataset (deferred to a publish-then-assert Sanity e2e). In the
-// test env the store is unconfigured, so capture no-ops and submissions are
-// unaffected.
+// Guard-path coverage for /api/questionnaire. The honeypot, a missing or
+// unknown service, and missing required fields all return before the route
+// captures a client record, so none of these writes to the store. A valid
+// submission would create a client record (on the test store, the suite's
+// reset clears it).
 
 test("questionnaire: honeypot (hp_company) triggers a silent success", async ({
   request,

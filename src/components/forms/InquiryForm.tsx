@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { visibleServices as services } from "@/lib/content";
-import { REFERRAL_OPTIONS } from "@/lib/referral";
+import { REFERRAL_OPTIONS, referralDetailPrompt } from "@/lib/referral";
 import AssistedTextarea, {
   type AssistContext,
 } from "@/components/forms/AssistedTextarea";
@@ -17,8 +17,8 @@ import BudgetField from "@/components/ui/fields/BudgetField";
 import LocationField from "@/components/ui/fields/LocationField";
 import { formatPhone, isValidEmail } from "@/lib/field-format";
 import Panel from "@/components/ui/Panel";
-
 import Button from "@/components/ui/Button";
+
 type CallLink = { label: string; url: string };
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -59,6 +59,7 @@ export default function InquiryForm({
   });
   const [message, setMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const referralDetail = referralDetailPrompt(v.referral);
 
   const set =
     <K extends keyof typeof v>(k: K) =>
@@ -145,7 +146,7 @@ export default function InquiryForm({
       hp_company: hp,
       project: projectId,
     };
-    if (v.referral === "other" && v.referralOther) {
+    if (referralDetail && v.referralOther) {
       payload.referralOther = v.referralOther;
     }
 
@@ -178,25 +179,25 @@ export default function InquiryForm({
 
   if (status === "success") {
     return (
-      <div className="p-10 border border-[var(--accent)] rounded-lg bg-white">
+      <div className="p-10 border border-accent rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
-        <p className="mt-3 text-[var(--muted)]">
-          Your inquiry is in my inbox. I&rsquo;ll reply within 48 hours — often
-          faster.
+        <p className="mt-3 text-muted">
+          Your inquiry is in my inbox. I&rsquo;ll reply within 48 hours, often
+          sooner.
         </p>
-        <p className="mt-5 text-sm text-[var(--muted)]">
+        <p className="mt-5 text-sm text-muted">
           Once we&rsquo;re booked (or if you&rsquo;re seriously considering),
           the next step is a planning questionnaire so I can show up prepared.{" "}
           <Link
             href="/questionnaire"
-            className="underline underline-offset-4 hover:text-[var(--foreground)]"
+            className="underline underline-offset-4 hover:text-foreground"
           >
             Browse planning questionnaires →
           </Link>
         </p>
         <Panel className="mt-6">
           <p className="text-sm font-medium">Want to chat first?</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs text-muted">
             A quick discovery call is the easiest way to see if we&rsquo;re a
             good fit. No commitment, no pressure.
           </p>
@@ -206,9 +207,9 @@ export default function InquiryForm({
         </Panel>
         <Panel className="mt-6">
           <p className="text-sm font-medium">Track your project</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <p className="mt-1 text-xs text-muted">
             Sign in to your client portal anytime to check your status, add
-            details, and find your documents — just use this same email, no
+            details, and find your documents. Use this same email. No
             password needed.
           </p>
           <Button href="/portal" variant="secondary" className="mt-3">
@@ -231,8 +232,8 @@ export default function InquiryForm({
         aria-hidden="true"
       />
 
-      <p className="text-xs text-[var(--muted)]">
-        <span className="text-[var(--accent)]">*</span> Required
+      <p className="text-xs text-muted">
+        <span className="text-accent">*</span> Required
       </p>
 
       <div className="grid sm:grid-cols-2 gap-5">
@@ -305,15 +306,18 @@ export default function InquiryForm({
           id="inq-referral"
           label="How did you hear about me?"
           value={v.referral}
-          onChange={set("referral")}
+          // A new choice clears the detail, so a venue name can't ride along
+          // under a different channel.
+          onChange={(val) => setV((prev) => ({ ...prev, referral: val, referralOther: "" }))}
           options={REFERRAL_OPTIONS}
         >
-          {v.referral === "other" && (
+          {referralDetail && (
             <input
               id="inq-referralOther"
+              aria-label={referralDetail}
               value={v.referralOther}
               onChange={(e) => set("referralOther")(e.target.value)}
-              placeholder="Tell me more (optional)"
+              placeholder={referralDetail}
               className={`${controlClass(false)} mt-2`}
             />
           )}
@@ -349,18 +353,19 @@ export default function InquiryForm({
 
       {/* role="alert" + aria-live so screen readers announce submission
           failures without requiring the user to tab back to the error. */}
-      <div role="alert" aria-live="polite" className="text-sm text-red-700">
+      <div role="alert" aria-live="polite" className="text-sm text-danger">
         {status === "error" ? errorMsg : null}
       </div>
 
       <div>
-        <button
+        <Button
           type="submit"
-          disabled={status === "submitting"}
-          className="px-8 py-3 bg-[var(--foreground)] text-[var(--background)] rounded-full hover:opacity-90 transition disabled:opacity-60"
+          size="lg"
+          loading={status === "submitting"}
+          loadingLabel="Sending…"
         >
-          {status === "submitting" ? "Sending…" : "Send inquiry"}
-        </button>
+          Send inquiry
+        </Button>
       </div>
     </form>
   );

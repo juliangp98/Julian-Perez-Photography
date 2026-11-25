@@ -1,8 +1,7 @@
 // Transactional notification senders (server-only). Each renders the shared
-// branded layout and sends via Resend; all are fire-and-forget and no-op when
-// Resend isn't configured, so a missing key never breaks the primary request.
+// branded layout and sends through sendEmail(), which throws when an email
+// doesn't go out; callers decide whether that fails their request.
 
-import { Resend } from "resend";
 import { formatHumanDate } from "@/lib/field-format";
 import { render } from "@react-email/components";
 import {
@@ -13,13 +12,14 @@ import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
 } from "@/lib/client-status";
-import { resendFrom } from "./email-helpers";
+import { sendEmail } from "./send";
 import { getSiteSettings } from "@/lib/content";
 
 // Notify a client that their project was updated. `lines` is the prose body;
 // `changes` (optional) renders as a compact bulleted list of what actually
 // changed. The email always carries a "sign in to your portal" call to action.
 export async function sendClientUpdateEmail(opts: {
+  projectId: string;
   to?: string;
   firstName?: string;
   projectName: string;
@@ -27,8 +27,7 @@ export async function sendClientUpdateEmail(opts: {
   lines: string[];
   changes?: string[];
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || !opts.to) return;
+  if (!opts.to) return;
 
   const heading = opts.firstName
     ? `Hi ${opts.firstName},`
@@ -51,10 +50,10 @@ export async function sendClientUpdateEmail(opts: {
       : "";
   // Replies go to Julian's real inbox, not the no-reply send domain.
   const settings = await getSiteSettings();
-  await new Resend(apiKey).emails.send({
-    from: resendFrom(),
+  await sendEmail({
     replyTo: settings.contactEmail,
     to: opts.to,
+    thread: { projectId: opts.projectId, kind: "update" },
     subject: `An update on ${opts.projectName}`,
     html,
     text: `${opts.lines.join("\n\n")}${changeText}\n\nOpen your portal: ${opts.portalUrl}`,
@@ -75,7 +74,6 @@ type ChangeableFields = {
   guestCount?: number;
   planSummary?: string;
   galleryUrl?: string;
-  clientNotesReply?: string;
 };
 
 function parseDay(d?: string): Date | null {
@@ -150,14 +148,6 @@ export function summarizeClientChanges(
   }
 
   if (
-    fields.clientNotesReply !== undefined &&
-    trimmed(fields.clientNotesReply) !== trimmed(before.clientNotesReply) &&
-    trimmed(fields.clientNotesReply)
-  ) {
-    out.push("I replied to your notes / questions");
-  }
-
-  if (
     fields.galleryUrl !== undefined &&
     trimmed(fields.galleryUrl) !== trimmed(before.galleryUrl) &&
     trimmed(fields.galleryUrl)
@@ -176,19 +166,16 @@ export function clientEditNotifyEnabled(): boolean {
 
 // Invite a second photographer to a project they've been granted read access to.
 // `inviteLink` is a one-click portal sign-in link minted by the caller (which
-// has the request origin). Fire-and-forget; no-ops without Resend.
+// has the request origin).
 export async function sendCollaboratorInviteEmail(opts: {
   to: string;
   projectName: string;
   inviteLink: string;
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-
   const settings = await getSiteSettings();
   const lines = [
     `Julian has shared the project "${opts.projectName}" with you for second-photographer access.`,
-    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes — everything you need to show up prepared. The button below signs you straight in.",
+    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes: everything you need to show up prepared. The button below signs you straight in.",
   ];
   const html = await render(
     BrandedEmailLayout({
@@ -200,8 +187,7 @@ export async function sendCollaboratorInviteEmail(opts: {
       }),
     }),
   );
-  await new Resend(apiKey).emails.send({
-    from: resendFrom(),
+  await sendEmail({
     replyTo: settings.contactEmail,
     to: opts.to,
     subject: `${settings.siteName} shared "${opts.projectName}" with you`,

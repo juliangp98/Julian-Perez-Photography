@@ -1,20 +1,13 @@
-// POST /api/admin/draft-journal — owner-only. Drafts a journal post (title,
-// excerpt, body, tags) from a topic/brief in Julian's voice, for him to refine
-// and publish in Sanity Studio. The AI never publishes — it drafts the text
-// fields; Julian adds the required cover image + publish date in Studio (and an
-// AI can't supply a photo anyway). Topic-driven only — it never pulls private
-// client data, since the journal is public.
-//
-// No-ops gracefully (`drafted: false`) when AI isn't configured.
+// POST /api/admin/draft-journal: owner-only. Drafts a journal post's text fields
+// from a topic for review in Studio. Never publishes and never reads client data,
+// since the journal is public; no-ops (`drafted: false`) without a key.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
-import { rateLimitResponse } from "@/lib/request-guard";
-import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import * as Sentry from "@sentry/nextjs";
+import { apiError, defineRoute } from "@/lib/api-route";
+import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 
 const schema = z.object({
   topic: z.string().min(1).max(2000),
@@ -44,39 +37,21 @@ const SYSTEM_PROMPT = [
   "}",
 ].join("\n");
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/draft-journal",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't draft right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    if (!aiEnabled()) return { ok: true, drafted: false };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-draft-journal",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  try {
     const prompt = [
-      `Post type: ${parsed.data.postType?.trim() || "your choice"}`,
+      `Post type: ${data.postType?.trim() || "your choice"}`,
       "Topic / brief:",
       '"""',
-      parsed.data.topic.trim(),
+      data.topic.trim(),
       '"""',
       "",
       "Write the journal post now.",
@@ -89,31 +64,17 @@ export async function POST(req: Request) {
       temperature: 0.7,
     });
 
-    if (!raw) {
-      return NextResponse.json({ ok: true, drafted: false });
-    }
+    if (!raw) return { ok: true, drafted: false };
 
     const valid = postSchema.safeParse(extractJsonObject(raw));
     if (!valid.success || !valid.data.title.trim() || !valid.data.body.trim()) {
       Sentry.captureException(new Error("Journal draft JSON failed validation"), {
-        tags: { route: "admin-draft-journal", stage: "parse", model: aiModel() },
+        tags: { route: "admin/draft-journal", stage: "parse", model: aiModel() },
         level: "warning",
       });
-      return NextResponse.json(
-        { error: "Couldn't read the draft — please try again." },
-        { status: 502 },
-      );
+      return apiError(502, "Couldn't read the draft. Try again.");
     }
 
-    return NextResponse.json({ ok: true, drafted: true, post: valid.data });
-  } catch (err) {
-    console.error("[admin] draft-journal error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-draft-journal", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, drafted: true, post: valid.data };
+  },
+});

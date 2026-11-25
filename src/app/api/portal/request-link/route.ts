@@ -1,99 +1,76 @@
-// POST /api/portal/request-link — emails a one-time magic sign-in link.
-//
-// Anti-enumeration: the response is identical whether or not the email maps to
-// a record, whether the input is valid, or whether the store is configured.
-// A link is only actually sent when a matching record exists.
+// POST /api/portal/request-link: emails a one-time magic sign-in link. The
+// response is identical whatever the input, record, store, or send outcome, so
+// it never reveals whether an email has a project; a link goes only to one that does.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { Resend } from "resend";
-import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
+import * as Sentry from "@sentry/nextjs";
+import { render } from "@react-email/components";
+import { defineRoute, originOf } from "@/lib/api-route";
+import { isHoneypotTriggered } from "@/lib/request-guard";
 import { isAuthConfigured, signMagicToken } from "@/lib/auth";
 import { emailHasPortalAccess } from "@/lib/clients";
-import { resendFrom } from "@/lib/email/email-helpers";
-import { render } from "@react-email/components";
+import { sendEmail } from "@/lib/email/send";
 import {
   BrandedEmailLayout,
   MagicLinkEmailTemplate,
 } from "@/lib/email/email-templates";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   email: z.string().email(),
   hp_company: z.string().max(0).optional().or(z.literal("")),
 });
 
-export async function POST(req: Request) {
-  const limited = rateLimitResponse(req, {
-    key: "portal-link",
-    max: 5,
-    windowMs: 10 * 60 * 1000,
-  });
-  if (limited) return limited;
+const UNIFORM = {
+  ok: true,
+  message: "If that email matches a record, a sign-in link is on its way.",
+};
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+export const POST = defineRoute({
+  route: "portal/request-link",
+  auth: "public",
+  // Parsed inside run so a malformed body still gets the uniform answer.
+  schema: z.unknown(),
+  rateLimit: { max: 5, windowMs: 10 * 60 * 1000 },
+  run: async (body, { req }) => {
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return UNIFORM;
+    if (isHoneypotTriggered(parsed.data.hp_company)) return UNIFORM;
+    if (!isAuthConfigured()) return UNIFORM;
 
-  // One uniform success response, no matter what — never reveal whether an
-  // email maps to a record.
-  const uniform = NextResponse.json({
-    ok: true,
-    message: "If that email matches a record, a sign-in link is on its way.",
-  });
+    const email = parsed.data.email.trim().toLowerCase();
 
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return uniform;
-  if (isHoneypotTriggered(parsed.data.hp_company)) return uniform;
-  if (!isAuthConfigured()) return uniform;
+    try {
+      // Only issue a link if this email owns or collaborates on a project.
+      const hasAccess = await emailHasPortalAccess(email);
+      if (!hasAccess) return UNIFORM;
 
-  const email = parsed.data.email.trim().toLowerCase();
+      const token = await signMagicToken({ email });
+      const link = `${originOf(req)}/portal/verify?token=${encodeURIComponent(token)}`;
 
-  try {
-    // Only issue a link if this email owns or collaborates on a project.
-    const hasAccess = await emailHasPortalAccess(email);
-    if (!hasAccess) return uniform;
-
-    const token = await signMagicToken({ email });
-    const origin = req.headers.get("origin") || new URL(req.url).origin;
-    const link = `${origin}/portal/verify?token=${encodeURIComponent(token)}`;
-
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      // Dev fallback — surface the link so local dev / e2e complete the loop
-      // without a mail provider. Never active in production.
-      console.log("[portal] magic link (dev):", link);
-      if (process.env.NODE_ENV !== "production") {
-        return NextResponse.json({ ok: true, devLink: link });
+      // Local dev without Resend: hand the link back so sign-in still works.
+      if (!process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production") {
+        console.log("[portal] magic link (dev):", link);
+        return { ok: true, devLink: link };
       }
-      return uniform;
+
+      const html = await render(
+        BrandedEmailLayout({
+          preview: "Your secure sign-in link",
+          children: MagicLinkEmailTemplate({ link, kind: "portal" }),
+        }),
+      );
+      await sendEmail({
+        to: email,
+        subject: "Your sign-in link | Julian Perez Photography",
+        html,
+        text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes and can only be used once. If you didn't request it, ignore this email.`,
+      });
+    } catch (err) {
+      Sentry.captureException(err, { tags: { route: "portal/request-link", stage: "send" } });
     }
 
-    const resend = new Resend(apiKey);
-    const from = resendFrom();
-    const html = await render(
-      BrandedEmailLayout({
-        preview: "Your secure sign-in link",
-        children: MagicLinkEmailTemplate({ link, kind: "portal" }),
-      }),
-    );
-    await resend.emails.send({
-      from,
-      to: email,
-      subject: "Your sign-in link — Julian Perez Photography",
-      html,
-      text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes and can only be used once. If you didn't request it, ignore this email.`,
-    });
-  } catch (err) {
-    console.error("[portal] request-link error:", err);
-    Sentry.captureException(err, { tags: { route: "portal-request-link" } });
-    // Still return uniform — never leak a failure or the record's existence.
-  }
-
-  return uniform;
-}
+    return UNIFORM;
+  },
+});

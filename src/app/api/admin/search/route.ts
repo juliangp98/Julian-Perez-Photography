@@ -1,19 +1,13 @@
-// POST /api/admin/search — owner-only. Natural-language search over the client
-// projects: the AI turns a plain-English query ("weddings in June with no
-// contract yet") into a structured filter, which is then applied to the client
-// list server-side. Admin-only, read-only — it returns matching projects (the
-// same fields the board already shows), never internal notes.
-//
-// No-ops gracefully: `searched: false` when AI isn't configured, and an empty
-// store short-circuits to no matches without calling the provider at all.
+// POST /api/admin/search: owner-only, read-only. The model turns a plain-English
+// query into a structured filter applied to the client list server-side; matches
+// carry the fields the board already shows, never internal notes.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { daysUntil } from "@/lib/field-format";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
+import { apiError, defineRoute } from "@/lib/api-route";
 import { listClients } from "@/lib/clients";
-import { rateLimitResponse } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { projectDisplayName } from "@/lib/project-name";
 import {
@@ -22,7 +16,6 @@ import {
 } from "@/lib/client-status";
 import { statusTitle } from "@/lib/labels";
 import { services } from "@/lib/services-data";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   query: z.string().min(1).max(400),
@@ -47,14 +40,6 @@ function eventParts(d?: string): { month: number; year: number } | null {
   const date = new Date(s);
   if (Number.isNaN(date.getTime())) return null;
   return { month: date.getMonth() + 1, year: date.getFullYear() };
-}
-
-function daysUntil(d?: string): number | null {
-  if (!d) return null;
-  const s = /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? `${d.trim()}T00:00:00` : d;
-  const date = new Date(s);
-  if (Number.isNaN(date.getTime())) return null;
-  return Math.round((date.getTime() - Date.now()) / 86_400_000);
 }
 
 const SYSTEM_PROMPT = [
@@ -111,46 +96,26 @@ function applySpec(
   });
 }
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/search",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 30, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't search right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    if (!aiEnabled()) return { ok: true, searched: false, matches: [] };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-search",
-    max: 30,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    const clients = await listClients();
+    // Nothing to search: skip the provider entirely.
+    if (clients.length === 0) return { ok: true, searched: true, matches: [] };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, searched: false, matches: [] });
-  }
-
-  const clients = await listClients();
-  if (clients.length === 0) {
-    // Nothing to search — skip the provider entirely.
-    return NextResponse.json({ ok: true, searched: true, matches: [] });
-  }
-
-  try {
     const today = new Date().toISOString().slice(0, 10);
     const prompt = [
       `Today: ${today}.`,
       `Valid statuses (pipeline order): ${[...CLIENT_STATUS_FLOW, ...CLIENT_STATUS_TERMINAL].join(", ")}`,
       `Valid services: ${services.map((s) => s.slug).join(", ")}`,
-      `Query: "${parsed.data.query.trim()}"`,
+      `Query: "${data.query.trim()}"`,
     ].join("\n");
 
     const raw = await generateText({
@@ -162,10 +127,7 @@ export async function POST(req: Request) {
 
     const valid = raw ? specSchema.safeParse(extractJsonObject(raw)) : null;
     if (!valid?.success) {
-      return NextResponse.json(
-        { error: "Couldn't read that search — try rephrasing." },
-        { status: 502 },
-      );
+      return apiError(502, "Couldn't read that search. Try rephrasing.");
     }
 
     const matches = applySpec(clients, valid.data).map((r) => ({
@@ -178,20 +140,11 @@ export async function POST(req: Request) {
       eventDate: r.eventDate ?? null,
     }));
 
-    return NextResponse.json({
+    return {
       ok: true,
       searched: true,
       summary: valid.data.summary,
       matches,
-    });
-  } catch (err) {
-    console.error("[admin] search error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-search", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't search right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    };
+  },
+});

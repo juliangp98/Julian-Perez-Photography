@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Field, { controlClass, errorId } from "./Field";
+import Field, { errorId } from "./Field";
+import Select from "./Select";
 
 export type SelectOption = { value: string; label: string };
 
@@ -43,15 +44,15 @@ export default function SelectField({
 }) {
   return (
     <Field id={id} label={label} required={required} help={help} error={error}>
-      <select
+      <Select
         id={id}
         name={name}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
+        invalid={!!error}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId(id) : undefined}
-        className={controlClass(!!error, "disabled:opacity-50")}
       >
         {placeholder !== undefined && (
           <option value="" disabled={!clearable}>
@@ -66,7 +67,7 @@ export default function SelectField({
             </option>
           );
         })}
-      </select>
+      </Select>
       {children}
     </Field>
   );

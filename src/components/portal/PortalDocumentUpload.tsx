@@ -1,13 +1,14 @@
 "use client";
 
-// Client-portal document upload. Uploads directly to Vercel Blob via a
-// session-gated token (/api/portal/upload), then links the file to the record
-// (/api/portal/attach-document). On success, refreshes so the new document
-// appears in the list.
+// Client-portal document upload: straight to Vercel Blob via a session-gated
+// token (/api/portal/upload), then linked to the record through
+// /api/portal/attach-document, and the page refreshes to list it.
 
 import { useRef, useState } from "react";
+import Select from "@/components/ui/fields/Select";
 import { useRouter } from "next/navigation";
-import { compactInputClass } from "@/components/ui/fields/Field";
+import { buttonClass } from "@/components/ui/Button";
+import FormStatus from "@/components/ui/FormStatus";
 import { DOCUMENT_TYPE_OPTIONS } from "@/lib/labels";
 
 type Status = "idle" | "uploading" | "done" | "error";
@@ -54,22 +55,22 @@ export default function PortalDocumentUpload({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <select
+      <Select
+        density="compact"
         value={kind}
         onChange={(e) => setKind(e.target.value)}
         disabled={status === "uploading"}
         aria-label="Document type"
-        className={compactInputClass}
       >
         {DOCUMENT_TYPE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
       <label
         htmlFor="portal-doc"
-        className="inline-block px-5 py-2.5 text-sm border border-[var(--foreground)] rounded-full cursor-pointer hover:bg-[var(--foreground)] hover:text-[var(--background)] transition"
+        className={`${buttonClass("secondary", "md")} cursor-pointer`}
       >
         {status === "uploading" ? "Uploading…" : "Upload a document"}
       </label>
@@ -82,14 +83,12 @@ export default function PortalDocumentUpload({
         disabled={status === "uploading"}
         className="hidden"
       />
-      {status === "done" && (
-        <span className="ml-4 text-sm text-[var(--muted)]">Uploaded!</span>
-      )}
-      {status === "error" && (
-        <span role="alert" className="ml-4 text-sm text-red-700">
-          Upload failed — please try again.
-        </span>
-      )}
+      <FormStatus
+        state={status === "done" ? "ok" : status}
+        ok="Uploaded!"
+        error="Upload failed. Try again."
+        className="ml-4"
+      />
     </div>
   );
 }

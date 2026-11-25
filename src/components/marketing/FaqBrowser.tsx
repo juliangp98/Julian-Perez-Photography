@@ -1,13 +1,11 @@
 "use client";
 
-// Searchable, filterable FAQ directory for the /faq page. Free-text search runs
-// over question + answer; a collection (umbrella) filter narrows to a group,
-// with an optional service sub-filter within it. Results stay grouped by
-// service (with a "General" bucket) and render as native <details>/<summary>
-// accordions, mirroring the service-page FAQ markup for keyboard + screen-
-// reader support without a JS dependency.
+// Searchable FAQ directory for /faq: free-text search over question and answer,
+// a collection filter with an optional service sub-filter, and results grouped
+// by service as native <details> accordions.
 
 import { useMemo, useState } from "react";
+import Select from "@/components/ui/fields/Select";
 import Link from "next/link";
 import type { FaqItem } from "@/lib/faq";
 import type { Umbrella } from "@/lib/types";
@@ -72,8 +70,8 @@ export default function FaqBrowser({ items, umbrellas }: FaqBrowserProps) {
   const chip = (active: boolean) =>
     `text-sm rounded-full px-4 py-1.5 border transition ${
       active
-        ? "border-[var(--foreground)] bg-[var(--foreground)] text-[var(--background)]"
-        : "border-[var(--border)] hover:border-[var(--foreground)]"
+        ? "border-foreground bg-foreground text-background"
+        : "border-border hover:border-foreground"
     }`;
 
   return (
@@ -90,7 +88,7 @@ export default function FaqBrowser({ items, umbrellas }: FaqBrowserProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search questions…"
-            className="w-full rounded-lg border border-[var(--border)] bg-white px-4 py-3 focus:outline-none focus:border-[var(--foreground)] transition"
+            className="w-full rounded-lg border border-border bg-white px-4 py-3 focus:outline-none focus:border-foreground transition"
           />
         </div>
 
@@ -133,11 +131,11 @@ export default function FaqBrowser({ items, umbrellas }: FaqBrowserProps) {
             <label htmlFor="faq-service" className="sr-only">
               Filter by service
             </label>
-            <select
+            <Select
+              density="compact"
               id="faq-service"
               value={service}
               onChange={(e) => setService(e.target.value)}
-              className="rounded-lg border border-[var(--border)] bg-white px-4 py-2 text-sm focus:outline-none focus:border-[var(--foreground)] transition"
             >
               <option value="all">All services in this collection</option>
               {serviceOptions.map((s) => (
@@ -145,18 +143,18 @@ export default function FaqBrowser({ items, umbrellas }: FaqBrowserProps) {
                   {s.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
       </div>
 
       {/* Results */}
-      <p className="mt-6 text-sm text-[var(--muted)]" aria-live="polite">
+      <p className="mt-6 text-sm text-muted" aria-live="polite">
         {filtered.length} {filtered.length === 1 ? "question" : "questions"}
       </p>
 
       {groups.length === 0 ? (
-        <p className="mt-8 text-[var(--muted)]">
+        <p className="mt-8 text-muted">
           No questions match that search. Try a different term, or{" "}
           <Link href="/inquire" className="underline underline-offset-4">
             send an inquiry
@@ -168,25 +166,25 @@ export default function FaqBrowser({ items, umbrellas }: FaqBrowserProps) {
           {groups.map(([label, faqs]) => (
             <div key={label}>
               <h2 className="font-serif text-2xl">{label}</h2>
-              <div className="mt-3 border-y border-[var(--border)] divide-y divide-[var(--border)]">
+              <div className="mt-3 border-y border-border divide-y divide-border">
                 {faqs.map((faq) => (
                   <details key={faq.id} className="group py-5">
                     <summary className="flex justify-between items-baseline gap-6 cursor-pointer list-none font-medium text-base md:text-lg [&::-webkit-details-marker]:hidden">
                       <span>{faq.question}</span>
                       <span
                         aria-hidden
-                        className="text-[var(--accent)] text-2xl leading-none transition-transform duration-200 group-open:rotate-45 shrink-0"
+                        className="text-accent text-2xl leading-none transition-transform duration-200 group-open:rotate-45 shrink-0"
                       >
                         +
                       </span>
                     </summary>
-                    <div className="mt-3 text-[var(--muted)] leading-relaxed whitespace-pre-line">
+                    <div className="mt-3 text-muted leading-relaxed whitespace-pre-line">
                       {faq.answer}
                     </div>
                     {faq.serviceSlug && (
                       <Link
                         href={`/services/${faq.serviceSlug}`}
-                        className="mt-3 inline-block text-sm text-[var(--accent)] hover:text-[var(--foreground)] underline underline-offset-4"
+                        className="mt-3 inline-block text-sm text-accent hover:text-foreground underline underline-offset-4"
                       >
                         View {faq.serviceTitle} details &amp; pricing →
                       </Link>

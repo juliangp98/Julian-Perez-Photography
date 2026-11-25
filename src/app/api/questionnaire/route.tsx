@@ -1,7 +1,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { getSiteSettings, getService } from "@/lib/content";
 import {
@@ -15,9 +14,11 @@ import {
   ClientConfirmationTemplate,
 } from "@/lib/email/email-templates";
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
-import { formatSubjectDate, resendFrom } from "@/lib/email/email-helpers";
+import { formatSubjectDate } from "@/lib/email/email-helpers";
+import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
+import { formatHumanDate } from "@/lib/field-format";
 import { attachQuestionnaire } from "@/lib/clients";
 import { storePdf } from "@/lib/blob";
 import * as Sentry from "@sentry/nextjs";
@@ -127,13 +128,7 @@ export async function POST(req: Request) {
     "Unknown client";
   const clientEmail =
     typeof answers["email"] === "string" ? answers["email"] : undefined;
-  const submittedAt = new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const submittedAt = formatHumanDate(new Date(), { withTime: true });
   const isWedding = slug === "weddings";
 
   // Durable capture into the private client store. Snapshots the
@@ -141,10 +136,10 @@ export async function POST(req: Request) {
   // and a no-op when the store isn't configured, so it never changes the
   // submission outcome. Called from both the dev-fallback and production paths
   // so capture happens regardless of whether email is configured.
-  const captureRecord = async (pdfUrl?: string) => {
-    if (!clientEmail) return;
+  const captureRecord = async (pdfUrl?: string): Promise<string | null> => {
+    if (!clientEmail) return null;
     try {
-      await attachQuestionnaire({
+      return await attachQuestionnaire({
         name: clientName,
         email: clientEmail,
         service: slug,
@@ -158,6 +153,7 @@ export async function POST(req: Request) {
         tags: { route: "questionnaire", stage: "client-record" },
         level: "warning",
       });
+      return null;
     }
   };
 
@@ -176,7 +172,7 @@ export async function POST(req: Request) {
 
   // Also build a plain-text fallback alongside.
   const lines: string[] = [];
-  lines.push(`New questionnaire — ${q.title}`);
+  lines.push(`New questionnaire: ${q.title}`);
   lines.push(`Service: ${serviceTitle}`);
   lines.push(`Submitted: ${submittedAt}`);
   lines.push("");
@@ -201,9 +197,9 @@ export async function POST(req: Request) {
 
     for (const f of populatedFields) {
       const v = answers[f.id];
-      // `referral` renders as the friendly label (+ "Other" free-text
-      // detail if supplied). `referralOther` is a companion field only
-      // — skip its own row to avoid duplicating the detail.
+      // `referral` renders as the friendly label, plus the companion detail
+      // (which group, venue or vendor) when supplied. `referralOther` is only
+      // that companion, so its own row is skipped.
       if (f.id === "referral") {
         const referralRaw = typeof v === "string" ? v : "";
         const otherRaw = typeof answers["referralOther"] === "string"
@@ -226,7 +222,7 @@ export async function POST(req: Request) {
         emailFields.push({ label: f.label, files });
         lines.push(`${f.label}:`);
         for (const file of files) {
-          lines.push(`  • ${file.name} — ${file.url}`);
+          lines.push(`  • ${file.name}: ${file.url}`);
         }
         lines.push("");
         continue;
@@ -255,20 +251,8 @@ export async function POST(req: Request) {
   const referralLabel = referralRaw
     ? REFERRAL_LABELS[referralRaw] ?? referralRaw
     : "";
-  const subject = `New questionnaire — ${serviceTitle} — ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
+  const subject = `New questionnaire: ${serviceTitle}, ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    // Dev fallback — still capture the record (no PDF in this path) so local
-    // dev / e2e exercise the durable-store wiring.
-    console.log("[questionnaire] RESEND_API_KEY not set — logging instead:");
-    console.log(text);
-    await captureRecord();
-    return NextResponse.json({ ok: true, dev: true });
-  }
-
-  const resend = new Resend(apiKey);
-  const fromAddress = resendFrom();
   const settings = await getSiteSettings();
   const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
@@ -319,8 +303,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { error } = await resend.emails.send({
-      from: fromAddress,
+    await sendEmail({
       to: toAddress,
       replyTo: clientEmail,
       subject,
@@ -328,7 +311,6 @@ export async function POST(req: Request) {
       text,
       ...(attachments.length > 0 ? { attachments } : {}),
     });
-    if (error) throw error;
   } catch (err: unknown) {
     console.error("[questionnaire] Resend error:", err);
     Sentry.captureException(err, {
@@ -339,10 +321,31 @@ export async function POST(req: Request) {
     const userMessage = msg.includes("valid")
       ? "The email address doesn't appear to be valid. Please double-check and try again."
       : msg.includes("rate")
-        ? "Too many submissions — please wait a moment and try again."
-        : `Could not send right now — please email ${settings.contactEmail} directly.`;
+        ? "Too many submissions. Wait a moment and try again."
+        : `Could not send right now. Email ${settings.contactEmail} directly.`;
     return NextResponse.json({ error: userMessage }, { status: 500 });
   }
+
+  // Persist the generated plan PDF to Blob (when one exists) so it can be
+  // linked from the client record + portal, then capture the submission.
+  let planPdfUrl: string | undefined;
+  if (pdfBuffer) {
+    try {
+      planPdfUrl =
+        (await storePdf({
+          key: `client-plans/${slug}-day-plan.pdf`,
+          data: pdfBuffer,
+        })) || undefined;
+    } catch (err) {
+      console.error("[questionnaire] plan PDF store error:", err);
+      Sentry.captureException(err, {
+        tags: { route: "questionnaire", stage: "store-pdf" },
+        level: "warning",
+      });
+    }
+  }
+  // Captured before the confirmation so that email starts the project thread.
+  const projectId = await captureRecord(planPdfUrl);
 
   // ── Client confirmation email — fire and forget ──
 
@@ -350,7 +353,7 @@ export async function POST(req: Request) {
     try {
       const confirmHtml = await render(
         <BrandedEmailLayout
-          preview={`Thanks for your ${q.title.toLowerCase()} — I'll be in touch soon`}
+          preview={`Thanks for your ${q.title.toLowerCase()}. I'll be in touch soon.`}
         >
           <ClientConfirmationTemplate
             clientName={clientName}
@@ -369,11 +372,11 @@ export async function POST(req: Request) {
         });
       }
 
-      await resend.emails.send({
-        from: fromAddress,
+      await sendEmail({
         replyTo: settings.contactEmail,
         to: clientEmail,
-        subject: `Thanks for your ${q.title.toLowerCase()} — Julian Perez Photography`,
+        ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
+        subject: `Thanks for your ${q.title.toLowerCase()} | Julian Perez Photography`,
         html: confirmHtml,
         text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
         ...(confirmAttachments.length > 0
@@ -410,25 +413,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Persist the generated plan PDF to Blob (when one exists) so it can be
-  // linked from the client record + portal, then capture the submission.
-  let planPdfUrl: string | undefined;
-  if (pdfBuffer) {
-    try {
-      planPdfUrl =
-        (await storePdf({
-          key: `client-plans/${slug}-day-plan.pdf`,
-          data: pdfBuffer,
-        })) || undefined;
-    } catch (err) {
-      console.error("[questionnaire] plan PDF store error:", err);
-      Sentry.captureException(err, {
-        tags: { route: "questionnaire", stage: "store-pdf" },
-        level: "warning",
-      });
-    }
-  }
-  await captureRecord(planPdfUrl);
 
   return NextResponse.json({
     ok: true,

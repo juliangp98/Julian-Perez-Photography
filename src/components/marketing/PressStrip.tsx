@@ -10,9 +10,9 @@ import { pressItems } from "@/lib/press-data";
 export default function PressStrip() {
   if (pressItems.length === 0) return null;
   return (
-    <section className="border-t border-[var(--border)]" aria-label="Press features">
+    <section className="border-t border-border" aria-label="Press features">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-14 text-center">
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+        <div className="text-xs uppercase tracking-[0.2em] text-muted">
           Featured in
         </div>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-12 gap-y-8">
@@ -23,7 +23,7 @@ export default function PressStrip() {
               target="_blank"
               rel="noreferrer"
               className="group inline-block"
-              aria-label={`${p.name} — ${p.title}`}
+              aria-label={`${p.title} (${p.name})`}
             >
               {/* Logos are pre-composed circular badges in /public/press/
                   (square PNG, transparent corners) so each publication's mark
@@ -38,11 +38,11 @@ export default function PressStrip() {
                   className="mx-auto h-20 w-20 rounded-full opacity-85 transition group-hover:opacity-100"
                 />
               ) : (
-                <span className="font-serif text-2xl text-[var(--muted)] transition group-hover:text-[var(--foreground)]">
+                <span className="font-serif text-2xl text-muted transition group-hover:text-foreground">
                   {p.name}
                 </span>
               )}
-              <span className="mt-2 block text-xs text-[var(--muted)] transition group-hover:text-[var(--accent)]">
+              <span className="mt-2 block text-xs text-muted transition group-hover:text-accent">
                 {p.title} →
               </span>
             </a>

@@ -1,8 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-// Submits the public inquiry form and asserts the success screen. Relies
-// on the API route's dev-mode fallback (no RESEND_API_KEY -> console log
-// + { ok: true, dev: true }), which playwright.config.ts ensures.
+// Submits the public inquiry form and asserts the success screen. The emails
+// it sends go to the fake Resend (see playwright.config.ts).
 test("inquiry form: fill required fields and submit → success screen", async ({
   page,
 }) => {

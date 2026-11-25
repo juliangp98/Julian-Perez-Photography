@@ -1,52 +1,64 @@
-// Thin Twilio wrapper for transactional SMS confirmations.
+// Transactional SMS through Twilio's Messages API (a plain fetch; the SDK isn't
+// needed for one endpoint). SMS is additive to email: callers wrap it in
+// try/catch and never fail the user-facing request on it.
 //
-// Mirrors the Resend "dev-mode fallback" pattern used throughout the API
-// routes: if env vars are absent, log what would have been sent and
-// return successfully so local development works without a Twilio
-// account.
-//
-// SMS is strictly additive to the existing email flow — callers should
-// always wrap this in try/catch and never let failure propagate into the
-// user-facing response. Email already succeeded by the time this runs.
+// Without credentials it logs what it would have sent. Outside a production
+// deploy it also only logs, unless TWILIO_BASE_URL points at a stand-in, so a
+// preview or local build never texts a real client.
 
-import twilio from "twilio";
+import { TransientError, withRetry } from "@/lib/retry";
 
 export async function sendSms(to: string, body: string): Promise<void> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_PHONE_FROM;
+  const baseUrl = process.env.TWILIO_BASE_URL;
+  const productionDeploy = process.env.VERCEL_ENV
+    ? process.env.VERCEL_ENV === "production"
+    : process.env.NODE_ENV === "production";
 
-  if (!sid || !token || !from) {
-    console.log("[sms] Twilio not configured — would have sent:", { to, body });
+  if (!sid || !token || !from || (!productionDeploy && !baseUrl)) {
+    console.log("[sms] not sending from this environment; would have sent:", { to, body });
     return;
   }
 
   const normalized = normalizeE164(to);
   if (!normalized) {
-    console.warn("[sms] Skipping — phone not E.164-compatible:", to);
+    console.warn("[sms] Skipping, phone not E.164-compatible:", to);
     return;
   }
 
-  const client = twilio(sid, token);
-  // Hard cap at 320 chars so a future template change can't silently
-  // produce multi-segment messages that cost 5× as much. 320 fits comfortably
-  // in 2 GSM-7 segments (160 chars each) with a safety margin.
-  await client.messages.create({
-    to: normalized,
-    from,
-    body: body.slice(0, 320),
+  // 320 characters fits two GSM-7 segments, so a template change can't
+  // silently turn one text into a five-segment message.
+  const form = new URLSearchParams({ To: normalized, From: from, Body: body.slice(0, 320) });
+  await withRetry(async () => {
+    const res = await fetch(
+      `${baseUrl || "https://api.twilio.com"}/2010-04-01/Accounts/${sid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form,
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (res.ok) return;
+    const detail = `Twilio ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`;
+    if (res.status === 429 || res.status >= 500) throw new TransientError(detail);
+    throw new Error(detail);
   });
 }
 
-// The DMV market is US-heavy — skip libphonenumber-js and do a
-// pragmatic normalization. Twilio itself rejects malformed numbers
-// server-side, so this is a best-effort pass, not a full validator.
+// The DMV market is US-heavy, so this is a pragmatic normalization rather than
+// a full validator; Twilio rejects anything malformed server-side.
 //
 //   "(703) 555-1234"   → "+17035551234"
 //   "703-555-1234"     → "+17035551234"
 //   "+1 703 555 1234"  → "+17035551234"
 //   "17035551234"      → "+17035551234"
-//   "555-1234"         → null (7 digits — ambiguous, skip)
+//   "555-1234"         → null (7 digits, ambiguous, skip)
 function normalizeE164(raw: string): string | null {
   const digits = raw.replace(/[^\d+]/g, "");
   if (digits.startsWith("+") && digits.length >= 11) return digits;

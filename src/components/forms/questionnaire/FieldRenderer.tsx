@@ -51,11 +51,11 @@ export default function FieldRenderer({
   const labelEl = (
     <label htmlFor={field.id} className={labelClass}>
       {field.label}
-      {field.required && <span className="text-[var(--accent)]"> *</span>}
+      {field.required && <span className="text-accent"> *</span>}
     </label>
   );
   const helpEl = field.help ? (
-    <p className="mt-1.5 text-xs text-[var(--muted)]">{field.help}</p>
+    <p className="mt-1.5 text-xs text-muted">{field.help}</p>
   ) : null;
 
   const str = (value as string) || "";

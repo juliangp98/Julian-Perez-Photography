@@ -1,38 +1,15 @@
-// Friendly project naming. A project shows a real name — a custom one the client
-// or admin set, or otherwise an auto name built from who + what + when, e.g.
-// "Julian Perez's Wedding on 6/7" or "Carolyn Schook's Maternity Session on 5/9"
-// — instead of the bare service slug. Pure + dependency-free so both the portal
-// and the admin can share it.
+// Friendly project naming: a custom name when set, otherwise an auto name
+// built from who + what + when, e.g. "Julian Perez's Wedding on 6/7/2026".
+
+import { services } from "./services-data";
+import { titleCaseSlug } from "./labels";
 
 // Service slug → a singular, human noun for the project name.
-const SERVICE_NOUN: Record<string, string> = {
-  weddings: "Wedding",
-  "wedding-films": "Wedding Film",
-  "engagements-couples": "Engagement",
-  maternity: "Maternity Session",
-  newborn: "Newborn Session",
-  "family-portraits": "Family Session",
-  "family-celebrations": "Family Celebration",
-  "cultural-milestones": "Cultural Milestone",
-  pet: "Pet Session",
-  portraiture: "Portrait Session",
-  graduation: "Graduation Session",
-  "corporate-headshots": "Headshots",
-  "corporate-community-events": "Event",
-  "concerts-performances": "Performance",
-  "brand-commercial": "Brand Shoot",
-  "real-estate": "Real Estate Shoot",
-  modeling: "Modeling Session",
-};
-
 export function serviceNoun(serviceType?: string): string | null {
   if (!serviceType) return null;
   return (
-    SERVICE_NOUN[serviceType] ||
-    serviceType
-      .split("-")
-      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
-      .join(" ")
+    services.find((s) => s.slug === serviceType)?.noun ||
+    titleCaseSlug(serviceType)
   );
 }
 

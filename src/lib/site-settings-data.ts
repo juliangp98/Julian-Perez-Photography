@@ -10,10 +10,15 @@
 
 import type { SiteSettings } from "./types";
 
+// The studio's public address (Cloudflare Email Routing forwards it to the
+// owner's inbox). Used where Sanity's site settings aren't available: the
+// email footer, the global error page, and this fallback.
+export const CONTACT_EMAIL = "julian@julianperezphotography.com";
+
 export const siteSettingsFallback: SiteSettings = {
   siteName: "Julian Perez Photography",
   tagline: "Timeless moments from your best days, captured.",
-  contactEmail: "juliangperez98@gmail.com",
+  contactEmail: CONTACT_EMAIL,
   coverageArea: "Based in NOVA · Serving the DMV",
   bookingStatus: "Booking 2026\u20132027",
   bookingUrl:

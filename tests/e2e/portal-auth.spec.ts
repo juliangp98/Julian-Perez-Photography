@@ -1,10 +1,10 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
-// Auth-guard coverage for the client portal. The full happy loop (request a
-// real link → verify → session) needs a configured `clients` dataset with a
-// seeded record, so it's exercised manually / deferred to a scratch-dataset
-// e2e. These cover everything reachable without the store: the login page, the
-// proxy gate, invalid-token handling, and the anti-enumeration response.
+// Auth-guard coverage for the client portal: the login page, the proxy gate,
+// invalid-token handling, and the anti-enumeration response, none of which
+// need a client record. The full loop (request a link, verify it, use the
+// session) runs against the test store in email-webhook.spec.ts, where a
+// client signs in and writes on their project's thread.
 
 test("portal: login page renders the email form", async ({ page }) => {
   await page.goto("/portal");
@@ -45,6 +45,7 @@ test("portal: an invalid magic token redirects to login with an error", async ({
 
 test("portal: request-link returns a uniform response (no enumeration)", async ({
   request,
+  fakes,
 }) => {
   const res = await request.post("/api/portal/request-link", {
     headers: { "x-forwarded-for": "10.99.8.1" },
@@ -53,10 +54,11 @@ test("portal: request-link returns a uniform response (no enumeration)", async (
   expect(res.status()).toBe(200);
   const json = await res.json();
   expect(json.ok).toBe(true);
-  // With the store unconfigured (no matching record), no link is generated —
-  // and the response never reveals that.
+  // No record has this email, so no link is generated, and the response
+  // never reveals that.
   expect(json.devLink).toBeUndefined();
   expect(json.message).toMatch(/if that email matches/i);
+  expect(await fakes.calls("resend")).toHaveLength(0);
 });
 
 test("portal: update rejects an unauthenticated request", async ({

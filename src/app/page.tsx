@@ -43,7 +43,7 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section
-        className={`relative overflow-hidden border-b border-[var(--border)] ${hero ? "text-white" : ""}`}
+        className={`relative overflow-hidden border-b border-border ${hero ? "text-white" : ""}`}
       >
         {hero && (
           <>
@@ -63,7 +63,7 @@ export default async function HomePage() {
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-24 lg:py-32">
           <div className={`max-w-3xl ${hero ? overlayTextClass : ""}`}>
             <div
-              className={`text-xs uppercase tracking-[0.2em] ${hero ? "text-white/80" : "text-[var(--muted)]"}`}
+              className={`text-xs uppercase tracking-[0.2em] ${hero ? "text-white/80" : "text-muted"}`}
             >
               {settings.coverageArea} · {settings.bookingStatus}
             </div>
@@ -71,10 +71,10 @@ export default async function HomePage() {
               {settings.tagline}
             </h1>
             <p
-              className={`mt-6 text-lg max-w-xl ${hero ? "text-white/85" : "text-[var(--muted)]"}`}
+              className={`mt-6 text-lg max-w-xl ${hero ? "text-white/85" : "text-muted"}`}
             >
               Wedding, engagement, graduation, portrait, and event photography
-              across the DMV — built around who you are, not a shot list.
+              across the DMV. I build each shoot around who you are, not a shot list.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Button
@@ -83,7 +83,7 @@ export default async function HomePage() {
                 size="lg"
                 className={
                   hero
-                    ? "border-white text-white hover:bg-white hover:text-[var(--foreground)]"
+                    ? "border-white text-white hover:bg-white hover:text-foreground"
                     : ""
                 }
               >
@@ -92,7 +92,7 @@ export default async function HomePage() {
               <Button
                 href="/inquire"
                 size="lg"
-                className={hero ? "bg-white text-[var(--foreground)]" : ""}
+                className={hero ? "bg-white text-foreground" : ""}
               >
                 Inquire
               </Button>
@@ -105,7 +105,7 @@ export default async function HomePage() {
       <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
         <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted">
               Services
             </div>
             <h2 className="mt-2 font-serif text-4xl">What I photograph</h2>
@@ -122,7 +122,7 @@ export default async function HomePage() {
             <Link
               key={s.slug}
               href={`/services/${s.slug}`}
-              className="group border border-[var(--border)] rounded-lg overflow-hidden bg-white hover:border-[var(--foreground)] transition"
+              className="group border border-border rounded-lg overflow-hidden bg-white hover:border-foreground transition"
             >
               {s.heroPhoto && (
                 <div className="relative aspect-[16/10]">
@@ -139,8 +139,8 @@ export default async function HomePage() {
               )}
               <div className="p-6">
                 <h3 className="font-serif text-2xl">{s.title}</h3>
-                <p className="mt-2 text-sm text-[var(--muted)]">{s.tagline}</p>
-                <div className="mt-6 text-xs uppercase tracking-widest text-[var(--accent)] group-hover:text-[var(--foreground)]">
+                <p className="mt-2 text-sm text-muted">{s.tagline}</p>
+                <div className="mt-6 text-xs uppercase tracking-widest text-accent group-hover:text-foreground">
                   Explore →
                 </div>
               </div>
@@ -150,10 +150,10 @@ export default async function HomePage() {
       </section>
 
       {/* Portfolio teaser */}
-      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20 border-t border-[var(--border)]">
+      <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20 border-t border-border">
         <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+            <div className="text-xs uppercase tracking-[0.2em] text-muted">
               Portfolio
             </div>
             <h2 className="mt-2 font-serif text-4xl">Recent work</h2>
@@ -172,7 +172,7 @@ export default async function HomePage() {
               <Link
                 key={p.slug}
                 href={`/portfolio/${p.slug}`}
-                className="aspect-[4/5] bg-[var(--border)]/40 rounded-lg flex items-end p-5 relative overflow-hidden group"
+                className="aspect-[4/5] bg-border/40 rounded-lg flex items-end p-5 relative overflow-hidden group"
               >
                 {cover && (
                   <>
@@ -189,7 +189,7 @@ export default async function HomePage() {
                   </>
                 )}
                 <span
-                  className={`relative font-serif text-xl ${cover ? `text-white ${overlayTextClass}` : "text-[var(--foreground)]"}`}
+                  className={`relative font-serif text-xl ${cover ? `text-white ${overlayTextClass}` : "text-foreground"}`}
                 >
                   {p.title}
                 </span>
@@ -203,7 +203,7 @@ export default async function HomePage() {
       {featuredPost && <FeaturedJournalPost post={featuredPost} />}
 
       {/* Google Reviews */}
-      <section className="border-t border-[var(--border)]">
+      <section className="border-t border-border">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
           <GoogleReviews heading="What clients say" limit={3} />
         </div>
@@ -213,13 +213,13 @@ export default async function HomePage() {
       <PressStrip />
 
       {/* CTA */}
-      <section className="border-t border-[var(--border)]">
+      <section className="border-t border-border">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 text-center">
           <h2 className="font-serif text-4xl max-w-2xl mx-auto">
             Let&rsquo;s make something you&rsquo;ll actually want to hang on the
             wall.
           </h2>
-          <p className="mt-4 text-[var(--muted)] max-w-xl mx-auto">
+          <p className="mt-4 text-muted max-w-xl mx-auto">
             Have questions? Start with an inquiry. Already know which service
             you want? Jump straight into the planning questionnaire.
           </p>

@@ -1,24 +1,17 @@
-// POST /api/admin/prep-brief — owner-only. Turns a project's submitted planning
-// questionnaire into a tight, practical shoot-day prep brief (timeline, key
-// people, must-have shots, locations, logistics, style). Reads the snapshot
-// server-side and resolves field IDs to their human labels via the questionnaire
-// schema so the model sees readable answers, not raw keys.
-//
-// On-demand (never auto-run). No-ops gracefully (`generated: false`) when AI
-// isn't configured, the project can't be resolved, or it has no questionnaire to
-// work from.
+// POST /api/admin/prep-brief: owner-only, on demand. Turns a project's submitted
+// planning questionnaire into a skimmable shoot-day prep brief; answers a no-op
+// (`generated: false`) when AI is off or there is no questionnaire to work from.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { daysUntil } from "@/lib/field-format";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
+import { apiError, defineRoute } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
-import { rateLimitResponse } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { buildAnswerDigest } from "@/lib/questionnaire-digest";
 import { serviceNoun } from "@/lib/project-name";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -37,14 +30,6 @@ const briefSchema = z.object({
     .default([]),
 });
 
-function daysUntil(d?: string): number | null {
-  if (!d) return null;
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? `${d.trim()}T00:00:00` : d;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return Math.round((date.getTime() - Date.now()) / 86_400_000);
-}
-
 const SYSTEM_PROMPT = [
   "You are an assistant helping Julian Perez, a wedding and portrait photographer in the DMV, prepare for an upcoming shoot. Turn the client's submitted planning questionnaire into a tight, practical prep brief he can skim the morning of and again on location.",
   "",
@@ -61,47 +46,27 @@ const SYSTEM_PROMPT = [
   "Omit any section with nothing to say. Order the sections the way a photographer would want them on the day.",
 ].join("\n");
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/prep-brief",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't build the brief right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    if (!aiEnabled()) return { ok: true, generated: false };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-prep-brief",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    const record = await getClientFull(data.projectId);
+    if (!record?.questionnaireSnapshot?.trim()) {
+      return { ok: true, generated: false };
+    }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
+    const digest = buildAnswerDigest(
+      record.serviceType,
+      record.questionnaireSnapshot,
+    );
+    if (!digest) return { ok: true, generated: false };
 
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, generated: false });
-  }
-
-  const record = await getClientFull(parsed.data.projectId);
-  if (!record?.questionnaireSnapshot?.trim()) {
-    return NextResponse.json({ ok: true, generated: false });
-  }
-
-  const digest = buildAnswerDigest(
-    record.serviceType,
-    record.questionnaireSnapshot,
-  );
-  if (!digest) {
-    return NextResponse.json({ ok: true, generated: false });
-  }
-
-  try {
     const noun = serviceNoun(record.serviceType)?.toLowerCase();
     const days = daysUntil(record.eventDate);
     const venue =
@@ -139,31 +104,17 @@ export async function POST(req: Request) {
       temperature: 0.4,
     });
 
-    if (!raw) {
-      return NextResponse.json({ ok: true, generated: false });
-    }
+    if (!raw) return { ok: true, generated: false };
 
     const valid = briefSchema.safeParse(extractJsonObject(raw));
     if (!valid.success || valid.data.sections.length === 0) {
       Sentry.captureException(new Error("Prep brief JSON failed validation"), {
-        tags: { route: "admin-prep-brief", stage: "parse", model: aiModel() },
+        tags: { route: "admin/prep-brief", stage: "parse", model: aiModel() },
         level: "warning",
       });
-      return NextResponse.json(
-        { error: "Couldn't read the brief — please try again." },
-        { status: 502 },
-      );
+      return apiError(502, "Couldn't read the brief. Try again.");
     }
 
-    return NextResponse.json({ ok: true, generated: true, brief: valid.data });
-  } catch (err) {
-    console.error("[admin] prep-brief error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-prep-brief", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't build the brief right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, generated: true, brief: valid.data };
+  },
+});

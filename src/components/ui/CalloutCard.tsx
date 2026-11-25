@@ -1,10 +1,8 @@
 import Button from "./Button";
+import Panel from "./Panel";
 
-// One shared CTA callout, modeled on the "Booked or seriously considering?"
-// box: an accent-bordered white card with an optional uppercase eyebrow, a serif
-// title, an optional description, and pill action buttons (the shared Button
-// primitive). Used everywhere a page closes with a call to action so they all
-// read as one UI.
+// A page's closing call to action: an optional eyebrow, a serif title, a short
+// description, and pill buttons.
 
 export type CalloutAction = {
   label: string;
@@ -30,18 +28,16 @@ export default function CalloutCard({
   className?: string;
   children?: React.ReactNode;
 }) {
-  const border =
-    tone === "accent" ? "border-[var(--accent)]" : "border-[var(--border)]";
   return (
-    <div className={`p-8 border ${border} rounded-lg bg-white ${className}`}>
+    <Panel tone={tone === "accent" ? "accent" : "default"} size="lg" className={className}>
       {eyebrow && (
-        <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+        <div className="text-xs uppercase tracking-[0.2em] text-accent">
           {eyebrow}
         </div>
       )}
       <h2 className={`font-serif text-2xl ${eyebrow ? "mt-2" : ""}`}>{title}</h2>
       {description && (
-        <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
+        <p className="mt-2 text-sm text-muted leading-relaxed">
           {description}
         </p>
       )}
@@ -60,6 +56,6 @@ export default function CalloutCard({
         </div>
       )}
       {children}
-    </div>
+    </Panel>
   );
 }

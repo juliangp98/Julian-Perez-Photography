@@ -24,7 +24,7 @@ import { urlFor } from "@/sanity/image";
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Journal";
   const description =
-    "Stories from behind the lens — weddings, portraits, and scenes from across the DMV.";
+    "Notes and stories from weddings, portraits, and sessions across the DMV.";
   if (!isSanityConfigured()) {
     return { title, description };
   }
@@ -71,8 +71,8 @@ export default async function JournalIndex() {
   if (!isSanityConfigured()) {
     return (
       <JournalShell heading="Coming soon">
-        <p className="mt-4 text-[var(--muted)] max-w-2xl">
-          Journal entries are on the way — personal notes, client stories, and
+        <p className="mt-4 text-muted max-w-2xl">
+          Journal entries are on the way: personal notes, client stories, and
           scenes from recent sessions. Subscribe on Instagram for updates until
           the feed goes live here.
         </p>
@@ -84,7 +84,7 @@ export default async function JournalIndex() {
   if (posts.length === 0) {
     return (
       <JournalShell heading="First story is in the works">
-        <p className="mt-4 text-[var(--muted)] max-w-2xl">
+        <p className="mt-4 text-muted max-w-2xl">
           The first journal entries are being drafted. Check back soon for
           essays, client features, and behind-the-lens notes from weddings and
           portrait sessions across the DMV.
@@ -95,7 +95,7 @@ export default async function JournalIndex() {
 
   return (
     <JournalShell heading="Stories from behind the lens">
-      <p className="mt-4 text-[var(--muted)] max-w-2xl">
+      <p className="mt-4 text-muted max-w-2xl">
         Essays, client features, and notes from weddings, portraits, and
         events across Northern Virginia, DC, and Maryland.
       </p>
@@ -110,7 +110,7 @@ export default async function JournalIndex() {
               href={`/journal/${post.slug}`}
               className="group block"
             >
-              <div className="aspect-[4/5] overflow-hidden rounded-lg border border-[var(--border)] group-hover:border-[var(--foreground)] transition bg-[var(--border)]/40">
+              <div className="aspect-[4/5] overflow-hidden rounded-lg border border-border group-hover:border-foreground transition bg-border/40">
                 {cover.asset?.url && (
                   <SafeImage
                     src={urlFor(cover).width(900).height(1125).fit("crop").auto("format").url()}
@@ -125,13 +125,13 @@ export default async function JournalIndex() {
                 )}
               </div>
               <div className="mt-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">
+                <div className="text-xs uppercase tracking-[0.18em] text-accent">
                   {formatDate(post.publishedAt)}
                 </div>
-                <h2 className="mt-2 font-serif text-2xl leading-tight group-hover:text-[var(--accent)] transition">
+                <h2 className="mt-2 font-serif text-2xl leading-tight group-hover:text-accent transition">
                   {post.title}
                 </h2>
-                <p className="mt-2 text-sm text-[var(--muted)] line-clamp-3">
+                <p className="mt-2 text-sm text-muted line-clamp-3">
                   {post.excerpt}
                 </p>
                 {post.tags && post.tags.length > 0 && (
@@ -139,7 +139,7 @@ export default async function JournalIndex() {
                     {post.tags.slice(0, 3).map((tag) => (
                       <span
                         key={tag}
-                        className="text-[10px] uppercase tracking-[0.14em] text-[var(--muted)] border border-[var(--border)] rounded-full px-2 py-0.5"
+                        className="text-[10px] uppercase tracking-[0.14em] text-muted border border-border rounded-full px-2 py-0.5"
                       >
                         {tag}
                       </span>

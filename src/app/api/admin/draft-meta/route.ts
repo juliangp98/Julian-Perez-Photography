@@ -1,21 +1,14 @@
-// POST /api/admin/draft-meta — owner-only. Drafts an SEO meta description
-// (~150-160 chars) for one of the site's key static/index pages, from the page's
-// purpose + site settings. The AI never publishes — these metas live in code, so
-// the output is for review and applying to the page's `metadata.description`.
-//
-// No-ops gracefully (`drafted: false`) when AI isn't configured or the page key
-// isn't recognized.
+// POST /api/admin/draft-meta: owner-only. Drafts an SEO meta description for one
+// of the site's key static pages; those metas live in code, so it is for review only.
+// No-ops (`drafted: false`) for an unknown page key or without a key.
 
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth-cookies";
-import { rateLimitResponse } from "@/lib/request-guard";
+import { defineRoute } from "@/lib/api-route";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { getSeoPage } from "@/lib/seo-pages";
 import { getSiteSettings } from "@/lib/content";
-import * as Sentry from "@sentry/nextjs";
 
 const schema = z.object({
   page: z.string().min(1).max(60),
@@ -30,46 +23,26 @@ const SYSTEM_PROMPT = [
   "Return ONLY the description text — no quotation marks, no markdown, no label, nothing else.",
 ].join("\n");
 
-export async function POST(req: Request) {
-  if (!(await getAdminSession())) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 401 });
-  }
+export const POST = defineRoute({
+  route: "admin/draft-meta",
+  auth: "admin",
+  schema,
+  rateLimit: { max: 20, windowMs: 60_000 },
+  failure: { status: 502, error: "Couldn't draft right now. Try again." },
+  tags: () => ({ model: aiModel() }),
+  run: async (data) => {
+    const page = getSeoPage(data.page);
+    if (!page) return { ok: true, drafted: false };
 
-  const limited = rateLimitResponse(req, {
-    key: "admin-draft-meta",
-    max: 20,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
+    if (!aiEnabled()) return { ok: true, drafted: false };
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  const page = getSeoPage(parsed.data.page);
-  if (!page) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  if (!aiEnabled()) {
-    return NextResponse.json({ ok: true, drafted: false });
-  }
-
-  try {
     const settings = await getSiteSettings();
     const prompt = [
       `Site: ${settings.siteName}${settings.tagline ? ` — ${settings.tagline}` : ""}.`,
       settings.coverageArea ? `Coverage area: ${settings.coverageArea}.` : "",
       `Page: ${page.label} (${page.path})`,
       `Purpose: ${page.purpose}`,
-      parsed.data.angle?.trim() ? `Emphasis: ${parsed.data.angle.trim()}` : "",
+      data.angle?.trim() ? `Emphasis: ${data.angle.trim()}` : "",
       "",
       "Write the meta description now.",
     ]
@@ -87,19 +60,8 @@ export async function POST(req: Request) {
       ?.trim()
       .replace(/^["'“]+|["'”]+$/g, "")
       .trim();
-    if (!meta) {
-      return NextResponse.json({ ok: true, drafted: false });
-    }
+    if (!meta) return { ok: true, drafted: false };
 
-    return NextResponse.json({ ok: true, drafted: true, meta });
-  } catch (err) {
-    console.error("[admin] draft-meta error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "admin-draft-meta", stage: "generate", model: aiModel() },
-    });
-    return NextResponse.json(
-      { error: "Couldn't draft right now — please try again." },
-      { status: 502 },
-    );
-  }
-}
+    return { ok: true, drafted: true, meta };
+  },
+});

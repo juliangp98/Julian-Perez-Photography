@@ -1,9 +1,6 @@
 // Formatting + validation helpers for the form-field primitives in
-// `src/components/ui/fields`, plus the site's one human-readable date formatter
-// (`formatHumanDate`, used in UI + emails). Pure functions, no React — easy to
-// unit-test and reuse on the client or the server. The phone display mask is the
-// visual companion to `normalizeE164` (`src/lib/sms.ts`), which owns server-side
-// E.164 normalization for Twilio; this only shapes what the user sees.
+// `src/components/ui/fields`, plus the human-readable date formatters used in
+// UI and emails. Pure functions, safe on client and server.
 
 // ── Phone ──
 
@@ -144,11 +141,11 @@ export const STUDIO_TIME_ZONE = "America/New_York";
 // it never shifts a day in a negative-offset locale) or any Date-parseable
 // string/Date; returns "" for empty or unparseable input so callers fall back
 // cleanly. Pass `timeZone` (e.g. STUDIO_TIME_ZONE) when the input is a full
-// timestamp rather than a calendar date. The site's single source for
-// displaying a date.
+// timestamp rather than a calendar date, and `withTime` to append the clock
+// time ("June 7, 2026 at 3:04 PM").
 export function formatHumanDate(
   input?: string | Date | null,
-  opts: { month?: "long" | "short"; timeZone?: string } = {},
+  opts: { month?: "long" | "short"; timeZone?: string; withTime?: boolean } = {},
 ): string {
   if (!input) return "";
   let date: Date;
@@ -167,8 +164,19 @@ export function formatHumanDate(
     year: "numeric",
     month: opts.month ?? "long",
     day: "numeric",
+    ...(opts.withTime ? { hour: "numeric", minute: "2-digit" } : {}),
     ...(opts.timeZone ? { timeZone: opts.timeZone } : {}),
   });
+}
+
+// "June 7, 2026 · 3 days ago" for a stored timestamp, in the studio timezone
+// (server renders run in UTC, which would shift evening records a day).
+export function formatStamp(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  const date = formatHumanDate(iso, { timeZone: STUDIO_TIME_ZONE });
+  if (!date) return undefined;
+  const rel = formatRelativeDays(iso);
+  return rel ? `${date} · ${rel}` : date;
 }
 
 // Coarse "how long ago" for a stored timestamp: "today", "yesterday",
@@ -189,4 +197,33 @@ export function formatRelativeDays(iso?: string | null): string {
     return months === 1 ? "1 month ago" : `${months} months ago`;
   }
   return `${Math.floor(days / 365)} years ago`;
+}
+
+// A message timestamp in the studio's timezone: "Nov 17, 2026, 3:04 PM".
+export function formatDateTime(iso?: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: STUDIO_TIME_ZONE,
+  });
+}
+
+// Whole calendar days from today to a date ("2026-10-10", "10/10/2026",
+// "Aug 15, 2027", or a full timestamp): negative when it's past, null when it
+// can't be read.
+export function daysUntil(d?: string | null): number | null {
+  if (!d) return null;
+  let date = new Date(`${d}T00:00:00`);
+  if (Number.isNaN(date.getTime())) date = new Date(d);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }

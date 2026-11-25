@@ -1,19 +1,11 @@
 import { fetchGoogleReviews } from "@/lib/google-reviews";
 import { getSiteSettings } from "@/lib/content";
 import type { Testimonial } from "@/lib/types";
-import ReviewsCarousel from "./ReviewsCarousel";
+import ReviewsCarousel, { Stars } from "./ReviewsCarousel";
 
-// Async server component. Renders client testimonials in a grid. Pulls
-// from the Google Places API when env vars are set and the business is
-// API-visible; otherwise falls back to the manually curated
-// `testimonials` list on the Sanity-backed site settings (or the
-// hard-coded fallback when Sanity is unconfigured). If both are empty,
-// returns null so the consumer page renders without a reviews section.
-//
-// API display follows Google's Places attribution requirements:
-// reviewer name, profile photo (when provided), star rating, relative
-// publish time, original review text, and a link to the GBP. Review
-// text is not modified.
+// Client reviews from the Google Places API, falling back to the curated site
+// settings testimonials; renders nothing when both are empty. API reviews keep
+// Google's attribution requirements (name, photo, rating, time, unmodified text).
 
 type Props = {
   heading?: string;
@@ -34,19 +26,6 @@ type DisplayReview = {
   relativeTime: string;
   text: string;
 };
-
-function Stars({ rating }: { rating: number }) {
-  const rounded = Math.round(rating);
-  return (
-    <div
-      aria-label={`${rating} out of 5 stars`}
-      className="text-[var(--accent)] tracking-widest text-sm"
-    >
-      {"★".repeat(rounded)}
-      <span className="text-[var(--border)]">{"★".repeat(5 - rounded)}</span>
-    </div>
-  );
-}
 
 function testimonialToDisplay(t: Testimonial): DisplayReview {
   return {
@@ -101,14 +80,14 @@ export default async function GoogleReviews({
     <section className={className}>
       <div className="flex items-end justify-between gap-6 flex-wrap mb-8">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+          <div className="text-xs uppercase tracking-[0.2em] text-muted">
             Reviews
           </div>
           <h2 className="mt-2 font-serif text-4xl">{heading}</h2>
         </div>
         {aggregateRating != null && (
-          <div className="text-sm text-[var(--muted)]">
-            <span className="text-[var(--accent)] font-medium">
+          <div className="text-sm text-muted">
+            <span className="text-accent font-medium">
               ★ {aggregateRating.toFixed(1)}
             </span>{" "}
             ·{" "}
@@ -122,7 +101,7 @@ export default async function GoogleReviews({
                 href={attributionUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="underline underline-offset-4 hover:text-[var(--foreground)]"
+                className="underline underline-offset-4 hover:text-foreground"
               >
                 Google
               </a>
@@ -146,7 +125,7 @@ export default async function GoogleReviews({
           {shown.map((r, i) => (
             <article
               key={`${r.author}-${i}`}
-              className="border border-[var(--border)] rounded-lg p-6 bg-white flex flex-col"
+              className="border border-border rounded-lg p-6 bg-white flex flex-col"
             >
               <div className="flex items-center gap-3">
                 {r.authorPhotoUrl ? (
@@ -160,13 +139,13 @@ export default async function GoogleReviews({
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[var(--border)]/60 flex items-center justify-center text-xs font-medium">
+                  <div className="w-10 h-10 rounded-full bg-border/60 flex items-center justify-center text-xs font-medium">
                     {r.author.slice(0, 1)}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{r.author}</div>
-                  <div className="text-xs text-[var(--muted)]">
+                  <div className="text-xs text-muted">
                     {r.relativeTime}
                   </div>
                 </div>
@@ -174,7 +153,7 @@ export default async function GoogleReviews({
               <div className="mt-3">
                 <Stars rating={r.rating} />
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-[var(--foreground)]/90 line-clamp-6">
+              <p className="mt-4 text-sm leading-relaxed text-foreground/90 line-clamp-6">
                 {r.text}
               </p>
             </article>
@@ -182,13 +161,13 @@ export default async function GoogleReviews({
         </div>
       )}
 
-      <div className="mt-6 text-xs text-[var(--muted)]">
+      <div className="mt-6 text-xs text-muted">
         {attributionUrl ? (
           <a
             href={attributionUrl}
             target="_blank"
             rel="noreferrer"
-            className="underline underline-offset-4 hover:text-[var(--foreground)]"
+            className="underline underline-offset-4 hover:text-foreground"
           >
             {attributionLabel}
           </a>

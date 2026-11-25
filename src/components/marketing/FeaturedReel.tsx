@@ -1,13 +1,5 @@
-// Single-video hero block. Surfaces the `featured: true` entry from a
-// portfolio's videos array as a 16:9 tile with a click-to-open
-// lightbox. Used at the top of `/services/wedding-films` to give
-// browsing couples something to watch before the tier grid loads.
-//
-// Shape parallels VideoGallery (same lightbox plugins, same custom
-// YouTube renderer, same thumbnail + play affordance) but renders one
-// hero-sized tile instead of a grid. Two call sites diverge on layout
-// only — the playback path is identical, so consistency between the
-// hero and the full archive matters more than DRY.
+// A single featured video as a 16:9 hero tile that opens in a lightbox, used
+// at the top of /services/wedding-films. Playback matches VideoGallery.
 
 "use client";
 
@@ -34,8 +26,7 @@ type Props = {
 // Tolerant parser for YouTube IDs. Accepts a bare 11-char ID or any of
 // the common pasted URL forms (watch, share, embed, shorts) and
 // returns just the ID. Falls through unchanged when no pattern matches
-// so a malformed value still surfaces visibly. Mirrors the helper in
-// VideoGallery — kept inline here to keep this component standalone.
+// so a malformed value still surfaces visibly.
 function normalizeYouTubeId(input: string): string {
   if (/^[A-Za-z0-9_-]{11}$/.test(input)) return input;
   const shortMatch = input.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
@@ -84,7 +75,7 @@ export default function FeaturedReel({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group relative block w-full overflow-hidden rounded-lg bg-[var(--border)]/40 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+        className="group relative block w-full overflow-hidden rounded-lg bg-border/40 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         style={{ aspectRatio: "16 / 9" }}
         aria-label={`Play featured film: ${video.title}`}
       >
@@ -100,7 +91,7 @@ export default function FeaturedReel({
             className="object-cover transition duration-500 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-[var(--muted)] text-xs uppercase tracking-[0.18em]">
+          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs uppercase tracking-[0.18em]">
             Thumbnail unavailable
           </div>
         )}
@@ -141,7 +132,7 @@ export default function FeaturedReel({
         <div className="mt-3 flex justify-end">
           <Link
             href={`/portfolio/${portfolioSlug}`}
-            className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] hover:text-[var(--foreground)]"
+            className="text-xs uppercase tracking-[0.2em] text-accent hover:text-foreground"
           >
             View all {portfolioTitle?.toLowerCase() ?? "films"} →
           </Link>
@@ -158,7 +149,7 @@ export default function FeaturedReel({
         carousel={{ finite: true }}
         controller={{ closeOnBackdropClick: true }}
         styles={{
-          container: { backgroundColor: "rgba(14, 14, 14, 0.96)" },
+          container: { backgroundColor: "color-mix(in srgb, var(--foreground) 96%, transparent)" },
         }}
         render={{
           slide: ({ slide: s }) => {

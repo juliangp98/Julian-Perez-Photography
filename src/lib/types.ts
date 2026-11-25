@@ -89,6 +89,7 @@ export type ServiceCategory = {
   slug: ServiceSlug;
   umbrella: Umbrella;
   title: string;
+  noun?: string; // Singular noun for project names ("Wedding", "Pet Session").
   tagline: string;
   description: string;
   intro?: string[]; // Longer-form philosophy paragraphs shown above the packages.

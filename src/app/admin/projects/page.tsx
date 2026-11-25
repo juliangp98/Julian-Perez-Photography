@@ -1,4 +1,6 @@
+import { daysUntil } from "@/lib/field-format";
 import { redirect } from "next/navigation";
+import Select from "@/components/ui/fields/Select";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAdminSession } from "@/lib/auth-cookies";
@@ -12,12 +14,13 @@ import { projectDisplayName } from "@/lib/project-name";
 import AdminSearch from "@/components/admin/AdminSearch";
 import NewProjectForm from "@/components/forms/NewProjectForm";
 import { compactInputClass } from "@/components/ui/fields/Field";
-import { submitButtonClass } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 import { aiEnabled } from "@/lib/ai/ai";
 import Panel from "@/components/ui/Panel";
+import { missingInProduction } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Projects — Admin",
+  title: "Projects · Admin",
   robots: { index: false, follow: false },
 };
 
@@ -47,18 +50,6 @@ const GROUPS: { key: string; title: string; statuses: string[] }[] = [
   },
 ];
 
-// Day delta from today for an event-date string (ISO / M/D/Y / "Mon D, YYYY");
-// null if unparseable, negative if past.
-function daysFromToday(d?: string): number | null {
-  if (!d) return null;
-  let date = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(date.getTime())) date = new Date(d);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const t1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.round((t1.getTime() - t0.getTime()) / 86_400_000);
-}
 
 // Days elapsed since an ISO timestamp; null if unparseable. (Kept in a helper so
 // the "now" read stays out of the component render body.)
@@ -71,27 +62,27 @@ function daysSince(iso?: string): number | null {
 
 function ProjectCard({ r }: { r: ClientRecordFull }) {
   return (
-    <Panel className="hover:border-[var(--foreground)] transition">
+    <Panel className="hover:border-foreground transition">
       <Link href={`/admin/projects/${r.id}`} className="block">
         <div className="flex items-baseline justify-between gap-3">
           <div className="font-serif text-xl">{projectDisplayName(r)}</div>
-          <span className="text-[10px] uppercase tracking-widest text-[var(--accent)] whitespace-nowrap">
+          <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
             {statusTitle(r.status)}
           </span>
         </div>
-        <div className="mt-2 text-sm text-[var(--muted)]">
+        <div className="mt-2 text-sm text-muted">
           {[r.serviceType, r.eventDate].filter(Boolean).join(" · ") || "—"}
         </div>
         {r.email && (
-          <div className="mt-1 text-xs text-[var(--muted)]">{r.email}</div>
+          <div className="mt-1 text-xs text-muted">{r.email}</div>
         )}
         {r.bundleLabel && (
-          <div className="mt-2 inline-block px-2 py-0.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-[10px] uppercase tracking-widest">
+          <div className="mt-2 inline-block px-2 py-0.5 rounded-full border border-accent text-accent text-[10px] uppercase tracking-widest">
             ↔ {r.bundleLabel}
           </div>
         )}
       </Link>
-      <div className="mt-3 pt-3 border-t border-[var(--border)]">
+      <div className="mt-3 pt-3 border-t border-border">
         <AdminQuickLog projectId={r.id} currentStatus={r.status} />
       </div>
     </Panel>
@@ -126,7 +117,7 @@ export default async function AdminProjectsPage({
   ]);
   const upcomingShoots = all
     .filter((r) => !DONE_STATUSES.has(r.status ?? ""))
-    .map((r) => ({ r, days: daysFromToday(r.eventDate) }))
+    .map((r) => ({ r, days: daysUntil(r.eventDate) }))
     .filter((x): x is { r: ClientRecordFull; days: number } =>
       x.days !== null && x.days >= 0 && x.days <= 30,
     )
@@ -158,11 +149,27 @@ export default async function AdminProjectsPage({
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={ADMIN_TABS} logoutAction="/admin/logout" />
       <h1 className="mt-8 font-serif text-4xl">Projects</h1>
-      <p className="mt-2 text-[var(--muted)]">
+      <p className="mt-2 text-muted">
         {hasFilters
           ? `${filtered.length} of ${all.length} record${all.length === 1 ? "" : "s"}`
           : `${all.length} record${all.length === 1 ? "" : "s"} · grouped by status`}
       </p>
+
+      {process.env.NODE_ENV === "production" && missingInProduction().length > 0 && (
+        <Panel tone="danger" className="mt-6">
+          <h2 className="font-serif text-xl text-danger">Setup isn&rsquo;t finished</h2>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {missingInProduction().map((s) => (
+              <li key={s.name}>
+                <code>{s.name}</code> <span className="text-muted">{s.without}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">
+            Set these in Vercel, then redeploy. docs/configuration.md lists them all.
+          </p>
+        </Panel>
+      )}
 
       <div className="mt-6">
         <NewProjectForm />
@@ -171,8 +178,8 @@ export default async function AdminProjectsPage({
       {(staleInquiries.length > 0 || upcomingShoots.length > 0) && (
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           {staleInquiries.length > 0 && (
-            <div className="rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/[0.04] p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-[var(--accent)]">
+            <div className="rounded-lg border border-accent/40 bg-accent/[0.04] p-5">
+              <div className="text-xs uppercase tracking-[0.2em] text-accent">
                 Awaiting a reply ({staleInquiries.length})
               </div>
               <ul className="mt-3 space-y-1.5">
@@ -180,7 +187,7 @@ export default async function AdminProjectsPage({
                   <li key={r.id} className="text-sm">
                     <Link
                       href={`/admin/projects/${r.id}`}
-                      className="hover:text-[var(--accent)]"
+                      className="hover:text-accent"
                     >
                       {projectDisplayName(r)}
                     </Link>
@@ -188,7 +195,7 @@ export default async function AdminProjectsPage({
                 ))}
               </ul>
               {staleInquiries.length > 5 && (
-                <p className="mt-2 text-xs text-[var(--muted)]">
+                <p className="mt-2 text-xs text-muted">
                   + {staleInquiries.length - 5} more
                 </p>
               )}
@@ -196,7 +203,7 @@ export default async function AdminProjectsPage({
           )}
           {upcomingShoots.length > 0 && (
             <Panel>
-              <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              <div className="text-xs uppercase tracking-[0.2em] text-muted">
                 Upcoming shoots ({upcomingShoots.length})
               </div>
               <ul className="mt-3 space-y-1.5">
@@ -207,11 +214,11 @@ export default async function AdminProjectsPage({
                   >
                     <Link
                       href={`/admin/projects/${r.id}`}
-                      className="hover:text-[var(--accent)]"
+                      className="hover:text-accent"
                     >
                       {projectDisplayName(r)}
                     </Link>
-                    <span className="whitespace-nowrap text-xs text-[var(--muted)]">
+                    <span className="whitespace-nowrap text-xs text-muted">
                       {days === 0
                         ? "today"
                         : days === 1
@@ -241,11 +248,11 @@ export default async function AdminProjectsPage({
             aria-label="Search projects"
             className={`flex-1 min-w-[200px] ${compactInputClass}`}
           />
-          <select
+          <Select
+            density="compact"
             name="status"
             defaultValue={statusFilter}
             aria-label="Filter by status"
-            className={compactInputClass}
           >
             <option value="">All statuses</option>
             {CLIENT_STATUS_OPTIONS.map((o) => (
@@ -253,13 +260,14 @@ export default async function AdminProjectsPage({
                 {o.title}
               </option>
             ))}
-          </select>
+          </Select>
           {services.length > 0 && (
-            <select
+            <Select
+              density="compact"
               name="service"
               defaultValue={serviceFilter}
               aria-label="Filter by service"
-              className={`${compactInputClass} capitalize`}
+              className="capitalize"
             >
               <option value="">All services</option>
               {services.map((s) => (
@@ -267,33 +275,28 @@ export default async function AdminProjectsPage({
                   {serviceTitle(s)}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
-          <button type="submit" className={submitButtonClass}>
-            Filter
-          </button>
+          <Button type="submit">Filter</Button>
           {hasFilters && (
-            <Link
-              href="/admin/projects"
-              className="text-xs uppercase tracking-widest text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
+            <Button variant="text" href="/admin/projects">
               Clear
-            </Link>
+            </Button>
           )}
         </form>
       )}
 
       {all.length === 0 ? (
-        <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
+        <div className="mt-12 p-8 border border-dashed border-border rounded-lg text-center text-muted">
           No client records yet. Inquiries and questionnaire submissions appear
           here automatically once the Supabase store is configured.
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-12 p-8 border border-dashed border-[var(--border)] rounded-lg text-center text-[var(--muted)]">
+        <div className="mt-12 p-8 border border-dashed border-border rounded-lg text-center text-muted">
           No projects match your filters.{" "}
           <Link
             href="/admin/projects"
-            className="underline hover:text-[var(--foreground)]"
+            className="underline hover:text-foreground"
           >
             Clear filters
           </Link>
@@ -309,7 +312,7 @@ export default async function AdminProjectsPage({
               <div key={g.key}>
                 <h2 className="font-serif text-2xl">
                   {g.title}{" "}
-                  <span className="text-base text-[var(--muted)]">
+                  <span className="text-base text-muted">
                     ({items.length})
                   </span>
                 </h2>

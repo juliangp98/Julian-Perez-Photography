@@ -3,6 +3,7 @@
 import TextField from "@/components/ui/fields/TextField";
 import LocationField from "@/components/ui/fields/LocationField";
 import { labelClass } from "@/components/ui/fields/Field";
+import Button from "@/components/ui/Button";
 
 export type LocationEntry = { label?: string; address?: string; notes?: string };
 
@@ -24,36 +25,31 @@ export default function AdminLocationsEditor({
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={labelClass}>Locations</span>
-        <button
-          type="button"
-          onClick={() => onChange([...locations, {}])}
-          className="rounded-full border border-[var(--foreground)] px-3 py-1 text-xs transition hover:bg-[var(--foreground)] hover:text-[var(--background)]"
-        >
+        <Button variant="secondary" size="sm" onClick={() => onChange([...locations, {}])}>
           + Add location
-        </button>
+        </Button>
       </div>
       {locations.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">
-          No locations yet — add a venue or address.
+        <p className="text-sm text-muted">
+          No locations yet. Add a venue or address.
         </p>
       ) : (
         <div className="space-y-4">
           {locations.map((loc, i) => (
             <div
               key={i}
-              className="space-y-3 rounded-lg border border-[var(--border)] p-4"
+              className="space-y-3 rounded-lg border border-border p-4"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                <span className="text-xs uppercase tracking-[0.18em] text-muted">
                   Location {i + 1}
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="text"
                   onClick={() => onChange(locations.filter((_, j) => j !== i))}
-                  className="text-xs text-[var(--muted)] transition hover:text-red-700"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
               <TextField
                 id={`a-loc-label-${i}`}

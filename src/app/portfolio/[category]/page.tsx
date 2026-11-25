@@ -98,16 +98,16 @@ export default async function PortfolioCategoryPage({
         back={{ label: "All portfolios", href: "/portfolio" }}
       />
       <h1 className="mt-6 font-serif text-5xl">{p.title}</h1>
-      <p className="mt-3 text-[var(--muted)] max-w-2xl">{p.description}</p>
+      <p className="mt-3 text-muted max-w-2xl">{p.description}</p>
 
       {isVideoPortfolio ? (
         <div className="mt-12">
           <VideoGallery videos={p.videos ?? []} />
         </div>
       ) : p.images.length === 0 ? (
-        <div className="mt-16 p-10 border border-dashed border-[var(--border)] rounded-lg text-center">
-          <p className="text-[var(--muted)]">
-            Gallery coming soon — images will be added once exported from the
+        <div className="mt-16 p-10 border border-dashed border-border rounded-lg text-center">
+          <p className="text-muted">
+            Gallery coming soon. Images will be added once exported from the
             previous site.
           </p>
           {service && (
