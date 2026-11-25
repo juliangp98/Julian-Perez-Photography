@@ -2,7 +2,8 @@ import { test, expect } from "./support/fixtures";
 
 // Guards on the two upload-token routes. The questionnaire's is public, so it
 // only issues a token to a browser on this site, for a questionnaires/ path;
-// the portal's needs a signed-in client.
+// the portal's needs a signed-in client, or the owner adding a file from the
+// admin.
 
 const tokenRequest = (pathname: string) => ({
   type: "blob.generate-client-token",
@@ -39,4 +40,13 @@ test("portal upload: needs a signed-in client", async ({ request }) => {
     data: tokenRequest("portal/x/1700000000000-doc.pdf"),
   });
   expect(res.status()).toBe(401);
+});
+
+test("portal upload: the owner's session is accepted too", async ({ adminRequest: request }) => {
+  // Past the sign-in check. Whether a token is then issued depends on the Blob
+  // store being configured, which the suite doesn't need.
+  const res = await request.post("/api/portal/upload", {
+    data: tokenRequest("portal/1700000000000-proposal.pdf"),
+  });
+  expect(res.status()).not.toBe(401);
 });

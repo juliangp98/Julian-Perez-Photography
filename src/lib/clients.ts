@@ -11,15 +11,25 @@
 // isn't wired up, so capture + the portal degrade gracefully without env.
 //
 // Privacy boundary: the safe projection (`safeSelect()`) is what the portal
-// reads — it omits `internal_notes`, `questionnaire_snapshot`, `status_history`,
-// inquiry context, and meta timestamps, so those never reach a client. Portal
-// reads are additionally scoped to the signed-in person's email (ownership), and
-// the admin dashboard sees the full row (`fullSelect()`).
+// lists — it omits `internal_notes`, `budget`, `status_history`, inquiry
+// context, and meta timestamps, so those never reach a client. The
+// questionnaire snapshot is held out of the list and layered onto the
+// single-project reads: the client's own answers in full, and for a second
+// photographer only the answers about the shoot. Portal reads are additionally
+// scoped to the signed-in person's email (ownership); a second photographer
+// reads a narrower projection still (`collaboratorSelect()`), and the admin
+// dashboard sees the full row (`fullSelect()`).
 
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { statusRank, type ClientStatus } from "@/lib/client-status";
+import {
+  CLIENT_STATUS_TERMINAL,
+  statusRank,
+  type ClientStatus,
+} from "@/lib/client-status";
+import { documentType } from "@/lib/labels";
+import { shootAnswers } from "@/lib/questionnaire-digest";
 
 const TABLE = "client_records";
 
@@ -59,12 +69,18 @@ export async function pingClientsStore(): Promise<number> {
   return count ?? 0;
 }
 
+// One link or file on a project. `type` is a value from DOCUMENT_TYPES
+// (src/lib/labels.ts). Every entry carries an id, which is how it is removed or
+// changed; `dueAt` and `paidAt` (calendar dates) are used by invoices.
 export type ClientDocumentEntry = {
+  id?: string;
   label: string;
   type?: string;
   url: string;
   uploadedBy?: "julian" | "client";
   uploadedAt?: string;
+  dueAt?: string;
+  paidAt?: string;
 };
 export type ClientLocationEntry = {
   label?: string;
@@ -96,61 +112,83 @@ export type ClientRecordSafe = {
   secondaryDates?: ClientDateEntry[];
   locations?: ClientLocationEntry[];
   guestCount?: number;
-  budget?: string;
   planSummary?: string;
   documents?: ClientDocumentEntry[];
   lastClientUpdate?: string;
   bundleId?: string;
   bundleLabel?: string;
-  galleryUrl?: string;
   projectName?: string;
-  // The owner's own questionnaire answers (JSON keyed by field id). Selected
-  // ONLY by the single-project owner read (getProjectForEmail) so a client can
-  // review and resubmit their own submission — never in the list projection,
-  // never for anyone but the project's owner.
+  // How the client will pay (a PAYMENT_METHODS value). Shown to the client,
+  // not to a second photographer.
+  paymentMethod?: string;
+  // The questionnaire answers (JSON keyed by field id). Selected ONLY by the
+  // single-project reads, never in the list projection: the client's own in
+  // full (getProjectForEmail), so they can review and resubmit them, and for a
+  // second photographer the answers about the shoot (getProjectForViewer, via
+  // shootAnswers).
   questionnaireSnapshot?: string;
 };
 
-// Column projection for the portal. Columns are aliased snake_case → camelCase.
-// internal_notes / status_history / inquiry_message / referral / source /
-// created_at / updated_at are deliberately NOT selected — this is the privacy
-// boundary, enforced at the query. questionnaire_snapshot is the one exception:
-// it stays out of this shared/list projection but is layered on by the
-// single-project owner read (projectForOwnerSelect → getProjectForEmail) so a
-// client can review their OWN answers — gated by id + email, never cross-client.
-const SAFE_SELECT_BASE =
-  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, package, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, budget, planSummary:plan_summary, documents, lastClientUpdate:last_client_update";
-// Columns added by post-launch migrations (bundles, gallery URL) — appended
-// only while the live table is known to have them.
-const OPTIONAL_COLUMNS =
-  ", bundleId:bundle_id, bundleLabel:bundle_label, galleryUrl:gallery_url, projectName:project_name";
+// Column projections. Columns are aliased snake_case → camelCase.
+//
+// What any portal viewer may read: the client, or a second photographer with
+// read access. internal_notes / budget / status_history / inquiry_message /
+// referral / source / created_at / updated_at are deliberately NOT selected —
+// this is the privacy boundary, enforced at the query.
+const VIEWER_SELECT_BASE =
+  "id, clientName:client_name, email, phone, partnerName:partner_name, status, serviceType:service_type, eventDate:event_date, secondaryDates:secondary_dates, locations, guestCount:guest_count, planSummary:plan_summary, documents";
+// What the client also reads about their own booking. A second photographer
+// gets none of it.
+const CLIENT_SELECT_EXTRA = ", package, lastClientUpdate:last_client_update";
 // Admin-only columns, layered onto the safe projection for the full read.
 const FULL_SELECT_EXTRA =
-  ", source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
+  ", budget, source, questionnaireSnapshot:questionnaire_snapshot, inquiryMessage:inquiry_message, referral, statusHistory:status_history, internalNotes:internal_notes, createdAt:created_at, updatedAt:updated_at";
 
 // Schema-drift guard. A deploy can land before a migration's columns are added
 // to the table; the first read that asks for them then fails with PostgREST's
 // undefined-column error (SQLSTATE 42703). Rather than surface a 500 on every
-// portal + admin page, the reader notes their absence once, drops the optional
+// portal + admin page, the reader notes their absence once, drops that group of
 // columns for the rest of the process, and retries — so everything keeps working
-// (minus those fields) until the migration is applied (a restart re-enables them).
-let optionalColumnsPresent = true;
-// Collaborator columns (collaborators jsonb + collaborator_emails text[]) land
-// in their own later migration, guarded separately so their absence pre-migration
-// degrades only the collaborator feature — never the established optional columns.
-let collaboratorColumnsPresent = true;
+// (minus those fields) until the migration is applied (a restart re-enables
+// them). Each migration's columns are a group of their own, so one missing group
+// never takes an established one down with it. Writes aren't covered: a write to
+// a missing column fails, so a migration is applied before the code that writes.
+type ColumnGroup = { present: boolean; select: string; match: RegExp };
+// Bundles and the project name.
+const optionalGroup: ColumnGroup = {
+  present: true,
+  select: ", bundleId:bundle_id, bundleLabel:bundle_label, projectName:project_name",
+  match: /(bundle_id|bundle_label|project_name)/,
+};
+// How the client will pay.
+const termsGroup: ColumnGroup = {
+  present: true,
+  select: ", paymentMethod:payment_method",
+  match: /payment_method/,
+};
+// Second-photographer access (collaborators jsonb + collaborator_emails text[]).
+const collaboratorGroup: ColumnGroup = {
+  present: true,
+  select: ", collaborators",
+  match: /collaborator/,
+};
+const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup];
+const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
+type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
+
+// Match a group's own columns specifically so an unrelated schema error is
+// never swallowed by the fallback.
+function isMissing(group: ColumnGroup, error: DbResult["error"]): boolean {
+  return !!error && error.code === "42703" && group.match.test(error.message ?? "");
+}
+
+// The client's own projects, as the portal lists them.
 function safeSelect(): string {
-  return optionalColumnsPresent
-    ? SAFE_SELECT_BASE + OPTIONAL_COLUMNS
-    : SAFE_SELECT_BASE;
+  return VIEWER_SELECT_BASE + CLIENT_SELECT_EXTRA + cols(optionalGroup) + cols(termsGroup);
 }
 function fullSelect(): string {
-  return (
-    safeSelect() +
-    FULL_SELECT_EXTRA +
-    (collaboratorColumnsPresent ? ", collaborators" : "")
-  );
+  return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -158,45 +196,31 @@ function fullSelect(): string {
 function projectForOwnerSelect(): string {
   return safeSelect() + ", questionnaireSnapshot:questionnaire_snapshot";
 }
-
-type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
-
-// Match the known optional columns specifically so an unrelated schema error is
-// never swallowed by the fallback.
-function isMissingOptionalColumn(error: DbResult["error"]): boolean {
-  return (
-    !!error &&
-    error.code === "42703" &&
-    /(bundle_id|bundle_label|gallery_url|project_name)/.test(
-      error.message ?? "",
-    )
-  );
+// A second photographer's read: no package or payment terms. The documents
+// column is narrowed afterwards to the kinds they may see
+// (collaboratorDocuments), since it is one JSON array.
+function collaboratorSelect(): string {
+  return VIEWER_SELECT_BASE + cols(optionalGroup);
 }
-// Same 42703 guard, scoped to the collaborator columns so the collaborator
-// feature can no-op until its migration runs without touching the others.
-function isMissingCollaboratorColumn(error: DbResult["error"]): boolean {
-  return (
-    !!error &&
-    error.code === "42703" &&
-    /collaborator/.test(error.message ?? "")
-  );
+function collaboratorDocuments(
+  docs: ClientDocumentEntry[] | undefined,
+): ClientDocumentEntry[] {
+  return (docs ?? []).filter((d) => documentType(d.type)?.collaborator);
 }
 
-// Run a projected read; on a missing optional-column error (either group),
-// remember it and retry once with the reduced projection.
+// Run a projected read; on a missing-column error from any group, remember it
+// and retry once with the reduced projection.
 async function readWithOptionalColumns(
   projection: () => string,
   build: (select: string) => PromiseLike<DbResult>,
 ): Promise<DbResult> {
   const res = await build(projection());
   let retry = false;
-  if (isMissingOptionalColumn(res.error) && optionalColumnsPresent) {
-    optionalColumnsPresent = false;
-    retry = true;
-  }
-  if (isMissingCollaboratorColumn(res.error) && collaboratorColumnsPresent) {
-    collaboratorColumnsPresent = false;
-    retry = true;
+  for (const group of COLUMN_GROUPS) {
+    if (group.present && isMissing(group, res.error)) {
+      group.present = false;
+      retry = true;
+    }
   }
   return retry ? build(projection()) : res;
 }
@@ -299,14 +323,14 @@ export async function emailHasPortalAccess(email: string): Promise<boolean> {
   if (!isClientsStoreConfigured()) return false;
   const e = normalizeEmail(email);
   if (await findClientIdByEmail(e)) return true;
-  if (!collaboratorColumnsPresent) return false;
+  if (!collaboratorGroup.present) return false;
   const { data, error } = await db()
     .from(TABLE)
     .select("id")
     .contains("collaborator_emails", [e])
     .limit(1);
-  if (isMissingCollaboratorColumn(error)) {
-    collaboratorColumnsPresent = false;
+  if (isMissing(collaboratorGroup, error)) {
+    collaboratorGroup.present = false;
     return false;
   }
   if (error) throw error;
@@ -315,7 +339,7 @@ export async function emailHasPortalAccess(email: string): Promise<boolean> {
 
 // All projects a portal viewer can see: their own (owner) plus any shared with
 // them (collaborator), each tagged with the viewer's role. Owner wins on overlap.
-// Collaborator entries are redacted of the private client↔Julian notes channel.
+// Shared projects come through the narrower collaborator projection.
 export async function listPortalProjects(
   email: string,
 ): Promise<Array<ClientRecordSafe & { viewerRole: PortalViewerRole }>> {
@@ -325,22 +349,26 @@ export async function listPortalProjects(
   const byId = new Map<string, ClientRecordSafe & { viewerRole: PortalViewerRole }>();
   for (const p of owned) byId.set(p.id, { ...p, viewerRole: "owner" });
 
-  if (collaboratorColumnsPresent) {
-    const { data, error } = await readWithOptionalColumns(safeSelect, (sel) =>
+  if (collaboratorGroup.present) {
+    const { data, error } = await readWithOptionalColumns(collaboratorSelect, (sel) =>
       db()
         .from(TABLE)
         .select(sel)
         .contains("collaborator_emails", [e])
         .order("updated_at", { ascending: false }),
     );
-    if (isMissingCollaboratorColumn(error)) {
-      collaboratorColumnsPresent = false;
+    if (isMissing(collaboratorGroup, error)) {
+      collaboratorGroup.present = false;
     } else if (error) {
       throw error;
     } else {
       for (const p of (data as ClientRecordSafe[] | null) ?? []) {
         if (byId.has(p.id)) continue; // owner role wins
-        byId.set(p.id, { ...p, viewerRole: "collaborator" });
+        byId.set(p.id, {
+          ...p,
+          documents: collaboratorDocuments(p.documents),
+          viewerRole: "collaborator",
+        });
       }
     }
   }
@@ -348,9 +376,11 @@ export async function listPortalProjects(
 }
 
 // The single-project READ gate for the portal page: returns the record if this
-// email is the owner OR a collaborator, with the viewer's role. Collaborators
-// get the project minus the private client↔Julian notes channel. Distinct from
-// getProjectForEmail so WRITES (which use that) stay strictly owner-only.
+// email is the owner OR a collaborator, with the viewer's role. A collaborator
+// gets the narrower projection: no package, payment terms or message thread,
+// and only the links and files meant for them, plus the planning answers they
+// shoot from (without the booking ones). Distinct from getProjectForEmail so WRITES (which use that) stay
+// strictly owner-only.
 export async function getProjectForViewer(
   id: string,
   email: string,
@@ -361,18 +391,19 @@ export async function getProjectForViewer(
   // Owner path first — also covers the pre-migration window with no extra query.
   const owned = await getProjectForEmail(id, e);
   if (owned) return { record: owned, viewerRole: "owner" };
-  if (!collaboratorColumnsPresent) return null;
+  if (!collaboratorGroup.present) return null;
 
   // Collaborator path: read the row by id, then authorize against its
   // collaborator list (the projection carries email + collaborator_emails so the
   // check is in-process, never trusting the caller).
   const collabSelect = () =>
-    projectForOwnerSelect() + ", collaborator_emails";
+    collaboratorSelect() +
+    ", questionnaireSnapshot:questionnaire_snapshot, collaborator_emails";
   const { data, error } = await readWithOptionalColumns(collabSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
-  if (isMissingCollaboratorColumn(error)) {
-    collaboratorColumnsPresent = false;
+  if (isMissing(collaboratorGroup, error)) {
+    collaboratorGroup.present = false;
     return null;
   }
   if (error) throw error;
@@ -387,7 +418,16 @@ export async function getProjectForViewer(
   // Strip the internal index column before returning.
   const { collaborator_emails: _drop, ...rest } = row;
   void _drop;
-  return { record: rest, viewerRole: "collaborator" };
+  return {
+    record: {
+      ...rest,
+      documents: collaboratorDocuments(rest.documents),
+      // The planning answers they shoot from, without the ones about the
+      // booking (the package chosen, add-ons, booked or still deciding).
+      questionnaireSnapshot: shootAnswers(rest.serviceType, rest.questionnaireSnapshot),
+    },
+    viewerRole: "collaborator",
+  };
 }
 
 // ── Writes ──
@@ -661,19 +701,19 @@ export async function attachQuestionnaire(input: {
   }
 
   if (id && input.pdf) {
-    await appendDocument(id, {
+    await addDocument(id, {
       label: input.pdf.label,
       type: "questionnaire-pdf",
       url: input.pdf.url,
       uploadedBy: "julian",
-      uploadedAt: ts,
     });
   }
   return id;
 }
 
 // Move a record forward in the pipeline. No-op if the target is the same or
-// earlier than the current status.
+// earlier than the current status, or if the project is closed (archived, lost
+// or declined): those are only ever reopened by hand.
 export async function advanceStatus(
   id: string,
   target: ClientStatus,
@@ -687,6 +727,7 @@ export async function advanceStatus(
     .maybeSingle();
   if (selErr) throw selErr;
   if (!row) return;
+  if (CLIENT_STATUS_TERMINAL.includes(row.status as ClientStatus)) return;
   if (statusRank(target) <= statusRank(row.status as string)) return;
   const ts = nowIso();
   const history = Array.isArray(row.status_history) ? row.status_history : [];
@@ -698,24 +739,61 @@ export async function advanceStatus(
   if (error) throw error;
 }
 
-export async function appendDocument(
+// ── Links and files ──
+//
+// The documents array changes through Postgres functions (supabase/schema.sql),
+// one statement each, so a client upload and an owner edit landing together
+// can't overwrite each other.
+
+// Add a link or file to a project. The entry gets its id and timestamp here. A
+// kind that marks a milestone (highlights, the gallery) also moves the project
+// forward to that stage; nothing is sent to the client.
+export async function addDocument(
   id: string,
-  doc: ClientDocumentEntry,
+  doc: Omit<ClientDocumentEntry, "id" | "uploadedAt">,
 ): Promise<void> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return;
-  const { data: row, error: selErr } = await db()
-    .from(TABLE)
-    .select("documents")
-    .eq("id", id)
-    .maybeSingle();
-  if (selErr) throw selErr;
-  if (!row) return;
-  const docs = Array.isArray(row.documents) ? row.documents : [];
-  docs.push(doc);
-  const { error } = await db()
-    .from(TABLE)
-    .update({ documents: docs, updated_at: nowIso() })
-    .eq("id", id);
+  const entry: ClientDocumentEntry = {
+    ...doc,
+    id: randomUUID(),
+    uploadedAt: nowIso(),
+  };
+  const { error } = await db().rpc("add_document", { p_id: id, p_doc: entry });
+  if (error) throw error;
+  const info = documentType(doc.type);
+  if (info?.advancesTo) {
+    await advanceStatus(id, info.advancesTo, `${info.label} added`);
+  }
+}
+
+// Take one entry off the project. An uploaded file itself stays in storage.
+export async function removeDocument(id: string, docId: string): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db().rpc("remove_document", {
+    p_id: id,
+    p_doc_id: docId,
+  });
+  if (error) throw error;
+}
+
+// Change one entry: its label, or an invoice's due and paid dates. A null
+// clears that value.
+export type ClientDocumentPatch = {
+  label?: string;
+  dueAt?: string | null;
+  paidAt?: string | null;
+};
+export async function patchDocument(
+  id: string,
+  docId: string,
+  patch: ClientDocumentPatch,
+): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db().rpc("patch_document", {
+    p_id: id,
+    p_doc_id: docId,
+    p_patch: patch,
+  });
   if (error) throw error;
 }
 
@@ -835,6 +913,7 @@ export type ClientStatusEntry = {
   note?: string;
 };
 export type ClientRecordFull = ClientRecordSafe & {
+  budget?: string;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -879,9 +958,9 @@ const ADMIN_COLUMN: Record<string, string> = {
   budget: "budget",
   planSummary: "plan_summary",
   internalNotes: "internal_notes",
-  galleryUrl: "gallery_url",
   projectName: "project_name",
   locations: "locations",
+  paymentMethod: "payment_method",
 };
 
 export async function updateClientAdmin(
@@ -894,6 +973,8 @@ export async function updateClientAdmin(
     if (k in fields && fields[k] !== undefined) patch[col] = fields[k];
   }
   if (typeof patch.email === "string") patch.email = normalizeEmail(patch.email);
+  // "Not chosen" is stored as no value, not an empty string.
+  if (patch.payment_method === "") patch.payment_method = null;
   const ts = nowIso();
   patch.updated_at = ts;
 

@@ -86,7 +86,7 @@ suspected of being exposed, and as part of a quarterly audit.
       `*.vercel.app` preview, or localhost outside production), only for a
       path under `questionnaires/`, and only for images or PDFs up to 10 MB.
       `/api/portal/upload` issues a token only to a signed-in portal session
-      and answers 401 otherwise.
+      or the owner's admin session, and answers 401 otherwise.
 - [ ] **Vercel Blob** lifecycle. Questionnaire uploads land in Blob and
       persist indefinitely by default. Decide on a purge cadence (e.g. 90
       days) and either do it manually via `vercel blob rm` or schedule a
@@ -117,10 +117,26 @@ suspected of being exposed, and as part of a quarterly audit.
       reached server-side via `src/lib/clients.ts` with the service-role key.
       RLS is enabled on the table; confirm it stays on (Supabase → Auth →
       Policies / table settings) so the anon key can't read it.
-- [ ] The portal selects `SAFE_SELECT` only — `internal_notes`, the
-      questionnaire snapshot, status history, and inquiry context are never
-      selected. Keep internal-only columns out of that projection when adding
-      fields.
+- [ ] The portal reads the client projection (`safeSelect()` in
+      `src/lib/clients.ts`) — `internal_notes`, the budget, status history,
+      and inquiry context are never selected. The questionnaire snapshot is
+      held out of the project list and added by the single-project reads: the
+      client's own answers in full, and for a second photographer only the
+      answers about the shoot (`shootAnswers()`). A second photographer reads
+      a narrower projection (`collaboratorSelect()`): no package or payment
+      method, and only the links and files whose kind is marked for them in
+      `DOCUMENT_TYPES`. Keep internal-only columns out of both when adding
+      fields, mark a new link kind `collaborator: false` unless a second
+      photographer needs it, and mark a new questionnaire field `booking: true`
+      when it is about the tier, an add-on or a bundle. What is withheld is the
+      package the client chose and their add-ons; the planning answers still
+      describe the coverage, so the tier can sometimes be worked out from them.
+- [ ] A client can file an upload only as a timeline, a moodboard or a general
+      file. Proposals, contracts, invoices and galleries are added by the owner
+      (`/api/admin/update`), and an owner-added link must be an `http(s)`
+      address. The Postgres functions that change the `documents` array
+      (`add_document`, `remove_document`, `patch_document`) are executable by
+      the service role only.
 - [ ] Magic links are signed tokens that expire after 20 minutes. They are
       not single-use: the verify routes (`/portal/verify`, `/admin/verify`)
       don't record used tokens, so a link works again until it expires. Anyone
@@ -156,7 +172,13 @@ suspected of being exposed, and as part of a quarterly audit.
       `/admin` is in `robots.ts` disallow.
 - [ ] **Vercel Blob** lifecycle covers portal document uploads and captured
       plan PDFs too (public, unguessable URLs). Fold these into the same purge
-      cadence as questionnaire uploads. They are PII.
+      cadence as questionnaire uploads. They are PII. Removing an entry from a
+      project, or deleting the project, leaves the uploaded file in Blob at its
+      address (the remove prompt says so); delete the file itself from the
+      Vercel Blob dashboard when it must stop being reachable.
+- [ ] The Sanity dataset is public, and that includes site settings' how-to-pay
+      lines and each service's booking terms. Put a Zelle or Venmo handle there
+      only if it can be public.
 
 ## Resend
 

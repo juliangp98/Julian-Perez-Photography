@@ -94,10 +94,15 @@ async function seedSiteSettings() {
   // Testimonials are an array of objects — Sanity requires a `_key` on
   // each. Index-based keys are fine because `createOrReplace` replaces
   // the whole array every run; there's no incremental diff to preserve.
+  // Studio field names can't carry a hyphen, so the Apple Pay line is stored as
+  // `applePay` (the site-settings query maps it back to the "apple-pay" method).
+  const { "apple-pay": applePay, ...paymentLines } =
+    siteSettingsFallback.paymentInstructions;
   const doc = {
     _id: "siteSettings",
     _type: "siteSettings",
     ...siteSettingsFallback,
+    paymentInstructions: { ...paymentLines, applePay },
     testimonials: siteSettingsFallback.testimonials.map((t, i) => ({
       _key: `testimonial-${i}`,
       ...t,

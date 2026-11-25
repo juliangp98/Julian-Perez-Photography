@@ -4,12 +4,7 @@ import {
   formatStamp,
   STUDIO_TIME_ZONE,
 } from "@/lib/field-format";
-import {
-  sourceLabel,
-  statusTitle,
-  documentTypeLabel,
-  uploaderLabel,
-} from "@/lib/labels";
+import { DOCUMENT_TYPES, sourceLabel, statusTitle } from "@/lib/labels";
 import { formatReferral } from "@/lib/referral";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -28,8 +23,10 @@ import { aiEnabled } from "@/lib/ai/ai";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import { emailTokens } from "@/lib/email/email-tokens";
+import { projectLink, projectLinks } from "@/lib/project-links";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
 import AdminCollaborators from "@/components/admin/AdminCollaborators";
+import AdminProjectLinks from "@/components/admin/AdminProjectLinks";
 import CopyField from "@/components/ui/CopyField";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
@@ -53,12 +50,13 @@ export default async function AdminProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
   // ?compose=<template id>&steer=<text>: triage and next-step suggestions open
-  // the compose panel on a template.
-  searchParams: Promise<{ compose?: string; steer?: string }>;
+  // the compose panel on a template. A link's "Tell the client" adds
+  // &doc=<entry id>, which only tells one hand-off from the next.
+  searchParams: Promise<{ compose?: string; steer?: string; doc?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
   const { id } = await params;
-  const { compose, steer } = await searchParams;
+  const { compose, steer, doc } = await searchParams;
   const record = await getClientFull(id);
   // Siblings (same person) — offered as bundle-link choices.
   const siblings = record?.email
@@ -72,7 +70,7 @@ export default async function AdminProjectDetailPage({
   const origin = host
     ? `${h.get("x-forwarded-proto") ?? "https"}://${host}`
     : "";
-  const emailContext = record ? emailTokens(record, origin) : {};
+  const emailContext = record ? await emailTokens(record, origin) : {};
   const ai = aiEnabled();
   const [messages, replyToken] = record
     ? await Promise.all([listProjectMessages(record.id), ensureReplyToken(record.id)])
@@ -85,19 +83,18 @@ export default async function AdminProjectDetailPage({
     : null;
 
   // A link to send the client so their questionnaire/inquiry attaches to THIS
-  // project (threading the id + prefilled basics). Service known → questionnaire;
-  // undecided → inquiry (which sets the service on submit).
-  let completionUrl = "";
-  if (record) {
-    const p = new URLSearchParams({ project: record.id });
-    if (record.clientName) p.set("fullName", record.clientName);
-    if (record.email) p.set("email", record.email);
-    if (record.phone) p.set("phone", record.phone);
-    if (record.eventDate) p.set("eventDate", record.eventDate);
-    completionUrl = record.serviceType
-      ? `${origin}/questionnaire/${record.serviceType}?${p.toString()}`
-      : `${origin}/inquire?${p.toString()}`;
-  }
+  // project, prefilled with what's known. Service known → its questionnaire;
+  // undecided → the inquiry (which sets the service on submit). A service with
+  // no questionnaire has neither.
+  const links = record ? projectLinks(record, origin) : null;
+  const completionUrl = links?.questionnaireUrl ?? links?.inquireUrl;
+  // The link a Compose template would carry for each kind that has a template:
+  // the entries that offer "Tell the client".
+  const announceIds = record
+    ? DOCUMENT_TYPES.filter((t) => t.template)
+        .map((t) => projectLink(record, t.value)?.id)
+        .filter((id): id is string => !!id)
+    : [];
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
@@ -133,8 +130,8 @@ export default async function AdminProjectDetailPage({
               <div>
                 <h2 className="font-serif text-2xl">Project details</h2>
                 <p className="mt-2 mb-4 text-sm text-muted">
-                  Edit contact info, status, service &amp; package, key dates,
-                  the shoot plan, and internal notes.
+                  Edit contact info, status, service &amp; package, how they
+                  pay, key dates, the shoot plan, and internal notes.
                 </p>
                 <AdminProjectEditForm
                   id={record.id}
@@ -154,7 +151,7 @@ export default async function AdminProjectDetailPage({
                     budget: record.budget,
                     planSummary: record.planSummary,
                     internalNotes: record.internalNotes,
-                    galleryUrl: record.galleryUrl,
+                    paymentMethod: record.paymentMethod,
                     locations: record.locations,
                   }}
                 />
@@ -232,7 +229,7 @@ export default async function AdminProjectDetailPage({
                   prefills from the project. Edit, then send or copy.
                 </p>
                 <ComposeEmail
-                  key={`${compose ?? ""}|${steer ?? ""}`}
+                  key={`${compose ?? ""}|${steer ?? ""}|${doc ?? ""}`}
                   initialTemplateId={compose}
                   initialSteer={steer}
                   projectId={record.id}
@@ -255,24 +252,40 @@ export default async function AdminProjectDetailPage({
                 </RailCard>
               )}
 
-              <RailCard title="Client completion link">
-                <p className="mb-3 text-sm text-muted">
-                  Send this so the client{" "}
-                  {record.serviceType
-                    ? "fills the planning questionnaire"
-                    : "sends an inquiry that sets the service"}.
-                  It attaches to this project, so there is no duplicate.
-                </p>
-                <CopyField
-                  label={
-                    record.serviceType
-                      ? "Open the questionnaire link →"
-                      : "Open the inquiry link →"
-                  }
-                  value={completionUrl}
-                  href={completionUrl}
-                />
-              </RailCard>
+              <div id="links">
+                <RailCard title="Links & files">
+                  <p className="mb-4 text-sm text-muted">
+                    What you and the client share on this project. The client
+                    sees every entry in their portal.
+                  </p>
+                  <AdminProjectLinks
+                    projectId={record.id}
+                    documents={record.documents ?? []}
+                    announceIds={announceIds}
+                  />
+                </RailCard>
+              </div>
+
+              {completionUrl && (
+                <RailCard title="Client completion link">
+                  <p className="mb-3 text-sm text-muted">
+                    Send this so the client{" "}
+                    {record.serviceType
+                      ? "fills the planning questionnaire"
+                      : "sends an inquiry that sets the service"}.
+                    It attaches to this project, so there is no duplicate.
+                  </p>
+                  <CopyField
+                    label={
+                      record.serviceType
+                        ? "Open the questionnaire link →"
+                        : "Open the inquiry link →"
+                    }
+                    value={completionUrl}
+                    href={completionUrl}
+                  />
+                </RailCard>
+              )}
 
               <RailCard title="Details">
                 <div className="divide-y divide-border">
@@ -308,35 +321,6 @@ export default async function AdminProjectDetailPage({
                         )
                         .join("\n")}
                     />
-                  )}
-                  {record.documents && record.documents.length > 0 && (
-                    <div className="py-2">
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted">
-                        Documents
-                      </div>
-                      <ul className="mt-1 space-y-1">
-                        {record.documents.map((d, i) => (
-                          <li key={i} className="text-sm">
-                            <a
-                              href={d.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline underline-offset-4 hover:text-accent"
-                            >
-                              {d.label}
-                            </a>{" "}
-                            <span className="text-xs text-muted">
-                              {[
-                                documentTypeLabel(d.type),
-                                uploaderLabel(d.uploadedBy),
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
                   )}
                   {record.statusHistory && record.statusHistory.length > 0 && (
                     <div className="py-2">
@@ -393,8 +377,10 @@ export default async function AdminProjectDetailPage({
               <RailCard title="Second photographer access">
                 <p className="mb-4 text-sm text-muted">
                   Grant a second photographer read-only portal access to this
-                  project: details, dates, documents, and the planning notes.
-                  Per project; remove anytime.
+                  project: details, dates, the timeline and shared files, and
+                  the planning answers about the shoot. Never the budget, the
+                  package they chose, how they&rsquo;re paying, or the proposal,
+                  contract and invoices. Per project; remove anytime.
                 </p>
                 <AdminCollaborators
                   projectId={record.id}

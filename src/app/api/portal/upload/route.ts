@@ -1,14 +1,16 @@
 // POST /api/portal/upload: a short-lived Vercel Blob upload token for a
-// signed-in client. The file is linked to a project afterwards by
-// /api/portal/attach-document, which checks ownership.
+// signed-in client, or for the owner adding a file from the admin. The file is
+// linked to a project afterwards: a client's by /api/portal/attach-document,
+// which checks ownership, and the owner's by /api/admin/update.
 
 export const runtime = "nodejs";
 
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { rateLimitResponse } from "@/lib/request-guard";
-import { getSession } from "@/lib/auth-cookies";
+import { getAdminSession, getSession } from "@/lib/auth-cookies";
 import * as Sentry from "@sentry/nextjs";
+import { UPLOAD_CONTENT_TYPES } from "@/lib/labels";
 
 export async function POST(request: Request) {
   const limited = rateLimitResponse(request, {
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const session = await getSession();
+  const session = (await getSession()) ?? (await getAdminSession());
   if (body.type === "blob.generate-client-token" && !session) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -36,14 +38,7 @@ export async function POST(request: Request) {
       onBeforeGenerateToken: async () => {
         if (!session) throw new Error("Not signed in");
         return {
-          allowedContentTypes: [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/heic",
-            "image/heif",
-            "application/pdf",
-          ],
+          allowedContentTypes: UPLOAD_CONTENT_TYPES,
           maximumSizeInBytes: 15 * 1024 * 1024, // 15 MB
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ email: session.email }),

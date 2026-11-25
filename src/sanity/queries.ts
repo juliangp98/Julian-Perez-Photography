@@ -168,6 +168,7 @@ const SITE_SETTINGS_FIELDS = `
   },
   clientGalleryUrl,
   paymentPreferences,
+  paymentInstructions { square, cash, zelle, venmo, "apple-pay": applePay },
   social    { instagram, facebook, youtube },
   analytics { ga4Id },
   googleProfileUrl,
@@ -305,7 +306,11 @@ const SERVICE_FIELDS = `
   pricingNote,
   faqs[] { question, answer },
   hidden,
-  order
+  order,
+  sampleGalleryUrl,
+  retainerPercent,
+  holdDays,
+  turnaroundDays
 `;
 
 export async function getServicesFromSanity(): Promise<

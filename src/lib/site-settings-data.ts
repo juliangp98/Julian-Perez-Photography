@@ -44,6 +44,15 @@ export const siteSettingsFallback: SiteSettings = {
   clientGalleryUrl: "https://julianperezphotography.pic-time.com/client",
   paymentPreferences:
     "Deposits via Square. Balances preferred via Zelle, Venmo, or cash.",
+  // Starting lines. The ones written in Studio replace them, and are as public
+  // as the rest of the dataset, so they carry a handle only where that's fine.
+  paymentInstructions: {
+    square: "Pay by card with the link on your Square invoice.",
+    cash: "Pay in cash. Message me to set up when.",
+    zelle: "Pay by Zelle. Ask me for the details if you don't have them.",
+    venmo: "Pay by Venmo. Ask me for the details if you don't have them.",
+    "apple-pay": "Pay by Apple Pay. Ask me for the details if you don't have them.",
+  },
   social: {
     instagram: "https://instagram.com/julianperezphotography",
     facebook: "https://facebook.com/julianperezphotography",

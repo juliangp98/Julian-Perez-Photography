@@ -8,7 +8,8 @@ import {
 // Shared fixtures for the e2e suite:
 // - every request from a test carries its own x-forwarded-for, so the
 //   in-memory rate-limit buckets never collide between tests;
-// - `adminRequest`, `adminPage` and `portalRequest(email)` arrive signed in;
+// - `adminRequest`, `adminPage`, `portalRequest(email)` and `portalPage(email)`
+//   arrive signed in;
 // - `fakes` reads and steers the stand-in providers (tests/e2e/support/
 //   fake-providers.mjs); it resets before every test.
 
@@ -71,6 +72,7 @@ export const test = base.extend<{
   adminRequest: APIRequestContext;
   adminPage: Page;
   portalRequest: (email: string) => Promise<APIRequestContext>;
+  portalPage: (email: string) => Promise<Page>;
   fakes: Fakes;
 }>({
   clientIp: async ({}, provide, testInfo) => {
@@ -92,6 +94,15 @@ export const test = base.extend<{
     await provide(async (email) => {
       await signIn(request, "/api/portal/request-link", email);
       return request;
+    });
+  },
+  // The browser page signed in to the portal as `email` (a client, or a second
+  // photographer with access). Signing in again as someone else replaces the
+  // session, so one test can look at a project as each of them in turn.
+  portalPage: async ({ page }, provide) => {
+    await provide(async (email) => {
+      await signIn(page.request, "/api/portal/request-link", email);
+      return page;
     });
   },
   // Automatic, so every test starts with an empty record of provider calls

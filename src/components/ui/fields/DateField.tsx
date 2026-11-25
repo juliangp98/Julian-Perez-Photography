@@ -4,17 +4,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import Field, { controlClass, errorId } from "./Field";
-import { maskDate, displayToIso, isoToDisplay } from "@/lib/field-format";
+import { maskDate, displayToIso, isoToDisplay, isoFromDate } from "@/lib/field-format";
 
 // Date entry that types as `MM/DD/YYYY` (auto-slashes, auto-advances) and opens
 // a site-styled react-day-picker calendar (a callout-card popover, the selected
 // day ringed in the brand accent). The stored `value` is ISO `yyyy-MM-dd`; a
 // hidden `name` input carries it for FormData-based forms.
-function isoFromDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
 
 // Map react-day-picker's theme variables onto the site palette: the selected
 // day is ringed in --accent, today's number is --accent, hover/range tint is a

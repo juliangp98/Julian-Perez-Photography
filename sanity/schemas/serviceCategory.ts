@@ -245,6 +245,37 @@ export const serviceCategory = defineType({
         "Drives both the on-page Q/A section and a FAQPage JSON-LD block for Google rich results.",
     }),
     defineField({
+      name: "sampleGalleryUrl",
+      title: "Sample gallery link",
+      type: "url",
+      description:
+        "A full gallery for this service to send a prospect with a proposal. The service page doesn't show it, but like everything in this dataset it isn't private.",
+    }),
+    defineField({
+      name: "retainerPercent",
+      title: "Retainer (%)",
+      type: "number",
+      description:
+        "Share of the total that reserves the date, e.g. 30.",
+      validation: (r) => r.min(0).max(100),
+    }),
+    defineField({
+      name: "holdDays",
+      title: "Date hold (days)",
+      type: "number",
+      description:
+        "How many days a date is held after a proposal goes out, e.g. 7.",
+      validation: (r) => r.min(0).max(365).integer(),
+    }),
+    defineField({
+      name: "turnaroundDays",
+      title: "Turnaround (days)",
+      type: "number",
+      description:
+        "Days from the shoot to the delivered gallery, e.g. 28.",
+      validation: (r) => r.min(0).max(365).integer(),
+    }),
+    defineField({
       name: "hidden",
       type: "boolean",
       initialValue: false,

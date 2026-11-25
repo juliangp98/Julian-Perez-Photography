@@ -6,17 +6,14 @@ export const runtime = "nodejs";
 
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
-import { appendDocument, getProjectForEmail } from "@/lib/clients";
+import { addDocument, getProjectForEmail } from "@/lib/clients";
+import { CLIENT_DOCUMENT_TYPES } from "@/lib/labels";
 
-// Document kinds the client can label an upload with, surfaced as a badge in
-// the portal. "other" is the default when none is chosen.
-const DOC_KINDS = [
-  "other",
-  "contract",
-  "invoice",
-  "timeline",
-  "moodboard",
-] as const;
+// The kinds a client can label an upload with (a timeline, a moodboard, or a
+// general file). Proposals, contracts, invoices and galleries are Julian's to
+// add, so a client can't file something under those names. "other" is the
+// default when none is chosen.
+const CLIENT_KINDS = CLIENT_DOCUMENT_TYPES.map((t) => t.value) as [string, ...string[]];
 
 export const POST = defineRoute({
   route: "portal/attach-document",
@@ -25,7 +22,7 @@ export const POST = defineRoute({
     projectId: z.string().min(1),
     url: z.string().url(),
     label: z.string().min(1).max(200),
-    type: z.enum(DOC_KINDS).optional(),
+    type: z.enum(CLIENT_KINDS).optional(),
   }),
   rateLimit: { max: 20, windowMs: 10 * 60 * 1000 },
   invalid: "Invalid document.",
@@ -46,12 +43,11 @@ export const POST = defineRoute({
     const owned = await getProjectForEmail(projectId, session.email);
     if (!owned) return apiError(404, "Not found.");
 
-    await appendDocument(projectId, {
+    await addDocument(projectId, {
       label,
       type: type ?? "other",
       url,
       uploadedBy: "client",
-      uploadedAt: new Date().toISOString(),
     });
     return { ok: true };
   },

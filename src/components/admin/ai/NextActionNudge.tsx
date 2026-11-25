@@ -3,7 +3,7 @@
 // Suggests a project's next step from its pipeline state (/api/admin/next-action),
 // with the email template that fits when there is one.
 
-import Link from "next/link";
+import ComposeLink from "@/components/admin/ComposeLink";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import FormStatus from "@/components/ui/FormStatus";
@@ -58,13 +58,12 @@ export default function NextActionNudge({ projectId }: { projectId: string }) {
           {action.suggestedTemplate && (
             <p className="text-sm">
               Suggested email:{" "}
-              <Link
+              <ComposeLink
                 href={`?compose=${action.suggestedTemplate.id}#compose`}
-                scroll={false}
                 className="font-medium underline underline-offset-4 hover:text-accent"
               >
                 {action.suggestedTemplate.name}
-              </Link>
+              </ComposeLink>
             </p>
           )}
         </div>

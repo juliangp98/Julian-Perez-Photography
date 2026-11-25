@@ -31,7 +31,6 @@ test("admin quick-log: accepts a note when authenticated", async ({ adminRequest
     data: {
       projectId: "p1",
       note: "Called, left a voicemail",
-      notifyClient: true,
     },
   });
   // No project has this id → the helper does nothing, but the route accepts it.
@@ -55,30 +54,26 @@ test("admin project page: a missing project renders the not-found state, not a 5
   await expect(page.getByText(/couldn.t be found/i)).toBeVisible();
 });
 
-test("admin update: accepts a gallery URL and project name when authenticated", async ({ adminRequest: request }) => {
+test("admin update: accepts a project name when authenticated", async ({ adminRequest: request }) => {
   const res = await request.post("/api/admin/update", {
     data: {
       id: "p1",
-      notifyClient: true,
       fields: {
-        galleryUrl: "https://gallery.pic-time.com/abc",
         projectName: "The Smiths' Wedding",
       },
     },
   });
-  // No project has this id → no-op, but the route accepts the new fields.
+  // No project has this id → no-op, but the route accepts the field.
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
 });
 
 test("admin update: accepts the typed service/package/date values when authenticated", async ({ adminRequest: request }) => {
-  // The locked-down edit form now emits a service slug, a package name, and an
-  // ISO event date — confirm those round-trip through the schema. notifyClient
-  // is on, exercising the change-summary path (no-op here without a record).
+  // The locked-down edit form emits a service slug, a package name, and an ISO
+  // event date — confirm those round-trip through the schema.
   const res = await request.post("/api/admin/update", {
     data: {
       id: "p1",
-      notifyClient: true,
       fields: {
         serviceType: "weddings",
         package: "Silver",

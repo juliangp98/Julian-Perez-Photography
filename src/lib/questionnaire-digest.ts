@@ -124,3 +124,34 @@ export function buildAnswerGroups(
 
   return groups.length ? groups : null;
 }
+
+// The answers a second photographer reads: the snapshot with only the fields
+// of the service's own questionnaire that are about the shoot. Fields marked
+// `booking` (the package, add-ons, booked or still deciding) are left out, and
+// so is any key the questionnaire doesn't know. Returns undefined when there is
+// nothing safe to hand over (no questionnaire for the service, or a snapshot
+// that isn't a JSON object).
+export function shootAnswers(
+  serviceType: string | undefined,
+  snapshot: string | undefined,
+): string | undefined {
+  const q = serviceType ? getQuestionnaire(serviceType) : undefined;
+  if (!q || !snapshot) return undefined;
+  let answers: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return undefined;
+    }
+    answers = parsed as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  const kept: Record<string, unknown> = {};
+  for (const section of q.sections) {
+    for (const field of section.fields) {
+      if (!field.booking && field.id in answers) kept[field.id] = answers[field.id];
+    }
+  }
+  return JSON.stringify(kept);
+}

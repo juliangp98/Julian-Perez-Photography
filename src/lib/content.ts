@@ -117,6 +117,15 @@ function mergeWithFallback(remote: SiteSettingsRemote): SiteSettings {
       ...siteSettingsFallback.calls,
       ...(remote.calls ?? {}),
     },
+    // A line left blank in Studio keeps its starting text.
+    paymentInstructions: {
+      ...siteSettingsFallback.paymentInstructions,
+      ...Object.fromEntries(
+        Object.entries(remote.paymentInstructions ?? {}).filter(
+          ([, line]) => typeof line === "string" && line.trim(),
+        ),
+      ),
+    },
     // Testimonials are all-or-nothing — if the remote list is present
     // (even empty), it wins; otherwise fall back. Mixing curated
     // testimonials with editor-added ones would create provenance

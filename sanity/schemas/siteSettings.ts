@@ -128,6 +128,20 @@ export const siteSettings = defineType({
       rows: 2,
     }),
     defineField({
+      name: "paymentInstructions",
+      title: "How to pay, by method",
+      description:
+        "One short line per payment method. A project records which method the client is using; that line is shown to them in the portal, is given to the AI email drafter, and is available to email templates as {{paymentInstructions}}. Anything written here can be read by anyone, because this dataset is public: add a Zelle or Venmo handle only if you're happy for it to be public, and otherwise keep the line that asks the client to get the details from you. A blank line keeps its starting text.",
+      type: "object",
+      fields: [
+        defineField({ name: "square", title: "Card through Square", type: "text", rows: 2 }),
+        defineField({ name: "cash", title: "Cash", type: "text", rows: 2 }),
+        defineField({ name: "zelle", title: "Zelle", type: "text", rows: 2 }),
+        defineField({ name: "venmo", title: "Venmo", type: "text", rows: 2 }),
+        defineField({ name: "applePay", title: "Apple Pay", type: "text", rows: 2 }),
+      ],
+    }),
+    defineField({
       name: "social",
       type: "object",
       fields: [
