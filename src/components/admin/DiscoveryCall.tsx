@@ -3,14 +3,15 @@
 // The discovery call, on the project's Call tab. Reads from the guide for the
 // project's service (src/lib/discovery-guides.ts), optionally fitted to this
 // client by AI (/api/admin/ai, kind "call-guide"), with an answer box under
-// each question and free notes beside them. Everything typed autosaves through
-// /api/admin/update about a second and a half after typing stops, and when a
-// box loses focus. After the call, "Summarize the call" drafts the five-part
-// summary from the notes (kind "call-summary") with suggested updates to the
-// project, each applied only when accepted; "Save summary" marks the call held.
+// each question and free notes beside them. Everything typed autosaves (see
+// call-draft.ts) about a second and a half after typing stops, and when a box
+// loses focus; answers the guide on screen no longer asks (an earlier
+// tailoring, the guide for another service) stay listed. After the call,
+// "Summarize the call" drafts the five-part summary from the notes (kind
+// "call-summary") with suggested updates to the project, each applied only
+// when accepted; "Save summary" marks the call held.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
@@ -18,21 +19,36 @@ import FormStatus from "@/components/ui/FormStatus";
 import { inputClass, labelClass } from "@/components/ui/fields/Field";
 import {
   answerKey,
+  guideQuestions,
+  tailoredKey,
   type DiscoveryGuide,
   type GuideSection,
 } from "@/lib/discovery-guides";
 import type { CallGuideTailoring, CallUpdates, SavedAiResult } from "@/lib/ai-results";
-import { SUMMARY_PARTS, type CallNotes, type CallSummary } from "@/lib/calls";
+import {
+  CALL_ANSWER_MAX,
+  CALL_NOTES_MAX,
+  EMPTY_SUMMARY,
+  SUMMARY_PART_MAX,
+  SUMMARY_PARTS,
+  type CallNotes,
+  type CallSummary,
+} from "@/lib/calls";
 import { formatHumanDate, STUDIO_TIME_ZONE } from "@/lib/field-format";
 import { useAiAction } from "./ai/useAiAction";
+import { useCallDraft, type CallSaveState } from "./call-draft";
 
 type Place = { label?: string; address?: string; notes?: string };
 
-const AUTOSAVE_MS = 1500;
-const RETRY_MS = 5000;
-
 // The family sections open by default; the shared framework starts folded.
 const OPEN_SECTIONS = new Set(["people", "event", "priorities", "film"]);
+
+const SAVE_ERRORS: Partial<Record<CallSaveState, string>> = {
+  error: "Not saved yet. Trying again.",
+  rejected: "Couldn't save the last change. Typing again retries it.",
+  conflict:
+    "These notes were saved in another window since this page opened, so this copy has stopped saving. Copy anything new, then reload.",
+};
 
 const savedTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", {
@@ -40,84 +56,6 @@ const savedTime = (iso: string) =>
     minute: "2-digit",
     timeZone: STUDIO_TIME_ZONE,
   });
-
-// Saves what was typed: changed answers and the notes, batched, a moment after
-// typing stops. A failed save keeps what's pending and tries again.
-function useCallAutosave(projectId: string, savedAt?: string) {
-  const pending = useRef<{ answers: Record<string, string>; notes?: string }>({ answers: {} });
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inFlight = useRef(false);
-  // The latest flush, for the timers it sets on itself (a retry, or what was
-  // typed while a save was going out).
-  const flushRef = useRef<() => Promise<void>>(async () => {});
-  const later = (ms: number) => {
-    timer.current = setTimeout(() => void flushRef.current(), ms);
-  };
-  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(savedAt ? "saved" : "idle");
-  const [lastSaved, setLastSaved] = useState(savedAt ?? "");
-
-  const flush = useCallback(async () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    const patch = pending.current;
-    if (inFlight.current || (!Object.keys(patch.answers).length && patch.notes === undefined)) return;
-    pending.current = { answers: {} };
-    inFlight.current = true;
-    setState("saving");
-    try {
-      const res = await fetch("/api/admin/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId, call: patch }),
-      });
-      if (!res.ok) throw new Error("save failed");
-      const json = await res.json();
-      setLastSaved(json.savedAt ?? new Date().toISOString());
-      setState("saved");
-    } catch {
-      // Put it back under anything typed since, and try again shortly.
-      pending.current = {
-        answers: { ...patch.answers, ...pending.current.answers },
-        notes: pending.current.notes ?? patch.notes,
-      };
-      setState("error");
-      later(RETRY_MS);
-    } finally {
-      inFlight.current = false;
-    }
-    // Anything typed while this save was going out.
-    if (Object.keys(pending.current.answers).length || pending.current.notes !== undefined) {
-      if (!timer.current) later(AUTOSAVE_MS);
-    }
-  }, [projectId]);
-  useEffect(() => {
-    flushRef.current = flush;
-  }, [flush]);
-
-  const queue = useCallback(
-    (change: { key: string; value: string } | { notes: string }) => {
-      if ("notes" in change) pending.current.notes = change.notes;
-      else pending.current.answers[change.key] = change.value;
-      if (timer.current) clearTimeout(timer.current);
-      later(AUTOSAVE_MS);
-    },
-    [],
-  );
-
-  // Save what's pending before the page goes away.
-  useEffect(() => {
-    const beforeUnload = (e: BeforeUnloadEvent) => {
-      if (Object.keys(pending.current.answers).length || pending.current.notes !== undefined) {
-        void flush();
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [flush]);
-
-  return { queue, flush, state, lastSaved };
-}
 
 function Answer({
   id,
@@ -140,6 +78,7 @@ function Answer({
       <textarea
         id={id}
         rows={value.split("\n").length > 2 ? 4 : 2}
+        maxLength={CALL_ANSWER_MAX}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
@@ -166,13 +105,11 @@ export default function DiscoveryCall({
   call?: CallNotes;
   // False when AI isn't set up: the guide works without the AI parts.
   canRun: boolean;
-  // The project's locations: an accepted venue update renames the first.
+  // The project's locations, for an accepted venue update.
   locations?: Place[];
 }) {
   const router = useRouter();
-  const [answers, setAnswers] = useState<Record<string, string>>(call?.answers ?? {});
-  const [notes, setNotes] = useState(call?.notes ?? "");
-  const autosave = useCallAutosave(projectId, call?.savedAt);
+  const { draft, answers, asked, notes, state, lastSaved } = useCallDraft(projectId, call);
 
   const tailor = useAiAction<SavedAiResult<CallGuideTailoring>>(
     "/api/admin/ai",
@@ -182,20 +119,24 @@ export default function DiscoveryCall({
   const fitted = tailor.result?.result;
   const outOfDate = tailoringStale && tailor.result?.at === tailoring?.at;
 
-  const setAnswer = (key: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
-    autosave.queue({ key, value });
-  };
-  const answerBox = (key: string, label: string) => (
+  // Saved with the question on screen, so the answer reads right later.
+  const answerBox = (key: string, label: string, ask: string | undefined = label) => (
     <Answer
       key={key}
       id={`call-${key}`}
       label={label}
       value={answers[key] ?? ""}
-      onChange={(v) => setAnswer(key, v)}
-      onBlur={() => void autosave.flush()}
+      onChange={(v) => draft.setAnswer(key, v, ask)}
+      onBlur={() => void draft.flush()}
     />
   );
+
+  // Answers to questions no longer on screen, so nothing typed is hidden.
+  const shown = new Set([
+    ...guideQuestions(guide).map((q) => q.key),
+    ...(fitted?.questions ?? []).map(tailoredKey),
+  ]);
+  const earlier = Object.keys(answers).filter((key) => !shown.has(key) && answers[key]?.trim());
 
   const renderSection = (section: GuideSection) => (
     <details
@@ -223,9 +164,27 @@ export default function DiscoveryCall({
     </details>
   );
 
+  const saveStatus =
+    state === "idle" ? null : (
+      <>
+        <FormStatus
+          state={state === "saved" ? "ok" : SAVE_ERRORS[state] ? "error" : "idle"}
+          ok={lastSaved ? `Saved ${savedTime(lastSaved)}` : "Saved."}
+          error={SAVE_ERRORS[state]}
+          className="block"
+        />
+        {state === "saving" && <p className="text-sm text-muted">Saving…</p>}
+      </>
+    );
+
   return (
     <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[1.6fr_1fr] items-start">
       <div className="min-w-0 space-y-6">
+        {/* Below lg the notes sit at the bottom: the save status stays in view. */}
+        {saveStatus && (
+          <div className="sticky top-16 z-30 bg-background py-2 lg:hidden">{saveStatus}</div>
+        )}
+
         {/* Fitted to this client by AI, when run. */}
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -273,7 +232,7 @@ export default function DiscoveryCall({
                 <p className="mt-1 text-sm leading-relaxed">{fitted.angle}</p>
               </div>
               {fitted.internal && (
-                <Panel tone="danger" className="bg-background">
+                <Panel tone="danger" surface="background">
                   <div className="text-xs uppercase tracking-[0.18em] text-danger">
                     Internal, don&rsquo;t read aloud
                   </div>
@@ -282,7 +241,7 @@ export default function DiscoveryCall({
               )}
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Their questions</div>
-                {fitted.questions.map((q, i) => answerBox(`tailored.t${i + 1}`, q))}
+                {fitted.questions.map((q) => answerBox(tailoredKey(q), q))}
               </div>
             </>
           )}
@@ -290,13 +249,28 @@ export default function DiscoveryCall({
 
         {guide.sections.map(renderSection)}
 
+        {earlier.length > 0 && (
+          <details open className="rounded-lg border border-border bg-white p-4">
+            <summary className="cursor-pointer list-none">
+              <span className="font-serif text-lg">Answered under another guide</span>
+            </summary>
+            <p className="mt-2 text-sm text-muted">
+              From an earlier tailoring, or the guide for another service. They&rsquo;re kept, and the
+              summary reads them.
+            </p>
+            <div className="mt-3 space-y-3">
+              {earlier.map((key) => answerBox(key, asked[key] ?? "An earlier question", asked[key]))}
+            </div>
+          </details>
+        )}
+
         <CallSummaryPanel
           projectId={projectId}
           call={call}
           canRun={canRun}
           locations={locations}
           onSaved={() => router.refresh()}
-          flush={autosave.flush}
+          flush={() => draft.flush()}
         />
       </div>
 
@@ -308,22 +282,14 @@ export default function DiscoveryCall({
         <textarea
           id="call-notes"
           rows={14}
+          maxLength={CALL_NOTES_MAX}
           value={notes}
-          onChange={(e) => {
-            setNotes(e.target.value);
-            autosave.queue({ notes: e.target.value });
-          }}
-          onBlur={() => void autosave.flush()}
+          onChange={(e) => draft.setNotes(e.target.value)}
+          onBlur={() => void draft.flush()}
           placeholder="Anything that doesn't fit a question."
           className={`${inputClass} text-sm`}
         />
-        <FormStatus
-          state={autosave.state === "saved" ? "ok" : autosave.state === "error" ? "error" : "idle"}
-          ok={autosave.lastSaved ? `Saved ${savedTime(autosave.lastSaved)}` : "Saved."}
-          error="Not saved yet. Trying again."
-          className="block"
-        />
-        {autosave.state === "saving" && <p className="text-sm text-muted">Saving…</p>}
+        {saveStatus && <div className="hidden lg:block">{saveStatus}</div>}
       </div>
     </div>
   );
@@ -349,13 +315,20 @@ function CallSummaryPanel({
   canRun: boolean;
   locations?: Place[];
   onSaved: () => void;
-  flush: () => Promise<void>;
+  // Saves the notes typed so far; false when they couldn't be saved.
+  flush: () => Promise<boolean>;
 }) {
-  const empty: CallSummary = { background: "", event: "", priorities: "", logistics: "", actions: "" };
-  const [summary, setSummary] = useState<CallSummary>(call?.summary ?? empty);
+  const router = useRouter();
+  const [summary, setSummary] = useState<CallSummary>(call?.summary ?? EMPTY_SUMMARY);
+  // The summary as last saved, to tell when the one on screen has changed.
+  const [savedSummary, setSavedSummary] = useState<CallSummary>(call?.summary ?? EMPTY_SUMMARY);
   const [updates, setUpdates] = useState<CallUpdates>({});
   const [accepted, setAccepted] = useState<Partial<Record<keyof CallUpdates, "ok" | "error">>>({});
   const [saveState, setSaveState] = useState<"idle" | "saving" | "ok" | "error">("idle");
+  // What the save did: marked the call held, and set the recap follow-up.
+  const [saved, setSaved] = useState({ held: false, followUp: false });
+  // Why Summarize didn't draft: the notes hadn't saved, or there was nothing.
+  const [summarizeNote, setSummarizeNote] = useState<"" | "unsaved" | "empty">("");
   const draft = useAiAction<{ summary: CallSummary; updates: CallUpdates }>(
     "/api/admin/ai",
     (json) =>
@@ -364,23 +337,40 @@ function CallSummaryPanel({
         : null,
   );
 
+  const hasText = Object.values(summary).some((v) => v.trim());
+  const dirty = SUMMARY_PARTS.some((p) => summary[p.key] !== savedSummary[p.key]);
+  const venueNow = locations[0]?.label || locations[0]?.address;
+
   async function summarize() {
-    // The notes on screen go out first, so the summary reads them.
-    await flush();
+    setSummarizeNote("");
+    // The notes on screen are saved first, so the summary reads them.
+    if (!(await flush())) {
+      setSummarizeNote("unsaved");
+      return;
+    }
     const drafted = await draft.run({ projectId, kind: "call-summary" });
     if (drafted) {
       setSummary(drafted.summary);
       setUpdates(drafted.updates);
       setAccepted({});
+    } else {
+      setSummarizeNote("empty");
     }
   }
 
   async function accept(field: keyof CallUpdates) {
     const value = updates[field];
-    // A venue renames the first location (or adds one), keeping the others.
+    // A venue names the first location when it has only an address; any other
+    // venue goes first as a new place, keeping the old one below it to edit.
+    const first = locations[0];
     const fields =
       field === "venue"
-        ? { locations: [{ ...locations[0], label: String(value) }, ...locations.slice(1)] }
+        ? {
+            locations:
+              first && !first.label?.trim()
+                ? [{ ...first, label: String(value) }, ...locations.slice(1)]
+                : [{ label: String(value) }, ...locations],
+          }
         : { [field]: value };
     try {
       const res = await fetch("/api/admin/update", {
@@ -395,7 +385,7 @@ function CallSummaryPanel({
     }
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     setSaveState("saving");
     try {
       const res = await fetch("/api/admin/update", {
@@ -404,11 +394,21 @@ function CallSummaryPanel({
         body: JSON.stringify({ id: projectId, callSummary: summary }),
       });
       if (!res.ok) throw new Error();
+      const json = await res.json().catch(() => ({}));
+      setSavedSummary(summary);
+      setSaved({ held: !!json.held, followUp: !!json.followUp });
       setSaveState("ok");
-      onSaved();
+      return true;
     } catch {
       setSaveState("error");
+      return false;
     }
+  }
+
+  // The recap draft reads the saved summary: an edited one is saved first.
+  async function writeRecap() {
+    if (dirty && hasText && !(await save())) return;
+    router.push(`/admin/projects/${projectId}?compose=discovery-recap#compose`);
   }
 
   const suggested = (Object.keys(updates) as (keyof CallUpdates)[]).filter(
@@ -432,9 +432,15 @@ function CallSummaryPanel({
         )}
       </div>
       <FormStatus
-        state={draft.status === "done" ? "ok" : draft.status}
+        state={draft.status === "done" ? "ok" : draft.status === "error" || summarizeNote ? "error" : "idle"}
         ok="Drafted from your notes. Edit, then save."
-        error={draft.error}
+        error={
+          summarizeNote === "unsaved"
+            ? "Your latest notes haven't saved, so the summary can't read them yet. Try again in a moment."
+            : summarizeNote === "empty"
+              ? "Nothing to summarize yet. Add answers or notes first."
+              : draft.error
+        }
         className="block"
       />
       {call?.heldAt && (
@@ -454,6 +460,7 @@ function CallSummaryPanel({
           <textarea
             id={`summary-${part.key}`}
             rows={3}
+            maxLength={SUMMARY_PART_MAX}
             value={summary[part.key]}
             onChange={(e) => setSummary((prev) => ({ ...prev, [part.key]: e.target.value }))}
             className={`${inputClass} text-sm`}
@@ -472,6 +479,9 @@ function CallSummaryPanel({
                   <strong>
                     {field === "eventDate" ? formatHumanDate(String(updates[field])) : String(updates[field])}
                   </strong>
+                  {field === "venue" && venueNow && accepted.venue !== "ok" && (
+                    <span className="text-muted"> (now {venueNow})</span>
+                  )}
                 </span>
                 {accepted[field] !== "ok" && (
                   <Button variant="text" onClick={() => accept(field)}>
@@ -491,23 +501,28 @@ function CallSummaryPanel({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
-          onClick={save}
-          disabled={!Object.values(summary).some((v) => v.trim())}
+          onClick={async () => {
+            if (await save()) onSaved();
+          }}
+          disabled={!hasText}
           loading={saveState === "saving"}
           loadingLabel="Saving…"
         >
           Save summary
         </Button>
-        <Link
-          href={`/admin/projects/${projectId}?compose=discovery-recap#compose`}
-          className="text-sm underline underline-offset-4 hover:text-accent"
-        >
+        <Button variant="text" onClick={writeRecap} disabled={saveState === "saving"}>
           Write the recap
-        </Link>
+        </Button>
       </div>
       <FormStatus
         state={saveState === "saving" ? "idle" : saveState}
-        ok="Saved. The call is marked held, and a follow-up is set to send the recap."
+        ok={
+          saved.held
+            ? saved.followUp
+              ? "Saved. The call is marked held, and a follow-up is set to send the recap."
+              : "Saved. The call is marked held."
+            : "Saved."
+        }
         error="Couldn't save the summary. Try again."
         className="block"
       />

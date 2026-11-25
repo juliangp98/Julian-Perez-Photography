@@ -20,14 +20,35 @@ export const SUMMARY_PARTS: { key: keyof CallSummary; label: string; clientSafe:
   { key: "actions", label: "My action items", clientSafe: false },
 ];
 
+export const EMPTY_SUMMARY: CallSummary = {
+  background: "",
+  event: "",
+  priorities: "",
+  logistics: "",
+  actions: "",
+};
+
+// The longest an answer, the free notes and a summary part may be: the boxes
+// stop there, and the save route refuses anything longer.
+export const CALL_ANSWER_MAX = 5000;
+export const CALL_NOTES_MAX = 20000;
+export const SUMMARY_PART_MAX = 4000;
+
 export type CallNotes = {
-  // Answers by "<section>.<question>" (see src/lib/discovery-guides.ts).
+  // Answers by key: "<section>.<question>" for the guide's questions (see
+  // src/lib/discovery-guides.ts), "tailored.<id>" for the AI's.
   answers?: Record<string, string>;
+  // The question each answer was typed under, by the same key, so an answer
+  // still reads right after the guide changes (a new tailoring, a different
+  // service).
+  asked?: Record<string, string>;
   notes?: string;
   summary?: CallSummary;
-  // When the call was held: set when its summary is saved.
+  // When the call was held: set the first time its summary is saved.
   heldAt?: string;
-  // When anything was last saved.
+  // When the answers or notes were last saved. An autosave names the one it
+  // was typed against, so a copy left open elsewhere can't overwrite newer
+  // notes.
   savedAt?: string;
 };
 

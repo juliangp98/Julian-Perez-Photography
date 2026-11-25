@@ -6,7 +6,8 @@
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Panel from "@/components/ui/Panel";
 import DiscoveryCall from "@/components/admin/DiscoveryCall";
-import { listClients, type ClientRecordFull } from "@/lib/clients";
+import { listClients, normalizeEmail, type ClientRecordFull } from "@/lib/clients";
+import type { ClientMessage } from "@/lib/messages";
 import { getAnyService } from "@/lib/content";
 import { discoveryGuide } from "@/lib/discovery-guides";
 import { formatHumanDate, studioToday } from "@/lib/field-format";
@@ -19,14 +20,27 @@ import { aiBasis, callGuideBasisText, isCurrent } from "@/lib/ai/project-context
 
 const FIT_TONE: Record<TriageFit, BadgeTone> = { good: "good", maybe: "warn", poor: "muted" };
 
-// Who else has this date: projects booked on it, and leads holding it.
-async function dateCheck(record: ClientRecordFull): Promise<string[] | null> {
+// Who else has this date: projects booked on it, and leads holding it. The
+// same client's other projects (a photo and film pair, a second inquiry for
+// the same day) aren't a clash, and are named apart.
+async function dateCheck(
+  record: ClientRecordFull,
+): Promise<{ taken: string[]; theirs: string[] } | null> {
   const day = record.eventDate?.trim();
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
   const today = studioToday();
+  const mine = record.email ? normalizeEmail(record.email) : "";
+  const isTheirs = (p: ClientRecordFull) =>
+    (!!mine && !!p.email && normalizeEmail(p.email) === mine) ||
+    (!!record.bundleId && p.bundleId === record.bundleId);
   const others = (await listClients()).filter((p) => p.id !== record.id && p.eventDate?.trim() === day);
   const lines: string[] = [];
+  const theirs: string[] = [];
   for (const p of others) {
+    if (isTheirs(p)) {
+      if (!CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus)) theirs.push(projectDisplayName(p));
+      continue;
+    }
     if (CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus)) continue;
     if (statusRank(p.status) >= statusRank("booked")) {
       lines.push(`Booked: ${projectDisplayName(p)}`);
@@ -37,19 +51,20 @@ async function dateCheck(record: ClientRecordFull): Promise<string[] | null> {
       lines.push(`Held for ${p.clientName?.split(" ")[0] || "another lead"} until ${formatHumanDate(hold.until)}`);
     }
   }
-  return lines;
+  return { taken: lines, theirs };
 }
 
 export default async function CallTab({
   record,
-  newestMessageId,
+  messages,
   ai,
 }: {
   record: ClientRecordFull;
-  newestMessageId?: string;
+  // The project's thread, for whether the tailoring is out of date.
+  messages: ClientMessage[];
   ai: boolean;
 }) {
-  const [service, taken] = await Promise.all([
+  const [service, dates] = await Promise.all([
     record.serviceType ? getAnyService(record.serviceType) : undefined,
     dateCheck(record),
   ]);
@@ -68,7 +83,7 @@ export default async function CallTab({
   const triageCurrent = isCurrent(triage, record.inquiryMessage);
   const tailoring = record.aiResults?.["call-guide"];
   const tailoringCurrent =
-    !tailoring || !tailoring.basis || tailoring.basis === aiBasis(callGuideBasisText(record, newestMessageId));
+    !tailoring || !tailoring.basis || tailoring.basis === aiBasis(callGuideBasisText(record, messages));
 
   return (
     <div className="mt-8 space-y-8">
@@ -83,12 +98,15 @@ export default async function CallTab({
         </div>
         <p className="text-sm">{facts.join(" · ")}</p>
         {contact && <p className="text-sm text-muted">{contact}</p>}
-        {taken && (
-          <p className={`text-sm ${taken.length ? "text-danger" : "text-muted"}`}>
-            {taken.length
-              ? `This date: ${taken.join("; ")}.`
+        {dates && (
+          <p className={`text-sm ${dates.taken.length ? "text-danger" : "text-muted"}`}>
+            {dates.taken.length
+              ? `This date: ${dates.taken.join("; ")}.`
               : "Nothing else is booked or held on this date."}
           </p>
+        )}
+        {dates && dates.theirs.length > 0 && (
+          <p className="text-sm text-muted">Also theirs on this date: {dates.theirs.join("; ")}.</p>
         )}
         {service && (
           <details>

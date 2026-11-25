@@ -3,7 +3,8 @@
 // positioning, the close, after the call) wraps three sections that depend on
 // the kind of shoot: getting to know them, the shoot or event itself, and
 // their photography priorities. Services are grouped into families that share
-// those three; a few services add or swap a section of their own.
+// those three; a few services add, swap or drop a part of their own. A project
+// with no service yet gets a general guide with no wedding or business words.
 //
 // Questions carry stable ids, unique within their section: the answers typed
 // during a call are saved under "<section>.<question>" (client_records.calls),
@@ -26,6 +27,7 @@ export type GuideSection = {
 };
 
 export type FamilyId =
+  | "general"
   | "couples"
   | "celebrations"
   | "family"
@@ -87,17 +89,20 @@ const aboutSection = (family: GuideFamily): GuideSection => ({
   ],
 });
 
-const INVESTMENT: GuideSection = {
+// The collections are listed above the guide once the project has a service.
+const investmentSection = (hasService: boolean): GuideSection => ({
   id: "investment",
   title: "Investment and expectations",
   minutes: "transparent, no pressure",
   questions: [{ id: "budget-range", ask: "Have you set a photography budget range?" }],
   say: [
-    "Walk through how the collections work (they're listed above).",
+    hasService
+      ? "Walk through how the collections work (they're listed above)."
+      : "Walk through how the collections work. Set the project's service to list them above.",
     "Deliverables and timing: number of images, sneak peeks, full-gallery turnaround.",
     "To book: a signed agreement and a retainer hold the date.",
   ],
-};
+});
 
 const POSITION: GuideSection = {
   id: "position",
@@ -134,6 +139,54 @@ const AFTER: GuideSection = {
 };
 
 // ── The families ──
+
+// Before the service is known.
+const GENERAL: GuideFamily = {
+  id: "general",
+  label: "Discovery",
+  opener: "Easy opener: \"First, tell me what you have in mind. What has you thinking about photos right now?\"",
+  tieIn: "Tie it back to them: \"...which suits the [occasion / feel] you described.\"",
+  sections: [
+    {
+      id: "people",
+      title: "Get to know them",
+      minutes: "the heart of the call",
+      questions: [
+        { id: "occasion", ask: "What's the occasion, and who is it for?" },
+        { id: "who-in-photos", ask: "Who would be in the photos?" },
+        { id: "in-a-few-words", ask: "How would you describe them, in a few words?" },
+        { id: "looking-forward", ask: "What are you most looking forward to?" },
+        { id: "stressing", ask: "What's stressing you most right now?" },
+        { id: "past-photos", ask: "Any past photos you've loved, or hated, and why?" },
+        { id: "camera-comfort", ask: "Camera-shy, or comfortable in front of the lens?" },
+      ],
+    },
+    {
+      id: "event",
+      title: "About the shoot",
+      minutes: "logistics and vision",
+      questions: [
+        { id: "date", ask: "Do you have a date in mind, or a window?" },
+        { id: "location", ask: "Where are you picturing it: at an event, at home, outdoors, in a studio?" },
+        { id: "guest-count", ask: "If it's an event, roughly how many people?" },
+        { id: "timeline", ask: "What's the rough timeline, start to finish?" },
+        { id: "must-haves", ask: "Any must-have shots, people or moments?" },
+        { id: "vibe", ask: "What's the vibe, in three words?" },
+      ],
+    },
+    {
+      id: "priorities",
+      title: "Their photography priorities",
+      questions: [
+        { id: "photos-for", ask: "Afterwards, what do the photos do for you: prints, social, a website, the memories?" },
+        { id: "style", ask: "What style do you lean toward: light and airy, true to color, moody, lots of black and white?" },
+        { id: "coverage", ask: "How much time feels right?" },
+        { id: "needed-by", ask: "Do you need the photos by a certain date?" },
+        { id: "prints", ask: "Are prints, albums or wall art important to you?" },
+      ],
+    },
+  ],
+};
 
 const COUPLES: GuideFamily = {
   id: "couples",
@@ -234,7 +287,7 @@ const CELEBRATIONS: GuideFamily = {
         { id: "must-have-moments", ask: "Which three moments absolutely can't be missed?" },
         { id: "family-portraits", ask: "Which family groupings matter most for the formal portraits?" },
         { id: "coverage", ask: "How much coverage feels right: just the party, or from setup and getting ready through the last dance?" },
-        { id: "pre-event-portraits", ask: "Would a portrait session in the dress or suit, before the day, appeal to you?" },
+        { id: "pre-event-portraits", ask: "For a quinceañera, Sweet 16, mitzvah or debut, would a portrait session in the dress or suit, before the day, appeal to you?" },
         { id: "second-shooter", ask: "With your guest count, would a second shooter be helpful?" },
         { id: "social-selects", ask: "Would a few same-day photos to post during the party be useful?" },
         { id: "style", ask: "What style do you lean toward: true-to-color, bright and airy, moody, lots of black and white?" },
@@ -256,8 +309,8 @@ const FAMILY: GuideFamily = {
       minutes: "the heart of the call",
       questions: [
         { id: "who-in-photos", ask: "Who would be in the photos, pets included?" },
-        { id: "due-date", ask: "When is the baby due, or when were they born?" },
-        { id: "kids-ages", ask: "How old are the kids?" },
+        { id: "due-date", ask: "For maternity or a newborn, when is the baby due, or when were they born?" },
+        { id: "kids-ages", ask: "If there are kids, how old are they?" },
         { id: "personalities", ask: "How would you describe each of them in a few words?" },
         { id: "temperament", ask: "How do the kids or pets usually do with someone new?" },
         { id: "camera-shy", ask: "Anyone camera-shy, or is everyone comfortable in front of the lens?" },
@@ -272,11 +325,11 @@ const FAMILY: GuideFamily = {
       minutes: "logistics and vision",
       questions: [
         { id: "date-window", ask: "Do you have a date in mind, or a window?" },
-        { id: "weeks-along", ask: "How far along will you be around then?" },
+        { id: "weeks-along", ask: "For maternity, how far along will you be around then?" },
         { id: "home-or-location", ask: "Are you thinking at home, outdoors, or in a studio?" },
         { id: "location-ideas", ask: "Any favorite spots you've been thinking about?" },
         { id: "time-of-day", ask: "Golden hour, or does another time of day work better?" },
-        { id: "naps-and-feeding", ask: "What do naps and feedings look like, so we can plan around them?" },
+        { id: "naps-and-feeding", ask: "With a little one, what do naps and feedings look like, so we can plan around them?" },
         { id: "comfort-pacing", ask: "Anything about comfort, mobility, or pacing I should plan around?" },
         { id: "wardrobe-help", ask: "Would you like help with outfits and styling?" },
         { id: "heirlooms", ask: "Any heirlooms or meaningful items you'd like included?" },
@@ -292,7 +345,7 @@ const FAMILY: GuideFamily = {
         { id: "must-have-shots", ask: "Any must-have shots, like the kids with their grandparents?" },
         { id: "session-length", ask: "How much time feels right, given everyone's energy?" },
         { id: "needed-by", ask: "Do you need the photos by a certain date, like for holiday cards?" },
-        { id: "first-year-series", ask: "Would a series across the baby's first year appeal to you?" },
+        { id: "first-year-series", ask: "With a new baby, would a series across their first year appeal to you?" },
         { id: "prints-albums", ask: "Are prints, albums, or wall art important to you?" },
         { id: "sharing-limits", ask: "Anyone who'd rather not appear on social media?" },
       ],
@@ -315,7 +368,7 @@ const INDIVIDUAL: GuideFamily = {
         { id: "whats-next", ask: "What's coming up next for you?" },
         { id: "in-a-few-words", ask: "How would the people closest to you describe you in a few words?" },
         { id: "proud-of", ask: "What are you proudest of right now?" },
-        { id: "agency-status", ask: "Are you with an agency, or building your book on your own?" },
+        { id: "agency-status", ask: "If you're modeling, are you with an agency, or building your book on your own?" },
         { id: "camera-comfort", ask: "Are you camera-shy, or comfortable in front of the lens?" },
         { id: "past-photos", ask: "Any photos of yourself you've loved, or hated, and why?" },
         { id: "plan-around", ask: "Anything I should plan around, like pacing or accessibility?" },
@@ -331,7 +384,7 @@ const INDIVIDUAL: GuideFamily = {
         { id: "meaningful-spots", ask: "Any spots that mean something to you, like a favorite park or neighborhood?" },
         { id: "permit-locations", ask: "Any spots on your list that might need a permit, like campus or the monuments?" },
         { id: "outfit-changes", ask: "How many outfits or looks are you picturing?" },
-        { id: "cap-and-gown", ask: "Will your cap, gown, and stoles be ready by the session?" },
+        { id: "cap-and-gown", ask: "For a graduation, will your cap, gown, and stoles be ready by the session?" },
         { id: "who-is-joining", ask: "Is anyone joining you, like fellow grads or family?" },
         { id: "hair-makeup", ask: "Do you have hair and makeup covered, or would a referral help?" },
         { id: "vibe", ask: "What's the vibe you're going for, in three words?" },
@@ -467,6 +520,7 @@ const LIVE_EVENTS: GuideFamily = {
 };
 
 const FAMILIES: Record<FamilyId, GuideFamily> = {
+  general: GENERAL,
   couples: COUPLES,
   celebrations: CELEBRATIONS,
   family: FAMILY,
@@ -516,6 +570,31 @@ const SERVICE_SECTIONS: Partial<Record<ServiceSlug, GuideSection[]>> = {
   ],
   "engagements-couples": [
     {
+      id: "people",
+      title: "Get to know the two of you",
+      minutes: "the heart of the call",
+      questions: [
+        { id: "how-met", ask: "How did you two meet? How long have you been together?" },
+        { id: "describe-each-other", ask: "How would you each describe the other in a few words? If it's a surprise, tell me about them." },
+        { id: "this-season", ask: "What does this season of your relationship look like right now?" },
+        { id: "surprise-partner", ask: "If it's a surprise proposal, what would your partner love, and what would they hate?" },
+        { id: "camera-comfort", ask: "Camera-shy, or comfortable in front of the lens?" },
+        { id: "past-photos", ask: "Any photos of the two of you that you've loved, or hated, and why?" },
+      ],
+    },
+    {
+      id: "priorities",
+      title: "Their photography priorities",
+      questions: [
+        { id: "photos-for", ask: "What will the photos do for you: save-the-dates, a wedding website, prints, the memories?" },
+        { id: "style", ask: "What style do you lean toward: light and airy, true to color, moody, film-like, lots of black and white?" },
+        { id: "session-length", ask: "How much time feels right: a quick session, or room to explore a couple of spots?" },
+        { id: "image-count", ask: "Roughly how many edited images are you hoping for?" },
+        { id: "wedding-coverage", ask: "If there's a wedding coming, would you like to talk about coverage for the day too?" },
+        { id: "albums", ask: "Are prints, an album or wall art important to you?" },
+      ],
+    },
+    {
       id: "event",
       title: "About the session",
       minutes: "logistics and vision",
@@ -532,16 +611,32 @@ const SERVICE_SECTIONS: Partial<Record<ServiceSlug, GuideSection[]>> = {
   ],
 };
 
+// Questions a service leaves out of its family's sections, by answer key: ones
+// its own sections already cover.
+const SERVICE_DROPS: Partial<Record<ServiceSlug, string[]>> = {
+  // The film section asks how film and photos fit together.
+  "wedding-films": ["priorities.film"],
+};
+
+// A service slug the catalog knows: the stored service is free text (an
+// inquiry can carry any), so a lookup never reads an inherited key.
+const knownService = (serviceType?: string): ServiceSlug | undefined =>
+  serviceType && Object.hasOwn(SERVICE_FAMILY, serviceType) ? (serviceType as ServiceSlug) : undefined;
+
 export function guideFamily(serviceType?: string): GuideFamily {
-  const id = SERVICE_FAMILY[serviceType as ServiceSlug];
-  return FAMILIES[id] ?? FAMILIES.couples;
+  const slug = knownService(serviceType);
+  return slug ? FAMILIES[SERVICE_FAMILY[slug]] : FAMILIES.general;
 }
 
 // The whole guide for a service, in call order.
 export function discoveryGuide(serviceType?: string): DiscoveryGuide {
+  const slug = knownService(serviceType);
   const family = guideFamily(serviceType);
-  const own = SERVICE_SECTIONS[serviceType as ServiceSlug] ?? [];
-  const middle = family.sections.map((s) => own.find((o) => o.id === s.id) ?? s);
+  const own = (slug && SERVICE_SECTIONS[slug]) || [];
+  const drops = new Set((slug && SERVICE_DROPS[slug]) || []);
+  const middle = family.sections
+    .map((s) => own.find((o) => o.id === s.id) ?? s)
+    .map((s) => ({ ...s, questions: s.questions?.filter((q) => !drops.has(answerKey(s, q))) }));
   const added = own.filter((o) => !family.sections.some((s) => s.id === o.id));
   return {
     family,
@@ -551,7 +646,7 @@ export function discoveryGuide(serviceType?: string): DiscoveryGuide {
       aboutSection(family),
       ...middle,
       ...added,
-      INVESTMENT,
+      investmentSection(!!slug),
       POSITION,
       CLOSE,
       AFTER,
@@ -562,6 +657,18 @@ export function discoveryGuide(serviceType?: string): DiscoveryGuide {
 // The key a question's answer is saved under.
 export function answerKey(section: GuideSection, question: GuideQuestion): string {
   return `${section.id}.${question.id}`;
+}
+
+// The key an answer to one of the AI's tailored questions is saved under:
+// made from the question itself (a short FNV-1a hash), so tailoring again
+// never moves an answer onto a different question.
+export function tailoredKey(ask: string): string {
+  let hash = 0x811c9dc5;
+  for (const ch of ask.trim()) {
+    hash ^= ch.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `tailored.${hash.toString(16).padStart(8, "0")}`;
 }
 
 // Every question in a guide, with its answer key and section.

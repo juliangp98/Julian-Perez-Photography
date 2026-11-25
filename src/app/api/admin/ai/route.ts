@@ -78,7 +78,7 @@ export const POST = defineRoute({
           saved: {
             result,
             at,
-            basis: aiBasis(callGuideBasisText(record, messages.at(-1)?.id)),
+            basis: aiBasis(callGuideBasisText(record, messages)),
           },
         };
       } else if (kind === "call-summary") {

@@ -1277,21 +1277,37 @@ export async function saveAiResult<K extends SavedAiKind>(
   if (error) throw error;
 }
 
-// Merge a patch into one call's notes (see merge_call in supabase/schema.sql):
-// answers key by key, anything else replaced, and the time it was saved.
-// Says when it was saved.
+// What saving to a call found: the call had been saved since the copy the
+// patch was typed against (nothing changed), or it was saved, with whether the
+// call was already marked held and the project's status.
+export type CallSave =
+  | { conflict: true }
+  | { conflict: false; savedAt?: string; held: boolean; status?: string };
+
+// Merge a patch into one call (see merge_call in supabase/schema.sql): answers
+// and the questions they were typed under key by key, the held time kept once
+// set, anything else replaced. Answers and notes are stamped with the time
+// they were saved, and with `base` (the stamp they were typed against, "" for
+// never saved) land only when nothing was saved since. Null without a store or
+// for no such project.
 export async function saveCall(
   id: string,
   call: CallKind,
   patch: CallNotes,
-): Promise<string | null> {
+  base?: string,
+): Promise<CallSave | null> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
-  const savedAt = nowIso();
-  const { error } = await db().rpc("merge_call", {
+  const notes = patch.answers !== undefined || patch.notes !== undefined;
+  const savedAt = notes ? nowIso() : undefined;
+  const { data, error } = await db().rpc("merge_call", {
     p_id: id,
     p_call: call,
-    p_patch: { ...patch, savedAt },
+    p_patch: savedAt ? { ...patch, savedAt } : patch,
+    p_base: base ?? null,
   });
   if (error) throw error;
-  return savedAt;
+  const found = data as { conflict: boolean; held?: boolean; status?: string } | null;
+  if (!found) return null;
+  if (found.conflict) return { conflict: true };
+  return { conflict: false, savedAt, held: !!found.held, status: found.status };
 }

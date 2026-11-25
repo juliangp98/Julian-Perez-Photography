@@ -12,6 +12,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { ClientRecordFull } from "@/lib/clients";
+import { isConversation, type ClientMessage } from "@/lib/messages";
 import { daysUntil, formatHumanDate } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import { formatReferral } from "@/lib/referral";
@@ -102,11 +103,9 @@ export function withoutContacts(text: string): string {
 }
 
 // What the tailored call guide was made from: the inquiry, the newest message
-// on the thread and the questionnaire. Any of them changing makes it out of
-// date.
-export function callGuideBasisText(
-  record: ClientRecordFull,
-  newestMessageId: string | undefined,
-): string {
-  return [record.inquiryMessage ?? "", newestMessageId ?? "", record.questionnaireSnapshot ?? ""].join("\u0000");
+// of the conversation (see isConversation) and the questionnaire. Any of them
+// changing makes it out of date.
+export function callGuideBasisText(record: ClientRecordFull, messages: ClientMessage[]): string {
+  const newest = messages.filter(isConversation).at(-1)?.id;
+  return [record.inquiryMessage ?? "", newest ?? "", record.questionnaireSnapshot ?? ""].join("\u0000");
 }

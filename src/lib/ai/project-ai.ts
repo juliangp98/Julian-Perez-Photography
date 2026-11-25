@@ -16,7 +16,7 @@ import {
   withoutContacts,
 } from "@/lib/ai/project-context";
 import type { ClientRecordFull } from "@/lib/clients";
-import type { ClientMessage } from "@/lib/messages";
+import { isConversation, type ClientMessage } from "@/lib/messages";
 import type { ServiceCategory } from "@/lib/types";
 import { type InquiryTriage, triageVerdict } from "@/lib/triage";
 import type {
@@ -24,7 +24,7 @@ import type {
   DraftedCallSummary,
   ShootBrief,
 } from "@/lib/ai-results";
-import { discoveryGuide, guideQuestions } from "@/lib/discovery-guides";
+import { discoveryGuide, guideQuestions, tailoredKey } from "@/lib/discovery-guides";
 import type { CallNotes } from "@/lib/calls";
 
 // The model answered, but not with something usable. Callers report it apart
@@ -160,7 +160,7 @@ function collectionLines(service: ServiceCategory | undefined): string {
 
 // The newest messages on the thread, oldest first, without contact details.
 function threadLines(messages: ClientMessage[]): string {
-  const recent = messages.filter((m) => m.bodyText?.trim()).slice(-6);
+  const recent = messages.filter((m) => isConversation(m) && m.bodyText?.trim()).slice(-6);
   if (!recent.length) return "(No messages yet.)";
   return recent
     .map((m) => `${m.direction === "in" ? "Client" : "Julian"}: ${withoutContacts(m.bodyText ?? "").slice(0, 600)}`)
@@ -221,7 +221,7 @@ export async function buildCallGuide(
       "The latest messages:",
       threadLines(messages),
       "",
-      answers ? `Their questionnaire answers:\n${answers.slice(0, 4000)}` : "(No questionnaire yet.)",
+      answers ? `Their questionnaire answers:\n${withoutContacts(answers).slice(0, 4000)}` : "(No questionnaire yet.)",
       "",
       "His collections for this service:",
       collectionLines(service),
@@ -288,16 +288,25 @@ export async function summarizeCall(
   service: ServiceCategory | undefined,
 ): Promise<DraftedCallSummary | null> {
   const call: CallNotes = record.calls?.discovery ?? {};
-  const guide = discoveryGuide(record.serviceType);
-  const answered = guideQuestions(guide)
-    .map(({ key, question }) => ({ ask: question.ask, answer: call.answers?.[key]?.trim() }))
-    .filter((a) => a.answer);
-  const tailored = record.aiResults?.["call-guide"]?.result.questions ?? [];
-  const tailoredAnswers = tailored
-    .map((ask, i) => ({ ask, answer: call.answers?.[`tailored.t${i + 1}`]?.trim() }))
+  const answers = call.answers ?? {};
+  // Every answer typed, under the question it was typed under: the tailored
+  // questions and the guide's in call order, then any from an earlier
+  // tailoring or another service's guide.
+  const questions = new Map<string, string>();
+  for (const ask of record.aiResults?.["call-guide"]?.result.questions ?? []) {
+    questions.set(tailoredKey(ask), ask);
+  }
+  for (const { key, question } of guideQuestions(discoveryGuide(record.serviceType))) {
+    questions.set(key, question.ask);
+  }
+  for (const key of Object.keys(answers)) {
+    if (!questions.has(key)) questions.set(key, "An earlier question");
+  }
+  const answered = [...questions]
+    .map(([key, ask]) => ({ ask: call.asked?.[key] ?? ask, answer: answers[key]?.trim() }))
     .filter((a) => a.answer);
   const notes = [
-    ...[...tailoredAnswers, ...answered].map((a) => `Q: ${a.ask}\nA: ${a.answer}`),
+    ...answered.map((a) => `Q: ${a.ask}\nA: ${a.answer}`),
     call.notes?.trim() ? `My notes:\n${call.notes.trim()}` : "",
   ]
     .filter(Boolean)

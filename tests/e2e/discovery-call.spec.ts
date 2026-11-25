@@ -1,12 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { test, expect, hasTestStore, type FakeCall } from "./support/fixtures";
-import { patchProject } from "./support/test-store";
+import { patchProject, readProject } from "./support/test-store";
 import { services } from "../../src/lib/services-data";
 import {
   SERVICE_FAMILY,
   discoveryGuide,
+  guideFamily,
   guideQuestions,
+  tailoredKey,
 } from "../../src/lib/discovery-guides";
 import { shiftDay, studioToday } from "../../src/lib/field-format";
 
@@ -14,8 +16,9 @@ import { shiftDay, studioToday } from "../../src/lib/field-format";
 // (src/lib/discovery-guides.ts) with an answer box under each question and
 // free notes, all autosaved; the guide fitted to the client by AI, and saved;
 // a summary drafted from the notes, with updates to the project applied only
-// when accepted; saving it marks the call held. The guides themselves are
-// checked directly; the tab against the test store with the fake AI provider.
+// when accepted; saving it the first time marks the call held. The guides
+// themselves are checked directly; the tab against the test store with the
+// fake AI provider.
 
 test("every service has a guide, and every guide's answer keys are unique", () => {
   for (const s of services) {
@@ -36,11 +39,37 @@ test("each family's guide fits its kind of shoot", () => {
   const opener = discoveryGuide("corporate-headshots").sections.find((s) => s.id === "open")?.say?.join(" ");
   expect(opener).not.toMatch(/congratulations/i);
   // The shared framework wraps every family.
-  for (const slug of ["weddings", "newborn", "corporate-headshots"]) {
+  for (const slug of ["weddings", "newborn", "corporate-headshots", undefined]) {
     const ids = discoveryGuide(slug).sections.map((s) => s.id);
     expect(ids.slice(0, 3), slug).toEqual(["before", "open", "about"]);
     expect(ids.slice(-4), slug).toEqual(["investment", "position", "close", "after"]);
   }
+  const asks = (slug: string) => guideQuestions(discoveryGuide(slug)).map((q) => q.question.ask).join("\n");
+  // An engagement session isn't asked about the wedding day, or about itself.
+  expect(asks("engagements-couples")).not.toMatch(/engagement session appeal|hours of coverage/i);
+  // A wedding-film client isn't asked whether they want a film.
+  expect(asks("wedding-films")).not.toContain("Any interest in a wedding film");
+  // A pet session is asked about a baby only for maternity or a newborn.
+  expect(asks("pet")).not.toMatch(/^When is the baby due/m);
+});
+
+test("a project with no service, or one the catalog doesn't know, gets the general guide", () => {
+  for (const service of [undefined, "", "Not sure yet", "constructor", "__proto__", "toString"]) {
+    const guide = discoveryGuide(service);
+    expect(guide.family.id, String(service)).toBe("general");
+    expect(guideFamily(service).label).toBe("Discovery");
+    const text = JSON.stringify(guide);
+    expect(text).not.toMatch(/congratulations|the couple|wedding/i);
+    // No collections are listed when there's no service.
+    expect(text).not.toContain("listed above)");
+  }
+});
+
+test("a tailored question's answer key comes from the question itself", () => {
+  const key = tailoredKey("Is there a rain plan for the garden?");
+  expect(key).toMatch(/^tailored\.[0-9a-f]{8}$/);
+  expect(tailoredKey("  Is there a rain plan for the garden? ")).toBe(key);
+  expect(tailoredKey("Who should I meet before the day?")).not.toBe(key);
 });
 
 test("call notes: needs the owner's session", async ({ request }) => {
@@ -103,12 +132,66 @@ test("answers and notes autosave, and survive a reload", async ({ adminRequest, 
   await callTab(page, p.id);
 
   await page.getByLabel("How did you two meet? How long have you been together?").fill("College, six years");
+  const notesSaved = page.waitForResponse(
+    (r) => r.url().endsWith("/api/admin/update") && (r.request().postData() ?? "").includes("Wants a relaxed day"),
+  );
   await page.getByLabel("My notes").fill("Wants a relaxed day");
+  await page.getByLabel("My notes").press("Tab");
+  expect((await notesSaved).ok()).toBe(true);
   await expect(page.getByRole("status").filter({ hasText: /^Saved \d{1,2}:\d{2} [AP]M$/ })).toBeVisible();
 
   await page.reload();
   await expect(page.getByLabel("How did you two meet? How long have you been together?")).toHaveValue("College, six years");
   await expect(page.getByLabel("My notes")).toHaveValue("Wants a relaxed day");
+});
+
+test("leaving the Call tab and coming back shows the latest notes, and keeps saving", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "back");
+  await callTab(page, p.id);
+  const saved = (text: string) =>
+    page.waitForResponse(
+      (r) => r.url().endsWith("/api/admin/update") && (r.request().postData() ?? "").includes(text),
+    );
+
+  const first = saved("First thoughts");
+  await page.getByLabel("My notes").fill("First thoughts");
+  await page.getByLabel("My notes").press("Tab");
+  expect((await first).ok()).toBe(true);
+
+  // Back to the project, then back again: the browser redraws the Call tab
+  // as it was first loaded, and the notes typed since still show.
+  await page.getByRole("link", { name: "Project", exact: true }).click();
+  await expect(page).not.toHaveURL(/tab=call/);
+  await page.goBack();
+  await expect(page.getByLabel("My notes")).toHaveValue("First thoughts");
+
+  // And the next change saves on top of them, not over them.
+  const second = saved("Second thoughts");
+  await page.getByLabel("My notes").fill("First thoughts. Second thoughts");
+  await page.getByLabel("My notes").press("Tab");
+  expect((await second).status()).toBe(200);
+  const row = await readProject(p.id, "calls");
+  expect((row.calls as { discovery?: { notes?: string } }).discovery?.notes).toBe("First thoughts. Second thoughts");
+});
+
+test("a save typed against an older copy of the notes is refused", async ({ adminRequest }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "stale");
+  const save = (notes: string, base: string) =>
+    adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes, base } } });
+  const first = await save("From the laptop", "");
+  expect(first.status()).toBe(200);
+  const { savedAt } = await first.json();
+  // A second window that opened before that save.
+  expect((await save("From the phone", "")).status()).toBe(409);
+  // The same window, building on its own save.
+  expect((await save("From the laptop, more", savedAt)).status()).toBe(200);
+  const row = await readProject(p.id, "calls");
+  expect((row.calls as { discovery?: { notes?: string } }).discovery?.notes).toBe("From the laptop, more");
 });
 
 test("two saves landing together both keep what they wrote", async ({ adminRequest, adminPage: page }) => {
@@ -160,13 +243,27 @@ test("the guide fitted to the client is saved, and its questions take answers", 
   expect(prompt).toContain("garden wedding for about 150");
   expect(prompt).not.toContain("555-0190");
 
+  const answerSaved = page.waitForResponse(
+    (r) => r.url().endsWith("/api/admin/update") && (r.request().postData() ?? "").includes("No rushing"),
+  );
   await page.getByLabel("What would make the day feel relaxed to you?").fill("No rushing between photos");
-  await expect(page.getByRole("status").filter({ hasText: /^Saved / })).toBeVisible();
+  await page.getByLabel("What would make the day feel relaxed to you?").press("Tab");
+  expect((await answerSaved).ok()).toBe(true);
   const before = (await fakes.calls("ai")).length;
   await page.reload();
   await expect(page.getByText("Travel is about an hour each way.")).toBeVisible();
   await expect(page.getByLabel("What would make the day feel relaxed to you?")).toHaveValue("No rushing between photos");
   expect((await fakes.calls("ai")).length).toBe(before);
+
+  // Tailoring again with new questions keeps the answer with its question.
+  await fakes.script({
+    replies: [JSON.stringify({ ...JSON.parse(tailoring), questions: ["Who is officiating?", "Any family traditions?", "Is the garden covered?"] })],
+  });
+  await page.getByRole("button", { name: "Tailor again" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Tailored." })).toBeVisible();
+  await expect(page.getByLabel("Who is officiating?")).toHaveValue("");
+  await expect(page.getByText("Answered under another guide")).toBeVisible();
+  await expect(page.getByLabel("What would make the day feel relaxed to you?")).toHaveValue("No rushing between photos");
 });
 
 test("the summary is drafted from the notes, updates apply when accepted, and saving holds the call", async ({
@@ -213,6 +310,49 @@ test("the summary is drafted from the notes, updates apply when accepted, and sa
   await expect(page.getByText(/: Send the recap and proposal$/)).toBeVisible();
 });
 
+test("saving the summary again changes only the summary", async ({ adminRequest }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "resave");
+  const summary = (background: string) => ({
+    background,
+    event: "Garden wedding.",
+    priorities: "Candids.",
+    logistics: "",
+    actions: "",
+  });
+  const first = await adminRequest.post("/api/admin/update", {
+    data: { id: p.id, callSummary: summary("Met at a friend's wedding.") },
+  });
+  expect(await first.json()).toMatchObject({ held: true, followUp: true });
+  const { calls: before } = await readProject(p.id, "calls");
+  const heldAt = (before as { discovery: { heldAt: string } }).discovery.heldAt;
+
+  // The recap went out: its own follow-up replaces the call's.
+  await patchProject(p.id, { status: "proposal-sent", follow_up_at: "2030-01-07", follow_up_note: "Follow up on the proposal" });
+  const again = await adminRequest.post("/api/admin/update", {
+    data: { id: p.id, callSummary: summary("Met at a friend's wedding in Leesburg.") },
+  });
+  expect(await again.json()).toMatchObject({ held: false, followUp: false });
+  const row = await readProject(p.id, "status, follow_up_at, follow_up_note, calls");
+  expect(row).toMatchObject({ status: "proposal-sent", follow_up_at: "2030-01-07", follow_up_note: "Follow up on the proposal" });
+  const call = (row.calls as { discovery: { heldAt: string; summary: { background: string } } }).discovery;
+  expect(call.heldAt).toBe(heldAt);
+  expect(call.summary.background).toBe("Met at a friend's wedding in Leesburg.");
+});
+
+test("Summarize with nothing typed says so, without asking the AI", async ({
+  adminRequest,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "empty");
+  await callTab(page, p.id);
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Nothing to summarize yet." })).toBeVisible();
+  expect(await fakes.calls("ai")).toEqual([]);
+});
+
 test("the recap draft reads the summary's client parts, never the budget or to-dos", async ({
   adminRequest,
   fakes,
@@ -256,6 +396,16 @@ test("the date check names a project already booked on the date", async ({
 
   await callTab(page, lead.id);
   await expect(page.getByText(/This date: Booked: E2E Booked Wedding/)).toBeVisible();
+
+  // The same client's own project on that date isn't a clash.
+  const film = await adminRequest.post("/api/admin/create-project", {
+    data: { email: lead.email, clientName: "E2E Call", serviceType: "wedding-films", force: true },
+  });
+  const { id: filmId } = await film.json();
+  await patchProject(filmId, { status: "contract-signed", event_date: day, project_name: "E2E Their Film" });
+  await callTab(page, lead.id);
+  await expect(page.getByText(/Also theirs on this date: E2E Their Film/)).toBeVisible();
+  await expect(page.getByText(/^This date:/)).not.toContainText("E2E Their Film");
 });
 
 test("the owner's inquiry email links to the call guide", async ({ request, fakes }) => {

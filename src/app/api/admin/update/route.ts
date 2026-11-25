@@ -3,8 +3,11 @@
 // form's fields, one change to the project's links and files (add an entry,
 // remove one, or change one, like an invoice marked paid), or the discovery
 // call's notes: an autosave of answers and notes, or the summary saved after
-// the call, which marks the call held, moves a lead to In conversation and
-// sets a follow-up to send the recap. Removing an entry takes it off the
+// the call. The summary's first save marks the call held, moves a lead to In
+// conversation and, before a proposal has gone out, sets a follow-up to send
+// the recap; saving it again changes only the summary. An autosave names the
+// save it was typed against and is refused (409) when the notes were saved
+// somewhere else since. Removing an entry takes it off the
 // project; an uploaded file itself stays in storage. Nothing here emails the
 // client; telling them is a Compose email.
 
@@ -22,6 +25,8 @@ import {
   setFollowUp,
   updateClientAdmin,
 } from "@/lib/clients";
+import { CALL_ANSWER_MAX, CALL_NOTES_MAX, SUMMARY_PART_MAX } from "@/lib/calls";
+import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
 import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 
@@ -36,9 +41,10 @@ const webUrl = z
   .url()
   .refine((u) => /^https?:\/\//i.test(u));
 const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-// "<section>.<question>", as src/lib/discovery-guides.ts keys answers.
+// "<section>.<question>" or "tailored.<id>", as src/lib/discovery-guides.ts
+// keys answers.
 const answerKey = z.string().regex(/^[a-z0-9-]+\.[a-z0-9-]+$/).max(100);
-const summaryPart = z.string().max(4000);
+const summaryPart = z.string().max(SUMMARY_PART_MAX);
 const documentId = z.string().min(1).max(100);
 const documentLabel = z.string().trim().min(1).max(200);
 
@@ -84,11 +90,14 @@ const schema = z.object({
     })
     .optional(),
   removeDocumentId: documentId.optional(),
-  // The discovery call's notes as typed: only the answers that changed.
+  // The discovery call's notes as typed: only the answers that changed, the
+  // question each was typed under, and the save they were typed against.
   call: z
     .object({
-      answers: z.record(answerKey, z.string().max(5000)).optional(),
-      notes: z.string().max(20000).optional(),
+      answers: z.record(answerKey, z.string().max(CALL_ANSWER_MAX)).optional(),
+      asked: z.record(answerKey, z.string().max(1000)).optional(),
+      notes: z.string().max(CALL_NOTES_MAX).optional(),
+      base: z.string().max(40).optional(),
     })
     .optional(),
   // The summary written after the call.
@@ -133,25 +142,42 @@ export const POST = defineRoute({
     // on; it's reported at warning, since the notes are still on screen.
     if (call || callSummary) {
       try {
-        const savedAt = call
-          ? await saveCall(id, "discovery", call)
-          : await saveCall(id, "discovery", {
-              summary: callSummary,
-              heldAt: new Date().toISOString(),
-            });
-        if (callSummary) {
-          await advanceStatus(id, "in-conversation", "Discovery call held");
-          await setFollowUp(
-            id,
-            shiftDay(studioToday(), { days: 1 }),
-            "Send the recap and proposal",
-          );
+        let savedAt: string | undefined;
+        if (call) {
+          const { base, ...patch } = call;
+          const saved = await saveCall(id, "discovery", patch, base);
+          if (saved?.conflict) {
+            return apiError(409, "These notes were saved somewhere else since this page opened.");
+          }
+          savedAt = saved?.savedAt;
         }
-        return { ok: true, savedAt };
+        let held = false;
+        let followUp = false;
+        if (callSummary) {
+          const saved = await saveCall(id, "discovery", {
+            summary: callSummary,
+            heldAt: new Date().toISOString(),
+          });
+          // Only the first save marks the call held.
+          if (saved && !saved.conflict && !saved.held) {
+            held = true;
+            await advanceStatus(id, "in-conversation", "Discovery call held");
+            const closed = CLIENT_STATUS_TERMINAL.includes(saved.status as ClientStatus);
+            if (!closed && statusRank(saved.status) < statusRank("proposal-sent")) {
+              await setFollowUp(
+                id,
+                shiftDay(studioToday(), { days: 1 }),
+                "Send the recap and proposal",
+              );
+              followUp = true;
+            }
+          }
+        }
+        return { ok: true, savedAt: savedAt ?? null, held, followUp };
       } catch (err) {
         Sentry.captureException(err, {
           tags: { route: "admin/update", stage: callSummary ? "call-summary" : "call" },
-          level: call ? "warning" : undefined,
+          level: callSummary ? undefined : "warning",
         });
         return apiError(500, "Couldn't save the notes. Try again.");
       }

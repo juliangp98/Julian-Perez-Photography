@@ -166,7 +166,7 @@ export default async function AdminProjectDetailPage({
           </div>
 
           {tab === "call" ? (
-            <CallTab record={record} newestMessageId={messages.at(-1)?.id} ai={ai} />
+            <CallTab record={record} messages={messages} ai={ai} />
           ) : (
             <>
 
