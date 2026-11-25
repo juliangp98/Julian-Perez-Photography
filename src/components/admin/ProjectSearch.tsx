@@ -7,7 +7,7 @@
 // with how it read the question. The box follows the address, so Clear, Back
 // and Forward show the search the board is showing.
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Select from "@/components/ui/fields/Select";
@@ -44,8 +44,12 @@ export default function ProjectSearch({
   const [status, setStatus] = useState<"idle" | "asking" | "done" | "error">("idle");
   const [summary, setSummary] = useState("");
   const [matches, setMatches] = useState<Match[] | null>(null);
-  // Each Ask is numbered, so one answered after a Search or Clear is dropped.
+  // Each Ask is numbered, so one answered after the search changed (a Search,
+  // Clear, Back or Forward) is dropped.
   const askNumber = useRef(0);
+  useLayoutEffect(() => {
+    askNumber.current++;
+  }, [initialQuery, initialService]);
 
   // The address changed (a search, Clear it, Back or Forward): start from it.
   const [shown, setShown] = useState({ q: initialQuery, service: initialService });

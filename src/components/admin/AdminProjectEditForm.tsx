@@ -22,21 +22,8 @@ import AdminLocationsEditor, {
 } from "@/components/admin/AdminLocationsEditor";
 import Button from "@/components/ui/Button";
 import FormStatus from "@/components/ui/FormStatus";
-import { formatPhone, isoFromDate } from "@/lib/field-format";
+import { eventDay, formatPhone } from "@/lib/field-format";
 import { inputClass, labelClass } from "@/components/ui/fields/Field";
-
-// Coerce a stored event date into the `yyyy-MM-dd` a <input type="date"> needs.
-// An ISO calendar date is returned as-is (no timezone shift); other parseable
-// formats are reformatted; anything unparseable returns "" so the caller can
-// fall back to a free-text field rather than silently dropping the value.
-function toDateInput(s?: string): string {
-  const raw = (s ?? "").trim();
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return "";
-  return isoFromDate(d);
-}
 
 type Initial = {
   projectName?: string;
@@ -72,7 +59,7 @@ export default function AdminProjectEditForm({
   const router = useRouter();
   // A stored date that doesn't fit the native picker (legacy free text) falls
   // back to an editable text field so the value is preserved, not dropped.
-  const isoEventDate = toDateInput(initial.eventDate);
+  const isoEventDate = eventDay(initial.eventDate);
   const eventDateUnparseable =
     !!(initial.eventDate ?? "").trim() && !isoEventDate;
   const [v, setV] = useState({

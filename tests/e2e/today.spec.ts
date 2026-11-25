@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore } from "./support/fixtures";
 import { addMessage, patchProject, readProject } from "./support/test-store";
 import { todayRows, type TodayProject, type TodayServiceTerms } from "../../src/lib/today";
-import { shiftDay, studioToday } from "../../src/lib/field-format";
+import { eventDay, shiftDay, studioToday } from "../../src/lib/field-format";
 
 // The Today list on the projects board (src/lib/today.ts): what needs the
 // owner now, worked out from the projects with rules. The rules are checked
@@ -90,6 +90,23 @@ test("a booked shoot two weeks out with no questionnaire shows", () => {
   expect(one({ status: "booked", eventDate: "Dec 5" })).toEqual([]);
 });
 
+test("an event date counts only when it names one day", () => {
+  for (const [text, day] of [
+    ["2026-12-05", "2026-12-05"],
+    ["12/05/2026", "2026-12-05"],
+    ["Aug 15, 2027", "2027-08-15"],
+    ["15 Aug 2027", "2027-08-15"],
+    ["Saturday, August 15th, 2027", "2027-08-15"],
+  ]) {
+    expect(eventDay(text), text).toBe(day);
+  }
+  for (const text of ["Nov 20-21, 2026", "Oct 10-11, 2026", "Fall 2027", "TBD 2027", "May or June 2027", "June 2027", "2027", "2027-06", "6/5/27", "Feb 30, 2027"]) {
+    expect(eventDay(text), text).toBe("");
+  }
+  // A range isn't a shoot day: no editing row from a guessed date.
+  expect(one({ status: "editing", eventDate: "Nov 20-21, 2026" }, terms(true, 30))).toEqual([]);
+});
+
 test("editing past the service's turnaround shows", () => {
   expect(one({ status: "editing", eventDate: "2026-10-01" }, terms(true, 28))[0].reason).toBe(
     "Gallery was due October 29, 2026 (28-day turnaround)",
@@ -133,7 +150,8 @@ test("the board shows each rule's row, and a reply can be marked handled", async
   const stamp = Date.now();
   const replied = await newProject(adminRequest, `reply-${stamp}`);
   await patchProject(replied, { status: "proposal-sent" });
-  await addMessage(replied, { direction: "out", sentAt: new Date(Date.now() - 3 * 86_400_000).toISOString() });
+  // Midday three studio days ago, whatever the clock change in between.
+  await addMessage(replied, { direction: "out", sentAt: `${shiftDay(today, { days: -3 })}T17:00:00Z` });
   await addMessage(replied, { direction: "in" });
   const held = await newProject(adminRequest, `hold-${stamp}`);
   await patchProject(held, { status: "proposal-sent", hold_until: shiftDay(today, { days: -2 }) });
@@ -141,6 +159,8 @@ test("the board shows each rule's row, and a reply can be marked handled", async
   await patchProject(due, { follow_up_at: today, follow_up_note: "Check the agreement came in" });
   const done = await newProject(adminRequest, `done-${stamp}`);
   await patchProject(done, { follow_up_at: today, follow_up_note: "Send the timeline" });
+  const stale = await newProject(adminRequest, `stale-${stamp}`);
+  await patchProject(stale, { follow_up_at: today, follow_up_note: "Check the stale follow-up" });
 
   await page.goto(`/admin/projects`);
   const list = page.getByRole("region", { name: "Today" });
@@ -179,6 +199,16 @@ test("the board shows each rule's row, and a reply can be marked handled", async
   expect((await readProject(held, "today_dismissed")).today_dismissed).toEqual({
     [`hold:${shiftDay(today, { days: -2 })}`]: shiftDay(today, { days: 3 }),
   });
+
+  // A follow-up changed since the page loaded is left alone, and the list reloads.
+  const staleRow = row(`stale-${stamp}`).filter({ hasText: "Check the stale follow-up" });
+  await expect(staleRow).toBeVisible();
+  const later = shiftDay(today, { days: 7 });
+  await patchProject(stale, { follow_up_at: later, follow_up_note: "Last check-in" });
+  await staleRow.getByRole("button", { name: "Mark handled" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "That follow-up changed since the page loaded" })).toBeVisible();
+  await expect(staleRow).toHaveCount(0);
+  expect(await readProject(stale, "follow_up_at, follow_up_note")).toEqual({ follow_up_at: later, follow_up_note: "Last check-in" });
 
   // The card says when each side last wrote, in the same days.
   const leads = page.getByRole("heading", { name: /^Leads/ }).locator("..");

@@ -116,8 +116,6 @@ const schema = z.object({
       actions: summaryPart,
     })
     .optional(),
-  // The project's next follow-up: a new day (and what it's for), or null to
-  // clear it.
   // The follow-up set, moved or (with a null day) cleared. `expect` names the
   // follow-up the change was made against: it changes only while that one is
   // still set.

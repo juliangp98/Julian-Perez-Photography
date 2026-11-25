@@ -170,16 +170,56 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
+const MONTH_NAMES = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+// A month written out or cut short ("Aug", "Sept", "August"): 1 to 12, or 0.
+function monthNumber(name: string): number {
+  const n = name.toLowerCase().replace(/\.$/, "");
+  if (n.length < 3) return 0;
+  return MONTH_NAMES.findIndex((full) => full.startsWith(n)) + 1;
+}
+
+// A calendar day from its parts, or "" for one that doesn't exist (Feb 30).
+function dayFromParts(y: number, m: number, d: number): string {
+  const date = new Date(y, m - 1, d);
+  if (m < 1 || m > 12 || date.getMonth() !== m - 1 || date.getDate() !== d) return "";
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 // An event date as a calendar day, `yyyy-MM-dd`, or "" when it can't be read.
-// The stored date is free text, so an older "12/05/2026" or "Aug 15, 2027"
-// still counts; one without a four-digit year doesn't (a parser would guess
-// the year).
+// The stored date is free text, so the whole text has to be one day in a
+// known shape: "2026-12-05", "12/05/2026", "Dec 5, 2026", "Saturday,
+// December 5th, 2026" or "5 December 2026". A range ("Nov 20-21, 2026"), a
+// season, a month alone or a year alone isn't a day, and reads as no date
+// rather than a guessed one.
 export function eventDay(d?: string | null): string {
-  const text = (d ?? "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  if (!/\b\d{4}\b/.test(text)) return "";
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? "" : isoFromDate(date);
+  const text = (d ?? "").trim().replace(/\s+/g, " ");
+  let m: RegExpMatchArray | null;
+  if ((m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/))) return dayFromParts(+m[1], +m[2], +m[3]);
+  if ((m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) return dayFromParts(+m[3], +m[1], +m[2]);
+  const ord = "(?:st|nd|rd|th)?";
+  if ((m = text.match(new RegExp(`^(?:[a-z]+,? )?([a-z]+\\.?) (\\d{1,2})${ord},? (\\d{4})$`, "i")))) {
+    const month = monthNumber(m[1]);
+    return month ? dayFromParts(+m[3], month, +m[2]) : "";
+  }
+  if ((m = text.match(new RegExp(`^(?:[a-z]+,? )?(\\d{1,2})${ord} ([a-z]+\\.?),? (\\d{4})$`, "i")))) {
+    const month = monthNumber(m[2]);
+    return month ? dayFromParts(+m[3], month, +m[1]) : "";
+  }
+  return "";
 }
 
 // A calendar day moved by whole days or months, `yyyy-MM-dd` in and out.
@@ -284,10 +324,10 @@ export function formatDateTime(iso?: string | null): string {
   });
 }
 
-// Whole calendar days from today to a date ("2026-10-10", "10/10/2026",
-// "Aug 15, 2027", or a full timestamp): negative when it's past, null when it
-// can't be read.
+// Whole calendar days from the studio's today to an event date (any shape
+// eventDay reads: "2026-10-10", "10/10/2026", "Aug 15, 2027"): negative when
+// it's past, null when it can't be read.
 export function daysUntil(d?: string | null): number | null {
   const day = eventDay(d);
-  return day ? daysBetween(isoFromDate(new Date()), day) : null;
+  return day ? daysBetween(studioToday(), day) : null;
 }

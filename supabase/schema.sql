@@ -152,8 +152,9 @@ create index if not exists client_records_follow_up_idx
 -- (received, so not an out-of-office notice or mail held from an unknown
 -- sender), and the owner's newest one out that actually went (composed here,
 -- answered from Gmail, filed from Gmail, or a reply posted in the portal).
--- Automatic emails don't count as the owner writing. security_invoker keeps the view under the table's
--- row-level security, so it opens nothing the table doesn't.
+-- Automatic emails don't count as the owner writing. security_invoker keeps
+-- the view under the table's row-level security, so it opens nothing the
+-- table doesn't.
 create or replace view client_last_contact with (security_invoker = true) as
 select
   project_id,
