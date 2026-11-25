@@ -1,10 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, hasTestStore } from "./support/fixtures";
+import { patchProject } from "./support/test-store";
 
-// Guard-path coverage for /api/questionnaire. The honeypot, a missing or
-// unknown service, and missing required fields all return before the route
-// captures a client record, so none of these writes to the store. A valid
-// submission would create a client record (on the test store, the suite's
-// reset clears it).
+// Coverage for /api/questionnaire. The honeypot, a missing or unknown service,
+// and missing required fields all return before the route captures a client
+// record, so none of these writes to the store. With the test store, a valid
+// submission attaches to its project: a booked project moves on to Planning, a
+// prospect keeps its place.
 
 test("questionnaire: honeypot (hp_company) triggers a silent success", async ({
   request,
@@ -60,4 +61,51 @@ test("questionnaire: missing required fields → 400 (not a 500)", async ({
   expect(res.status()).toBe(400);
   const text = await res.text();
   expect(text.toLowerCase()).toContain("missing required field");
+});
+
+// A complete portraiture questionnaire (the shortest one) for this project.
+const portraiture = (email: string, project: string) => ({
+  service: "portraiture",
+  project,
+  hp_company: "",
+  answers: {
+    fullName: "E2E Questionnaire",
+    email,
+    phone: "(703) 555-0177",
+    bookingStatus: "I'm strongly considering and want an accurate quote",
+    package: "Still deciding",
+    eventDate: "2027-05-02",
+    vibe: "Soft / outdoor / golden hour",
+    wardrobeHelp: "No",
+    locationPreference: "Outdoor only",
+  },
+});
+
+test("questionnaire: a prospect keeps their status; a booked project moves on to Planning", async ({
+  request,
+  adminRequest,
+  adminPage,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const make = async (tag: string) => {
+    const email = `e2e-q-${tag}-${Date.now()}@example.com`;
+    const res = await adminRequest.post("/api/admin/create-project", {
+      data: { email, clientName: "E2E Questionnaire", serviceType: "portraiture", force: true },
+    });
+    return { email, id: (await res.json()).id as string };
+  };
+  const prospect = await make("prospect");
+  await patchProject(prospect.id, { status: "proposal-sent" });
+  const booked = await make("booked");
+  await patchProject(booked.id, { status: "contract-signed" });
+
+  for (const p of [prospect, booked]) {
+    const res = await request.post("/api/questionnaire", { data: portraiture(p.email, p.id) });
+    expect(res.status()).toBe(200);
+  }
+
+  await adminPage.goto(`/admin/projects/${prospect.id}`);
+  await expect(adminPage.locator("#a-status")).toHaveValue("proposal-sent");
+  await adminPage.goto(`/admin/projects/${booked.id}`);
+  await expect(adminPage.locator("#a-status")).toHaveValue("planning");
 });

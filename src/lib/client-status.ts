@@ -23,8 +23,10 @@ export type ClientStatus =
 // Ordered pipeline. The index doubles as the advancement rank: `advanceStatus`
 // only moves a record forward and never regresses an already-advanced status.
 // The terminal off-ramp states ("archived"/"lost"/"declined") sit outside this
-// linear flow and are only ever set by hand. "lost" is a cooled lead that may
-// re-engage; "declined" is a prospect who chose another photographer (closed).
+// linear flow. They are set by hand, or by sending a pipeline email that closes
+// the project (see closeProject in src/lib/clients.ts), and only ever reopened
+// by hand. "lost" is a cooled lead that may re-engage; "declined" is a prospect
+// who chose another photographer (closed).
 export const CLIENT_STATUS_FLOW: ClientStatus[] = [
   "new-inquiry",
   "responded",
@@ -71,7 +73,8 @@ export const CLIENT_STATUS_CLIENT_LABEL: Record<ClientStatus, string> = {
   responded: "In touch",
   "in-conversation": "In conversation",
   "proposal-sent": "Proposal sent",
-  booked: "Booked",
+  // The agreement and retainer are out but not back yet.
+  booked: "Reserving your date",
   "contract-signed": "Contract signed",
   planning: "Planning your day",
   scheduled: "On the calendar",
@@ -134,7 +137,7 @@ const STATUS_MILESTONE: Record<ClientStatus, number> = {
   responded: 0,
   "in-conversation": 0,
   "proposal-sent": 0,
-  booked: 1,
+  booked: 0,
   "contract-signed": 1,
   planning: 2,
   scheduled: 2,
@@ -146,6 +149,20 @@ const STATUS_MILESTONE: Record<ClientStatus, number> = {
   lost: -1,
   declined: -1,
 };
+
+// A status whose "what's next" differs from its milestone's.
+const STATUS_HINT: Partial<Record<ClientStatus, string>> = {
+  booked:
+    "Sign the agreement and pay the retainer, and your date is reserved. The links are in my email and on this page.",
+};
+
+// The "what's next" line for a status: its own, or its milestone's.
+export function clientStatusHint(status: string | undefined): string {
+  const own = STATUS_HINT[status as ClientStatus];
+  if (own) return own;
+  const i = clientMilestoneIndex(status);
+  return i >= 0 ? CLIENT_MILESTONES[i].hint : "";
+}
 
 export function clientMilestoneIndex(status: string | undefined): number {
   if (!status) return 0;

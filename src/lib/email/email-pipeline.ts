@@ -2,7 +2,49 @@
 // sends from a project. Pure + dependency-free (importable client-side by the
 // compose UI). `{{token}}` placeholders are auto-filled from the project; tokens
 // without a value (and free-form `[bracket]` prompts) are left visible so Julian
-// notices what to complete before sending.
+// notices what to complete before sending. Links are tokens, never "attached":
+// an email from the site carries no attachments.
+
+import type { ClientStatus } from "@/lib/client-status";
+
+// Every {{token}} a template may use. emailTokens() (src/lib/email/
+// email-tokens.ts) fills each of them from the project, and a spec checks the
+// templates use no other.
+export const EMAIL_TOKENS = [
+  "firstName",
+  "clientName",
+  "projectName",
+  "serviceNoun",
+  "eventDate",
+  "venue",
+  "portalUrl",
+  "questionnaireUrl",
+  "bookingUrl",
+  "discoveryCallUrl",
+  "reviewUrl",
+  "proposalUrl",
+  "contractUrl",
+  "invoiceUrl",
+  "invoiceDueDate",
+  "highlightsUrl",
+  "galleryUrl",
+  "timelineUrl",
+  "packageName",
+  "packagePrice",
+  "packageInclusions",
+  "sampleGalleryUrl",
+  "retainerPercent",
+  "holdUntil",
+  "paymentMethod",
+  "paymentInstructions",
+] as const;
+export type EmailToken = (typeof EMAIL_TOKENS)[number];
+
+// A follow-up a template sets when it's sent: so many days out, or so many
+// months after the event date. `note` says what the follow-up is for.
+export type TemplateFollowUp =
+  | { days: number; note: string }
+  | { monthsAfterEvent: number; note: string };
 
 export type EmailTemplate = {
   id: string;
@@ -12,6 +54,17 @@ export type EmailTemplate = {
   stage: string;
   subject: string;
   body: string;
+  // What sending it does to the project, applied once the email has gone
+  // (see src/lib/email/send-effects.ts):
+  // moves the project forward to this status (never back, never out of a
+  // closed project);
+  advancesTo?: ClientStatus;
+  // or closes it with this status, clearing its follow-up and hold;
+  closesAs?: ClientStatus;
+  // sets the project's next follow-up;
+  followUp?: TemplateFollowUp;
+  // and holds the date for the service's hold days, unless a hold is running.
+  holdsDate?: boolean;
 };
 
 // The full set, ordered along the communication pipeline (new inquiry →
@@ -29,10 +82,12 @@ Thanks for getting in touch about your {{serviceNoun}}, and congratulations.
 
 [A line or two answering something specific they shared.]
 
-The easiest next step is a short call, 15 to 20 minutes, so I can hear what you have in mind and answer your questions. You can pick a time here: {{bookingUrl}}
+The easiest next step is a short call, 15 to 20 minutes, so I can hear what you have in mind and answer your questions. You can pick a time here: {{discoveryCallUrl}}
 
 Talk soon,
 Julian`,
+    advancesTo: "responded",
+    followUp: { days: 3, note: "Follow up on the inquiry reply" },
   },
   {
     id: "not-available",
@@ -49,6 +104,7 @@ If your plans change, please write again. I'd like to work with you another time
 
 All the best,
 Julian`,
+    closesAs: "archived",
   },
   {
     id: "discovery-invite",
@@ -59,58 +115,63 @@ Julian`,
 
 I'd like to hear more about your {{serviceNoun}}. A 15 to 20 minute call is the easiest way for me to answer your questions and get a sense of what you're picturing.
 
-Pick any time that works here: {{bookingUrl}}
+Pick any time that works here: {{discoveryCallUrl}}
 
 If none of those fit, reply with a couple of times that suit you and I'll make one work.
 
 Julian`,
+    advancesTo: "responded",
+    followUp: { days: 3, note: "Follow up on the call invite" },
   },
   {
     id: "discovery-recap",
-    name: "Discovery-call recap",
+    name: "Recap and proposal (after the call)",
     stage: "in-conversation",
-    subject: "Next steps for {{projectName}}",
+    subject: "So good talking, {{firstName}}: your {{eventDate}} {{serviceNoun}}",
     body: `Hi {{firstName}},
 
-Thanks for the call today and for walking me through {{projectName}}.
+It was good to connect today, and thank you for walking me through your plans for your {{serviceNoun}} on {{eventDate}} at {{venue}}. [One line calling back to something they said on the call.]
 
-You mentioned [2 or 3 of their priorities]. That's the kind of day I photograph best, and I'd like to be there for it.
+From everything you shared, [2 or 3 of their priorities], I think we'd be a great fit, and I'd love to photograph it.
 
-I've attached a proposal with the collection I'd recommend, and a gallery so you can see how I work. Your date is open, and I can hold it for [X days] while you decide.
+Based on our conversation, I'd recommend {{packageName}} ({{packagePrice}}):
+{{packageInclusions}}
 
-If anything's unclear, reply here or we can talk again.
+Here's the full proposal: {{proposalUrl}}
+And a full gallery, so you can see how I'd tell your story: {{sampleGalleryUrl}}
 
+To book, I ask for a signed agreement and a {{retainerPercent}}% retainer. Your date is open, and I'm holding it for you until {{holdUntil}}, no pressure, while you decide.
+
+Take your time, and reply with any questions. I'm always glad to hop on another quick call.
+
+Looking forward to hopefully being part of your day,
 Julian`,
+    advancesTo: "proposal-sent",
+    holdsDate: true,
+    followUp: { days: 6, note: "Follow up on the proposal" },
   },
   {
     id: "proposal",
-    name: "Proposal / collections",
+    name: "Proposal (no call)",
     stage: "proposal-sent",
     subject: "Your proposal for {{projectName}}",
     body: `Hi {{firstName}},
 
-As promised, here's the proposal for {{projectName}} on {{eventDate}}.
+As promised, here's my proposal for {{projectName}} on {{eventDate}}: {{proposalUrl}}
 
-For what you described, I'd recommend [collection]: [coverage hours, number of images, and so on]. The full proposal is attached, with a gallery so you can picture the day.
+For what you described, I'd recommend {{packageName}} ({{packagePrice}}):
+{{packageInclusions}}
 
-Booking is a signed agreement and a [X]% retainer. Your date is open, and I can hold it for [X days].
+Here's a full gallery, so you can picture the day: {{sampleGalleryUrl}}
 
-Reply with any questions, or we can set up a call.
+To book, I ask for a signed agreement and a {{retainerPercent}}% retainer. Your date is open, and I'm holding it for you until {{holdUntil}} while you decide.
 
-Julian`,
-  },
-  {
-    id: "hold-the-date",
-    name: "Hold-the-date",
-    stage: "proposal-sent",
-    subject: "Holding {{eventDate}} for you",
-    body: `Hi {{firstName}},
-
-I'm holding {{eventDate}} for you for the next [X days], with no obligation, while you look everything over.
-
-After that I'll need to open the date again. When you're ready, a signed agreement and a [X]% retainer secure it. Ask me anything in the meantime.
+Reply with any questions, or pick a time for a quick call: {{discoveryCallUrl}}
 
 Julian`,
+    advancesTo: "proposal-sent",
+    holdsDate: true,
+    followUp: { days: 6, note: "Follow up on the proposal" },
   },
   {
     id: "proposal-follow-up",
@@ -119,64 +180,68 @@ Julian`,
     subject: "Following up on your proposal",
     body: `Hi {{firstName}},
 
-I wanted to check that my proposal for {{projectName}} reached you, and see whether any questions have come up.
+I wanted to check that my proposal for {{projectName}} reached you, and see whether any questions have come up. Here it is again: {{proposalUrl}}
 
-Choosing a photographer takes time, so there's no rush. If it would help to talk through collections, coverage or the timeline, I'm happy to get on a call.
-
-[Optional: your date is still open as of today, but someone else has asked about it, so I wanted you to know.]
+Choosing a photographer takes time, so there's no rush. Your date is held for you until {{holdUntil}}. If it would help to talk through collections, coverage or the timeline, I'm happy to get on a call.
 
 Julian`,
-  },
-  {
-    id: "booking-welcome",
-    name: "Booking welcome",
-    stage: "booked",
-    subject: "You're booked for {{eventDate}}",
-    body: `Hi {{firstName}},
-
-It's official: I'm photographing {{projectName}}. Thank you for choosing me.
-
-What happens next:
-- Your client portal is set up. Sign in any time to see your status, dates and documents, and to add details: {{portalUrl}}
-- Closer to the date, I'll send a planning questionnaire so I arrive prepared.
-
-Reply any time with questions.
-
-Julian`,
+    followUp: { days: 7, note: "Last check-in on the proposal" },
   },
   {
     id: "contract-deposit",
-    name: "Contract & deposit",
-    stage: "contract-signed",
+    name: "Contract & retainer",
+    stage: "booked",
     subject: "Two steps to reserve {{eventDate}}",
     body: `Hi {{firstName}},
 
-Two things reserve your date:
+I'm glad you'd like to go ahead. Two things reserve your date:
 
-1. Sign the agreement: [contract link]
-2. Pay the retainer of [amount]: [payment link]
+1. Sign the agreement: {{contractUrl}}
+2. Pay the {{retainerPercent}}% retainer: {{invoiceUrl}}
+{{paymentInstructions}}
 
-Once both are in, the date is yours and we can start planning. Everything will be in your client portal as we go: {{portalUrl}}
+Once both are in, the date is yours and we can start planning. Everything is in your client portal as we go: {{portalUrl}}
 
 Let me know if anything comes up.
 
 Julian`,
+    advancesTo: "booked",
+    followUp: { days: 3, note: "Check the agreement and retainer came in" },
   },
   {
     id: "payment-reminder",
     name: "Payment reminder",
-    stage: "contract-signed",
-    subject: "Payment due on [date] for {{projectName}}",
+    stage: "booked",
+    subject: "Payment due {{invoiceDueDate}} for {{projectName}}",
     body: `Hi {{firstName}},
 
-A reminder that your [retainer / balance] of [amount] for {{projectName}} is due on [date].
+A reminder that your [retainer / balance] for {{projectName}} is due on {{invoiceDueDate}}.
 
-You can pay here whenever it suits you: [payment link]
+You can pay here whenever it suits you: {{invoiceUrl}}
+{{paymentInstructions}}
 
 If you have questions about the invoice, just reply.
 
 Thank you,
 Julian`,
+  },
+  {
+    id: "booking-welcome",
+    name: "Booking welcome",
+    stage: "contract-signed",
+    subject: "You're booked for {{eventDate}}",
+    body: `Hi {{firstName}},
+
+It's official: I'm photographing {{projectName}}. Thank you for choosing me, and for sending back the agreement and retainer.
+
+What happens next:
+- Your client portal has everything in one place: your status, dates, links and files, and a way to write to me: {{portalUrl}}
+- Closer to the date, I'll send a planning questionnaire so I arrive prepared.
+
+Reply any time with questions.
+
+Julian`,
+    advancesTo: "contract-signed",
   },
   {
     id: "planning-kickoff",
@@ -192,6 +257,8 @@ When you have a few minutes, please fill out the planning questionnaire. It's al
 It covers your timeline, the shots you care about most, the key people, and any details you want me to catch. Your portal is here too: {{portalUrl}}
 
 Julian`,
+    advancesTo: "planning",
+    followUp: { days: 7, note: "Check the questionnaire came back" },
   },
   {
     id: "questionnaire-reminder",
@@ -207,6 +274,7 @@ It covers your timeline, the shots you care about most, the key people, and any 
 Reply with any questions.
 
 Julian`,
+    followUp: { days: 5, note: "Check the questionnaire came back" },
   },
   {
     id: "timeline-details",
@@ -215,17 +283,16 @@ Julian`,
     subject: "Your photography timeline for {{eventDate}}",
     body: `Hi {{firstName}},
 
-Here's the photography timeline for {{eventDate}}, based on everything we've talked through. Tell me if anything looks off:
+Here's the photography timeline for {{eventDate}}, based on everything we've talked through: {{timelineUrl}}
 
-[Paste or attach the timeline: getting ready, first look, ceremony, portraits, reception.]
-
-A few things I still need to confirm:
+Tell me if anything looks off. A few things I still need to confirm:
 - [detail]
 - [detail]
 
 Once it's settled, share it with your other vendors so everyone works from the same plan.
 
 Julian`,
+    advancesTo: "scheduled",
   },
   {
     id: "week-of",
@@ -244,6 +311,7 @@ If anything has changed, reply and let me know. Otherwise, enjoy the day and lea
 
 See you soon,
 Julian`,
+    advancesTo: "scheduled",
   },
   {
     id: "post-shoot-thank-you",
@@ -257,6 +325,7 @@ Thank you for having me. [A specific favorite moment from the day.]
 Your photos are in editing now. Expect [a sneak peek within X days / the full gallery in X weeks]. I'll keep you posted, and everything will arrive in your portal: {{portalUrl}}
 
 Julian`,
+    advancesTo: "editing",
   },
   {
     id: "sneak-peek",
@@ -265,13 +334,12 @@ Julian`,
     subject: "A first look at your {{serviceNoun}} photos",
     body: `Hi {{firstName}},
 
-Here are a few favorites from your {{serviceNoun}} while I finish editing the rest:
-
-[Attach 3 to 5 preview images, or paste a preview link.]
+Here are a few favorites from your {{serviceNoun}} while I finish editing the rest: {{highlightsUrl}}
 
 The full gallery is on its way. [Optional: feel free to share these, and tag me if you post them.]
 
 Julian`,
+    advancesTo: "editing",
   },
   {
     id: "gallery-delivery",
@@ -288,6 +356,7 @@ If you'd like prints or an album, reply and I'll help. And if you have a minute 
 
 Thank you,
 Julian`,
+    advancesTo: "delivered",
   },
   {
     id: "prints-albums",
@@ -314,10 +383,12 @@ Julian`,
 
 I really enjoyed photographing your {{serviceNoun}}.
 
-If you have a couple of minutes, would you leave a short review? Most of my clients find me through people like you, and a review helps them decide: [review link]
+If you have a couple of minutes, would you leave a short review? Most of my clients find me through people like you, and a review helps them decide: {{reviewUrl}}
 
 Thank you,
 Julian`,
+    advancesTo: "complete",
+    followUp: { monthsAfterEvent: 11, note: "Anniversary email" },
   },
   {
     id: "referral-ask",
@@ -361,6 +432,7 @@ I wanted to check in about your {{serviceNoun}}. If you're still looking for a p
 If now's a good time, reply here or book a call: {{bookingUrl}}
 
 Julian`,
+    followUp: { days: 7, note: "Last check-in, then close the lead" },
   },
   {
     id: "booked-elsewhere",
@@ -375,6 +447,7 @@ If anything changes, or you'd like photos later on (engagement, family, an anniv
 
 Congratulations again,
 Julian`,
+    closesAs: "declined",
   },
 ];
 

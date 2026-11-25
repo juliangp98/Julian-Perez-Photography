@@ -5,7 +5,11 @@
 // hidden entirely for terminal (closed) statuses.
 
 import { daysUntil } from "@/lib/field-format";
-import { CLIENT_MILESTONES, clientMilestoneIndex } from "@/lib/client-status";
+import {
+  CLIENT_MILESTONES,
+  clientMilestoneIndex,
+  clientStatusHint,
+} from "@/lib/client-status";
 import Panel from "@/components/ui/Panel";
 
 
@@ -91,7 +95,7 @@ export default function PortalStatusTimeline({
       </ol>
 
       <p className="mt-5 text-sm text-muted">
-        {CLIENT_MILESTONES[current].hint}
+        {clientStatusHint(status)}
       </p>
     </Panel>
   );

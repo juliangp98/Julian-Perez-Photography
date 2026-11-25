@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { formatHumanDate as formatDate } from "@/lib/field-format";
+import { formatHumanDate as formatDate, studioToday } from "@/lib/field-format";
+import { heldUntil } from "@/lib/email/send-effects";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
@@ -77,6 +78,8 @@ export default async function PortalProjectPage({
   // In-app links (no origin): the questionnaire for a set service, the inquiry
   // for an undecided one, and the gallery once Julian has added it.
   const links = projectLinks(record, "");
+  // A date hold that's running (none once the date is being reserved).
+  const hold = heldUntil(record, undefined, studioToday());
   // The how-to-pay line for the method this client is using. A second
   // photographer's read carries no payment method, so they get none.
   const paymentLine = record.paymentMethod
@@ -105,6 +108,7 @@ export default async function PortalProjectPage({
     record.guestCount != null ||
     !!record.partnerName ||
     !!record.paymentMethod ||
+    !!hold ||
     hasOtherDates ||
     hasLocations;
 
@@ -290,6 +294,7 @@ export default async function PortalProjectPage({
                 {record.partnerName && (
                   <Detail label="Partner" value={record.partnerName} />
                 )}
+                {hold && <Detail label="Date held until" value={formatDate(hold.until)} />}
                 {record.paymentMethod && (
                   <Detail
                     label="Paying by"

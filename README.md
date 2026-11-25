@@ -397,7 +397,8 @@ How the pieces fit:
 so a second service for the same person opens a second project rather than
 overwriting the first; status `new-inquiry`); `/api/questionnaire` attaches the
 answers snapshot to the matching project, stores the generated plan PDF to Blob,
-links it, and advances status toward `planning`. Both are fire-and-forget and
+links it, and moves a booked project on to `planning` (a prospect keeps their
+place). Both are fire-and-forget and
 **no-op when the store isn't configured**, so the email flow is never affected.
 - **Privacy boundary:** the app reaches the table only through
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
