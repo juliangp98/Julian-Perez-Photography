@@ -67,6 +67,7 @@ export default defineConfig({
         TWILIO_AUTH_TOKEN: "fake_e2e",
         TWILIO_PHONE_FROM: "+15555550100",
         TWILIO_BASE_URL: FAKE_URL,
+        INQUIRY_SMS_TO: "+15555550199",
         SUPABASE_URL: process.env.TEST_SUPABASE_URL ?? "",
         SUPABASE_SERVICE_ROLE_KEY: process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "",
         // Empty so the autocomplete route returns its deterministic empty list.

@@ -88,8 +88,8 @@ test("inquiry: texts the client a confirmation at a normalized number", async ({
     data: inquiry({ phone: "(703) 555-1234" }),
   });
   expect(res.status()).toBe(200);
-  const [sms] = await fakes.calls("twilio");
-  expect(sms.body?.To).toBe("+17035551234");
+  const [sms] = (await fakes.calls("twilio")).filter((c) => c.body?.To === "+17035551234");
+  expect(sms, "no text to the client's normalized number").toBeTruthy();
   expect(String(sms.body?.Body).length).toBeLessThanOrEqual(320);
 });
 
@@ -99,7 +99,8 @@ test("inquiry: a refused text doesn't fail the submission", async ({ request, fa
     data: inquiry({ phone: "(703) 555-0000" }),
   });
   expect(res.status()).toBe(200);
-  expect(await fakes.calls("twilio")).toHaveLength(1);
+  const toClient = (await fakes.calls("twilio")).filter((c) => c.body?.To === "+17035550000");
+  expect(toClient).toHaveLength(1);
 });
 
 test("send-email: an unknown project is a 404, not a silent success", async ({

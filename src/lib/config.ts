@@ -43,6 +43,7 @@ export const SETTINGS: Setting[] = [
   { area: "SMS", name: "TWILIO_ACCOUNT_SID", purpose: "Twilio account for confirmation texts (all three TWILIO_* are needed).", without: "No confirmation texts." },
   { area: "SMS", name: "TWILIO_AUTH_TOKEN", purpose: "Twilio auth token.", without: "No confirmation texts." },
   { area: "SMS", name: "TWILIO_PHONE_FROM", purpose: "The sending number, E.164.", without: "No confirmation texts.", example: "+15555550123" },
+  { area: "SMS", name: "INQUIRY_SMS_TO", purpose: "Your own number, for a text when a new inquiry looks worth an interruption (a good fit, or high urgency that isn't a mismatch; every inquiry when there's no AI assessment). Needs the TWILIO_* settings.", without: "No owner texts; new inquiries arrive by email only.", example: "+15555550123" },
   // Other services
   { area: "Other services", name: "GOOGLE_PLACES_API_KEY", purpose: "Live Google reviews and address autocomplete.", without: "Reviews fall back to the ones in site settings; address fields are plain text." },
   { area: "Other services", name: "GOOGLE_PLACE_ID", purpose: "The Google Business listing for reviews.", without: "No live reviews." },

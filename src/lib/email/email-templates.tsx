@@ -17,6 +17,7 @@ import {
   Preview,
 } from "@react-email/components";
 import type { ReactNode } from "react";
+import { triageVerdict, type InquiryTriage } from "@/lib/triage";
 
 // ---------------------------------------------------------------------------
 // Brand tokens (mirrored from globals.css)
@@ -155,6 +156,14 @@ export function BrandedEmailLayout({
 // Inquiry email (sent to Julian)
 // ---------------------------------------------------------------------------
 
+const SECTION_LABEL = {
+  fontSize: "12px",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.1em",
+  color: MUTED,
+  margin: "0 0 8px 0",
+};
+
 type InquiryData = {
   name: string;
   email: string;
@@ -170,9 +179,15 @@ type InquiryData = {
 export function InquiryEmailTemplate({
   data,
   serviceName,
+  triage,
+  draftReplyUrl,
 }: {
   data: InquiryData;
   serviceName: string;
+  // The AI assessment, when one came back in time. Owner-only.
+  triage?: InquiryTriage | null;
+  // The project page with Compose open on a reply, when the inquiry was filed.
+  draftReplyUrl?: string;
 }) {
   const fields: [string, string | undefined][] = [
     ["Name", data.name],
@@ -198,6 +213,23 @@ export function InquiryEmailTemplate({
         New inquiry
       </Text>
 
+      {triage ? (
+        <Section style={{ border: `1px solid ${BORDER}`, padding: "12px 16px", margin: "0 0 24px 0" }}>
+          <Text style={SECTION_LABEL}>AI assessment</Text>
+          <Text style={{ fontSize: "14px", fontWeight: 600, color: FOREGROUND, margin: "0 0 6px 0" }}>
+            {triageVerdict(triage)}
+          </Text>
+          <Text style={{ fontSize: "14px", color: FOREGROUND, lineHeight: "20px", margin: "0 0 6px 0" }}>
+            {triage.summary}
+          </Text>
+          {triage.fitReason || triage.urgencyReason ? (
+            <Text style={{ fontSize: "12px", color: MUTED, lineHeight: "18px", margin: 0 }}>
+              {[triage.fitReason, triage.urgencyReason].filter(Boolean).join(" ")}
+            </Text>
+          ) : null}
+        </Section>
+      ) : null}
+
       {fields.map(([label, value]) =>
         value ? (
           <Text
@@ -221,17 +253,7 @@ export function InquiryEmailTemplate({
           margin: "20px 0",
         }}
       >
-        <Text
-          style={{
-            fontSize: "12px",
-            textTransform: "uppercase" as const,
-            letterSpacing: "0.1em",
-            color: MUTED,
-            margin: "0 0 8px 0",
-          }}
-        >
-          Message
-        </Text>
+        <Text style={SECTION_LABEL}>Message</Text>
         <Text
           style={{
             fontSize: "14px",
@@ -244,6 +266,8 @@ export function InquiryEmailTemplate({
           {data.message}
         </Text>
       </Section>
+
+      {draftReplyUrl ? <PillButton href={draftReplyUrl} label="Draft a reply" /> : null}
 
       <Text style={{ fontSize: "12px", color: MUTED, margin: "16px 0 0 0" }}>
         Reply directly to this email to respond to {data.name}.

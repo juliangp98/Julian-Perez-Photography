@@ -62,13 +62,18 @@ suspected of being exposed, and as part of a quarterly audit.
       on Preview deployments so preview URLs aren't publicly crawlable.
       Previews share env vars with production, which makes them leak-prone
       if they're reachable anonymously.
-- [ ] Settings → **Firewall** → add **rate-limit rules** for the public
-      endpoints: `/api/inquire`, `/api/questionnaire*`, and
-      `/api/*/request-link`. The app's own limiter (`src/lib/request-guard.ts`)
-      keeps its counters in memory on each serverless instance. It slows one
-      client hitting one warm instance, but a burst spread across instances
-      or cold starts gets through. Only a firewall rule limits across all of
-      them. This is the owner's task in the Vercel dashboard.
+- [ ] Settings → **Firewall** → the **"Public forms and sign-in rate limit"**
+      rule allows 20 requests a minute per IP (fixed window, then 429) across
+      the public endpoints that send email, spend AI tokens or build PDFs:
+      `/api/inquire`, `/api/questionnaire`, `/api/questionnaire-upload`,
+      `/api/portal/request-link`, `/api/admin/request-link`, `/api/concierge`,
+      `/api/assist/draft`, `/api/wedding-plan` and `/api/wedding-films-plan`.
+      Add a new public route of that kind to the rule's path list. The app's
+      own limiter (`src/lib/request-guard.ts`) keeps its counters in memory on
+      each serverless instance, so it slows one client on one warm instance
+      but not a burst spread across instances; only the firewall rule limits
+      across all of them. Address autocomplete is left out on purpose: it
+      fires on every keystroke.
 - [ ] Settings → **Firewall** → keep **Attack Challenge Mode** ready to turn
       on when traffic looks hostile.
 - [ ] Settings → **Logs** — confirm Log Retention meets your needs (1 day
@@ -121,7 +126,10 @@ suspected of being exposed, and as part of a quarterly audit.
       don't record used tokens, so a link works again until it expires. Anyone
       who gets a forwarded or leaked link inside that window can sign in.
       The request-link endpoints return the same response whether or not the
-      address has an account, and carry the per-instance rate limit. Session
+      address has an account, and carry the per-instance rate limit. A link's
+      address comes from the URL the request reached (`originOf` in
+      `src/lib/api-route.ts`), never the `Origin` header, so a forged header
+      can't point a real sign-in email at another site. Session
       cookies are httpOnly, Secure and SameSite, signed with `AUTH_SECRET`.
 - [ ] `client_messages` holds the body of every email and portal message on
       each project's thread, including client replies. RLS is on and no

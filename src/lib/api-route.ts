@@ -84,7 +84,10 @@ export function defineRoute<S extends z.ZodType, A extends Auth>(opts: {
   };
 }
 
-// The site's origin for links in emails and redirects.
+// The site's origin for links in emails and redirects: the address this request
+// actually reached (on Vercel, only the project's own domains). Never the Origin
+// header, which any client can set: a forged one would put another site's
+// address, with a live sign-in token, into a real email from this one.
 export function originOf(req: Request): string {
-  return req.headers.get("origin") || new URL(req.url).origin;
+  return new URL(req.url).origin;
 }

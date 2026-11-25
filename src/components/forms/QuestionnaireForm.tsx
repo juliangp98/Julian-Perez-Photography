@@ -12,6 +12,7 @@ import {
   prefillableFieldIds,
 } from "@/lib/questionnaire-bundles";
 import { serviceNoun } from "@/lib/project-name";
+import { referralDetailPrompt } from "@/lib/referral";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
@@ -276,11 +277,15 @@ export default function QuestionnaireForm({
         payload[f.id] = v as Value;
       }
     }
-    // `referralOther` isn't declared in the questionnaire schema — it's a
-    // companion field that only appears when the referral dropdown is set
-    // to "Other". Include it in the payload when present so Julian sees
-    // the long-tail source in his email.
-    if (payload.referral === "other" && typeof state.referralOther === "string" && state.referralOther) {
+    // `referralOther` isn't declared in the questionnaire schema: it's the
+    // companion input shown when the chosen source asks which group, venue or
+    // vendor (or "Other"). It goes in the payload when present so the owner
+    // email names the specific source.
+    if (
+      referralDetailPrompt(payload.referral as string | undefined) &&
+      typeof state.referralOther === "string" &&
+      state.referralOther
+    ) {
       payload.referralOther = state.referralOther;
     }
 
@@ -605,10 +610,9 @@ export default function QuestionnaireForm({
       <div className="mt-8 grid gap-6">
         {visibleFields.map((field) => {
           // Normalize the "How did you find me?" field into the curated
-          // dropdown used across the site — regardless of what `type` the
-          // questionnaire JSON declares for it. The "Other" option reveals
-          // a sibling free-text input (`referralOther`) so long-tail
-          // sources still come through.
+          // dropdown used across the site, whatever `type` the questionnaire
+          // JSON declares for it. Options that ask which group, venue or
+          // vendor reveal a companion input (`referralOther`).
           if (field.id === "referral") {
             return (
               <ReferralField

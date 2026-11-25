@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { Resend, type WebhookEventPayload } from "resend";
 import * as Sentry from "@sentry/nextjs";
 import { handleWebhookEvent } from "@/lib/email/relay";
+import { originOf } from "@/lib/api-route";
 
 export async function POST(req: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await handleWebhookEvent(event, new URL(req.url).origin);
+    await handleWebhookEvent(event, originOf(req));
   } catch (err) {
     Sentry.captureException(err, { tags: { route: "email/webhook", stage: event.type } });
     return NextResponse.json({ error: "Couldn't process the event." }, { status: 500 });

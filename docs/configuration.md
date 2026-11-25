@@ -51,6 +51,7 @@ The site checks itself: missing settings that production needs are logged once w
 | `TWILIO_ACCOUNT_SID` | optional | Twilio account for confirmation texts (all three TWILIO_* are needed). | No confirmation texts. |
 | `TWILIO_AUTH_TOKEN` | optional | Twilio auth token. | No confirmation texts. |
 | `TWILIO_PHONE_FROM` | optional | The sending number, E.164. Example: `+15555550123`. | No confirmation texts. |
+| `INQUIRY_SMS_TO` | optional | Your own number, for a text when a new inquiry looks worth an interruption (a good fit, or high urgency that isn't a mismatch; every inquiry when there's no AI assessment). Needs the TWILIO_* settings. Example: `+15555550123`. | No owner texts; new inquiries arrive by email only. |
 
 ## Other services
 

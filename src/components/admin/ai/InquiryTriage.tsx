@@ -8,27 +8,18 @@ import Panel from "@/components/ui/Panel";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import FormStatus from "@/components/ui/FormStatus";
+import {
+  TRIAGE_FIT_LABEL,
+  TRIAGE_URGENCY_LABEL,
+  draftReplyHref,
+  type InquiryTriage as Triage,
+  type TriageFit,
+  type TriageUrgency,
+} from "@/lib/triage";
 import { useAiAction } from "./useAiAction";
 
-type Triage = {
-  summary: string;
-  fit: "good" | "maybe" | "poor";
-  fitReason: string;
-  urgency: "high" | "medium" | "low";
-  urgencyReason: string;
-  keyDetails: string[];
-};
-
-const FIT: Record<Triage["fit"], [string, BadgeTone]> = {
-  good: ["Good fit", "good"],
-  maybe: ["Possible fit", "warn"],
-  poor: ["Likely not a fit", "muted"],
-};
-const URGENCY: Record<Triage["urgency"], [string, BadgeTone]> = {
-  high: ["High urgency", "bad"],
-  medium: ["Medium urgency", "warn"],
-  low: ["Low urgency", "muted"],
-};
+const FIT_TONE: Record<TriageFit, BadgeTone> = { good: "good", maybe: "warn", poor: "muted" };
+const URGENCY_TONE: Record<TriageUrgency, BadgeTone> = { high: "bad", medium: "warn", low: "muted" };
 
 export default function InquiryTriage({ projectId }: { projectId: string }) {
   const { run, status, result: triage, error } = useAiAction<Triage>(
@@ -53,8 +44,8 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
       {triage && (
         <Panel className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Badge tone={FIT[triage.fit][1]}>{FIT[triage.fit][0]}</Badge>
-            <Badge tone={URGENCY[triage.urgency][1]}>{URGENCY[triage.urgency][0]}</Badge>
+            <Badge tone={FIT_TONE[triage.fit]}>{TRIAGE_FIT_LABEL[triage.fit]}</Badge>
+            <Badge tone={URGENCY_TONE[triage.urgency]}>{TRIAGE_URGENCY_LABEL[triage.urgency]}</Badge>
           </div>
 
           <p className="text-sm leading-relaxed">{triage.summary}</p>
@@ -80,10 +71,7 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
           )}
 
           <Link
-            href={`?${new URLSearchParams({
-              compose: "inquiry-reply",
-              steer: [triage.summary, ...triage.keyDetails].join(" ").slice(0, 600),
-            })}#compose`}
+            href={draftReplyHref(triage)}
             scroll={false}
             className="inline-block text-sm underline underline-offset-4 hover:text-accent"
           >

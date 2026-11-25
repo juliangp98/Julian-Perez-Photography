@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { visibleServices as services } from "@/lib/content";
-import { REFERRAL_OPTIONS } from "@/lib/referral";
+import { REFERRAL_OPTIONS, referralDetailPrompt } from "@/lib/referral";
 import AssistedTextarea, {
   type AssistContext,
 } from "@/components/forms/AssistedTextarea";
@@ -59,6 +59,7 @@ export default function InquiryForm({
   });
   const [message, setMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const referralDetail = referralDetailPrompt(v.referral);
 
   const set =
     <K extends keyof typeof v>(k: K) =>
@@ -145,7 +146,7 @@ export default function InquiryForm({
       hp_company: hp,
       project: projectId,
     };
-    if (v.referral === "other" && v.referralOther) {
+    if (referralDetail && v.referralOther) {
       payload.referralOther = v.referralOther;
     }
 
@@ -305,15 +306,18 @@ export default function InquiryForm({
           id="inq-referral"
           label="How did you hear about me?"
           value={v.referral}
-          onChange={set("referral")}
+          // A new choice clears the detail, so a venue name can't ride along
+          // under a different channel.
+          onChange={(val) => setV((prev) => ({ ...prev, referral: val, referralOther: "" }))}
           options={REFERRAL_OPTIONS}
         >
-          {v.referral === "other" && (
+          {referralDetail && (
             <input
               id="inq-referralOther"
+              aria-label={referralDetail}
               value={v.referralOther}
               onChange={(e) => set("referralOther")(e.target.value)}
-              placeholder="Tell me more (optional)"
+              placeholder={referralDetail}
               className={`${controlClass(false)} mt-2`}
             />
           )}

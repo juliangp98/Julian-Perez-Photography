@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
-import { apiError, defineRoute } from "@/lib/api-route";
+import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { getProjectForViewer } from "@/lib/clients";
 import { recordMessage } from "@/lib/messages";
 import { forwardToOwner } from "@/lib/email/relay";
@@ -47,7 +47,7 @@ export const POST = defineRoute({
         from: session.email,
         subject: `New message on ${record.projectName || record.clientName || "your project"}`,
         body,
-        origin: new URL(req.url).origin,
+        origin: originOf(req),
         viaPortal: true,
       });
     } catch (err) {

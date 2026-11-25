@@ -1,6 +1,7 @@
-// POST /api/inquire: public inquiry form. Emails the owner (the only step that can
-// fail the submission), then records the client and sends the client email and
-// text confirmations as best-effort side effects.
+// POST /api/inquire: public inquiry form. Files the client record, assesses the
+// inquiry with AI, and emails the owner (the only step that can fail the
+// submission); the owner text alert and the client's email and text
+// confirmations are best-effort side effects.
 
 export const runtime = "nodejs";
 
@@ -12,13 +13,19 @@ import {
   InquiryEmailTemplate,
   ClientConfirmationTemplate,
 } from "@/lib/email/email-templates";
-import { apiError, defineRoute } from "@/lib/api-route";
+import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { formatSubjectDate } from "@/lib/email/email-helpers";
 import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
 import { upsertClientFromInquiry } from "@/lib/clients";
+import { assessInquiry, shouldAlertOwner } from "@/lib/ai/assess-inquiry";
+import { draftReplyHref, triageVerdict, type InquiryTriage } from "@/lib/triage";
+
+// How long a submission waits for the AI assessment. Past it the owner email
+// goes out without one (the project page's "Triage this inquiry" still works).
+const TRIAGE_WAIT_MS = 8_000;
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -48,7 +55,37 @@ export const POST = defineRoute({
   rateLimit: { max: 5, windowMs: 10 * 60 * 1000 },
   honeypot: true,
   invalid: "Please check the form and try again.",
-  run: async (data) => {
+  run: async (data, { req }) => {
+    // The channel's short label tags the subject line for inbox filtering; the
+    // full source ("Venue: Foxchase Manor") goes in the body and the record.
+    const referralLabel = data.referral
+      ? REFERRAL_LABELS[data.referral] ?? data.referral
+      : "";
+    const referral = formatReferral(data.referral, data.referralOther);
+
+    // Start the assessment now so its latency overlaps the content fetches and
+    // the record write. It settles to null on any failure or after
+    // TRIAGE_WAIT_MS: it adds to the owner email but never fails or stalls a
+    // submission. Without an AI key it resolves to null straight away.
+    const triagePromise = settleWithin(
+      assessInquiry({
+        serviceType: data.service,
+        clientName: data.name,
+        eventDate: data.eventDate || undefined,
+        budget: data.budget || undefined,
+        venue: data.location || undefined,
+        referral: referral || undefined,
+        message: data.message,
+      }).catch((err: unknown) => {
+        Sentry.captureException(err, {
+          tags: { route: "inquire", stage: "triage" },
+          level: "warning",
+        });
+        return null;
+      }),
+      TRIAGE_WAIT_MS,
+    );
+
     // getService + getSiteSettings are both async + React-cached. Fetch
     // them in parallel so the inquiry doesn't serialize two Sanity
     // round-trips on every submit.
@@ -60,14 +97,35 @@ export const POST = defineRoute({
 
     const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
 
-    // Resolve the curated referral value → friendly label, and fold in the
-    // free-text "Other" detail when present. Both live in the email body;
-    // the shortform label also tags the subject line so Julian can inbox-
-    // filter by source without opening the email.
-    const referralLabel = data.referral
-      ? REFERRAL_LABELS[data.referral] ?? data.referral
-      : "";
-    const referralDisplay = formatReferral(data.referral, data.referralOther);
+    // Durable capture: upsert a client record so the inquiry isn't lost to the
+    // inbox, even if the owner email then fails. It comes first so the owner
+    // email can link to the project and the confirmation can start its thread.
+    // A store failure (or an unconfigured store) never fails the submission.
+    let projectId: string | null = null;
+    try {
+      projectId = await upsertClientFromInquiry({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        service: data.service,
+        eventDate: data.eventDate || undefined,
+        location: data.location || undefined,
+        budget: data.budget || undefined,
+        referral: referral || undefined,
+        message: data.message,
+        projectId: data.project || undefined,
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "inquire", stage: "client-record" },
+        level: "warning",
+      });
+    }
+
+    const triage = await triagePromise;
+    const draftReplyUrl = projectId
+      ? draftReplyHref(triage, `${originOf(req)}/admin/projects/${projectId}`)
+      : undefined;
 
     // Include the event date in the subject when supplied — makes triage
     // easier when multiple inquiries for the same service land in a row.
@@ -83,19 +141,36 @@ export const POST = defineRoute({
       `Date:      ${data.eventDate || empty}`,
       `Location:  ${data.location || empty}`,
       `Budget:    ${data.budget || empty}`,
-      `Referral:  ${referralDisplay}`,
+      `Referral:  ${referral || empty}`,
       ``,
       `Message:`,
       data.message,
+      ...(triage
+        ? [
+            ``,
+            `AI assessment: ${triageVerdict(triage)}`,
+            triage.summary,
+            [triage.fitReason, triage.urgencyReason].filter(Boolean).join(" "),
+          ]
+        : []),
+      ...(draftReplyUrl ? [``, `Draft a reply: ${draftReplyUrl}`] : []),
     ].join("\n");
 
-    // Override the raw referral value with the friendly display string so the
-    // branded template shows "Instagram" (or "Other — at a friend's reception")
-    // rather than the internal slug.
-    const emailData = { ...data, referral: referralDisplay === "—" ? undefined : referralDisplay };
+    // The branded template shows the friendly source ("Venue: Foxchase Manor")
+    // rather than the internal slug. Its preheader, which an inbox or lock
+    // screen shows under the subject, leads with the verdict when there is one.
+    const emailData = { ...data, referral: referral || undefined };
+    const preview = triage
+      ? `${triageVerdict(triage)}. ${triage.summary}`
+      : `New inquiry from ${data.name}: ${serviceName}`;
     const html = await render(
-      <BrandedEmailLayout preview={`New inquiry from ${data.name}: ${serviceName}`}>
-        <InquiryEmailTemplate data={emailData} serviceName={serviceName} />
+      <BrandedEmailLayout preview={preview}>
+        <InquiryEmailTemplate
+          data={emailData}
+          serviceName={serviceName}
+          triage={triage}
+          draftReplyUrl={draftReplyUrl}
+        />
       </BrandedEmailLayout>,
     );
 
@@ -115,29 +190,21 @@ export const POST = defineRoute({
       return apiError(500, userMessage);
     }
 
-    // Durable capture: upsert a client record so the inquiry isn't lost to the
-    // inbox. It runs before the confirmation so that email starts the project's
-    // thread. The owner email has already gone, so a store failure (or an
-    // unconfigured store) never fails the submission.
-    let projectId: string | null = null;
-    try {
-      projectId = await upsertClientFromInquiry({
-        name: data.name,
-        email: data.email,
-        phone: data.phone || undefined,
-        service: data.service,
-        eventDate: data.eventDate || undefined,
-        location: data.location || undefined,
-        budget: data.budget || undefined,
-        referral: formatReferral(data.referral, data.referralOther) || undefined,
-        message: data.message,
-        projectId: data.project || undefined,
-      });
-    } catch (err) {
-      Sentry.captureException(err, {
-        tags: { route: "inquire", stage: "client-record" },
-        level: "warning",
-      });
+    // Owner text alert, fire and forget. Opt-in via INQUIRY_SMS_TO, and only
+    // for the leads worth an interruption (see shouldAlertOwner).
+    const ownerPhone = process.env.INQUIRY_SMS_TO;
+    if (ownerPhone && shouldAlertOwner(triage)) {
+      try {
+        await sendSms(
+          ownerPhone,
+          ownerAlertText({ name: data.name, serviceName, eventDate: data.eventDate, referralLabel, triage, message: data.message }),
+        );
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "inquire", stage: "owner-sms" },
+          level: "warning",
+        });
+      }
     }
 
     // Client confirmation email — fire and forget; don't fail the submission.
@@ -183,3 +250,35 @@ export const POST = defineRoute({
     return { ok: true };
   },
 });
+
+// Resolves to null if `promise` hasn't settled within `ms`.
+function settleWithin<T>(promise: Promise<T | null>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// The owner's text: who, what, when and the channel, the verdict, and a
+// one-line summary (or the opening of the message when there's no assessment),
+// trimmed to fit sendSms's 320-character cap with the sign-off intact.
+function ownerAlertText(m: {
+  name: string;
+  serviceName: string;
+  eventDate?: string;
+  referralLabel: string;
+  triage: InquiryTriage | null;
+  message: string;
+}): string {
+  const date = formatSubjectDate(m.eventDate).replace(/^ \((.*)\)$/, "$1");
+  const head = [`New inquiry: ${m.name}`, m.serviceName, date, m.referralLabel && `via ${m.referralLabel}`]
+    .filter(Boolean)
+    .join(" · ");
+  const verdict = m.triage ? ` (${triageVerdict(m.triage)})` : "";
+  const tail = " Details in your inbox.";
+  const room = Math.max(0, 320 - head.length - verdict.length - tail.length - 2);
+  const gist = (m.triage?.summary || m.message).replace(/\s+/g, " ").trim();
+  const body = gist.length > room ? `${gist.slice(0, Math.max(0, room - 1)).trimEnd()}…` : gist;
+  return `${head}${verdict}. ${body}${tail}`;
+}
