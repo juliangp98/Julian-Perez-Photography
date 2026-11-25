@@ -278,20 +278,23 @@ alter table client_records add column if not exists calls jsonb not null default
 -- two autosaves landing together each keep what they wrote. With p_base (the
 -- savedAt the patch was typed against, '' for never saved) it lands only if
 -- nothing was saved since, or if the last save came from the same copy
--- (p_writer, matched against the savedBy the patch stamps): a retry of a save
--- whose reply was lost is that copy's own, while a copy left open elsewhere
--- can't overwrite newer notes. Answers {conflict}, or {held, status}: whether
--- the call was already marked held, and the project's status. Null for no
--- such project. Doesn't change updated_at: notes aren't an edit to the
--- project.
+-- (p_writer, matched against the savedBy the patch stamps) and this one is
+-- later in its order (p_seq, against savedSeq): a retry of a save whose reply
+-- was lost is that copy's own, a first try landing after its own retry is
+-- refused, and a copy left open elsewhere can't overwrite newer notes.
+-- Answers {conflict}, or {held, status}: whether the call was already marked
+-- held, and the project's status. Null for no such project. Doesn't change
+-- updated_at: notes aren't an edit to the project.
 drop function if exists merge_call(uuid, text, jsonb);
 drop function if exists merge_call(uuid, text, jsonb, text);
+drop function if exists merge_call(uuid, text, jsonb, text, text);
 create or replace function merge_call(
   p_id uuid,
   p_call text,
   p_patch jsonb,
   p_base text default null,
-  p_writer text default null
+  p_writer text default null,
+  p_seq int default null
 )
 returns jsonb language plpgsql as $$
 declare
@@ -305,7 +308,10 @@ begin
   end if;
   if p_base is not null
      and coalesce(prev->>'savedAt', '') <> p_base
-     and (p_writer is null or coalesce(prev->>'savedBy', '') <> p_writer) then
+     and (p_writer is null
+          or p_seq is null
+          or coalesce(prev->>'savedBy', '') <> p_writer
+          or p_seq <= coalesce((prev->>'savedSeq')::int, 0)) then
     return jsonb_build_object('conflict', true);
   end if;
   update client_records
@@ -325,7 +331,7 @@ begin
   return jsonb_build_object('conflict', false, 'held', prev ? 'heldAt', 'status', cur_status);
 end
 $$;
-revoke execute on function merge_call(uuid, text, jsonb, text, text) from public, anon, authenticated;
-grant execute on function merge_call(uuid, text, jsonb, text, text) to service_role;
+revoke execute on function merge_call(uuid, text, jsonb, text, text, int) from public, anon, authenticated;
+grant execute on function merge_call(uuid, text, jsonb, text, text, int) to service_role;
 
 notify pgrst, 'reload schema';

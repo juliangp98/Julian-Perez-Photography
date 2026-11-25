@@ -39,8 +39,10 @@ class CallDraft {
   private snap: CallDraftSnapshot;
   // The save this copy builds on: "" before the first.
   base: string;
-  // This copy, as the save route knows it.
+  // This copy, as the save route knows it, and its count of saves: a first
+  // try that lands after its own retry is refused rather than taken as newer.
   readonly writer = crypto.randomUUID();
+  private seq = 0;
   private pending: Patch = emptyPatch();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<void> | null = null;
@@ -146,7 +148,7 @@ class CallDraft {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: this.projectId,
-            call: { ...patch, base: this.base, writer: this.writer },
+            call: { ...patch, base: this.base, writer: this.writer, seq: ++this.seq },
           }),
         });
         if (res.ok) {

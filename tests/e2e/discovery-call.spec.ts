@@ -189,21 +189,32 @@ test("a save typed against an older copy of the notes is refused, unless it's th
   const p = await newProject(adminRequest, "stale");
   const laptop = "6f0c8a52-0d3e-4c1b-9a77-1f2e3d4c5b6a";
   const phone = "0b1c2d3e-4f50-4617-8293-a4b5c6d7e8f9";
-  const save = (notes: string, base: string, writer?: string) =>
-    adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes, base, writer } } });
-  const first = await save("From the laptop", "", laptop);
-  expect(first.status()).toBe(200);
-  const { savedAt } = await first.json();
-  // A second window that opened before that save.
-  expect((await save("From the phone", "", phone)).status()).toBe(409);
+  const reopened = "9a8b7c6d-5e4f-4321-8fed-cba987654321";
+  const save = (notes: string, base: string, writer?: string, seq?: number) =>
+    adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes, base, writer, seq } } });
+  const notes = async () =>
+    ((await readProject(p.id, "calls")).calls as { discovery?: { notes?: string } }).discovery?.notes;
+
+  expect((await save("From the laptop", "", laptop, 1)).status()).toBe(200);
+  // A second window that opened before that save, or a save naming no copy.
+  expect((await save("From the phone", "", phone, 1)).status()).toBe(409);
   expect((await save("From somewhere", "")).status()).toBe(409);
   // The laptop retrying that save, its reply lost: still its own.
-  const retry = await save("From the laptop", "", laptop);
+  const retry = await save("From the laptop, retried", "", laptop, 2);
   expect(retry.status()).toBe(200);
+  // Its first try reaching the database after the retry is refused.
+  expect((await save("From the laptop", "", laptop, 1)).status()).toBe(409);
+  expect(await notes()).toBe("From the laptop, retried");
   // The same window, building on its own save.
-  expect((await save("From the laptop, more", (await retry.json()).savedAt ?? savedAt, laptop)).status()).toBe(200);
-  const row = await readProject(p.id, "calls");
-  expect((row.calls as { discovery?: { notes?: string } }).discovery?.notes).toBe("From the laptop, more");
+  const more = await save("From the laptop, more", (await retry.json()).savedAt, laptop, 3);
+  expect(more.status()).toBe(200);
+  const { savedAt: latest } = await more.json();
+  expect(typeof latest).toBe("string");
+  // A tab opened after that save is a new copy building on it.
+  expect((await save("From a reopened tab", latest, reopened, 1)).status()).toBe(200);
+  expect(await notes()).toBe("From a reopened tab");
+  // The laptop, now behind the reopened tab, is refused.
+  expect((await save("From the laptop, late", latest, laptop, 4)).status()).toBe(409);
 });
 
 test("two saves landing together both keep what they wrote", async ({ adminRequest, adminPage: page }) => {

@@ -612,8 +612,6 @@ const SERVICE_SECTIONS: Partial<Record<ServiceSlug, GuideSection[]>> = {
   ],
 };
 
-// Questions a service leaves out of its family's sections, by answer key: ones
-// its own sections already cover.
 // Openers a service uses in place of its family's: ones the family's would
 // assume wrongly.
 const SERVICE_OPENERS: Partial<Record<ServiceSlug, string>> = {
@@ -622,6 +620,8 @@ const SERVICE_OPENERS: Partial<Record<ServiceSlug, string>> = {
     "Easy opener: \"First, tell me a bit about the two of you. What has you thinking about photos right now?\"",
 };
 
+// Questions a service leaves out of its family's sections, by answer key: ones
+// its own sections already cover.
 const SERVICE_DROPS: Partial<Record<ServiceSlug, string[]>> = {
   // The film section asks how film and photos fit together.
   "wedding-films": ["priorities.film"],

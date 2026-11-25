@@ -91,8 +91,8 @@ const schema = z.object({
     .optional(),
   removeDocumentId: documentId.optional(),
   // The discovery call's notes as typed: only the answers that changed, the
-  // question each was typed under, the save they were typed against and the
-  // open copy of the Call tab they came from.
+  // question each was typed under, the save they were typed against, and the
+  // open copy of the Call tab they came from with its count of saves.
   call: z
     .object({
       answers: z.record(answerKey, z.string().max(CALL_ANSWER_MAX)).optional(),
@@ -100,6 +100,7 @@ const schema = z.object({
       notes: z.string().max(CALL_NOTES_MAX).optional(),
       base: z.string().max(40).optional(),
       writer: z.string().max(64).optional(),
+      seq: z.number().int().min(1).optional(),
     })
     .optional(),
   // The summary written after the call.
@@ -146,8 +147,8 @@ export const POST = defineRoute({
       try {
         let savedAt: string | undefined;
         if (call) {
-          const { base, writer, ...patch } = call;
-          const saved = await saveCall(id, "discovery", patch, base, writer);
+          const { base, writer, seq, ...patch } = call;
+          const saved = await saveCall(id, "discovery", patch, base, writer, seq);
           if (saved?.conflict) {
             return apiError(409, "These notes were saved somewhere else since this page opened.");
           }
