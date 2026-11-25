@@ -278,10 +278,11 @@ alter table client_records add column if not exists calls jsonb not null default
 -- two autosaves landing together each keep what they wrote. With p_base (the
 -- savedAt the patch was typed against, '' for never saved) it lands only if
 -- nothing was saved since, or if the last save came from the same copy
--- (p_writer, matched against the savedBy the patch stamps) and this one is
--- later in its order (p_seq, against savedSeq): a retry of a save whose reply
--- was lost is that copy's own, a first try landing after its own retry is
--- refused, and a copy left open elsewhere can't overwrite newer notes.
+-- (p_writer, matched against the savedBy the patch stamps) and this one isn't
+-- earlier in its order (p_seq, against savedSeq): a retry of a save whose
+-- reply was lost is that copy's own, the same save arriving twice still
+-- lands, a first try landing after its own retry is refused, and a copy left
+-- open elsewhere can't overwrite newer notes.
 -- Answers {conflict}, or {held, status}: whether the call was already marked
 -- held, and the project's status. Null for no such project. Doesn't change
 -- updated_at: notes aren't an edit to the project.
@@ -311,7 +312,7 @@ begin
      and (p_writer is null
           or p_seq is null
           or coalesce(prev->>'savedBy', '') <> p_writer
-          or p_seq <= coalesce((prev->>'savedSeq')::int, 0)) then
+          or p_seq < coalesce((prev->>'savedSeq')::int, 0)) then
     return jsonb_build_object('conflict', true);
   end if;
   update client_records

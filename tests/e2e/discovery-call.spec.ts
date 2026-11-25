@@ -202,11 +202,14 @@ test("a save typed against an older copy of the notes is refused, unless it's th
   // The laptop retrying that save, its reply lost: still its own.
   const retry = await save("From the laptop, retried", "", laptop, 2);
   expect(retry.status()).toBe(200);
+  // The same save arriving twice still lands.
+  const again = await save("From the laptop, retried", "", laptop, 2);
+  expect(again.status()).toBe(200);
   // Its first try reaching the database after the retry is refused.
   expect((await save("From the laptop", "", laptop, 1)).status()).toBe(409);
   expect(await notes()).toBe("From the laptop, retried");
   // The same window, building on its own save.
-  const more = await save("From the laptop, more", (await retry.json()).savedAt, laptop, 3);
+  const more = await save("From the laptop, more", (await again.json()).savedAt, laptop, 3);
   expect(more.status()).toBe(200);
   const { savedAt: latest } = await more.json();
   expect(typeof latest).toBe("string");
