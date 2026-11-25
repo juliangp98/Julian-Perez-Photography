@@ -4,7 +4,9 @@
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
 import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
+import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
+import { hiddenByMark, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
 
 export type NextStep = {
@@ -27,10 +29,12 @@ export type NextStepProject = {
   questionnaireSnapshot?: string;
   documents?: { type?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
   calls?: { discovery?: { heldAt?: string; notes?: string; answers?: Record<string, string> } };
-  statusHistory?: { status?: string }[];
   // When each side last wrote (the conversation only, as the board counts it).
   lastInAt?: string;
   lastOutAt?: string;
+  // The Today rows marked handled or snoozed (src/lib/today.ts): a client's
+  // message marked handled there needs no answer here either.
+  todayDismissed?: Record<string, string>;
 };
 
 export type NextStepContext = {
@@ -45,6 +49,48 @@ export type NextStepContext = {
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+// How far ahead of the shoot planning starts: the booking welcome tells the
+// client the questionnaire comes closer to the date.
+const PLANNING_WINDOW_DAYS = 60;
+
+// A template's subject as a pattern, its {{tokens}} standing for any text.
+const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
+  id: t.id,
+  pattern: new RegExp(
+    `^${t.subject
+      .split(/\{\{\w+\}\}/)
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join(".+?")}$`,
+    "i",
+  ),
+}));
+
+// The templates already sent on a project: each outgoing email that went out
+// records the template it started from. An email sent before that was
+// recorded counts when its subject still reads as a template's, or when the
+// activity log notes the send ("<template name> sent", written when it moved
+// the project), so a step done before then isn't offered again.
+export function sentTemplates(
+  messages: { direction: string; template?: string; subject?: string }[],
+  history: { note?: string }[] = [],
+): Set<string> {
+  const sent = new Set<string>();
+  for (const m of messages) {
+    if (m.direction !== "out") continue;
+    if (m.template) {
+      sent.add(m.template);
+      continue;
+    }
+    const subject = m.subject?.trim() ?? "";
+    for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) sent.add(t.id);
+  }
+  for (const h of history) {
+    const t = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
+    if (t) sent.add(t.id);
+  }
+  return sent;
+}
 
 export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextStep {
   const page = `/admin/projects/${p.id}`;
@@ -90,17 +136,28 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
     };
   }
 
-  // The client wrote last and hasn't had an answer, whatever the stage.
-  if (p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt)) {
+  // The client wrote last and hasn't had an answer, whatever the stage, unless
+  // their message was marked handled (or snoozed) on the Today list. A new
+  // inquiry's answer is the inquiry reply.
+  if (
+    p.lastInAt &&
+    (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
+    !hiddenByMark(p.todayDismissed?.[replyKey(p.lastInAt)], today)
+  ) {
+    const lead = !status || status === "new-inquiry";
     return {
       title: `Answer ${first}`,
       detail: `${First} wrote ${dayAgo(studioDayOf(p.lastInAt), today)}.`,
-      action: { label: "Write a reply", href: `${page}?tab=messages#compose` },
+      action: lead
+        ? { label: "Draft a reply", href: draftReplyHref(page) }
+        : { label: "Write a reply", href: `${page}?tab=messages#compose` },
     };
   }
 
   const call = p.calls?.discovery;
-  const callHeld = !!call?.heldAt || !!p.statusHistory?.some((h) => h.status === "in-conversation");
+  // Held means the summary was saved after a call; a project moved to In
+  // conversation by hand had no call.
+  const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
   switch (status) {
@@ -121,7 +178,8 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           action: { label: "Open the call", href: tab("call") },
         };
       }
-      if (sent.has("discovery-invite")) {
+      // The inquiry reply carries the call link too.
+      if (sent.has("discovery-invite") || sent.has("inquiry-reply")) {
         return {
           title: "Hold the discovery call",
           detail: "The invite is out. The guide for the call is ready.",
@@ -153,17 +211,24 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           };
 
     case "proposal-sent":
-      if (p.holdUntil && DAY.test(p.holdUntil) && p.holdUntil < today) {
-        return {
-          title: "The date hold ended",
-          detail: `It ran until ${formatHumanDate(p.holdUntil)}. Follow up, or let the date go.`,
-          action: { label: "Write a follow-up", href: compose("proposal-follow-up") },
-        };
-      }
       if (has("contract") && unpaid.length) {
         return {
           title: "Send the contract and retainer",
           action: { label: "Write the email", href: compose("contract-deposit") },
+        };
+      }
+      // A hold that ran out, until a follow-up is set past it (the follow-up
+      // email sets one).
+      if (
+        p.holdUntil &&
+        DAY.test(p.holdUntil) &&
+        p.holdUntil < today &&
+        !(p.followUpAt && p.followUpAt > p.holdUntil)
+      ) {
+        return {
+          title: "The date hold ended",
+          detail: `It ran until ${formatHumanDate(p.holdUntil)}. Follow up, or let the date go.`,
+          action: { label: "Write a follow-up", href: compose("proposal-follow-up") },
         };
       }
       if (p.followUpAt && DAY.test(p.followUpAt) && p.followUpAt <= today) {
@@ -186,7 +251,9 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           action: { label: "Add a link", href: tab("links") },
         };
       }
-      if (!unpaid.length) {
+      // The retainer is the first invoice paid; a balance invoice left open
+      // belongs to delivery.
+      if (invoices.some((d) => d.paidAt)) {
         return {
           title: "Send the booking welcome",
           detail: "The retainer is paid.",
@@ -206,12 +273,20 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
         action: { label: "Mark it paid", href: tab("links") },
       };
 
-    case "contract-signed":
+    case "contract-signed": {
+      if (shoot && daysBetween(today, shoot) > PLANNING_WINDOW_DAYS) {
+        const start = formatHumanDate(shiftDay(shoot, { days: -PLANNING_WINDOW_DAYS }));
+        return {
+          title: "Booked",
+          detail: `Planning starts about two months before the shoot, around ${start}. Nothing to send yet.`,
+        };
+      }
       return {
         title: "Start planning",
         detail: ctx.questionnaire ? "The kickoff email sends the questionnaire." : undefined,
         action: { label: "Write the kickoff", href: compose("planning-kickoff") },
       };
+    }
 
     case "planning":
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {

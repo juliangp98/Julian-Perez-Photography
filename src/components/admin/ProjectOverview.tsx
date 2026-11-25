@@ -10,7 +10,12 @@ import InquiryTriage from "@/components/admin/ai/InquiryTriage";
 import PrepBrief from "@/components/admin/ai/PrepBrief";
 import QuestionnaireCallout from "@/components/portal/QuestionnaireCallout";
 import { SUMMARY_PARTS } from "@/lib/calls";
-import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
+import {
+  CLIENT_STATUS_TERMINAL,
+  lastOpenStatus,
+  statusRank,
+  type ClientStatus,
+} from "@/lib/client-status";
 import type { ClientRecordFull } from "@/lib/clients";
 import { eventDay, formatEventDate, formatHumanDate } from "@/lib/field-format";
 import { invoiceState, paymentMethodLabel } from "@/lib/labels";
@@ -66,9 +71,10 @@ export default function ProjectOverview({
   answerGroups: AnswerGroup[] | null;
 }) {
   const page = `/admin/projects/${record.id}`;
-  const rank = statusRank(record.status);
+  // A closed project shows the stage it stopped at.
+  const rank = statusRank(lastOpenStatus(record));
   const closed = CLIENT_STATUS_TERMINAL.includes(record.status as ClientStatus);
-  const phase = closed || rank < statusRank("booked") ? "lead" : rank < statusRank("shot") ? "booked" : "after";
+  const phase = rank < statusRank("booked") ? "lead" : rank < statusRank("shot") ? "booked" : "after";
 
   const docs = record.documents ?? [];
   const own = (type: string) => docs.some((d) => d.type === type && d.uploadedBy !== "client");
@@ -164,6 +170,8 @@ export default function ProjectOverview({
                     <a href={proposal.url} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-accent">
                       {proposal.label}
                     </a>
+                  ) : closed ? (
+                    <span className="text-muted">None</span>
                   ) : (
                     <Link href={`${page}?tab=links`} className="underline underline-offset-4 hover:text-accent">
                       Add one in Links &amp; files

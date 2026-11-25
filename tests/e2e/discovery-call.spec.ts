@@ -166,9 +166,9 @@ test("leaving the Call tab and coming back shows the latest notes, and keeps sav
   await page.getByLabel("My notes").press("Tab");
   expect((await first).ok()).toBe(true);
 
-  // Back to the project, then back again: the browser redraws the Call tab
-  // as it was first loaded, and the notes typed since still show.
-  await page.getByRole("link", { name: "Project", exact: true }).click();
+  // To the Overview, then back again: the browser redraws the Call tab as it
+  // was first loaded, and the notes typed since still show.
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
   await expect(page).not.toHaveURL(/tab=call/);
   await page.goBack();
   await expect(page.getByLabel("My notes")).toHaveValue("First thoughts");

@@ -378,14 +378,43 @@ $$;
 revoke execute on function add_activity(uuid, jsonb) from public, anon, authenticated;
 grant execute on function add_activity(uuid, jsonb) to service_role;
 
+-- Moves a project to p_to, only while its status is still p_from (the status
+-- it was read as), and adds p_entry to its activity log, in one statement, so
+-- a note or another move landing at the same moment is kept. p_close also
+-- clears the follow-up and the date hold, as closing a project does. Says
+-- whether it moved.
+create or replace function set_status(p_id uuid, p_from text, p_to text, p_entry jsonb, p_close boolean)
+returns boolean language sql as $$
+  with changed as (
+    update client_records
+    set status = p_to,
+        status_history = coalesce(status_history, '[]'::jsonb) || jsonb_build_array(p_entry),
+        follow_up_at = case when p_close then null else follow_up_at end,
+        follow_up_note = case when p_close then null else follow_up_note end,
+        hold_until = case when p_close then null else hold_until end,
+        updated_at = now()
+    where id = p_id and status is not distinct from p_from
+    returning 1
+  )
+  select exists (select 1 from changed)
+$$;
+revoke execute on function set_status(uuid, text, text, jsonb, boolean) from public, anon, authenticated;
+grant execute on function set_status(uuid, text, text, jsonb, boolean) to service_role;
+
 -- The private notes box is now the activity log. Notes kept in the box become
 -- the log's first entry, marked as such and undated. A project qualifies again
--- only if its box holds text the log doesn't have yet, so a run after the
--- deploy picks up a last edit without copying anything twice.
+-- only if its box holds text the log doesn't have yet; a run after the deploy
+-- then replaces the earlier copy with the box's last edit, so nothing shows
+-- twice.
 update client_records
 set status_history = jsonb_build_array(
       jsonb_build_object('kind', 'note', 'from', 'internal-notes', 'status', status, 'note', internal_notes)
-    ) || coalesce(status_history, '[]'::jsonb)
+    ) || coalesce(
+      (select jsonb_agg(e order by i)
+       from jsonb_array_elements(coalesce(status_history, '[]'::jsonb)) with ordinality as t(e, i)
+       where e->>'from' is distinct from 'internal-notes'),
+      '[]'::jsonb
+    )
 where coalesce(btrim(internal_notes), '') <> ''
   and not coalesce(status_history, '[]'::jsonb)
     @> jsonb_build_array(jsonb_build_object('from', 'internal-notes', 'note', internal_notes));

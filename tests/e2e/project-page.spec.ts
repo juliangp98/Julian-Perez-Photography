@@ -3,7 +3,12 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore } from "./support/fixtures";
 import { patchProject, readProject, testStore } from "./support/test-store";
 import { stagesFor } from "../../src/lib/client-status";
-import { ownerNextStep, type NextStepContext, type NextStepProject } from "../../src/lib/next-step";
+import {
+  ownerNextStep,
+  sentTemplates,
+  type NextStepContext,
+  type NextStepProject,
+} from "../../src/lib/next-step";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
 
 // The admin project page (/admin/projects/[id]): a header with the facts, the
@@ -88,6 +93,8 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     title: "Hold the discovery call",
     action: { href: tab("call") },
   });
+  // The inquiry reply carries the call link, so no second invite.
+  expect(next({ status: "responded" }, sent("inquiry-reply")).title).toBe("Hold the discovery call");
   expect(next({ status: "responded", calls: { discovery: { notes: "Loves the vineyard." } } }).title).toBe(
     "Save the call summary",
   );
@@ -102,6 +109,7 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "in-conversation", documents: proposal, calls: { discovery: { heldAt: "2026-11-20T15:00:00Z" } } })
       .action?.href,
   ).toBe(compose("discovery-recap"));
+  // In conversation with no call held (moved there by hand): the proposal email.
   expect(next({ status: "in-conversation", documents: proposal }).action?.href).toBe(compose("proposal"));
 
   // Waiting on an answer, with what to do meanwhile.
@@ -118,6 +126,18 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "proposal-sent", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action
       ?.href,
   ).toBe(compose("contract-deposit"));
+  // A yes after the hold ran out still gets the contract; a follow-up set past
+  // the hold (the follow-up email sets one) means it was followed up.
+  expect(
+    next({
+      status: "proposal-sent",
+      holdUntil: "2026-11-20",
+      documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })],
+    }).action?.href,
+  ).toBe(compose("contract-deposit"));
+  expect(next({ status: "proposal-sent", holdUntil: "2026-11-20", followUpAt: "2026-11-27" }).title).toBe(
+    "Waiting on Avery's answer",
+  );
 
   // Reserving the date: the paperwork, the retainer, then the welcome.
   expect(next({ status: "booked" }).title).toBe("Add the Square contract and invoice");
@@ -132,7 +152,25 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(
     next({ status: "booked", documents: [own("contract"), own("invoice", { paidAt: "2026-11-21" })] }).action?.href,
   ).toBe(compose("booking-welcome"));
+  // The retainer paid, a balance invoice still open: that's for delivery.
+  expect(
+    next({
+      status: "booked",
+      documents: [
+        own("contract"),
+        own("invoice", { dueAt: "2026-11-10", paidAt: "2026-11-09" }),
+        own("invoice", { dueAt: "2027-05-01" }),
+      ],
+    }).action?.href,
+  ).toBe(compose("booking-welcome"));
+
+  // Planning starts within two months of the shoot.
   expect(next({ status: "contract-signed" }).action?.href).toBe(compose("planning-kickoff"));
+  expect(next({ status: "contract-signed", eventDate: "2027-01-10" }).action?.href).toBe(compose("planning-kickoff"));
+  expect(next({ status: "contract-signed", eventDate: "2027-06-12" })).toEqual({
+    title: "Booked",
+    detail: "Planning starts about two months before the shoot, around April 13, 2027. Nothing to send yet.",
+  });
 
   // Planning: the questionnaire, then the timeline.
   expect(next({ status: "planning" })).toMatchObject({
@@ -178,14 +216,29 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "complete" }, sent("referral-ask")).title).toBe("All done");
 });
 
-test("next step: an unanswered client, a missing email and a closed project come first", () => {
-  expect(
-    next({ status: "proposal-sent", lastInAt: "2026-11-23T15:00:00Z", lastOutAt: "2026-11-20T15:00:00Z" }),
-  ).toEqual({
+test("next step: a closed project, a missing email, then an unanswered client come first", () => {
+  const wrote = { lastInAt: "2026-11-23T15:00:00Z", lastOutAt: "2026-11-20T15:00:00Z" };
+  expect(next({ status: "proposal-sent", ...wrote })).toEqual({
     title: "Answer Avery",
     detail: "Avery wrote 2 days ago.",
     action: { label: "Write a reply", href: "/admin/projects/p?tab=messages#compose" },
   });
+  // A new inquiry's answer is the inquiry reply.
+  expect(next({ status: "new-inquiry", ...wrote }).action).toEqual({
+    label: "Draft a reply",
+    href: compose("inquiry-reply"),
+  });
+  // A message marked handled, or snoozed past today, on the Today list needs no answer here.
+  const key = `reply:${wrote.lastInAt}`;
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "handled" } }).title).toBe(
+    "Waiting on Avery's answer",
+  );
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-28" } }).title).toBe(
+    "Waiting on Avery's answer",
+  );
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-24" } }).title).toBe("Answer Avery");
+  expect(next({ status: "lost", ...wrote }).title).toBe("Closed as lost");
+  expect(next({ status: "booked", email: "", ...wrote }).title).toBe("Add the client's email");
   expect(next({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" }).title).toBe(
     "Waiting on Avery's answer",
   );
@@ -202,6 +255,20 @@ test("next step: an unanswered client, a missing email and a closed project come
   expect(next({ status: "booked", documents: [{ type: "contract", uploadedBy: "client" }, own("invoice")] }).title).toBe(
     "Add the Square contract and invoice",
   );
+});
+
+test("sent templates: recorded ones, and older emails by subject or by the activity log", () => {
+  const sentIds = sentTemplates(
+    [
+      { direction: "out", template: "week-of", subject: "Anything" },
+      // Sent before templates were recorded, with the subject as the template had it.
+      { direction: "out", subject: "Your Smith Wedding gallery is ready" },
+      { direction: "out", subject: "Re: Your wedding inquiry" },
+      { direction: "in", subject: "Would you leave a review?" },
+    ],
+    [{ note: "Booking welcome sent" }, { note: "Updated by admin" }],
+  );
+  expect([...sentIds].sort()).toEqual(["booking-welcome", "gallery-delivery", "week-of"]);
 });
 
 // A fresh wedding project for one test.

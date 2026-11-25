@@ -92,7 +92,13 @@ export default function FollowUpEditor({
     return (
       <div className="space-y-3">
         <DateField id="follow-up-day" label="Follow up on" value={day} onChange={setDay} />
-        <TextField id="follow-up-note" label="What for (optional)" value={text} onChange={setText} />
+        <TextField
+          id="follow-up-note"
+          label="What for (optional)"
+          value={text}
+          onChange={setText}
+          maxLength={200}
+        />
         <div className="flex flex-wrap items-center gap-3">
           <Button
             size="sm"
@@ -103,7 +109,14 @@ export default function FollowUpEditor({
           >
             Save follow-up
           </Button>
-          <Button variant="text" onClick={() => setEditing(false)}>
+          <Button
+            variant="text"
+            onClick={() => {
+              setEditing(false);
+              setState("idle");
+              setError("");
+            }}
+          >
             Cancel
           </Button>
         </div>

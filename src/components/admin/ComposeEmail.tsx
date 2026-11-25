@@ -19,6 +19,7 @@ import { statusTitle } from "@/lib/labels";
 import { formatHumanDate } from "@/lib/field-format";
 import type { SendEffectsPlan } from "@/lib/email/send-effects";
 import { inputClass } from "@/components/ui/fields/Field";
+import { composeDraft } from "@/components/admin/compose-draft";
 import Button from "@/components/ui/Button";
 import CopyButton from "@/components/ui/CopyButton";
 import FormStatus from "@/components/ui/FormStatus";
@@ -88,11 +89,15 @@ export default function ComposeEmail({
   aiEnabled = false,
   initialTemplateId,
   initialSteer,
+  draftKey,
 }: {
   // Opens on this template (and AI steer), as linked from triage or the
   // project's next step.
   initialTemplateId?: string;
   initialSteer?: string;
+  // Names this opening of the panel (the project and the hand-off), under
+  // which what's typed and not sent is kept while the browser tab is open.
+  draftKey: string;
   projectId: string;
   context: Record<string, string | undefined>;
   // What sending each template would do to this project, by template id.
@@ -110,12 +115,18 @@ export default function ComposeEmail({
     return context.holdUntil || !hold ? context : { ...context, holdUntil: formatHumanDate(hold) };
   };
   const initial = EMAIL_TEMPLATES.find((t) => t.id === initialTemplateId);
-  const [templateId, setTemplateId] = useState(initial?.id ?? "");
+  // An email left unsent here earlier comes back as it was.
+  const [kept] = useState(() => composeDraft.get(draftKey));
+  const [templateId, setTemplateId] = useState(kept?.templateId ?? initial?.id ?? "");
   const [subject, setSubject] = useState(
-    initial ? fillTemplate(initial.subject, tokensFor(initial)) : "",
+    kept?.subject ?? (initial ? fillTemplate(initial.subject, tokensFor(initial)) : ""),
   );
-  const [body, setBody] = useState(initial ? fillTemplate(initial.body, tokensFor(initial)) : "");
-  const [instructions, setInstructions] = useState(initial ? (initialSteer ?? "") : "");
+  const [body, setBody] = useState(
+    kept?.body ?? (initial ? fillTemplate(initial.body, tokensFor(initial)) : ""),
+  );
+  const [instructions, setInstructions] = useState(
+    kept?.instructions ?? (initial ? (initialSteer ?? "") : ""),
+  );
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [sentNote, setSentNote] = useState("");
@@ -129,6 +140,10 @@ export default function ComposeEmail({
   useEffect(() => {
     if (window.location.hash === "#compose") document.getElementById("compose")?.scrollIntoView();
   }, []);
+  // Keep what's on screen for coming back to; a send clears it.
+  useEffect(() => {
+    composeDraft.set(draftKey, { templateId, subject, body, instructions });
+  }, [draftKey, templateId, subject, body, instructions]);
 
   function pick(id: string) {
     setTemplateId(id);
@@ -199,6 +214,7 @@ export default function ComposeEmail({
       }
       setSentNote(movedLine(json.moved));
       setNotMovedNote(notMovedLine(json.notMoved));
+      composeDraft.clear(draftKey);
       setStatus("sent");
       newVersion();
       router.refresh();

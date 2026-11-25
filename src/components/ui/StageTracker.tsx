@@ -19,7 +19,7 @@ export default function StageTracker({ project }: { project: StageProject }) {
         {stages.map((s) => (
           <li
             key={s.key}
-            aria-current={s.state === "current" ? "step" : undefined}
+            aria-current={s.state === "current" && !closed ? "step" : undefined}
             className="min-w-0 flex-1"
           >
             <span
@@ -41,7 +41,13 @@ export default function StageTracker({ project }: { project: StageProject }) {
             >
               {s.label}
               <span className="sr-only">
-                {s.state === "done" ? ", done" : s.state === "current" ? ", now" : ""}
+                {s.state === "done"
+                  ? ", done"
+                  : s.state === "current"
+                    ? closed
+                      ? ", closed here"
+                      : ", now"
+                    : ""}
               </span>
             </span>
           </li>

@@ -23,7 +23,7 @@ import { heldUntil, planSendEffects, type SendEffectsPlan } from "@/lib/email/se
 import { getAnyService } from "@/lib/content";
 import { serviceTitle } from "@/lib/services-data";
 import { projectLink, projectLinks } from "@/lib/project-links";
-import { ownerNextStep } from "@/lib/next-step";
+import { ownerNextStep, sentTemplates } from "@/lib/next-step";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
 import AdminCollaborators from "@/components/admin/AdminCollaborators";
 import AdminProjectLinks from "@/components/admin/AdminProjectLinks";
@@ -117,13 +117,12 @@ export default async function AdminProjectDetailPage({
     : [[], null];
   const filingAddress = replyToken ? logAddress(replyToken) : undefined;
   // The conversation as the board counts it: when each side last wrote, and
-  // the templates that have gone out.
+  // the templates that have gone out (a template a failed send started from
+  // doesn't count).
   const conversation = messages.filter(isConversation);
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
-  const sent = new Set(
-    conversation.flatMap((m) => (m.direction === "out" && m.template ? [m.template] : [])),
-  );
+  const sent = sentTemplates(conversation, record?.statusHistory);
   const hasQuestionnaire = !!record?.serviceType && !!getQuestionnaire(record.serviceType);
   const next = record
     ? ownerNextStep(
@@ -152,6 +151,8 @@ export default async function AdminProjectDetailPage({
     : [];
 
   const page = record ? `/admin/projects/${record.id}` : "";
+  // Each hand-off opens Compose afresh; the same address opens the same one.
+  const composeKey = `${compose ?? ""}|${doc ?? ""}|${v ?? ""}`;
   const venue = record?.locations?.[0]?.label || record?.locations?.[0]?.address;
   const facts = record
     ? [
@@ -280,7 +281,8 @@ export default async function AdminProjectDetailPage({
                   </Panel>
                 )}
                 <ComposeEmail
-                  key={`${compose ?? ""}|${doc ?? ""}|${v ?? ""}`}
+                  key={composeKey}
+                  draftKey={`${record.id}|${composeKey}`}
                   initialTemplateId={compose}
                   initialSteer={
                     compose === "inquiry-reply" && savedTriage && triageCurrent

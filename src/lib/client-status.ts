@@ -217,6 +217,13 @@ function stageIndex(status: string | undefined): number {
   return STAGES.findIndex((s) => s.statuses.includes(status as ClientStatus));
 }
 
+// Where a project stands in the pipeline: its status, or for a closed one the
+// last status it held before closing (undefined when it never held one).
+export function lastOpenStatus(p: StageProject): string | undefined {
+  if (!CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus)) return p.status;
+  return [...(p.statusHistory ?? [])].reverse().find((h) => stageIndex(h.status) >= 0)?.status;
+}
+
 // A project's stages, in order, each done, current or still to come. `step`
 // counts the current stage among those shown (1-based). A closed project
 // shows where it stopped: the stage of the last status it held in the
@@ -228,10 +235,7 @@ export function stagesFor(p: StageProject): {
 } {
   const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
   const history = p.statusHistory ?? [];
-  const lastOpen = closed
-    ? [...history].reverse().find((h) => stageIndex(h.status) >= 0)?.status
-    : p.status;
-  const current = Math.max(0, stageIndex(lastOpen));
+  const current = Math.max(0, stageIndex(lastOpenStatus(p)));
   const held = (status: ClientStatus) => history.some((h) => h.status === status);
   const took: Partial<Record<StageKey, boolean>> = {
     call: held("in-conversation") || !!p.calls?.discovery?.heldAt,

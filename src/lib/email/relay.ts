@@ -66,7 +66,7 @@ export async function handleWebhookEvent(event: WebhookEventPayload, origin: str
           ? `Your email to ${updated.toAddr} didn't arrive: ${detail ?? "it bounced"}.`
           : `${updated.toAddr} marked your email as spam, so Resend won't send to them again.`,
         "",
-        `Open the thread: ${origin}/admin/projects/${updated.projectId}`,
+        `Open the thread: ${origin}/admin/projects/${updated.projectId}?tab=messages`,
       ].join("\n"),
     });
   }
@@ -287,7 +287,7 @@ export async function forwardToOwner(
   if (m.attachments?.length) {
     lines.push("", `Attachments: ${m.attachments.map((a) => a.filename).join(", ")} (open the thread to see them).`);
   }
-  lines.push("", `Open the thread: ${m.origin}/admin/projects/${project.id}`);
+  lines.push("", `Open the thread: ${m.origin}/admin/projects/${project.id}?tab=messages`);
   if (!m.flagged) lines.push("Reply to this email and it goes to the client from the studio address, on the thread.");
 
   const references = [m.references, m.messageId].filter(Boolean).join(" ");

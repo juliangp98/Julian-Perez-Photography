@@ -98,7 +98,7 @@ function rowsFor(
   const replied = !!p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt);
   if (replied) {
     const day = dayOf(p.lastInAt);
-    add("reply", `reply:${p.lastInAt}`, `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
+    add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
       href: compose("inquiry-reply"),
     });
@@ -179,11 +179,18 @@ function rowsFor(
   return rows;
 }
 
-// Whether a row is hidden: marked handled, or snoozed until a day after today.
-function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
-  const mark = p.todayDismissed?.[row.key];
+// Whether a row's mark hides it: marked handled, or snoozed until a day after
+// today. The project page's next step reads the same marks.
+export function hiddenByMark(mark: string | undefined, today: string): boolean {
   if (!mark) return false;
   return mark === "handled" || (DAY.test(mark) && mark > today);
+}
+
+// The key of the row for a client's message that hasn't had an answer.
+export const replyKey = (lastInAt: string) => `reply:${lastInAt}`;
+
+function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
+  return hiddenByMark(p.todayDismissed?.[row.key], today);
 }
 
 // Today's rows across projects, by the day each fell due: the

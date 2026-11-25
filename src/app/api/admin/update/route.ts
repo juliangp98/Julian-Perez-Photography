@@ -31,10 +31,16 @@ import {
   updateClientAdmin,
 } from "@/lib/clients";
 import { CALL_ANSWER_MAX, CALL_NOTES_MAX, SUMMARY_PART_MAX } from "@/lib/calls";
-import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
+import {
+  CLIENT_STATUS_OPTIONS,
+  CLIENT_STATUS_TERMINAL,
+  statusRank,
+  type ClientStatus,
+} from "@/lib/client-status";
 import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 
+const STATUS_VALUES = CLIENT_STATUS_OPTIONS.map((o) => o.value) as [ClientStatus, ...ClientStatus[]];
 const OWNER_KINDS = OWNER_DOCUMENT_TYPES.map((t) => t.value) as [string, ...string[]];
 const METHODS = PAYMENT_METHODS.map((m) => m.value) as [string, ...string[]];
 
@@ -61,7 +67,7 @@ const schema = z.object({
       email: z.string().email().optional(),
       phone: z.string().max(50).optional(),
       partnerName: z.string().max(200).optional(),
-      status: z.string().max(50).optional(),
+      status: z.enum(STATUS_VALUES).optional(),
       serviceType: z.string().max(100).optional(),
       package: z.string().max(200).optional(),
       eventDate: z.string().max(100).optional(),

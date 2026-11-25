@@ -784,29 +784,49 @@ export async function advanceStatus(
   note?: string,
 ): Promise<boolean> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return false;
-  const { data: row, error: selErr } = await db()
-    .from(TABLE)
-    .select("status, status_history")
-    .eq("id", id)
-    .maybeSingle();
-  if (selErr) throw selErr;
-  if (!row) return false;
-  if (CLIENT_STATUS_TERMINAL.includes(row.status as ClientStatus)) return false;
-  if (statusRank(target) <= statusRank(row.status as string)) return false;
-  const ts = nowIso();
-  const history = Array.isArray(row.status_history) ? row.status_history : [];
-  history.push({ status: target, changedAt: ts, note });
-  const { error } = await db()
-    .from(TABLE)
-    .update({ status: target, status_history: history, updated_at: ts })
-    .eq("id", id);
+  // Read again if the status moved between the read and the write.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const status = await currentStatus(id);
+    if (status === null) return false;
+    if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) return false;
+    if (statusRank(target) <= statusRank(status)) return false;
+    if (await moveStatus(id, status, target, note)) return true;
+  }
+  return false;
+}
+
+// A project's status as stored (undefined when it has none), or null when
+// there's no such project.
+async function currentStatus(id: string): Promise<string | undefined | null> {
+  const { data: row, error } = await db().from(TABLE).select("status").eq("id", id).maybeSingle();
   if (error) throw error;
-  return true;
+  return row ? ((row.status as string | null) ?? undefined) : null;
+}
+
+// Move a project from the status it was read as to another, adding the move
+// to its activity log, in one statement (set_status in supabase/schema.sql),
+// so a note added at the same moment isn't lost. `close` also clears the
+// follow-up and the hold. False when the status changed since it was read.
+async function moveStatus(
+  id: string,
+  from: string | undefined,
+  to: string,
+  note: string | undefined,
+  close = false,
+): Promise<boolean> {
+  const { data, error } = await db().rpc("set_status", {
+    p_id: id,
+    p_from: from ?? null,
+    p_to: to,
+    p_entry: { status: to, changedAt: nowIso(), ...(note ? { note } : {}) },
+    p_close: close,
+  });
+  if (error) throw error;
+  return data === true;
 }
 
 // A closed project (archived, lost or declined) has nothing left to follow up
 // or hold, so whatever closes one clears both.
-const CLOSED_CLEARS = { follow_up_at: null, follow_up_note: null, hold_until: null };
 const closes = (from: unknown, to: unknown) =>
   from !== to && CLIENT_STATUS_TERMINAL.includes(to as ClientStatus);
 
@@ -820,22 +840,12 @@ export async function closeProject(
 ): Promise<boolean> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return false;
   if (!CLIENT_STATUS_TERMINAL.includes(status)) return false;
-  const { data: row, error: selErr } = await db()
-    .from(TABLE)
-    .select("status, status_history")
-    .eq("id", id)
-    .maybeSingle();
-  if (selErr) throw selErr;
-  if (!row || row.status === status) return false;
-  const ts = nowIso();
-  const history = Array.isArray(row.status_history) ? row.status_history : [];
-  history.push({ status, changedAt: ts, note });
-  const { error } = await db()
-    .from(TABLE)
-    .update({ status, status_history: history, ...CLOSED_CLEARS, updated_at: ts })
-    .eq("id", id);
-  if (error) throw error;
-  return true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const from = await currentStatus(id);
+    if (from === null || from === status) return false;
+    if (await moveStatus(id, from, status, note, true)) return true;
+  }
+  return false;
 }
 
 // Set (or with null, clear) the project's next follow-up: a calendar day and
@@ -1155,28 +1165,23 @@ export async function updateClientAdmin(
   if (typeof patch.email === "string") patch.email = normalizeEmail(patch.email);
   // "Not chosen" is stored as no value, not an empty string.
   if (patch.payment_method === "") patch.payment_method = null;
-  const ts = nowIso();
-  patch.updated_at = ts;
-
-  // Append a status-history entry when the status actually changes.
-  if ("status" in patch) {
-    const { data: row } = await db()
-      .from(TABLE)
-      .select("status, status_history")
-      .eq("id", id)
-      .maybeSingle();
-    if (row && row.status !== patch.status) {
-      const history = Array.isArray(row.status_history)
-        ? row.status_history
-        : [];
-      history.push({ status: patch.status, changedAt: ts, note: "Updated by admin" });
-      patch.status_history = history;
-      if (closes(row.status, patch.status)) Object.assign(patch, CLOSED_CLEARS);
-    }
+  // The status moves on its own, with its activity entry (and, when it
+  // closes the project, the follow-up and hold cleared) in one statement.
+  const status = patch.status as string | undefined;
+  delete patch.status;
+  if (Object.keys(patch).length) {
+    patch.updated_at = nowIso();
+    const { error } = await db().from(TABLE).update(patch).eq("id", id);
+    if (error) throw error;
   }
-
-  const { error } = await db().from(TABLE).update(patch).eq("id", id);
-  if (error) throw error;
+  if (status !== undefined) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const from = await currentStatus(id);
+      if (from === null || from === status) return;
+      if (await moveStatus(id, from, status, "Updated by admin", closes(from, status))) return;
+    }
+    throw new Error("The status kept changing while it was being set.");
+  }
 }
 
 // Add a dated note to the project's activity log, under the status it has
