@@ -7,9 +7,11 @@
 // before a proposal has gone out, sets a follow-up to send the recap, then
 // marks the call held; saving it again changes only the summary. An autosave
 // names the save it was typed against and the open copy it came from, and is
-// refused (409) when another copy saved the notes since. Removing an entry takes it off the
-// project; an uploaded file itself stays in storage. Nothing here emails the
-// client; telling them is a Compose email.
+// refused (409) when another copy saved the notes since. It also takes the
+// Today list's actions: a follow-up cleared or moved, and a row marked
+// handled or snoozed. Removing an entry takes it off the project; an uploaded
+// file itself stays in storage. Nothing here emails the client; telling them
+// is a Compose email.
 
 export const runtime = "nodejs";
 
@@ -19,6 +21,7 @@ import { apiError, defineRoute } from "@/lib/api-route";
 import {
   addDocument,
   advanceStatus,
+  dismissToday,
   patchDocument,
   removeDocument,
   saveCall,
@@ -113,6 +116,18 @@ const schema = z.object({
       actions: summaryPart,
     })
     .optional(),
+  // The project's next follow-up: a new day (and what it's for), or null to
+  // clear it.
+  followUp: z
+    .object({ at: calendarDay.nullable(), note: z.string().trim().max(200).optional() })
+    .optional(),
+  // A Today row marked handled, or snoozed until a day.
+  dismiss: z
+    .object({
+      key: z.string().min(1).max(200),
+      until: calendarDay.optional(),
+    })
+    .optional(),
   // A null clears that date (an invoice marked unpaid again).
   patchDocument: z
     .object({
@@ -138,8 +153,12 @@ export const POST = defineRoute({
     patchDocument: patch,
     call,
     callSummary,
+    followUp,
+    dismiss,
   }) => {
     if (fields) await updateClientAdmin(id, fields);
+    if (followUp) await setFollowUp(id, followUp.at, followUp.note);
+    if (dismiss) await dismissToday(id, dismiss.key, dismiss.until ?? "handled");
 
     // The call's notes. A failed autosave answers an error the panel retries
     // on; it's reported at warning, since the notes are still on screen.

@@ -178,11 +178,17 @@ const collaboratorGroup: ColumnGroup = {
   select: ", collaborators",
   match: /collaborator/,
 };
-// The owner's next follow-up on a project.
+// The owner's next follow-up on a project, and the Today rows handled or
+// snoozed on it.
 const followUpGroup: ColumnGroup = {
   present: true,
   select: ", followUpAt:follow_up_at, followUpNote:follow_up_note",
   match: /follow_up/,
+};
+const todayGroup: ColumnGroup = {
+  present: true,
+  select: ", todayDismissed:today_dismissed",
+  match: /today_dismissed/,
 };
 // What the AI tools saved: read for one project's page only.
 const aiGroup: ColumnGroup = {
@@ -201,6 +207,7 @@ const COLUMN_GROUPS = [
   termsGroup,
   collaboratorGroup,
   followUpGroup,
+  todayGroup,
   aiGroup,
   callsGroup,
 ];
@@ -219,7 +226,13 @@ function safeSelect(): string {
   return VIEWER_SELECT_BASE + CLIENT_SELECT_EXTRA + cols(optionalGroup) + cols(termsGroup);
 }
 function fullSelect(): string {
-  return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
+  return (
+    safeSelect() +
+    FULL_SELECT_EXTRA +
+    cols(collaboratorGroup) +
+    cols(followUpGroup) +
+    cols(todayGroup)
+  );
 }
 // One project's full read, with what the AI tools saved and the call notes.
 function detailSelect(): string {
@@ -826,17 +839,18 @@ export async function closeProject(
 }
 
 // Set (or with null, clear) the project's next follow-up: a calendar day and
-// what it's for. One per project; a new one replaces the old.
+// what it's for. One per project; a new one replaces the old. Without a note,
+// a moved follow-up keeps the one it had.
 export async function setFollowUp(
   id: string,
   at: string | null,
-  note: string | null = null,
+  note?: string | null,
 ): Promise<void> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return;
-  const { error } = await db()
-    .from(TABLE)
-    .update({ follow_up_at: at, follow_up_note: at ? note : null, updated_at: nowIso() })
-    .eq("id", id);
+  const patch: Record<string, unknown> = { follow_up_at: at, updated_at: nowIso() };
+  if (at === null) patch.follow_up_note = null;
+  else if (note !== undefined) patch.follow_up_note = note;
+  const { error } = await db().from(TABLE).update(patch).eq("id", id);
   if (error) throw error;
 }
 
@@ -1028,6 +1042,12 @@ export type ClientRecordFull = ClientRecordSafe & {
   // The owner's next follow-up: a calendar day and what it's for.
   followUpAt?: string;
   followUpNote?: string;
+  // Today rows marked handled ("handled") or snoozed (until a calendar day),
+  // by row key (src/lib/today.ts).
+  todayDismissed?: Record<string, string>;
+  // When each side last wrote (listClients only, from client_last_contact).
+  lastInAt?: string;
+  lastOutAt?: string;
   // What the AI tools saved (getClientFull only).
   aiResults?: AiResults;
   // Notes from calls with the client (getClientFull only).
@@ -1045,11 +1065,40 @@ export type ClientRecordFull = ClientRecordSafe & {
 
 export async function listClients(): Promise<ClientRecordFull[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
-    db().from(TABLE).select(sel).order("updated_at", { ascending: false }),
-  );
+  const [{ data, error }, contact] = await Promise.all([
+    readWithOptionalColumns(fullSelect, (sel) =>
+      db().from(TABLE).select(sel).order("updated_at", { ascending: false }),
+    ),
+    lastContactByProject(),
+  ]);
   if (error) throw error;
-  return (data as ClientRecordFull[] | null) ?? [];
+  return ((data as ClientRecordFull[] | null) ?? []).map((r) => ({
+    ...r,
+    ...contact.get(r.id),
+  }));
+}
+
+// When each side last wrote, by project (the client_last_contact view). The
+// board reads it in one extra query; before the view exists it's empty.
+async function lastContactByProject(): Promise<
+  Map<string, { lastInAt?: string; lastOutAt?: string }>
+> {
+  const { data, error } = await db()
+    .from("client_last_contact")
+    .select("project_id, last_in_at, last_out_at");
+  if (error) {
+    if (error.code === "42P01" || /client_last_contact/.test(error.message ?? "")) {
+      return new Map();
+    }
+    throw error;
+  }
+  type Row = { project_id: string; last_in_at: string | null; last_out_at: string | null };
+  return new Map(
+    ((data as Row[] | null) ?? []).map((r) => [
+      r.project_id,
+      { lastInAt: r.last_in_at ?? undefined, lastOutAt: r.last_out_at ?? undefined },
+    ]),
+  );
 }
 
 export async function getClientFull(
@@ -1316,4 +1365,12 @@ export async function saveCall(
   if (!found) return null;
   if (found.conflict) return { conflict: true };
   return { conflict: false, savedAt, held: !!found.held, status: found.status };
+}
+
+// Mark one Today row handled, or snooze it until a calendar day (see
+// dismiss_today in supabase/schema.sql).
+export async function dismissToday(id: string, key: string, value: "handled" | string): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db().rpc("dismiss_today", { p_id: id, p_key: key, p_value: value });
+  if (error) throw error;
 }
