@@ -247,3 +247,23 @@ where coalesce(trim(r.gallery_url), '') <> ''
 
 -- Tell the API layer about the new columns and functions straight away.
 notify pgrst, 'reload schema';
+
+-- What the AI tools worked out for a project (the inquiry assessment, the
+-- shoot brief), saved so the project page shows it without asking again. Keyed
+-- by kind; each entry carries its result and when it was made. Owner-only,
+-- like the rest of the row.
+alter table client_records add column if not exists ai_results jsonb not null default '{}'::jsonb;
+
+-- Saves one kind without touching the others, so two saves at once can't
+-- overwrite each other. Doesn't change updated_at: an assessment isn't an edit
+-- to the project.
+create or replace function save_ai_result(p_id uuid, p_kind text, p_result jsonb)
+returns void language sql as $$
+  update client_records
+  set ai_results = jsonb_set(coalesce(ai_results, '{}'::jsonb), array[p_kind], p_result)
+  where id = p_id
+$$;
+revoke execute on function save_ai_result(uuid, text, jsonb) from public, anon, authenticated;
+grant execute on function save_ai_result(uuid, text, jsonb) to service_role;
+
+notify pgrst, 'reload schema';

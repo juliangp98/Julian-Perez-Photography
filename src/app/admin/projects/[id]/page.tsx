@@ -36,6 +36,8 @@ import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
 import MessageThread from "@/components/messages/MessageThread";
 import { listProjectMessages, ensureReplyToken } from "@/lib/messages";
+import { triageSteer } from "@/lib/triage";
+import { isCurrent } from "@/lib/ai/project-context";
 import { logAddress } from "@/lib/email/inbound";
 
 export const metadata: Metadata = {
@@ -53,14 +55,16 @@ export default async function AdminProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  // ?compose=<template id>&steer=<text>: triage and next-step suggestions open
-  // the compose panel on a template. A link's "Tell the client" adds
-  // &doc=<entry id>, which only tells one hand-off from the next.
-  searchParams: Promise<{ compose?: string; steer?: string; doc?: string }>;
+  // ?compose=<template id>: triage, next-step suggestions and links open the
+  // compose panel on a template. A link's "Tell the client" adds &doc=<entry
+  // id>, and the assessment's "Draft a reply" adds &v=<when it was made>; both
+  // only tell one hand-off from the next. No client detail rides in the
+  // address: the inquiry reply is steered from the saved assessment.
+  searchParams: Promise<{ compose?: string; doc?: string; v?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
   const { id } = await params;
-  const { compose, steer, doc } = await searchParams;
+  const { compose, doc, v } = await searchParams;
   const record = await getClientFull(id);
   // Siblings (same person) — offered as bundle-link choices.
   const siblings = record?.email
@@ -88,6 +92,12 @@ export default async function AdminProjectDetailPage({
       )
     : {};
   const runningHold = record ? heldUntil(record, undefined, today) : undefined;
+  // The saved AI results, and whether each was made from what the project
+  // holds now (the inquiry it assessed, the answers it briefed).
+  const savedTriage = record?.aiResults?.triage;
+  const triageCurrent = isCurrent(savedTriage, record?.inquiryMessage);
+  const savedBrief = record?.aiResults?.["shoot-brief"];
+  const briefCurrent = isCurrent(savedBrief, record?.questionnaireSnapshot);
   const ai = aiEnabled();
   const [messages, replyToken] = record
     ? await Promise.all([listProjectMessages(record.id), ensureReplyToken(record.id)])
@@ -181,14 +191,19 @@ export default async function AdminProjectDetailPage({
                   <p className="mt-3 text-sm whitespace-pre-line leading-relaxed">
                     {record.inquiryMessage}
                   </p>
-                  {ai && (
+                  {(ai || savedTriage) && (
                     <Panel className="mt-5">
-                      <h3 className="font-serif text-lg">Triage with AI</h3>
+                      <h3 className="font-serif text-lg">Assessment</h3>
                       <p className="mt-1 mb-4 text-sm text-muted">
-                        Fit, urgency and key details, with a link to draft the
-                        reply in Compose.
+                        Fit, urgency and key details from the inquiry, with a
+                        link to draft the reply in Compose.
                       </p>
-                      <InquiryTriage projectId={record.id} />
+                      <InquiryTriage
+                        projectId={record.id}
+                        saved={savedTriage}
+                        stale={!!savedTriage && !triageCurrent}
+                        canRun={ai}
+                      />
                     </Panel>
                   )}
                 </div>
@@ -204,14 +219,20 @@ export default async function AdminProjectDetailPage({
                     groups={answerGroups}
                     rawSnapshot={record.questionnaireSnapshot}
                   />
-                  {ai && record.questionnaireSnapshot.trim() && (
+                  {(ai || savedBrief) &&
+                    record.questionnaireSnapshot.trim() && (
                     <Panel className="mt-5">
                       <h3 className="font-serif text-lg">Shoot prep brief</h3>
                       <p className="mt-1 mb-4 text-sm text-muted">
                         Turn this questionnaire into a skimmable prep brief:
                         timeline, key people, must-have shots, logistics.
                       </p>
-                      <PrepBrief projectId={record.id} />
+                      <PrepBrief
+                        projectId={record.id}
+                        saved={savedBrief}
+                        stale={!!savedBrief && !briefCurrent}
+                        canRun={ai}
+                      />
                     </Panel>
                   )}
                 </div>
@@ -246,9 +267,13 @@ export default async function AdminProjectDetailPage({
                   prefills from the project. Edit, then send or copy.
                 </p>
                 <ComposeEmail
-                  key={`${compose ?? ""}|${steer ?? ""}|${doc ?? ""}`}
+                  key={`${compose ?? ""}|${doc ?? ""}|${v ?? ""}`}
                   initialTemplateId={compose}
-                  initialSteer={steer}
+                  initialSteer={
+                    compose === "inquiry-reply" && savedTriage && triageCurrent
+                      ? triageSteer(savedTriage.result)
+                      : undefined
+                  }
                   projectId={record.id}
                   hasEmail={!!record.email}
                   context={emailContext}

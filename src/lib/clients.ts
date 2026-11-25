@@ -30,6 +30,7 @@ import {
 } from "@/lib/client-status";
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
+import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
 
 const TABLE = "client_records";
 
@@ -182,7 +183,13 @@ const followUpGroup: ColumnGroup = {
   select: ", followUpAt:follow_up_at, followUpNote:follow_up_note",
   match: /follow_up/,
 };
-const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup];
+// What the AI tools saved: read for one project's page only.
+const aiGroup: ColumnGroup = {
+  present: true,
+  select: ", aiResults:ai_results",
+  match: /ai_results/,
+};
+const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup, aiGroup];
 const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -199,6 +206,10 @@ function safeSelect(): string {
 }
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
+}
+// One project's full read, with what the AI tools saved.
+function detailSelect(): string {
+  return fullSelect() + cols(aiGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -446,7 +457,8 @@ export async function getProjectForViewer(
 // new service for an existing person becomes a separate project while a repeat
 // inquiry for the same service updates the existing one. On a match we only
 // fill blank fields + bump the timestamp (never clobber a curated field or an
-// advanced status). New projects start at `new-inquiry`.
+// advanced status). New projects start at `new-inquiry`. Says which project,
+// and whether it now holds this message.
 export async function upsertClientFromInquiry(input: {
   name: string;
   email: string;
@@ -460,7 +472,7 @@ export async function upsertClientFromInquiry(input: {
   // When set (a manually-created project's completion link), attach to that
   // exact project rather than matching by email+service.
   projectId?: string;
-}): Promise<string | null> {
+}): Promise<{ id: string; messageStored: boolean } | null> {
   if (!isClientsStoreConfigured()) return null;
   const email = normalizeEmail(input.email);
   const ts = nowIso();
@@ -514,9 +526,15 @@ export async function upsertClientFromInquiry(input: {
     if (!existing.referral && input.referral) patch.referral = input.referral;
     if (!existing.inquiry_message && input.message)
       patch.inquiry_message = input.message;
+    // Whether the project now holds this message (a repeat inquiry keeps the
+    // first one), so what's said about it is saved only when it matches.
+    const messageStored =
+      !!input.message &&
+      (!existing.inquiry_message ||
+        existing.inquiry_message.trim() === input.message.trim());
     const { error } = await db().from(TABLE).update(patch).eq("id", existing.id);
     if (error) throw error;
-    return existing.id as string;
+    return { id: existing.id as string, messageStored };
   }
 
   const locations = input.location
@@ -545,7 +563,7 @@ export async function upsertClientFromInquiry(input: {
     .select("id")
     .single();
   if (error) throw error;
-  return data.id as string;
+  return { id: data.id as string, messageStored: !!input.message };
 }
 
 // Manually create a project stub (admin or client portal). No dedup here — the
@@ -996,6 +1014,8 @@ export type ClientRecordFull = ClientRecordSafe & {
   // The owner's next follow-up: a calendar day and what it's for.
   followUpAt?: string;
   followUpNote?: string;
+  // What the AI tools saved (getClientFull only).
+  aiResults?: AiResults;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -1020,7 +1040,7 @@ export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
-  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(detailSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
   if (error) throw error;
@@ -1222,5 +1242,21 @@ export async function clearBundleAdmin(projectId: string): Promise<void> {
 export async function deleteClient(id: string): Promise<void> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { error } = await db().from(TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Save what an AI tool worked out for a project, one kind at a time (see
+// save_ai_result in supabase/schema.sql).
+export async function saveAiResult<K extends SavedAiKind>(
+  id: string,
+  kind: K,
+  saved: NonNullable<AiResults[K]> extends SavedAiResult<infer T> ? SavedAiResult<T> : never,
+): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db().rpc("save_ai_result", {
+    p_id: id,
+    p_kind: kind,
+    p_result: saved,
+  });
   if (error) throw error;
 }

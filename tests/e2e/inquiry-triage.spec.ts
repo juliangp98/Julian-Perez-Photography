@@ -3,8 +3,10 @@ import { test, expect, hasTestStore, magicLinkFor, type FakeCall } from "./suppo
 // Every new inquiry is assessed by AI before the owner email goes out: the email
 // opens with the verdict and summary, links to the project's Compose panel to
 // draft the reply (triage writes none itself), and the owner gets a text for a
-// lead worth an interruption. The fake provider is scripted with the model's
-// answer; an unusable answer leaves the inquiry unaffected.
+// lead worth an interruption. The assessment is saved on the project, so its
+// page shows it without asking the AI again, and the draft link carries no
+// client detail. The fake provider is scripted with the model's answer; an
+// unusable answer leaves the inquiry unaffected.
 
 const OWNER = "owner@example.com"; // INQUIRY_TO in playwright.config.ts
 const OWNER_PHONE = "+15555550199"; // INQUIRY_SMS_TO in playwright.config.ts
@@ -46,7 +48,11 @@ test("the owner email opens with the assessment and drafts no reply", async ({ r
   expect(text).not.toMatch(/suggested reply/i);
 });
 
-test("the owner email links to Compose on the filed project", async ({ request, fakes }) => {
+test("the owner email links to Compose on the filed project, with no client detail in the link", async ({
+  request,
+  fakes,
+  adminPage,
+}) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   await fakes.script({ replies: [assessment()] });
   // A forged Origin header must not change where the link points.
@@ -61,9 +67,42 @@ test("the owner email links to Compose on the filed project", async ({ request, 
   const url = new URL(link);
   expect(url.origin).toBe("http://localhost:3100");
   expect(url.pathname).toMatch(/^\/admin\/projects\/[0-9a-f-]{36}$/);
+  expect([...url.searchParams.keys()]).toEqual(["compose"]);
   expect(url.searchParams.get("compose")).toBe("inquiry-reply");
-  expect(url.searchParams.get("steer")).toContain("Leesburg vineyard");
   expect(url.hash).toBe("#compose");
+
+  // The project page shows the saved assessment, and opening the link steers
+  // the reply from it, without another call to the AI.
+  const before = (await fakes.calls("ai")).length;
+  await adminPage.goto(url.pathname + url.search + url.hash);
+  await expect(adminPage.getByText("Good fit", { exact: true })).toBeVisible();
+  await expect(adminPage.getByText("A fall wedding at a Leesburg vineyard for about 120 guests.")).toBeVisible();
+  await expect(adminPage.getByLabel("Extra instructions for the AI draft")).toHaveValue(/Leesburg vineyard/);
+  expect((await fakes.calls("ai")).length).toBe(before);
+});
+
+test("a repeat inquiry keeps the project's first message and its assessment", async ({
+  request,
+  fakes,
+  adminPage,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const email = `e2e-triage-repeat-${Date.now()}@example.com`;
+  await fakes.script({ replies: [assessment()] });
+  await request.post("/api/inquire", { data: inquiry(email) });
+  const link = String((await ownerEmail(fakes))?.body?.text).match(/Draft a reply: (\S+)/)?.[1] ?? "";
+
+  // Same person, same service, a different message: the owner email assesses
+  // it, but the project keeps the first message and the first assessment.
+  await fakes.script({ replies: [assessment({ summary: "A question about adding an engagement session." })] });
+  await request.post("/api/inquire", {
+    data: { ...inquiry(email), message: "Could we add an engagement session too?" },
+  });
+  expect(String((await ownerEmail(fakes))?.body?.text)).toContain("A question about adding an engagement session.");
+
+  await adminPage.goto(new URL(link).pathname);
+  await expect(adminPage.getByText("A fall wedding at a Leesburg vineyard for about 120 guests.")).toBeVisible();
+  await expect(adminPage.getByText("A question about adding an engagement session.")).toHaveCount(0);
 });
 
 test("a good lead texts the owner; a poor, unhurried one doesn't", async ({ request, fakes }) => {

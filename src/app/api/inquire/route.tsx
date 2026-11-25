@@ -19,12 +19,13 @@ import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
-import { upsertClientFromInquiry } from "@/lib/clients";
+import { saveAiResult, upsertClientFromInquiry } from "@/lib/clients";
+import { aiBasis } from "@/lib/ai/project-context";
 import { assessInquiry, shouldAlertOwner } from "@/lib/ai/assess-inquiry";
 import { draftReplyHref, triageVerdict, type InquiryTriage } from "@/lib/triage";
 
 // How long a submission waits for the AI assessment. Past it the owner email
-// goes out without one (the project page's "Triage this inquiry" still works).
+// goes out without one (the project page's "Assess this inquiry" still works).
 const TRIAGE_WAIT_MS = 8_000;
 
 const schema = z.object({
@@ -102,8 +103,9 @@ export const POST = defineRoute({
     // email can link to the project and the confirmation can start its thread.
     // A store failure (or an unconfigured store) never fails the submission.
     let projectId: string | null = null;
+    let messageStored = false;
     try {
-      projectId = await upsertClientFromInquiry({
+      const filed = await upsertClientFromInquiry({
         name: data.name,
         email: data.email,
         phone: data.phone || undefined,
@@ -115,6 +117,8 @@ export const POST = defineRoute({
         message: data.message,
         projectId: data.project || undefined,
       });
+      projectId = filed?.id ?? null;
+      messageStored = !!filed?.messageStored;
     } catch (err) {
       Sentry.captureException(err, {
         tags: { route: "inquire", stage: "client-record" },
@@ -123,8 +127,26 @@ export const POST = defineRoute({
     }
 
     const triage = await triagePromise;
+    // Saved on the project, so its page shows the assessment without asking
+    // again and the draft link needs nothing but the project. Only when the
+    // project holds this message: a repeat inquiry keeps the first message, and
+    // its assessment with it (this one still reaches the owner email below).
+    if (projectId && triage && messageStored) {
+      try {
+        await saveAiResult(projectId, "triage", {
+          result: triage,
+          at: new Date().toISOString(),
+          basis: aiBasis(data.message),
+        });
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "inquire", stage: "save-triage" },
+          level: "warning",
+        });
+      }
+    }
     const draftReplyUrl = projectId
-      ? draftReplyHref(triage, `${originOf(req)}/admin/projects/${projectId}`)
+      ? draftReplyHref(`${originOf(req)}/admin/projects/${projectId}`)
       : undefined;
 
     // Include the event date in the subject when supplied — makes triage

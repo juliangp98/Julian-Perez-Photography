@@ -27,7 +27,7 @@ export function apiError(status: number, error: string): NextResponse {
 }
 
 export function defineRoute<S extends z.ZodType, A extends Auth>(opts: {
-  // Sentry tag and rate-limit bucket, e.g. "admin/triage".
+  // Sentry tag and rate-limit bucket, e.g. "admin/ai".
   route: string;
   auth: A;
   schema: S;
@@ -38,8 +38,9 @@ export function defineRoute<S extends z.ZodType, A extends Auth>(opts: {
   invalid?: string;
   // What an unexpected error answers (default 500, "Something went wrong.").
   failure?: { status: number; error: string };
-  // Extra Sentry tags computed at failure time (e.g. the model in use).
-  tags?: () => Record<string, string>;
+  // Extra Sentry tags computed at failure time from the request (e.g. the
+  // model in use, or which kind of request it was).
+  tags?: (data: z.infer<S>) => Record<string, string>;
   run: (
     data: z.infer<S>,
     ctx: RouteContext<A>,
@@ -77,7 +78,9 @@ export function defineRoute<S extends z.ZodType, A extends Auth>(opts: {
       const out = await opts.run(parsed.data, { req, session: session as SessionFor<A> });
       return out instanceof Response ? out : NextResponse.json(out);
     } catch (err) {
-      Sentry.captureException(err, { tags: { route: opts.route, stage: "run", ...opts.tags?.() } });
+      Sentry.captureException(err, {
+        tags: { route: opts.route, stage: "run", ...opts.tags?.(parsed.data) },
+      });
       const failure = opts.failure ?? { status: 500, error: "Something went wrong. Try again." };
       return apiError(failure.status, failure.error);
     }
