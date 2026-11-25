@@ -1,9 +1,12 @@
 // POST /api/admin/update: owner-only edits to one project. The record id comes
 // from the body (the owner may edit any record). A request carries the edit
-// form's fields, or one change to the project's links and files: add an entry,
-// remove one, or change one (an invoice marked paid). Removing an entry takes
-// it off the project; an uploaded file itself stays in storage. Nothing here
-// emails the client; telling them is a Compose email.
+// form's fields, one change to the project's links and files (add an entry,
+// remove one, or change one, like an invoice marked paid), or the discovery
+// call's notes: an autosave of answers and notes, or the summary saved after
+// the call, which marks the call held, moves a lead to In conversation and
+// sets a follow-up to send the recap. Removing an entry takes it off the
+// project; an uploaded file itself stays in storage. Nothing here emails the
+// client; telling them is a Compose email.
 
 export const runtime = "nodejs";
 
@@ -12,10 +15,14 @@ import * as Sentry from "@sentry/nextjs";
 import { apiError, defineRoute } from "@/lib/api-route";
 import {
   addDocument,
+  advanceStatus,
   patchDocument,
   removeDocument,
+  saveCall,
+  setFollowUp,
   updateClientAdmin,
 } from "@/lib/clients";
+import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 
 const OWNER_KINDS = OWNER_DOCUMENT_TYPES.map((t) => t.value) as [string, ...string[]];
@@ -29,6 +36,9 @@ const webUrl = z
   .url()
   .refine((u) => /^https?:\/\//i.test(u));
 const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// "<section>.<question>", as src/lib/discovery-guides.ts keys answers.
+const answerKey = z.string().regex(/^[a-z0-9-]+\.[a-z0-9-]+$/).max(100);
+const summaryPart = z.string().max(4000);
 const documentId = z.string().min(1).max(100);
 const documentLabel = z.string().trim().min(1).max(200);
 
@@ -74,6 +84,23 @@ const schema = z.object({
     })
     .optional(),
   removeDocumentId: documentId.optional(),
+  // The discovery call's notes as typed: only the answers that changed.
+  call: z
+    .object({
+      answers: z.record(answerKey, z.string().max(5000)).optional(),
+      notes: z.string().max(20000).optional(),
+    })
+    .optional(),
+  // The summary written after the call.
+  callSummary: z
+    .object({
+      background: summaryPart,
+      event: summaryPart,
+      priorities: summaryPart,
+      logistics: summaryPart,
+      actions: summaryPart,
+    })
+    .optional(),
   // A null clears that date (an invoice marked unpaid again).
   patchDocument: z
     .object({
@@ -91,8 +118,44 @@ export const POST = defineRoute({
   schema,
   invalid: "Invalid input.",
   failure: { status: 500, error: "Couldn't save. Try again." },
-  run: async ({ id, fields, addDocument: add, removeDocumentId, patchDocument: patch }) => {
+  run: async ({
+    id,
+    fields,
+    addDocument: add,
+    removeDocumentId,
+    patchDocument: patch,
+    call,
+    callSummary,
+  }) => {
     if (fields) await updateClientAdmin(id, fields);
+
+    // The call's notes. A failed autosave answers an error the panel retries
+    // on; it's reported at warning, since the notes are still on screen.
+    if (call || callSummary) {
+      try {
+        const savedAt = call
+          ? await saveCall(id, "discovery", call)
+          : await saveCall(id, "discovery", {
+              summary: callSummary,
+              heldAt: new Date().toISOString(),
+            });
+        if (callSummary) {
+          await advanceStatus(id, "in-conversation", "Discovery call held");
+          await setFollowUp(
+            id,
+            shiftDay(studioToday(), { days: 1 }),
+            "Send the recap and proposal",
+          );
+        }
+        return { ok: true, savedAt };
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "admin/update", stage: callSummary ? "call-summary" : "call" },
+          level: call ? "warning" : undefined,
+        });
+        return apiError(500, "Couldn't save the notes. Try again.");
+      }
+    }
 
     try {
       if (add) {

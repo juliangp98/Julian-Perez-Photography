@@ -267,3 +267,30 @@ revoke execute on function save_ai_result(uuid, text, jsonb) from public, anon, 
 grant execute on function save_ai_result(uuid, text, jsonb) to service_role;
 
 notify pgrst, 'reload schema';
+
+-- Notes from calls with the client, keyed by call ("discovery"): the answers
+-- typed under each question of the guide, free notes, and the summary written
+-- after the call. Owner-only, like the rest of the row.
+alter table client_records add column if not exists calls jsonb not null default '{}'::jsonb;
+
+-- Merges a patch into one call: the answers key by key, everything else
+-- replaced, so two autosaves landing together each keep what they wrote.
+-- Doesn't change updated_at: notes aren't an edit to the project.
+create or replace function merge_call(p_id uuid, p_call text, p_patch jsonb)
+returns void language sql as $$
+  update client_records
+  set calls = jsonb_set(
+    coalesce(calls, '{}'::jsonb),
+    array[p_call],
+    coalesce(calls->p_call, '{}'::jsonb)
+      || (p_patch - 'answers')
+      || jsonb_build_object(
+           'answers',
+           coalesce(calls->p_call->'answers', '{}'::jsonb)
+             || coalesce(p_patch->'answers', '{}'::jsonb)))
+  where id = p_id
+$$;
+revoke execute on function merge_call(uuid, text, jsonb) from public, anon, authenticated;
+grant execute on function merge_call(uuid, text, jsonb) to service_role;
+
+notify pgrst, 'reload schema';

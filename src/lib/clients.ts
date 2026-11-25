@@ -31,6 +31,7 @@ import {
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
 import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
+import type { CallKind, CallNotes, ProjectCalls } from "@/lib/calls";
 
 const TABLE = "client_records";
 
@@ -189,7 +190,20 @@ const aiGroup: ColumnGroup = {
   select: ", aiResults:ai_results",
   match: /ai_results/,
 };
-const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup, aiGroup];
+// Notes from calls with the client: read for one project's page only.
+const callsGroup: ColumnGroup = {
+  present: true,
+  select: ", calls",
+  match: /\bcalls\b/,
+};
+const COLUMN_GROUPS = [
+  optionalGroup,
+  termsGroup,
+  collaboratorGroup,
+  followUpGroup,
+  aiGroup,
+  callsGroup,
+];
 const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -207,9 +221,9 @@ function safeSelect(): string {
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
 }
-// One project's full read, with what the AI tools saved.
+// One project's full read, with what the AI tools saved and the call notes.
 function detailSelect(): string {
-  return fullSelect() + cols(aiGroup);
+  return fullSelect() + cols(aiGroup) + cols(callsGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -1016,6 +1030,8 @@ export type ClientRecordFull = ClientRecordSafe & {
   followUpNote?: string;
   // What the AI tools saved (getClientFull only).
   aiResults?: AiResults;
+  // Notes from calls with the client (getClientFull only).
+  calls?: ProjectCalls;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -1259,4 +1275,23 @@ export async function saveAiResult<K extends SavedAiKind>(
     p_result: saved,
   });
   if (error) throw error;
+}
+
+// Merge a patch into one call's notes (see merge_call in supabase/schema.sql):
+// answers key by key, anything else replaced, and the time it was saved.
+// Says when it was saved.
+export async function saveCall(
+  id: string,
+  call: CallKind,
+  patch: CallNotes,
+): Promise<string | null> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
+  const savedAt = nowIso();
+  const { error } = await db().rpc("merge_call", {
+    p_id: id,
+    p_call: call,
+    p_patch: { ...patch, savedAt },
+  });
+  if (error) throw error;
+  return savedAt;
 }

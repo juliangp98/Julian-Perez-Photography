@@ -145,9 +145,10 @@ export const POST = defineRoute({
         });
       }
     }
-    const draftReplyUrl = projectId
-      ? draftReplyHref(`${originOf(req)}/admin/projects/${projectId}`)
-      : undefined;
+    const projectUrl = projectId ? `${originOf(req)}/admin/projects/${projectId}` : undefined;
+    const draftReplyUrl = projectUrl ? draftReplyHref(projectUrl) : undefined;
+    // The discovery-call guide for this project, for when a call is booked.
+    const callPrepUrl = projectUrl ? `${projectUrl}?tab=call` : undefined;
 
     // Include the event date in the subject when supplied — makes triage
     // easier when multiple inquiries for the same service land in a row.
@@ -176,6 +177,7 @@ export const POST = defineRoute({
           ]
         : []),
       ...(draftReplyUrl ? [``, `Draft a reply: ${draftReplyUrl}`] : []),
+      ...(callPrepUrl ? [`Prep for the call: ${callPrepUrl}`] : []),
     ].join("\n");
 
     // The branded template shows the friendly source ("Venue: Foxchase Manor")
@@ -192,6 +194,7 @@ export const POST = defineRoute({
           serviceName={serviceName}
           triage={triage}
           draftReplyUrl={draftReplyUrl}
+          callPrepUrl={callPrepUrl}
         />
       </BrandedEmailLayout>,
     );

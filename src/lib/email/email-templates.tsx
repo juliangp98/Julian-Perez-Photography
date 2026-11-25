@@ -181,6 +181,7 @@ export function InquiryEmailTemplate({
   serviceName,
   triage,
   draftReplyUrl,
+  callPrepUrl,
 }: {
   data: InquiryData;
   serviceName: string;
@@ -188,6 +189,8 @@ export function InquiryEmailTemplate({
   triage?: InquiryTriage | null;
   // The project page with Compose open on a reply, when the inquiry was filed.
   draftReplyUrl?: string;
+  // The project's discovery-call guide, when the inquiry was filed.
+  callPrepUrl?: string;
 }) {
   const fields: [string, string | undefined][] = [
     ["Name", data.name],
@@ -268,6 +271,13 @@ export function InquiryEmailTemplate({
       </Section>
 
       {draftReplyUrl ? <PillButton href={draftReplyUrl} label="Draft a reply" /> : null}
+      {callPrepUrl ? (
+        <Text style={{ fontSize: "14px", margin: "0 0 8px 0" }}>
+          <Link href={callPrepUrl} style={{ color: ACCENT }}>
+            Prep for the call
+          </Link>
+        </Text>
+      ) : null}
 
       <Text style={{ fontSize: "12px", color: MUTED, margin: "16px 0 0 0" }}>
         Reply directly to this email to respond to {data.name}.

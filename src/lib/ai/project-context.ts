@@ -91,3 +91,22 @@ export function isCurrent(
 ): boolean {
   return !!saved && (!saved.basis || saved.basis === aiBasis(text));
 }
+
+// Text a client wrote, with email addresses, links and phone numbers taken out:
+// a model never needs them.
+export function withoutContacts(text: string): string {
+  return text
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]")
+    .replace(/https?:\/\/\S+/g, "[link]")
+    .replace(/(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g, "[phone]");
+}
+
+// What the tailored call guide was made from: the inquiry, the newest message
+// on the thread and the questionnaire. Any of them changing makes it out of
+// date.
+export function callGuideBasisText(
+  record: ClientRecordFull,
+  newestMessageId: string | undefined,
+): string {
+  return [record.inquiryMessage ?? "", newestMessageId ?? "", record.questionnaireSnapshot ?? ""].join("\u0000");
+}
