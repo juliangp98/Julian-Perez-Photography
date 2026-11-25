@@ -1,4 +1,4 @@
-import { formatHumanDate, studioToday } from "@/lib/field-format";
+import { formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
 import { projectLink, projectLinks } from "@/lib/project-links";
 import { paymentMethodLabel, type PaymentMethod } from "@/lib/labels";
@@ -30,7 +30,7 @@ export async function emailTokens(
     clientName: record.clientName,
     projectName: projectDisplayName(record),
     serviceNoun: serviceNoun(record.serviceType)?.toLowerCase(),
-    eventDate: formatHumanDate(record.eventDate) || undefined,
+    eventDate: formatEventDate(record.eventDate) || undefined,
     venue: record.locations?.[0]?.label || record.locations?.[0]?.address,
     portalUrl: links.portalUrl,
     questionnaireUrl: links.questionnaireUrl,

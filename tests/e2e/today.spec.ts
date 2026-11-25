@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore } from "./support/fixtures";
 import { addMessage, patchProject, readProject } from "./support/test-store";
 import { todayRows, type TodayProject, type TodayServiceTerms } from "../../src/lib/today";
-import { eventDay, shiftDay, studioToday } from "../../src/lib/field-format";
+import { eventDay, eventMonthYear, formatEventDate, shiftDay, studioToday } from "../../src/lib/field-format";
 
 // The Today list on the projects board (src/lib/today.ts): what needs the
 // owner now, worked out from the projects with rules. The rules are checked
@@ -96,13 +96,43 @@ test("an event date counts only when it names one day", () => {
     ["12/05/2026", "2026-12-05"],
     ["Aug 15, 2027", "2027-08-15"],
     ["15 Aug 2027", "2027-08-15"],
-    ["Saturday, August 15th, 2027", "2027-08-15"],
+    ["Sunday, August 15th, 2027", "2027-08-15"],
+    ["June 6,2026", "2026-06-06"],
+    ["June 6, 2026.", "2026-06-06"],
+    ["Sat., June 6, 2026", "2026-06-06"],
+    ["Jun 6 , 2026", "2026-06-06"],
   ]) {
     expect(eventDay(text), text).toBe(day);
   }
-  for (const text of ["Nov 20-21, 2026", "Oct 10-11, 2026", "Fall 2027", "TBD 2027", "May or June 2027", "June 2027", "2027", "2027-06", "6/5/27", "Feb 30, 2027"]) {
+  for (const text of [
+    "Nov 20-21, 2026",
+    "Nov 20-21,2026",
+    "Oct 10-11, 2026",
+    "Fall 2027",
+    "TBD 2027",
+    "May or June 2027",
+    "June 2027",
+    "2027",
+    "2027-06",
+    "6/5/27",
+    "Feb 30, 2027",
+    "0026-06-06",
+    "06/06/0026",
+    // A hedge, or a weekday that isn't the date's.
+    "TBD June 6, 2027",
+    "Before June 6, 2026",
+    "Saturday, August 15th, 2027",
+  ]) {
     expect(eventDay(text), text).toBe("");
   }
+  // Shown as typed when it isn't one day; read for search by month and year.
+  expect(formatEventDate("Fall 2027")).toBe("Fall 2027");
+  expect(formatEventDate("June 6th, 2026")).toBe("June 6, 2026");
+  expect(formatEventDate("2026-06-06", { month: "short" })).toBe("Jun 6, 2026");
+  expect(eventMonthYear("June 2027")).toEqual({ month: 6, year: 2027 });
+  expect(eventMonthYear("Fall 2027")).toEqual({ month: null, year: 2027 });
+  expect(eventMonthYear("Nov 20-21, 2026")).toEqual({ month: null, year: 2026 });
+  expect(eventMonthYear("TBD")).toBeNull();
   // A range isn't a shoot day: no editing row from a guessed date.
   expect(one({ status: "editing", eventDate: "Nov 20-21, 2026" }, terms(true, 30))).toEqual([]);
 });
@@ -255,6 +285,41 @@ test("one search box narrows the board to projects with every word", async ({ ad
   // Back to the whole board: the box follows the address.
   await page.goBack();
   await expect(page.getByLabel("Search projects")).toHaveValue("");
+});
+
+test("an Ask answered after the search changed is dropped", async ({ adminRequest, adminPage: page }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const stamp = Date.now();
+  await newProject(adminRequest, `ask-${stamp}`);
+  let release!: () => void;
+  let held = new Promise<void>((r) => (release = r));
+  await page.route("**/api/admin/search", async (route) => {
+    await held;
+    await route.fulfill({ json: { ok: true, searched: true, summary: "Late answer", matches: [] } });
+  });
+  await page.goto("/admin/projects");
+  const box = page.getByLabel("Search projects");
+  const answer = page.getByRole("status").filter({ hasText: "Late answer" });
+
+  // With nothing changing, an Ask shows its answer.
+  await box.fill(`ask-${stamp}`);
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  release();
+  await expect(answer).toBeVisible();
+
+  // A Search changes the address; an Ask sent from there, answered after
+  // going Back, is dropped.
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`q=ask-${stamp}`));
+  await expect(answer).toHaveCount(0);
+  held = new Promise<void>((r) => (release = r));
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await page.goBack();
+  await expect(page).not.toHaveURL(/q=/);
+  await expect(box).toHaveValue("");
+  release();
+  await page.waitForTimeout(500);
+  await expect(answer).toHaveCount(0);
 });
 
 test("Today's actions need the owner's session", async ({ request }) => {

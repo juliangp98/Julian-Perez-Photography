@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { formatHumanDate as formatDate, studioToday } from "@/lib/field-format";
+import { formatEventDate, formatHumanDate as formatDate, studioToday } from "@/lib/field-format";
 import { heldUntil } from "@/lib/email/send-effects";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -104,7 +104,7 @@ export default async function PortalProjectPage({
   const hasGlance =
     !!record.serviceType ||
     !!record.package ||
-    !!formatDate(record.eventDate) ||
+    !!formatEventDate(record.eventDate) ||
     record.guestCount != null ||
     !!record.partnerName ||
     !!record.paymentMethod ||
@@ -282,10 +282,10 @@ export default async function PortalProjectPage({
                 {record.package && (
                   <Detail label="Package" value={record.package} />
                 )}
-                {formatDate(record.eventDate) && (
+                {formatEventDate(record.eventDate) && (
                   <Detail
                     label="Event date"
-                    value={formatDate(record.eventDate)!}
+                    value={formatEventDate(record.eventDate)!}
                   />
                 )}
                 {record.guestCount != null && (

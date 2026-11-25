@@ -1,6 +1,7 @@
 import {
   dayAgo,
   daysUntil,
+  formatEventDate,
   formatHumanDate,
   studioDayOf,
   studioToday,
@@ -81,7 +82,7 @@ function ProjectCard({ r, today }: { r: ClientRecordFull; today: string }) {
           </Badge>
         </div>
         <div className="mt-2 text-sm text-muted">
-          {[serviceTitle(r.serviceType), formatHumanDate(r.eventDate, { month: "short" })]
+          {[serviceTitle(r.serviceType), formatEventDate(r.eventDate, { month: "short" })]
             .filter(Boolean)
             .join(" · ") || "No service or date yet"}
         </div>
