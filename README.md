@@ -381,8 +381,10 @@ can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
 (from the admin project page) or the client (from their menu); bundled projects
 render together in their own accent-bordered group, labelled and tagged so the
 relationship is obvious at a glance. Clicking a project opens its detail view —
-status, dates, locations, plan, documents, and the project's message thread
-(see "Client messages" below). There the client can make limited edits, upload
+status, dates, locations, plan, links and files (the proposal, contract,
+invoice, highlights and gallery links Julian adds, plus anything the client
+uploads), how they're paying, and the project's message thread (see "Client
+messages" below). There the client can make limited edits, upload
 files, write to the owner, and open the matching planning questionnaire
 prefilled with their details.
 
@@ -399,8 +401,13 @@ links it, and advances status toward `planning`. Both are fire-and-forget and
 **no-op when the store isn't configured**, so the email flow is never affected.
 - **Privacy boundary:** the app reaches the table only through
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
-`SAFE_SELECT` — `internal_notes`, the questionnaire snapshot, status history,
-and inquiry context are never selected, so they can't reach a client. The
+the client projection — `internal_notes`, the budget, status history, and
+inquiry context are never selected, so they can't reach a client. The
+questionnaire answers are held out of the project list and added on a single
+project's page: the client's own in full, and for a second photographer only
+the ones about the shoot. A second photographer with read access gets a
+narrower projection: no package, payment method, proposal, contract, invoice or
+gallery link. The
 table has Row-Level Security enabled (the service role bypasses it
 server-side; nothing else can read it).
 - **Auth & ownership:** magic link. The client enters their email at `/portal`,
@@ -462,7 +469,7 @@ Every AI feature runs on one setting, `GROQ_API_KEY` (server scope, never `NEXT_
 
 Groq's free tier has a tokens-per-minute ceiling. The public concierge uses the most, so its knowledge base (`src/lib/ai/concierge-kb.ts`) stays under a character budget. Heavier use needs Groq's Dev Tier or another provider through `AI_BASE_URL`. More design detail is in `CHANGELOG.md`.
 
-- **Admin drafting.** Client email is drafted in one place: the compose panel on `/admin/projects/[id]` (`/api/admin/draft-email`). It turns a pipeline template and the project's client-safe facts into a draft for review. The AI never sends, never sees the internal note or budget, and writes `[brackets]` instead of guessing. The brand voice lives in `src/lib/ai/ai-voice.ts`. The drafter also reads the owner's three most recent substantial emails to other clients (`src/lib/ai/voice-samples.ts`), with names, addresses, links and phone numbers redacted, and matches their wording and sign-off but none of their facts. An edited draft is stored as sent, so each edit teaches the next draft. Triage and the suggested next step open this panel on a template instead of writing their own email. Every new inquiry is assessed on arrival (fit, urgency, a summary, capped at 8 seconds and skipped on any failure), and the owner email links straight to this panel to draft the reply; set `INQUIRY_SMS_TO` for a text about the leads worth one. The same key powers prep briefs, plan summaries, journal and page copy, portfolio alt text, and admin search.
+- **Admin drafting.** Client email is drafted in one place: the compose panel on `/admin/projects/[id]` (`/api/admin/draft-email`). It turns a pipeline template and the project's client-safe facts into a draft for review. The AI never sends, never sees the internal note, the budget or the client's email and phone, and writes `[brackets]` instead of guessing. The brand voice lives in `src/lib/ai/ai-voice.ts`. The drafter also reads the owner's three most recent substantial emails to other clients (`src/lib/ai/voice-samples.ts`), with names, addresses, links and phone numbers redacted, and matches their wording and sign-off but none of their facts. An edited draft is stored as sent, so each edit teaches the next draft. Triage and the suggested next step open this panel on a template instead of writing their own email. Every new inquiry is assessed on arrival (fit, urgency, a summary, capped at 8 seconds and skipped on any failure), and the owner email links straight to this panel to draft the reply; set `INQUIRY_SMS_TO` for a text about the leads worth one. The same key powers prep briefs, plan summaries, journal and page copy, portfolio alt text, and admin search.
 - **Public concierge and FAQ.** `/faq` is a searchable directory built from one source (`src/lib/faq.ts`: a general set plus every visible service's `faqs[]`). It works without AI and emits `FAQPage` JSON-LD. The same source grounds the "Ask" chat (`POST /api/concierge`), which reads public content only, refuses to invent prices or follow instructions inside visitor messages, and is rate-limited and honeypotted like the inquiry route.
 
 ## Security

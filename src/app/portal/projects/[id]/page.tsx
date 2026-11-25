@@ -8,8 +8,15 @@ import {
   CLIENT_STATUS_CLIENT_LABEL,
   type ClientStatus,
 } from "@/lib/client-status";
-import { getQuestionnaire } from "@/lib/questionnaires";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
+import { projectLinks } from "@/lib/project-links";
+import {
+  documentTypeLabel,
+  invoiceState,
+  paymentMethodLabel,
+  type PaymentMethod,
+} from "@/lib/labels";
+import { getSiteSettings } from "@/lib/content";
 import PortalEditForm from "@/components/portal/PortalEditForm";
 import PortalDocumentUpload from "@/components/portal/PortalDocumentUpload";
 import PortalStatusTimeline from "@/components/portal/PortalStatusTimeline";
@@ -25,37 +32,13 @@ import MessageThread from "@/components/messages/MessageThread";
 import PortalMessageBox from "@/components/messages/PortalMessageBox";
 
 // One project view. Renders ONLY the client-safe projection and is gated to the
-// signed-in person's email (getProjectForEmail), so a client can never open a
-// project id that isn't theirs.
+// signed-in person's email (getProjectForViewer), so a client can never open a
+// project id that isn't theirs. A second photographer gets a narrower read.
 export const metadata: Metadata = {
   title: "Your project",
   robots: { index: false, follow: false },
 };
 
-function questionnaireLinkFor(record: {
-  id: string;
-  serviceType?: string;
-  clientName?: string;
-  email?: string;
-  phone?: string;
-  partnerName?: string;
-  eventDate?: string;
-  guestCount?: number;
-}): { href: string } | null {
-  if (!record.serviceType) return null;
-  const q = getQuestionnaire(record.serviceType);
-  if (!q) return null;
-  const params = new URLSearchParams();
-  // Attach the submission to THIS project (not a fresh email+service match).
-  params.set("project", record.id);
-  if (record.clientName) params.set("fullName", record.clientName);
-  if (record.email) params.set("email", record.email);
-  if (record.phone) params.set("phone", record.phone);
-  if (record.partnerName) params.set("partnerFullName", record.partnerName);
-  if (record.eventDate) params.set("eventDate", record.eventDate);
-  if (record.guestCount != null) params.set("guestCount", String(record.guestCount));
-  return { href: `/questionnaire/${record.serviceType}?${params.toString()}` };
-}
 
 export default async function PortalProjectPage({
   params,
@@ -91,9 +74,19 @@ export default async function PortalProjectPage({
     ? []
     : await listProjectMessages(record.id, { clientView: true });
 
-  const link = questionnaireLinkFor(record);
-  // The client's own questionnaire answers (owner-gated snapshot), grouped for
-  // the collapsible read-out — null until something's been submitted.
+  // In-app links (no origin): the questionnaire for a set service, the inquiry
+  // for an undecided one, and the gallery once Julian has added it.
+  const links = projectLinks(record, "");
+  // The how-to-pay line for the method this client is using. A second
+  // photographer's read carries no payment method, so they get none.
+  const paymentLine = record.paymentMethod
+    ? (await getSiteSettings()).paymentInstructions[
+        record.paymentMethod as PaymentMethod
+      ]
+    : undefined;
+  // The questionnaire answers this viewer may read (the client's own in full; a
+  // second photographer's without the booking questions), grouped for the
+  // collapsible read-out — null until something's been submitted.
   const answerGroups = record.questionnaireSnapshot
     ? buildAnswerGroups(record.serviceType, record.questionnaireSnapshot)
     : null;
@@ -102,13 +95,7 @@ export default async function PortalProjectPage({
     !!record.questionnaireSnapshot?.trim();
   // A service-undecided project (created without a service) has no questionnaire
   // yet — point the client at the inquiry, threaded so it attaches here.
-  const inquireParams = new URLSearchParams({ project: record.id });
-  if (record.email) inquireParams.set("email", record.email);
-  if (record.clientName) inquireParams.set("fullName", record.clientName);
-  if (record.phone) inquireParams.set("phone", record.phone);
-  const inquireLink = !record.serviceType
-    ? `/inquire?${inquireParams.toString()}`
-    : null;
+  const inquireLink = links.inquireUrl;
   const hasOtherDates = !!record.secondaryDates && record.secondaryDates.length > 0;
   const hasLocations = !!record.locations && record.locations.length > 0;
   const hasGlance =
@@ -117,7 +104,7 @@ export default async function PortalProjectPage({
     !!formatDate(record.eventDate) ||
     record.guestCount != null ||
     !!record.partnerName ||
-    !!record.budget ||
+    !!record.paymentMethod ||
     hasOtherDates ||
     hasLocations;
 
@@ -157,9 +144,9 @@ export default async function PortalProjectPage({
       <PortalStatusTimeline status={record.status} eventDate={record.eventDate} />
 
       {/* Prominent CTAs span the full width. */}
-      {record.galleryUrl && (
+      {links.galleryUrl && (
         <a
-          href={record.galleryUrl}
+          href={links.galleryUrl}
           target="_blank"
           rel="noreferrer"
           className="mt-8 flex items-center justify-between gap-4 rounded-lg border border-accent bg-accent/[0.04] p-5 hover:bg-accent/[0.08] transition"
@@ -303,10 +290,16 @@ export default async function PortalProjectPage({
                 {record.partnerName && (
                   <Detail label="Partner" value={record.partnerName} />
                 )}
-                {record.budget && (
-                  <Detail label="Budget" value={record.budget} />
+                {record.paymentMethod && (
+                  <Detail
+                    label="Paying by"
+                    value={paymentMethodLabel(record.paymentMethod)}
+                  />
                 )}
               </div>
+              {paymentLine && (
+                <p className="mt-4 text-sm text-muted">{paymentLine}</p>
+              )}
 
               {hasOtherDates && (
                 <div className="mt-5 border-t border-border pt-5">
@@ -376,7 +369,7 @@ export default async function PortalProjectPage({
               for service-set projects; the service-undecided inquiry prompt
               lives in the left column. Collaborators see the read-out in the
               left column instead (no resubmit). */}
-          {!isCollaborator && link && (
+          {!isCollaborator && links.questionnaireUrl && (
             <QuestionnaireCallout
               groups={answerGroups}
               description="Fill it out so I show up prepared. Your details here carry over, and anything you add goes straight back to this project."
@@ -384,25 +377,32 @@ export default async function PortalProjectPage({
                 label: questionnaireSubmitted
                   ? "Resubmit to update →"
                   : `Open your ${serviceTitle(record.serviceType)} questionnaire →`,
-                href: link.href,
+                href: links.questionnaireUrl,
               }}
             />
           )}
 
           {record.documents && record.documents.length > 0 && (
-            <RailCard title="Documents">
+            <RailCard title="Links & files">
               <ul className="divide-y divide-border">
                 {record.documents.map((doc, i) => (
-                  <li key={i}>
+                  <li key={doc.id ?? i}>
                     <a
                       href={doc.url}
                       target="_blank"
                       rel="noreferrer"
                       className="flex justify-between items-baseline py-2.5 gap-4 text-sm hover:text-accent transition first:pt-0"
                     >
-                      <span>{doc.label}</span>
+                      <span>
+                        {doc.label}
+                        {doc.type === "invoice" && (
+                          <span className="block text-xs text-muted">
+                            {invoiceState(doc)}
+                          </span>
+                        )}
+                      </span>
                       <span className="text-xs uppercase tracking-[0.18em] text-muted whitespace-nowrap">
-                        {doc.type ?? "file"} &#8599;
+                        {documentTypeLabel(doc.type) || "File"} &#8599;
                       </span>
                     </a>
                   </li>

@@ -130,6 +130,14 @@ export function isoToDisplay(iso: string): string {
   return `${mm}/${dd}/${yyyy}`;
 }
 
+// A Date as a calendar day, `yyyy-MM-dd`, in the browser's (or server's) own
+// time zone. Defaults to today.
+export function isoFromDate(d: Date = new Date()): string {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 // The studio's home timezone. Server renders run in UTC on Vercel, so a full
 // timestamp formatted without a pinned zone can show the wrong calendar day
 // (a 9 PM Eastern record reads as tomorrow) — pass this wherever a stored

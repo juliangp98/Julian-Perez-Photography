@@ -3,7 +3,7 @@
 // AI triage of a project's inquiry (/api/admin/triage): summary, fit, urgency
 // and key details, with a link that opens the reply composer steered by them.
 
-import Link from "next/link";
+import ComposeLink from "@/components/admin/ComposeLink";
 import Panel from "@/components/ui/Panel";
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -70,13 +70,12 @@ export default function InquiryTriage({ projectId }: { projectId: string }) {
             </div>
           )}
 
-          <Link
+          <ComposeLink
             href={draftReplyHref(triage)}
-            scroll={false}
             className="inline-block text-sm underline underline-offset-4 hover:text-accent"
           >
             Draft a reply from this
-          </Link>
+          </ComposeLink>
         </Panel>
       )}
     </div>

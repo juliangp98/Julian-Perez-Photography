@@ -72,6 +72,9 @@ export default defineConfig({
         SUPABASE_SERVICE_ROLE_KEY: process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "",
         // Empty so the autocomplete route returns its deterministic empty list.
         GOOGLE_PLACES_API_KEY: "",
+        // Empty so content (site settings, services) comes from the built-in
+        // fallback in every run, whatever a local .env.local holds.
+        NEXT_PUBLIC_SANITY_PROJECT_ID: "",
       },
     },
   ],

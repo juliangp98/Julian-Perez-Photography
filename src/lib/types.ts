@@ -1,3 +1,5 @@
+import type { PaymentMethod } from "./labels";
+
 // Top-level umbrella categories that group related services in the nav and on
 // the index pages. Order matters — this is the order they render in.
 export type Umbrella =
@@ -103,6 +105,12 @@ export type ServiceCategory = {
   pricingNote?: string;
   faqs?: FAQ[]; // Rendered as FAQPage JSON-LD for Google rich results.
   hidden?: boolean; // If true, excluded from nav/listings/sitemap/static params.
+  // Booking terms for this service, set in Studio. The service page doesn't
+  // render them; the dataset they live in is public all the same. All optional.
+  sampleGalleryUrl?: string; // A full gallery to send a prospect.
+  retainerPercent?: number; // Share of the total that reserves the date.
+  holdDays?: number; // How long a date is held after a proposal.
+  turnaroundDays?: number; // Days from the shoot to the delivered gallery.
 };
 
 // A resolved, render-ready image: a src (Sanity CDN or /public) plus the
@@ -227,6 +235,10 @@ export type SiteSettings = {
   };
   clientGalleryUrl: string; // Pic-Time client delivery portal.
   paymentPreferences: string;
+  // The how-to-pay line for each payment method a project can use, shown to
+  // the client in their portal and available to emails as
+  // {{paymentInstructions}}. Public, like the rest of the dataset.
+  paymentInstructions: Record<PaymentMethod, string>;
   social: {
     instagram?: string;
     facebook?: string;

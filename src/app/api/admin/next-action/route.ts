@@ -9,6 +9,7 @@ import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
+import { projectLink } from "@/lib/project-links";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
 import {
@@ -90,7 +91,7 @@ export const POST = defineRoute({
         : "Days since last update: unknown",
       eventLine,
       `Questionnaire submitted: ${record.questionnaireSnapshot?.trim() ? "yes" : "no"}`,
-      `Gallery link set: ${record.galleryUrl?.trim() ? "yes" : "no"}`,
+      `Gallery link set: ${projectLink(record, "gallery") ? "yes" : "no"}`,
       `Client email on file: ${record.email?.trim() ? "yes" : "no"}`,
       `Package: ${record.package ?? "not set"}`,
       `Recent log notes: ${recentNotes.length ? recentNotes.join(" | ") : "none"}`,

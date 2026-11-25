@@ -10,6 +10,7 @@ import { apiError, defineRoute } from "@/lib/api-route";
 import { listClients } from "@/lib/clients";
 import { generateText, aiEnabled, aiModel, extractJsonObject } from "@/lib/ai/ai";
 import { projectDisplayName } from "@/lib/project-name";
+import { projectLink } from "@/lib/project-links";
 import {
   CLIENT_STATUS_FLOW,
   CLIENT_STATUS_TERMINAL,
@@ -85,7 +86,7 @@ function applySpec(
       if (d == null || d < 0 || d > spec.upcomingDays) return false;
     }
     if (spec.hasGallery != null) {
-      if (!!r.galleryUrl?.trim() !== spec.hasGallery) return false;
+      if (!!projectLink(r, "gallery") !== spec.hasGallery) return false;
     }
     if (spec.missingQuestionnaire != null) {
       if (!r.questionnaireSnapshot?.trim() !== spec.missingQuestionnaire) {

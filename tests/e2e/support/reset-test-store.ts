@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { testStore } from "./test-store";
 
 // Runs once before the suite (globalSetup). With the test store configured, it
 // clears what earlier runs left behind:
@@ -12,10 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 // Specs don't depend on an empty store: each creates the records it asserts on,
 // and the cron spec settles the stored AI model choice itself.
 export default async function resetTestStore() {
-  const url = process.env.TEST_SUPABASE_URL;
-  const key = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return;
-  const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const db = testStore();
+  if (!db) return;
   const anHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const steps = [
     db.from("client_records").delete().ilike("email", "%@example.com").lt("created_at", anHourAgo),

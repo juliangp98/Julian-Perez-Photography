@@ -58,6 +58,9 @@ export type Field = {
   help?: string;
   options?: string[]; // for select / radio / checkbox
   showIf?: ShowIfClause;
+  // About the booking itself (the tier, an add-on, a bundle) rather than the
+  // shoot. A second photographer's read of the answers leaves these out.
+  booking?: boolean;
   // File-field-only options:
   accept?: string; // passed to <input accept="…">, defaults to images + PDFs
   maxFiles?: number; // defaults to 10
@@ -132,6 +135,7 @@ function bookingStatusSection(): Section {
     fields: [
       {
         id: "bookingStatus",
+        booking: true,
         label: "Are you already booked, or still exploring?",
         type: "radio",
         required: true,
@@ -142,6 +146,7 @@ function bookingStatusSection(): Section {
       },
       {
         id: "package",
+        booking: true,
         label: "Which package are you booked into (or interested in)?",
         // The renderer resolves the option list at render time from the
         // packages of the questionnaire's own service (see resolvePackageOptions).
@@ -301,6 +306,7 @@ const weddingQuestionnaire: Questionnaire = {
         },
         {
           id: "essentialsSecondShooter",
+          booking: true,
           label:
             "Are you adding the second-shooter add-on to your Essentials package?",
           type: "radio",
@@ -1232,6 +1238,7 @@ const familyCelebrationsQuestionnaire: Questionnaire = {
         },
         {
           id: "secondShooter",
+          booking: true,
           label:
             "Adding the second-shooter add-on for broader coverage of a large group?",
           type: "radio",
@@ -2632,6 +2639,7 @@ const engagementsCouplesQuestionnaire: Questionnaire = {
       fields: [
         {
           id: "partOfWeddingBooking",
+          booking: true,
           label: "Are you booking this as part of a wedding package?",
           type: "radio",
           options: ["Yes", "No", "Considering"],
@@ -2829,7 +2837,7 @@ const familyPortraitsQuestionnaire: Questionnaire = {
         },
         {
           id: "secondLocation",
-          label: "Second location (Premium only)",
+          label: "Second location",
           type: "textarea",
           showIf: { id: "package", equals: "Premium" },
           help: "Premium covers 1–2 locations. Tell me about the second one if you have one in mind.",
@@ -3199,6 +3207,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
         },
         {
           id: "verticalReelsAddon",
+          booking: true,
           label: "Interested in the vertical reels / BTS clips add-on?",
           type: "radio",
           options: ["Yes", "No", "Maybe"],
@@ -3216,6 +3225,7 @@ const brandCommercialQuestionnaire: Questionnaire = {
         },
         {
           id: "rushGallery",
+          booking: true,
           label: "Interested in the 24-hour rush gallery add-on?",
           type: "radio",
           options: ["Yes", "No", "Maybe"],
@@ -3638,6 +3648,7 @@ const weddingFilmsQuestionnaire: Questionnaire = {
         },
         {
           id: "rawFootageDelivery",
+          booking: true,
           label: "Want raw footage delivery?",
           type: "radio",
           help:
@@ -3760,6 +3771,7 @@ function buildBundleInterestSection(slug: string): Section | null {
     fields: [
       {
         id: "bundleInterest",
+        booking: true,
         label: "Interested in adding any of these?",
         type: "checkbox",
         options,

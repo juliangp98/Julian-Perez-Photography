@@ -1,15 +1,16 @@
 "use client";
 
-// Client-portal document upload: straight to Vercel Blob via a session-gated
-// token (/api/portal/upload), then linked to the record through
-// /api/portal/attach-document, and the page refreshes to list it.
+// Client-portal document upload: the shared UploadButton sends the file to
+// Vercel Blob, then it is linked to the project through
+// /api/portal/attach-document under the chosen kind, and the page refreshes to
+// list it.
 
-import { useRef, useState } from "react";
-import Select from "@/components/ui/fields/Select";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { buttonClass } from "@/components/ui/Button";
+import Select from "@/components/ui/fields/Select";
+import UploadButton from "@/components/ui/UploadButton";
 import FormStatus from "@/components/ui/FormStatus";
-import { DOCUMENT_TYPE_OPTIONS } from "@/lib/labels";
+import { CLIENT_DOCUMENT_TYPES } from "@/lib/labels";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
@@ -19,38 +20,24 @@ export default function PortalDocumentUpload({
   projectId: string;
 }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>("idle");
+  // Opens on "General", the catch-all kind.
   const [kind, setKind] = useState("other");
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setStatus("uploading");
-    try {
-      // Dynamic import keeps the Blob client out of the initial bundle.
-      const { upload } = await import("@vercel/blob/client");
-      const blob = await upload(`portal/${file.name}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/portal/upload",
-      });
-      const res = await fetch("/api/portal/attach-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          url: blob.url,
-          label: file.name,
-          type: kind,
-        }),
-      });
-      if (!res.ok) throw new Error("attach failed");
-      setStatus("done");
-      if (inputRef.current) inputRef.current.value = "";
-      router.refresh();
-    } catch {
-      setStatus("error");
-    }
+  async function attach(file: { url: string; name: string }) {
+    const res = await fetch("/api/portal/attach-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId,
+        url: file.url,
+        label: file.name,
+        type: kind,
+      }),
+    });
+    if (!res.ok) throw new Error("attach failed");
+    setStatus("done");
+    router.refresh();
   }
 
   return (
@@ -62,27 +49,19 @@ export default function PortalDocumentUpload({
         disabled={status === "uploading"}
         aria-label="Document type"
       >
-        {DOCUMENT_TYPE_OPTIONS.map((o) => (
+        {CLIENT_DOCUMENT_TYPES.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
       </Select>
-      <label
-        htmlFor="portal-doc"
-        className={`${buttonClass("secondary", "md")} cursor-pointer`}
+      <UploadButton
+        onStart={() => setStatus("uploading")}
+        onUploaded={attach}
+        onError={() => setStatus("error")}
       >
-        {status === "uploading" ? "Uploading…" : "Upload a document"}
-      </label>
-      <input
-        id="portal-doc"
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-        onChange={onFile}
-        disabled={status === "uploading"}
-        className="hidden"
-      />
+        Upload a document
+      </UploadButton>
       <FormStatus
         state={status === "done" ? "ok" : status}
         ok="Uploaded!"

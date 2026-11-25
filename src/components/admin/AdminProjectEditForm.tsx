@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
+import { PAYMENT_METHODS } from "@/lib/labels";
 // Imported directly (not via @/lib/content) so this client component doesn't
 // pull the server-only content layer into the browser bundle.
 import { services } from "@/lib/services-data";
@@ -21,7 +22,7 @@ import AdminLocationsEditor, {
 } from "@/components/admin/AdminLocationsEditor";
 import Button from "@/components/ui/Button";
 import FormStatus from "@/components/ui/FormStatus";
-import { formatPhone } from "@/lib/field-format";
+import { formatPhone, isoFromDate } from "@/lib/field-format";
 import { inputClass, labelClass } from "@/components/ui/fields/Field";
 
 // Coerce a stored event date into the `yyyy-MM-dd` a <input type="date"> needs.
@@ -34,9 +35,7 @@ function toDateInput(s?: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return "";
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
+  return isoFromDate(d);
 }
 
 type Initial = {
@@ -53,7 +52,7 @@ type Initial = {
   budget?: string;
   planSummary?: string;
   internalNotes?: string;
-  galleryUrl?: string;
+  paymentMethod?: string;
   locations?: LocationEntry[];
 };
 type Status = "idle" | "saving" | "saved" | "error";
@@ -92,14 +91,21 @@ export default function AdminProjectEditForm({
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
     internalNotes: initial.internalNotes ?? "",
-    galleryUrl: initial.galleryUrl ?? "",
+    paymentMethod: initial.paymentMethod ?? "",
   });
   const [locations, setLocations] = useState<LocationEntry[]>(
     initial.locations ?? [],
   );
   const [status, setStatus] = useState<Status>("idle");
-  const [notifyClient, setNotifyClient] = useState(false);
-  const [notifyError, setNotifyError] = useState("");
+  // The status can move while this form is open (adding a gallery link
+  // delivers the project). The select follows the record's status as soon as
+  // the page hears of a change, and a save sends the status only when the owner
+  // picked a different one here, so it never writes an old one back.
+  const [recordStatus, setRecordStatus] = useState(initial.status);
+  if (initial.status !== recordStatus) {
+    setRecordStatus(initial.status);
+    setV((prev) => ({ ...prev, status: initial.status ?? "new-inquiry" }));
+  }
   const [planStatus, setPlanStatus] = useState<
     "idle" | "drafting" | "drafted" | "error"
   >("idle");
@@ -159,17 +165,16 @@ export default function AdminProjectEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          notifyClient,
           fields: {
             ...v,
+            status:
+              v.status !== (recordStatus ?? "new-inquiry") ? v.status : undefined,
             guestCount: v.guestCount === "" ? undefined : Number(v.guestCount),
             locations: locations.filter((l) => l.label || l.address || l.notes),
           },
         }),
       });
       if (!res.ok) throw new Error("save failed");
-      const json = await res.json().catch(() => ({}));
-      setNotifyError(json.notifyError ?? "");
       setStatus("saved");
       router.refresh();
     } catch {
@@ -285,6 +290,16 @@ export default function AdminProjectEditForm({
           value={v.budget}
           onChange={setStr("budget")}
         />
+        <SelectField
+          id="a-payment"
+          label="How they'll pay"
+          value={v.paymentMethod}
+          onChange={setStr("paymentMethod")}
+          placeholder="Not chosen yet"
+          clearable
+          help="The client sees this in their portal."
+          options={PAYMENT_METHODS.map((m) => ({ value: m.value, label: m.label }))}
+        />
       </div>
 
       <AdminLocationsEditor locations={locations} onChange={setLocations} />
@@ -317,47 +332,16 @@ export default function AdminProjectEditForm({
         <FormStatus state={planStatus} error="Couldn't draft. Try again." className="mt-1 block" />
       </div>
       <div>
-        <label htmlFor="a-gallery" className={labelClass}>
-          Gallery URL{" "}
-          <span className="text-muted font-normal">
-            (Pic-Time link, shown to the client when set)
-          </span>
-        </label>
-        <input
-          id="a-gallery"
-          type="url"
-          value={v.galleryUrl}
-          onChange={set("galleryUrl")}
-          placeholder="https://…"
-          className={inputClass}
-        />
-      </div>
-      <div>
         <label htmlFor="a-notes" className={labelClass}>
           Internal notes <span className="text-muted font-normal">(private, never shown to the client)</span>
         </label>
         <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={inputClass} />
       </div>
-      <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
-        <input
-          type="checkbox"
-          checked={notifyClient}
-          onChange={(e) => setNotifyClient(e.target.checked)}
-        />
-        Email the client about this update
-      </label>
       <div className="flex items-center gap-4">
         <Button type="submit" size="lg" loading={status === "saving"} loadingLabel="Saving…">
           Save changes
         </Button>
-        <FormStatus
-          state={status === "saved" ? (notifyError ? "error" : "ok") : status}
-          error={
-            status === "saved"
-              ? `Saved, but the client email didn't send: ${notifyError}.`
-              : "Couldn't save. Try again."
-          }
-        />
+        <FormStatus state={status === "saved" ? "ok" : status} />
       </div>
     </form>
   );

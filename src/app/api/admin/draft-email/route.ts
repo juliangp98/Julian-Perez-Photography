@@ -1,6 +1,7 @@
 // POST /api/admin/draft-email: owner-only. Drafts a personalized email from a
 // pipeline template and the project's own record; it never sends, and never
-// passes internal notes, budget, or body-supplied PII to the model.
+// passes internal notes, budget, the client's email or phone, or body-supplied
+// PII to the model.
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,7 @@ import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
 import { EMAIL_TEMPLATES, fillTemplate } from "@/lib/email/email-pipeline";
 import { emailTokens } from "@/lib/email/email-tokens";
+import { projectLinks } from "@/lib/project-links";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
 import { pickVoiceSamples, voiceSection } from "@/lib/ai/voice-samples";
@@ -56,7 +58,21 @@ export const POST = defineRoute({
     if (!record) return { ok: true, drafted: false };
 
     // The same tokens the compose panel fills, so links in the draft are real.
-    const ctx = emailTokens(record, originOf(req));
+    // One exception on the way to the model: the questionnaire link is prefilled
+    // with the client's email and phone, so the prompt carries the same form's
+    // address without them, and the real link is put back into the draft.
+    const origin = originOf(req);
+    const filled = await emailTokens(record, origin);
+    const realQuestionnaireUrl = filled.questionnaireUrl;
+    const bareQuestionnaireUrl = projectLinks(record, origin).questionnaireBareUrl;
+    const ctx: Record<string, string | undefined> = {
+      ...filled,
+      questionnaireUrl: bareQuestionnaireUrl,
+    };
+    const withRealLinks = (text: string) =>
+      bareQuestionnaireUrl && realQuestionnaireUrl
+        ? text.replaceAll(bareQuestionnaireUrl, realQuestionnaireUrl)
+        : text;
     const { projectName: name, serviceNoun: noun, eventDate, venue } = ctx;
 
     // Minimal, client-appropriate facts: no internal notes, no budget.
@@ -75,7 +91,15 @@ export const POST = defineRoute({
     if (record.guestCount != null)
       facts.push(`Guest count: ${record.guestCount}`);
     if (record.planSummary) facts.push(`Plan summary: ${record.planSummary}`);
+    // The links Julian has added to the project, so a draft can point at the
+    // real proposal, contract, invoice, highlights or gallery.
+    if (ctx.proposalUrl) facts.push(`Proposal link: ${ctx.proposalUrl}`);
+    if (ctx.contractUrl) facts.push(`Contract link: ${ctx.contractUrl}`);
+    if (ctx.invoiceUrl) facts.push(`Invoice link: ${ctx.invoiceUrl}`);
+    if (ctx.highlightsUrl) facts.push(`Highlights link: ${ctx.highlightsUrl}`);
     if (ctx.galleryUrl) facts.push(`Gallery link: ${ctx.galleryUrl}`);
+    if (ctx.paymentInstructions)
+      facts.push(`How this client is paying: ${ctx.paymentInstructions}`);
     facts.push(`Client portal link: ${ctx.portalUrl}`);
     if (ctx.questionnaireUrl)
       facts.push(`Planning questionnaire link: ${ctx.questionnaireUrl}`);
@@ -116,6 +140,11 @@ export const POST = defineRoute({
     if (!raw) return { ok: true, drafted: false };
 
     const draft = parseDraft(raw, fillTemplate(template.subject, ctx));
-    return { ok: true, drafted: true, ...draft };
+    return {
+      ok: true,
+      drafted: true,
+      subject: withRealLinks(draft.subject),
+      body: withRealLinks(draft.body),
+    };
   },
 });

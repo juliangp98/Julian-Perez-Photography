@@ -25,7 +25,6 @@ export default function AdminQuickLog({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notifyClient, setNotifyClient] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const statusChanged = !!status && status !== (currentStatus ?? "");
@@ -43,19 +42,13 @@ export default function AdminQuickLog({
           projectId,
           status: statusChanged ? status : undefined,
           note: note.trim() || undefined,
-          notifyClient: notifyClient || undefined,
         }),
       });
       if (!res.ok) throw new Error();
-      const json = await res.json().catch(() => ({}));
       setNote("");
       router.refresh();
-      // Stay open to say so when the client email didn't go out.
-      if (json.notifyError) setError(`Saved, but the client email didn't send: ${json.notifyError}.`);
-      else {
-        setSaved(true);
-        setOpen(false);
-      }
+      setSaved(true);
+      setOpen(false);
     } catch {
       setError("Couldn't save. Try again.");
     } finally {
@@ -102,14 +95,6 @@ export default function AdminQuickLog({
         placeholder="Add a note…"
         className={`w-full ${compactInputClass}`}
       />
-      <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
-        <input
-          type="checkbox"
-          checked={notifyClient}
-          onChange={(e) => setNotifyClient(e.target.checked)}
-        />
-        Email the client
-      </label>
       <div className="flex items-center gap-2">
         <Button size="sm" disabled={!canSave} loading={busy} loadingLabel="Saving…" onClick={save}>
           Save
