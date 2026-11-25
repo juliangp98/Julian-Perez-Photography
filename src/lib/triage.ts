@@ -31,12 +31,17 @@ export function triageVerdict(t: Pick<InquiryTriage, "fit" | "urgency">): string
   return `${TRIAGE_FIT_LABEL[t.fit]}, ${TRIAGE_URGENCY_LABEL[t.urgency].toLowerCase()}`;
 }
 
-// The project page with Compose open on the inquiry-reply template, steered by
-// the assessment when there is one. Triage writes no reply itself; the compose
-// panel is the one place client email is drafted. `projectPath` is "" for a
-// link on the project page itself, or an absolute project URL for an email.
-export function draftReplyHref(triage: InquiryTriage | null, projectPath = ""): string {
-  const query = new URLSearchParams({ compose: "inquiry-reply" });
-  if (triage) query.set("steer", [triage.summary, ...triage.keyDetails].join(" ").slice(0, 600));
-  return `${projectPath}?${query}#compose`;
+// The project page with Compose open on the inquiry-reply template. The page
+// steers the draft with the assessment saved on the project (triageSteer), so
+// no client detail rides in the address. Triage writes no reply itself; the
+// compose panel is the one place client email is drafted. `projectPath` is ""
+// for a link on the project page itself, or an absolute project URL for an
+// email.
+export function draftReplyHref(projectPath = ""): string {
+  return `${projectPath}?compose=inquiry-reply#compose`;
+}
+
+// The steer an assessment gives the AI draft of the reply.
+export function triageSteer(triage: InquiryTriage): string {
+  return [triage.summary, ...triage.keyDetails].join(" ").slice(0, 600);
 }

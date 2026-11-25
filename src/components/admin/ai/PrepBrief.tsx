@@ -1,18 +1,16 @@
 "use client";
 
-// Builds a shoot-prep brief from the project's submitted questionnaire
-// (/api/admin/prep-brief): a headline and sections of bullets, copyable as text.
+// The shoot brief built from the project's submitted questionnaire: a headline
+// and sections of bullets, copyable as text. Shows the one saved on the
+// project, and builds it (again) through /api/admin/ai, kind "shoot-brief".
 
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
 import CopyButton from "@/components/ui/CopyButton";
 import FormStatus from "@/components/ui/FormStatus";
+import type { SavedAiResult, ShootBrief as Brief } from "@/lib/ai-results";
+import { formatHumanDate, STUDIO_TIME_ZONE } from "@/lib/field-format";
 import { useAiAction } from "./useAiAction";
-
-type Brief = {
-  headline: string;
-  sections: { heading: string; bullets: string[] }[];
-};
 
 function briefToText(brief: Brief): string {
   const parts: string[] = [];
@@ -23,25 +21,38 @@ function briefToText(brief: Brief): string {
   return parts.join("\n\n");
 }
 
-export default function PrepBrief({ projectId }: { projectId: string }) {
-  const { run, status, result: brief, error } = useAiAction<Brief>(
-    "/api/admin/prep-brief",
-    (json) => (json.generated ? (json.brief as Brief) : null),
+export default function PrepBrief({
+  projectId,
+  saved,
+  canRun = true,
+}: {
+  projectId: string;
+  saved?: SavedAiResult<Brief>;
+  // False when AI isn't set up: the saved brief shows, without the button.
+  canRun?: boolean;
+}) {
+  const { run, status, result, error } = useAiAction<SavedAiResult<Brief>>(
+    "/api/admin/ai",
+    (json) => (json.generated ? (json.saved as SavedAiResult<Brief>) : null),
+    saved ?? null,
   );
+  const brief = result?.result;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="secondary"
-          onClick={() => run({ projectId })}
-          loading={status === "loading"}
-          loadingLabel="Reading the questionnaire…"
-        >
-          {brief ? "Re-generate brief" : "Generate prep brief"}
-        </Button>
+        {canRun && (
+          <Button
+            variant="secondary"
+            onClick={() => run({ projectId, kind: "shoot-brief" })}
+            loading={status === "loading"}
+            loadingLabel="Reading the questionnaire…"
+          >
+            {brief ? "Re-generate brief" : "Generate prep brief"}
+          </Button>
+        )}
         {brief && <CopyButton text={briefToText(brief)} label="Copy brief" />}
-        <FormStatus state={status} error={error} />
+        <FormStatus state={status === "done" ? "ok" : status} ok="Brief ready." error={error} />
       </div>
 
       {brief && (
@@ -62,8 +73,9 @@ export default function PrepBrief({ projectId }: { projectId: string }) {
             </div>
           ))}
           <p className="text-xs text-muted">
-            AI-generated from the questionnaire. Skim it before the shoot and
-            confirm anything marked to check.
+            AI-generated from the questionnaire
+            {result ? ` on ${formatHumanDate(result.at, { timeZone: STUDIO_TIME_ZONE })}` : ""}.
+            Skim it before the shoot and confirm anything marked to check.
           </p>
         </Panel>
       )}

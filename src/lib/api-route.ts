@@ -27,7 +27,7 @@ export function apiError(status: number, error: string): NextResponse {
 }
 
 export function defineRoute<S extends z.ZodType, A extends Auth>(opts: {
-  // Sentry tag and rate-limit bucket, e.g. "admin/triage".
+  // Sentry tag and rate-limit bucket, e.g. "admin/ai".
   route: string;
   auth: A;
   schema: S;

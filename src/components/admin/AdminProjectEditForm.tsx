@@ -124,14 +124,14 @@ export default function AdminProjectEditForm({
     }
     setPlanStatus("drafting");
     try {
-      const res = await fetch("/api/admin/draft-plan", {
+      const res = await fetch("/api/admin/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: id }),
+        body: JSON.stringify({ projectId: id, kind: "plan-summary" }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (data.drafted && typeof data.summary === "string") {
+      if (data.generated && typeof data.summary === "string") {
         setV((prev) => ({ ...prev, planSummary: data.summary }));
         setPlanStatus("drafted");
       } else {

@@ -5,7 +5,9 @@
 //
 // Without GROQ_API_KEY every call returns null and AI features fall back to
 // their static versions. Which model answers is decided in ./models.ts; a
-// retired model falls through to the fallback, then to a fresh pick.
+// retired model falls through to the fallback, then to a fresh pick, and a
+// model that's still rate-limiting after the retries hands the call to the
+// fallback (another family, with its own limits on Groq's free tier).
 
 import { TransientError, withRetry } from "@/lib/retry";
 import { currentModels, knownModels, refreshModels } from "./models";
@@ -62,6 +64,12 @@ class ModelGone extends Error {
   name = "ModelGone";
 }
 
+// A 429. Retried like any transient failure; one that outlasts the retries
+// moves the call to the next model.
+class RateLimited extends TransientError {
+  name = "RateLimited";
+}
+
 async function callModel(
   model: string,
   messages: Message[],
@@ -91,7 +99,8 @@ async function callModel(
         throw new ModelGone(`${model}: ${detail}`);
       }
       const message = `AI provider ${res.status}: ${detail}`;
-      if (res.status === 429 || res.status >= 500) throw new TransientError(message);
+      if (res.status === 429) throw new RateLimited(`${model}: ${message}`);
+      if (res.status >= 500) throw new TransientError(message);
       throw new Error(message);
     }
     const json = (await res.json().catch(() => null)) as {
@@ -102,7 +111,9 @@ async function callModel(
   });
 }
 
-// Tries the chosen models in order; when all are gone, picks fresh ones once.
+// Tries the chosen models in order: on to the next when one is gone or still
+// rate-limited. When all are gone, picks fresh ones once; when the last one
+// left is rate-limited too, that error stands.
 async function complete(
   role: "text" | "vision",
   messages: Message[],
@@ -116,14 +127,18 @@ async function complete(
   };
   for (const fresh of [false, true]) {
     let gone: unknown;
+    let limited: unknown;
     for (const model of await pick(fresh)) {
       try {
         return await callModel(model, messages, maxTokens, temperature);
       } catch (err) {
-        if (!(err instanceof ModelGone)) throw err;
-        gone = err;
+        if (err instanceof RateLimited) limited = err;
+        else if (err instanceof ModelGone) gone = err;
+        else throw err;
       }
     }
+    // A model that's only busy isn't a reason to re-choose the models.
+    if (limited) throw limited;
     if (fresh) throw gone ?? new Error("No AI model is available");
   }
   return null;

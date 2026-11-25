@@ -90,4 +90,37 @@ test.describe("the daily run against the test store", () => {
       .map((c) => c.body?.model);
     expect(tried).toEqual(["openai/gpt-oss-120b", "qwen/qwen3-32b"]);
   });
+
+  test("a request the main model keeps rate-limiting is answered by the fallback, models unchanged", async ({
+    adminRequest,
+    request,
+    fakes,
+  }) => {
+    await runCron(request); // main openai/gpt-oss-120b, fallback qwen/qwen3-32b
+    const probes = (await fakes.calls("ai")).length;
+    await fakes.script({ rateLimited: ["openai/gpt-oss-120b"] });
+    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).drafted).toBe(true);
+
+    // Three tries on the main model (the call and two retries), then the fallback.
+    const tried = (await fakes.calls("ai"))
+      .slice(probes)
+      .filter((c) => c.path === "/chat/completions")
+      .map((c) => c.body?.model);
+    expect(tried).toEqual(["openai/gpt-oss-120b", "openai/gpt-oss-120b", "openai/gpt-oss-120b", "qwen/qwen3-32b"]);
+    // A busy model is no reason to re-choose: the catalogue wasn't asked again.
+    expect((await fakes.calls("ai")).slice(probes).filter((c) => c.path === "/models")).toEqual([]);
+  });
+
+  test("when every model is rate-limited the request says so rather than re-choosing", async ({
+    adminRequest,
+    request,
+    fakes,
+  }) => {
+    await runCron(request);
+    await fakes.script({ rateLimited: ["openai/gpt-oss-120b", "qwen/qwen3-32b"] });
+    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    expect(res.status()).toBe(502);
+  });
 });

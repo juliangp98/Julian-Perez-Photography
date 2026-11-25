@@ -34,6 +34,7 @@ type Fakes = {
     replies?: string[];
     models?: unknown[];
     retired?: string[];
+    rateLimited?: string[];
     emailFailures?: number;
   }): Promise<void>;
   inbound(email: Record<string, unknown>): Promise<void>;

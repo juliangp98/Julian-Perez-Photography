@@ -25,7 +25,8 @@ function fresh() {
     inbound: new Map(),
     idempotency: new Map(),
     // emailFailures: how many upcoming sends answer 503 (to exercise retries).
-    script: { replies: [], models: null, retired: [], emailFailures: 0 },
+    // rateLimited: models that answer 429, as a busy model on Groq does.
+    script: { replies: [], models: null, retired: [], rateLimited: [], emailFailures: 0 },
   };
 }
 let state = fresh();
@@ -64,6 +65,9 @@ const routes = [
   ["POST", /^\/chat\/completions$/, "ai", (body) => {
     if (state.script.retired.includes(body?.model)) {
       return [404, { error: { message: `The model \`${body.model}\` has been decommissioned.`, type: "invalid_request_error", code: "model_decommissioned" } }];
+    }
+    if (state.script.rateLimited.includes(body?.model)) {
+      return [429, { error: { message: `Rate limit reached for model \`${body.model}\`.`, type: "tokens", code: "rate_limit_exceeded" } }];
     }
     const content = state.script.replies.length ? state.script.replies.shift() : DEFAULT_REPLY;
     return [200, {

@@ -18,10 +18,7 @@ import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildVoiceSystemPrompt } from "@/lib/ai/ai-voice";
 import { pickVoiceSamples, voiceSection } from "@/lib/ai/voice-samples";
 import { listOwnerWriting } from "@/lib/messages";
-import {
-  CLIENT_STATUS_CLIENT_LABEL,
-  type ClientStatus,
-} from "@/lib/client-status";
+import { projectFacts } from "@/lib/ai/project-context";
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -84,27 +81,12 @@ export const POST = defineRoute({
       bareQuestionnaireUrl && realQuestionnaireUrl
         ? text.replaceAll(bareQuestionnaireUrl, realQuestionnaireUrl)
         : text;
-    const { projectName: name, serviceNoun: noun, eventDate, venue } = ctx;
-
-    // Minimal, client-appropriate facts: no internal notes, no budget.
-    const facts: string[] = [];
-    if (record.clientName) facts.push(`Client name: ${record.clientName}`);
-    if (record.partnerName) facts.push(`Partner: ${record.partnerName}`);
-    facts.push(`Project: ${name}`);
-    if (noun) facts.push(`Service: ${noun}`);
-    if (record.status) {
-      const label = CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus];
-      if (label) facts.push(`Current stage: ${label}`);
-    }
-    if (eventDate) facts.push(`Event date: ${eventDate}`);
-    if (venue) facts.push(`Venue / location: ${venue}`);
-    if (record.package) facts.push(`Package: ${record.package}`);
+    // The project at the client tier (projectFacts): nothing private, since
+    // the draft is written to the client.
+    const facts = projectFacts(record, "client");
     if (ctx.packagePrice) facts.push(`Package price: ${ctx.packagePrice}`);
     if (ctx.packageInclusions)
       facts.push(`What the package includes:\n${ctx.packageInclusions}`);
-    if (record.guestCount != null)
-      facts.push(`Guest count: ${record.guestCount}`);
-    if (record.planSummary) facts.push(`Plan summary: ${record.planSummary}`);
     // The links Julian has added to the project, so a draft can point at the
     // real proposal, contract, invoice, highlights or gallery.
     if (ctx.proposalUrl) facts.push(`Proposal link: ${ctx.proposalUrl}`);

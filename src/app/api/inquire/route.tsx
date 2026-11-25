@@ -19,7 +19,7 @@ import { sendEmail } from "@/lib/email/send";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
-import { upsertClientFromInquiry } from "@/lib/clients";
+import { saveAiResult, upsertClientFromInquiry } from "@/lib/clients";
 import { assessInquiry, shouldAlertOwner } from "@/lib/ai/assess-inquiry";
 import { draftReplyHref, triageVerdict, type InquiryTriage } from "@/lib/triage";
 
@@ -123,8 +123,20 @@ export const POST = defineRoute({
     }
 
     const triage = await triagePromise;
+    // Saved on the project, so its page shows the assessment without asking
+    // again and the draft link needs nothing but the project.
+    if (projectId && triage) {
+      try {
+        await saveAiResult(projectId, "triage", { result: triage, at: new Date().toISOString() });
+      } catch (err) {
+        Sentry.captureException(err, {
+          tags: { route: "inquire", stage: "save-triage" },
+          level: "warning",
+        });
+      }
+    }
     const draftReplyUrl = projectId
-      ? draftReplyHref(triage, `${originOf(req)}/admin/projects/${projectId}`)
+      ? draftReplyHref(`${originOf(req)}/admin/projects/${projectId}`)
       : undefined;
 
     // Include the event date in the subject when supplied — makes triage

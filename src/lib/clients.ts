@@ -30,6 +30,7 @@ import {
 } from "@/lib/client-status";
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
+import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
 
 const TABLE = "client_records";
 
@@ -182,7 +183,13 @@ const followUpGroup: ColumnGroup = {
   select: ", followUpAt:follow_up_at, followUpNote:follow_up_note",
   match: /follow_up/,
 };
-const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup];
+// What the AI tools saved: read for one project's page only.
+const aiGroup: ColumnGroup = {
+  present: true,
+  select: ", aiResults:ai_results",
+  match: /ai_results/,
+};
+const COLUMN_GROUPS = [optionalGroup, termsGroup, collaboratorGroup, followUpGroup, aiGroup];
 const cols = (group: ColumnGroup) => (group.present ? group.select : "");
 
 type DbResult = { data: unknown; error: { code?: string; message?: string } | null };
@@ -199,6 +206,10 @@ function safeSelect(): string {
 }
 function fullSelect(): string {
   return safeSelect() + FULL_SELECT_EXTRA + cols(collaboratorGroup) + cols(followUpGroup);
+}
+// One project's full read, with what the AI tools saved.
+function detailSelect(): string {
+  return fullSelect() + cols(aiGroup);
 }
 // The single-project owner read — the safe projection plus the questionnaire
 // snapshot, so a signed-in client can review (and resubmit) their own answers.
@@ -996,6 +1007,8 @@ export type ClientRecordFull = ClientRecordSafe & {
   // The owner's next follow-up: a calendar day and what it's for.
   followUpAt?: string;
   followUpNote?: string;
+  // What the AI tools saved (getClientFull only).
+  aiResults?: AiResults;
   source?: string;
   questionnaireSnapshot?: string;
   inquiryMessage?: string;
@@ -1020,7 +1033,7 @@ export async function getClientFull(
   id: string,
 ): Promise<ClientRecordFull | null> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
-  const { data, error } = await readWithOptionalColumns(fullSelect, (sel) =>
+  const { data, error } = await readWithOptionalColumns(detailSelect, (sel) =>
     db().from(TABLE).select(sel).eq("id", id).maybeSingle(),
   );
   if (error) throw error;
@@ -1222,5 +1235,21 @@ export async function clearBundleAdmin(projectId: string): Promise<void> {
 export async function deleteClient(id: string): Promise<void> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return;
   const { error } = await db().from(TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Save what an AI tool worked out for a project, one kind at a time (see
+// save_ai_result in supabase/schema.sql).
+export async function saveAiResult<K extends SavedAiKind>(
+  id: string,
+  kind: K,
+  saved: NonNullable<AiResults[K]> extends SavedAiResult<infer T> ? SavedAiResult<T> : never,
+): Promise<void> {
+  if (!isClientsStoreConfigured() || !isRecordId(id)) return;
+  const { error } = await db().rpc("save_ai_result", {
+    p_id: id,
+    p_kind: kind,
+    p_result: saved,
+  });
   if (error) throw error;
 }
