@@ -30,6 +30,7 @@ export default function InquiryTriage({
   saved,
   stale = false,
   canRun = true,
+  draftLink = true,
 }: {
   projectId: string;
   saved?: SavedAiResult<Triage>;
@@ -37,6 +38,8 @@ export default function InquiryTriage({
   stale?: boolean;
   // False when AI isn't set up: the saved assessment shows, without the button.
   canRun?: boolean;
+  // False where Compose is already open on the reply, beside it.
+  draftLink?: boolean;
 }) {
   const { run, status, result, error } = useAiAction<SavedAiResult<Triage>>(
     "/api/admin/ai",
@@ -76,7 +79,8 @@ export default function InquiryTriage({
           {outOfDate && (
             <p className="text-sm text-danger">
               The inquiry has changed since this assessment, so the reply
-              isn&rsquo;t steered by it. Assess it again to bring it up to date.
+              isn&rsquo;t steered by it.
+              {canRun && " Assess it again to bring it up to date."}
             </p>
           )}
 
@@ -102,12 +106,14 @@ export default function InquiryTriage({
             </div>
           )}
 
-          <ComposeLink
-            href={draftReplyHref("", result.at)}
-            className="inline-block text-sm underline underline-offset-4 hover:text-accent"
-          >
-            Draft a reply from this
-          </ComposeLink>
+          {draftLink && (
+            <ComposeLink
+              href={draftReplyHref("", result.at)}
+              className="inline-block text-sm underline underline-offset-4 hover:text-accent"
+            >
+              Draft a reply from this
+            </ComposeLink>
+          )}
         </Panel>
       )}
     </div>

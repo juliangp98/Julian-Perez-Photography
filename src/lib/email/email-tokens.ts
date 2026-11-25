@@ -1,6 +1,6 @@
 import { eventMonthYear, formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
-import { projectLink, projectLinks } from "@/lib/project-links";
+import { openInvoice, projectLinks } from "@/lib/project-links";
 import { paymentMethodLabel, type PaymentMethod } from "@/lib/labels";
 import { getAnyService, getSiteSettings } from "@/lib/content";
 import { heldUntil } from "@/lib/email/send-effects";
@@ -42,7 +42,7 @@ export async function emailTokens(
     proposalUrl: links.proposalUrl,
     contractUrl: links.contractUrl,
     invoiceUrl: links.invoiceUrl,
-    invoiceDueDate: formatHumanDate(projectLink(record, "invoice")?.dueAt) || undefined,
+    invoiceDueDate: formatHumanDate(openInvoice(record)?.dueAt) || undefined,
     highlightsUrl: links.highlightsUrl,
     galleryUrl: links.galleryUrl,
     timelineUrl: links.timelineUrl,

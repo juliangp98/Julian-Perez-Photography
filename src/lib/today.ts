@@ -94,13 +94,16 @@ function rowsFor(
   }
   if (closed) return rows;
 
-  // The client wrote last, and hasn't had an answer.
+  // The client wrote last, and hasn't had an answer. A new inquiry's answer
+  // is the inquiry reply; later on, Compose opens on no template, as the
+  // project page's next step does.
   const replied = !!p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt);
   if (replied) {
     const day = dayOf(p.lastInAt);
+    const lead = !p.status || p.status === "new-inquiry";
     add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
-      href: compose("inquiry-reply"),
+      href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,
     });
   }
 

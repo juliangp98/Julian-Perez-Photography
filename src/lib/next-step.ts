@@ -6,6 +6,7 @@
 import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
+import { openInvoice } from "./project-links";
 import { hiddenByMark, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
 
@@ -66,28 +67,33 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
   ),
 }));
 
-// The templates already sent on a project: each outgoing email that went out
-// records the template it started from. An email sent before that was
-// recorded counts when its subject still reads as a template's, or when the
-// activity log notes the send ("<template name> sent", written when it moved
-// the project), so a step done before then isn't offered again.
+// The templates already sent on a project, from its outgoing emails: each
+// records the template it started from, and counts once it went out (a
+// bounced or failed one doesn't). An email sent before that was recorded
+// counts when its subject still reads as a template's, or when the activity
+// log notes the send ("<template name> sent", written when it moved the
+// project) and no recorded email carries that template, so a step done before
+// then isn't offered again.
 export function sentTemplates(
-  messages: { direction: string; template?: string; subject?: string }[],
+  messages: { direction: string; template?: string; subject?: string; wentOut: boolean }[],
   history: { note?: string }[] = [],
 ): Set<string> {
   const sent = new Set<string>();
+  const recorded = new Set<string>();
   for (const m of messages) {
     if (m.direction !== "out") continue;
     if (m.template) {
-      sent.add(m.template);
+      recorded.add(m.template);
+      if (m.wentOut) sent.add(m.template);
       continue;
     }
+    if (!m.wentOut) continue;
     const subject = m.subject?.trim() ?? "";
     for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) sent.add(t.id);
   }
   for (const h of history) {
     const t = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
-    if (t) sent.add(t.id);
+    if (t && !recorded.has(t.id)) sent.add(t.id);
   }
   return sent;
 }
@@ -106,16 +112,16 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
   const has = (type: string) => docs.some((d) => d.type === type && d.uploadedBy !== "client");
   const invoices = docs.filter((d) => d.type === "invoice" && d.uploadedBy !== "client");
   const unpaid = invoices.filter((d) => !d.paidAt);
-  // The unpaid invoice due first, and how it stands.
-  const nextDue = unpaid
-    .filter((d) => d.dueAt && DAY.test(d.dueAt))
-    .sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""))[0];
-  const dueLine = nextDue?.dueAt
-    ? nextDue.dueAt < today
-      ? `It was due ${formatHumanDate(nextDue.dueAt)}.`
-      : `It's due ${nextDue.dueAt === today ? "today" : formatHumanDate(nextDue.dueAt)}.`
-    : undefined;
-  const overdue = !!nextDue?.dueAt && nextDue.dueAt < today;
+  // The invoice the client pays next (the one a reminder names), and how it
+  // stands.
+  const nextDue = openInvoice(p);
+  const dueLine =
+    nextDue?.dueAt && DAY.test(nextDue.dueAt)
+      ? nextDue.dueAt < today
+        ? `It was due ${formatHumanDate(nextDue.dueAt)}.`
+        : `It's due ${nextDue.dueAt === today ? "today" : formatHumanDate(nextDue.dueAt)}.`
+      : undefined;
+  const overdue = !!nextDue?.dueAt && DAY.test(nextDue.dueAt) && nextDue.dueAt < today;
 
   if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) {
     if (status === "lost") {
@@ -160,7 +166,13 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
   const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
-  switch (status) {
+  // A new inquiry that has had an answer (one written without the inquiry
+  // reply, or marked handled on Today) is past replying to.
+  const answered =
+    (!status || status === "new-inquiry") &&
+    (!!p.lastOutAt || hiddenByMark(p.todayDismissed?.inquiry, today));
+
+  switch (answered ? "responded" : status) {
     case undefined:
     case "new-inquiry":
       return {
@@ -260,6 +272,14 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           action: { label: "Write the welcome", href: compose("booking-welcome") },
         };
       }
+      // Set to Booked by hand: the email with the signing and payment links
+      // hasn't gone yet.
+      if (!sent.has("contract-deposit")) {
+        return {
+          title: "Send the contract and retainer",
+          action: { label: "Write the email", href: compose("contract-deposit") },
+        };
+      }
       if (overdue) {
         return {
           title: "The retainer is overdue",
@@ -274,6 +294,13 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
       };
 
     case "contract-signed": {
+      // Set to Contract signed by hand: the welcome hasn't gone yet.
+      if (!sent.has("booking-welcome")) {
+        return {
+          title: "Send the booking welcome",
+          action: { label: "Write the welcome", href: compose("booking-welcome") },
+        };
+      }
       if (shoot && daysBetween(today, shoot) > PLANNING_WINDOW_DAYS) {
         const start = formatHumanDate(shiftDay(shoot, { days: -PLANNING_WINDOW_DAYS }));
         return {

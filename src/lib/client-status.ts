@@ -172,8 +172,9 @@ export function clientMilestoneIndex(status: string | undefined): number {
 
 // ── Stages ──
 //
-// The path every project follows, one list for both sides: each stage covers
-// the statuses listed. The call and the proposal are passed over when a
+// The path every project follows, as the admin project page tracks it: each
+// stage covers the statuses listed. (The client portal still shows the six
+// milestones above.) The call and the proposal are passed over when a
 // project moved on without them (a small session booked straight away), so a
 // tracker never shows a step nobody took.
 export type StageKey =

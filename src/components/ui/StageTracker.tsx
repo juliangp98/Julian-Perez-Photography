@@ -2,9 +2,9 @@ import { stagesFor, type StageProject } from "@/lib/client-status";
 
 // Where a project is on its path, as a row of steps: the ones done filled in,
 // the current one marked, the rest still to come. A step the project passed
-// over isn't shown. Server-safe; one tracker for every page that shows a
-// project's stage. Below the large breakpoint only the step line is visible
-// and the step names are read out to screen readers.
+// over isn't shown. Server-safe; the admin project page's header draws it.
+// Below the large breakpoint only the step line is visible and the step names
+// are read out to screen readers.
 export default function StageTracker({ project }: { project: StageProject }) {
   const { stages, step, closed } = stagesFor(project);
   const current = stages[step - 1];

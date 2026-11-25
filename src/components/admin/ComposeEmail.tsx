@@ -89,15 +89,16 @@ export default function ComposeEmail({
   aiEnabled = false,
   initialTemplateId,
   initialSteer,
-  draftKey,
+  handoff,
 }: {
   // Opens on this template (and AI steer), as linked from triage or the
   // project's next step.
   initialTemplateId?: string;
   initialSteer?: string;
-  // Names this opening of the panel (the project and the hand-off), under
-  // which what's typed and not sent is kept while the browser tab is open.
-  draftKey: string;
+  // The hand-off this opening of the panel came from (the template, link and
+  // assessment in the address, NO_HANDOFF for none). What's typed and not sent
+  // is kept under it while the browser tab is open (compose-draft.ts).
+  handoff: string;
   projectId: string;
   context: Record<string, string | undefined>;
   // What sending each template would do to this project, by template id.
@@ -116,7 +117,7 @@ export default function ComposeEmail({
   };
   const initial = EMAIL_TEMPLATES.find((t) => t.id === initialTemplateId);
   // An email left unsent here earlier comes back as it was.
-  const [kept] = useState(() => composeDraft.get(draftKey));
+  const [{ handoff: keepAs, draft: kept }] = useState(() => composeDraft.resume(projectId, handoff));
   const [templateId, setTemplateId] = useState(kept?.templateId ?? initial?.id ?? "");
   const [subject, setSubject] = useState(
     kept?.subject ?? (initial ? fillTemplate(initial.subject, tokensFor(initial)) : ""),
@@ -127,6 +128,10 @@ export default function ComposeEmail({
   const [instructions, setInstructions] = useState(
     kept?.instructions ?? (initial ? (initialSteer ?? "") : ""),
   );
+  // Whether the owner has changed anything since it opened: only then is
+  // there something to keep, and an untouched panel opens afresh from the
+  // project as it is next time.
+  const [touched, setTouched] = useState(!!kept);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [sentNote, setSentNote] = useState("");
@@ -140,12 +145,13 @@ export default function ComposeEmail({
   useEffect(() => {
     if (window.location.hash === "#compose") document.getElementById("compose")?.scrollIntoView();
   }, []);
-  // Keep what's on screen for coming back to; a send clears it.
+  // Keep what's been changed for coming back to; a send clears it.
   useEffect(() => {
-    composeDraft.set(draftKey, { templateId, subject, body, instructions });
-  }, [draftKey, templateId, subject, body, instructions]);
+    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions });
+  }, [touched, projectId, keepAs, templateId, subject, body, instructions]);
 
   function pick(id: string) {
+    setTouched(true);
     setTemplateId(id);
     setStatus("idle");
     newVersion();
@@ -170,6 +176,7 @@ export default function ComposeEmail({
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.drafted) {
+        setTouched(true);
         setSubject(data.subject);
         setBody(data.body);
         newVersion();
@@ -214,7 +221,8 @@ export default function ComposeEmail({
       }
       setSentNote(movedLine(json.moved));
       setNotMovedNote(notMovedLine(json.notMoved));
-      composeDraft.clear(draftKey);
+      composeDraft.clear(projectId);
+      setTouched(false);
       setStatus("sent");
       newVersion();
       router.refresh();
@@ -266,7 +274,10 @@ export default function ComposeEmail({
               </div>
               <input
                 value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
+                onChange={(e) => {
+                  setTouched(true);
+                  setInstructions(e.target.value);
+                }}
                 placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
                 aria-label="Extra instructions for the AI draft"
                 className={input}
@@ -280,6 +291,7 @@ export default function ComposeEmail({
           <input
             value={subject}
             onChange={(e) => {
+              setTouched(true);
               setSubject(e.target.value);
               newVersion();
             }}
@@ -290,6 +302,7 @@ export default function ComposeEmail({
           <textarea
             value={body}
             onChange={(e) => {
+              setTouched(true);
               setBody(e.target.value);
               newVersion();
             }}

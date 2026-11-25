@@ -28,6 +28,22 @@ export function projectLink(
     .at(-1);
 }
 
+// The invoice a client is asked to pay next: of Julian's unpaid invoices, the
+// one due first, or the newest when none has a due day. The next step on the
+// project page and the email tokens read the same one, so a reminder names the
+// invoice the step said was due.
+export function openInvoice<D extends { type?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }>(
+  record: { documents?: D[] },
+): D | undefined {
+  const unpaid = (record.documents ?? []).filter(
+    (d) => d.type === "invoice" && d.uploadedBy !== "client" && !d.paidAt,
+  );
+  const dated = unpaid
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.dueAt ?? ""))
+    .sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""));
+  return dated[0] ?? unpaid.at(-1);
+}
+
 export type ProjectLinks = {
   portalUrl: string;
   // Set when the service has a planning questionnaire. Prefilled with what's
@@ -78,7 +94,7 @@ export function projectLinks(record: ClientRecordSafe, origin: string): ProjectL
       : `${origin}/inquire?${known.toString()}`,
     proposalUrl: projectLink(record, "proposal")?.url,
     contractUrl: projectLink(record, "contract")?.url,
-    invoiceUrl: projectLink(record, "invoice")?.url,
+    invoiceUrl: openInvoice(record)?.url,
     highlightsUrl: projectLink(record, "highlights")?.url,
     galleryUrl: projectLink(record, "gallery")?.url,
     timelineUrl: projectLink(record, "timeline", { fromOwner: true })?.url,

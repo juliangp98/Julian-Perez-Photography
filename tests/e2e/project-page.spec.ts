@@ -86,6 +86,13 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     title: "Reply to the inquiry",
     action: { href: compose("inquiry-reply") },
   });
+  // Answered without the inquiry reply, or marked handled on Today: past replying to.
+  expect(next({ status: "new-inquiry", lastOutAt: "2026-11-24T15:00:00Z" }).title).toBe(
+    "Invite them to a discovery call",
+  );
+  expect(next({ status: "new-inquiry", todayDismissed: { inquiry: "handled" } }).title).toBe(
+    "Invite them to a discovery call",
+  );
 
   // Inviting to the call, holding it, then saving what was said.
   expect(next({ status: "responded" }).action?.href).toBe(compose("discovery-invite"));
@@ -141,14 +148,33 @@ test("next step: one per stage, from the inquiry to the referral", () => {
 
   // Reserving the date: the paperwork, the retainer, then the welcome.
   expect(next({ status: "booked" }).title).toBe("Add the Square contract and invoice");
-  expect(next({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] })).toMatchObject({
+  const deposit = sent("contract-deposit");
+  // Set to Booked by hand, the links added: the email carrying them comes first.
+  expect(next({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action?.href).toBe(
+    compose("contract-deposit"),
+  );
+  expect(
+    next({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }, deposit),
+  ).toMatchObject({
     title: "Waiting on the signed contract and retainer",
     detail: "It's due December 1, 2026. Mark the invoice paid when it comes in.",
   });
-  expect(next({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-11-20" })] })).toMatchObject({
+  expect(
+    next({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-11-20" })] }, deposit),
+  ).toMatchObject({
     title: "The retainer is overdue",
     action: { href: compose("payment-reminder") },
   });
+  // With a balance invoice added too, the retainer is the one named: it's due first.
+  expect(
+    next(
+      {
+        status: "booked",
+        documents: [own("contract"), own("invoice", { dueAt: "2026-11-20" }), own("invoice", { dueAt: "2027-05-01" })],
+      },
+      deposit,
+    ).detail,
+  ).toBe("It was due November 20, 2026.");
   expect(
     next({ status: "booked", documents: [own("contract"), own("invoice", { paidAt: "2026-11-21" })] }).action?.href,
   ).toBe(compose("booking-welcome"));
@@ -164,10 +190,15 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     }).action?.href,
   ).toBe(compose("booking-welcome"));
 
-  // Planning starts within two months of the shoot.
-  expect(next({ status: "contract-signed" }).action?.href).toBe(compose("planning-kickoff"));
-  expect(next({ status: "contract-signed", eventDate: "2027-01-10" }).action?.href).toBe(compose("planning-kickoff"));
-  expect(next({ status: "contract-signed", eventDate: "2027-06-12" })).toEqual({
+  // Set to Contract signed by hand: the welcome first. Then planning starts
+  // within two months of the shoot.
+  expect(next({ status: "contract-signed" }).action?.href).toBe(compose("booking-welcome"));
+  const welcomed = sent("booking-welcome");
+  expect(next({ status: "contract-signed" }, welcomed).action?.href).toBe(compose("planning-kickoff"));
+  expect(next({ status: "contract-signed", eventDate: "2027-01-10" }, welcomed).action?.href).toBe(
+    compose("planning-kickoff"),
+  );
+  expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, welcomed)).toEqual({
     title: "Booked",
     detail: "Planning starts about two months before the shoot, around April 13, 2027. Nothing to send yet.",
   });
@@ -257,16 +288,19 @@ test("next step: a closed project, a missing email, then an unanswered client co
   );
 });
 
-test("sent templates: recorded ones, and older emails by subject or by the activity log", () => {
+test("sent templates: recorded ones that went out, and older emails by subject or by the activity log", () => {
   const sentIds = sentTemplates(
     [
-      { direction: "out", template: "week-of", subject: "Anything" },
+      { direction: "out", template: "week-of", subject: "Anything", wentOut: true },
+      // A recorded send that bounced doesn't count, nor does its activity note.
+      { direction: "out", template: "inquiry-reply", subject: "Your wedding inquiry", wentOut: false },
       // Sent before templates were recorded, with the subject as the template had it.
-      { direction: "out", subject: "Your Smith Wedding gallery is ready" },
-      { direction: "out", subject: "Re: Your wedding inquiry" },
-      { direction: "in", subject: "Would you leave a review?" },
+      { direction: "out", subject: "Your Smith Wedding gallery is ready", wentOut: true },
+      { direction: "out", subject: "Re: Your wedding inquiry", wentOut: true },
+      { direction: "out", subject: "Would you leave a review?", wentOut: false },
+      { direction: "in", subject: "Thanks, you're booked for June 12", wentOut: true },
     ],
-    [{ note: "Booking welcome sent" }, { note: "Updated by admin" }],
+    [{ note: "Booking welcome sent" }, { note: "Inquiry reply sent" }, { note: "Updated by admin" }],
   );
   expect([...sentIds].sort()).toEqual(["booking-welcome", "gallery-delivery", "week-of"]);
 });
@@ -388,6 +422,11 @@ test("status: picking one saves it and moves the tracker; closing asks first and
   await expect(page.getByText("Closed at Call", { exact: true })).toBeVisible();
   await expect(page.getByText("None set.")).toBeVisible();
   await expect(nextStep(page)).toContainText("Closed as lost");
+  expect(await readProject(p.id, "status, follow_up_at, hold_until")).toEqual({
+    status: "lost",
+    follow_up_at: null,
+    hold_until: null,
+  });
 });
 
 test("follow-up: set, moved and cleared from the header, and a stale change is refused", async ({
@@ -493,4 +532,129 @@ test("a template sent from Compose is recorded, and its step clears", async ({ a
 
   await page.reload();
   await expect(nextStep(page)).toContainText("Shoot in 3 days");
+});
+
+test("compose: an unsent email survives a tab change, Write email only brings it into view, and a send starts afresh", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "draft");
+  const tabs = page.getByRole("navigation", { name: "Project" });
+  const body = page.getByLabel("Email body");
+  const template = page.getByRole("combobox", { name: "Email template" });
+
+  await page.goto(`${p.page}?compose=proposal`);
+  await body.fill("Hi,\n\nA draft still being written.\n\nJulian");
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
+
+  // Back on Messages, by the tab or by Write email, the email is as it was left.
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(template).toHaveValue("proposal");
+  await expect(body).toHaveValue(/A draft still being written/);
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await page.getByRole("link", { name: "Write email", exact: true }).click();
+  await expect(body).toHaveValue(/A draft still being written/);
+
+  // With Compose open, Write email only brings it into view.
+  const at = page.url();
+  await page.getByRole("link", { name: "Write email", exact: true }).click();
+  await expect(body).toHaveValue(/A draft still being written/);
+  expect(page.url()).toBe(at);
+
+  // Sent, it's gone: Compose opens afresh.
+  await page.getByRole("button", { name: "Send to client" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(template).toHaveValue("");
+});
+
+test("the inquiry reply opens with what they wrote and its assessment above Compose", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "inquiry");
+  await patchProject(p.id, {
+    inquiry_message: "We're planning a fall wedding at a vineyard.",
+    ai_results: {
+      triage: {
+        result: {
+          summary: "A fall vineyard wedding.",
+          fit: "good",
+          fitReason: "",
+          urgency: "medium",
+          urgencyReason: "",
+          keyDetails: [],
+        },
+        at: new Date().toISOString(),
+      },
+    },
+  });
+
+  await page.goto(p.page);
+  await nextStep(page).getByRole("link", { name: "Draft a reply" }).click();
+  const panel = page.locator("#compose");
+  await expect(panel.getByRole("heading", { name: "Their inquiry" })).toBeVisible();
+  await expect(panel.getByText("We're planning a fall wedding at a vineyard.")).toBeVisible();
+  await expect(panel.getByText("A fall vineyard wedding.")).toBeVisible();
+  // Compose is already open on the reply, so the assessment doesn't offer it again.
+  await expect(panel.getByRole("link", { name: "Draft a reply from this" })).toHaveCount(0);
+  await expect(page.getByLabel("Extra instructions for the AI draft")).toHaveValue(/A fall vineyard wedding/);
+});
+
+test("overview: a checklist toward the shoot, then toward delivery, and a closed project shows where it stopped", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "overview");
+  const doc = (id: string, type: string, more: Record<string, string> = {}) => ({
+    id,
+    type,
+    label: type,
+    url: `https://links.example.com/${id}`,
+    uploadedBy: "julian",
+    ...more,
+  });
+  const item = (label: string) => page.getByRole("listitem").filter({ hasText: label });
+  await patchProject(p.id, {
+    status: "booked",
+    payment_method: "zelle",
+    documents: [doc("c1", "contract"), doc("i1", "invoice", { dueAt: "2027-01-01", paidAt: "2026-11-20" })],
+  });
+
+  await page.goto(p.page);
+  await expect(page.getByRole("heading", { name: "Toward the shoot" })).toBeVisible();
+  await expect(item("Contract added")).toContainText(": done");
+  await expect(item("Retainer paid")).toContainText(": done");
+  await expect(item("How they'll pay")).toContainText("Zelle");
+  await expect(item("Questionnaire back")).toContainText(": not yet");
+  await expect(item("Timeline details sent")).toContainText(": not yet");
+
+  await patchProject(p.id, {
+    status: "delivered",
+    documents: [
+      doc("c1", "contract"),
+      doc("i1", "invoice", { dueAt: "2027-01-01", paidAt: "2026-11-20" }),
+      doc("g1", "gallery"),
+    ],
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Toward delivery" })).toBeVisible();
+  await expect(item("Gallery added")).toContainText(": done");
+  await expect(item("Gallery email sent")).toContainText(": not yet");
+  await expect(item("Invoices paid")).toContainText(": done");
+
+  // Closed after booking: the tracker and the Overview stop at Reserving your date.
+  const history = (await readProject(p.id, "status_history")).status_history as unknown[];
+  await patchProject(p.id, {
+    status: "archived",
+    status_history: [...history, { status: "booked" }, { status: "archived" }],
+  });
+  await page.reload();
+  await expect(page.getByText("Closed at Reserving your date", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Toward the shoot" })).toBeVisible();
 });

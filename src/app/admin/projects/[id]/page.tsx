@@ -117,12 +117,15 @@ export default async function AdminProjectDetailPage({
     : [[], null];
   const filingAddress = replyToken ? logAddress(replyToken) : undefined;
   // The conversation as the board counts it: when each side last wrote, and
-  // the templates that have gone out (a template a failed send started from
+  // the templates that have gone out (one whose email bounced or failed
   // doesn't count).
   const conversation = messages.filter(isConversation);
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
-  const sent = sentTemplates(conversation, record?.statusHistory);
+  const sent = sentTemplates(
+    messages.map((m) => ({ ...m, wentOut: isConversation(m) })),
+    record?.statusHistory,
+  );
   const hasQuestionnaire = !!record?.serviceType && !!getQuestionnaire(record.serviceType);
   const next = record
     ? ownerNextStep(
@@ -152,6 +155,7 @@ export default async function AdminProjectDetailPage({
 
   const page = record ? `/admin/projects/${record.id}` : "";
   // Each hand-off opens Compose afresh; the same address opens the same one.
+  // With none ("||", NO_HANDOFF), it shows the email being written.
   const composeKey = `${compose ?? ""}|${doc ?? ""}|${v ?? ""}`;
   const venue = record?.locations?.[0]?.label || record?.locations?.[0]?.address;
   const facts = record
@@ -276,13 +280,14 @@ export default async function AdminProjectDetailPage({
                         saved={savedTriage}
                         stale={!triageCurrent}
                         canRun={false}
+                        draftLink={false}
                       />
                     )}
                   </Panel>
                 )}
                 <ComposeEmail
                   key={composeKey}
-                  draftKey={`${record.id}|${composeKey}`}
+                  handoff={composeKey}
                   initialTemplateId={compose}
                   initialSteer={
                     compose === "inquiry-reply" && savedTriage && triageCurrent

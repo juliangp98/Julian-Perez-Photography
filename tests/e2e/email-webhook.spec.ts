@@ -97,6 +97,8 @@ test.describe("the thread against the test store", () => {
     expect(forward.body?.reply_to).toBe(p.replyAddress);
     expect(String(forward.body?.text)).toContain("Thursday works.");
     expect(String(forward.body?.text)).not.toContain("> hi");
+    // The alert opens the project's thread, on its Messages tab.
+    expect(String(forward.body?.text)).toContain(`/admin/projects/${p.id}?tab=messages`);
 
     await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     await expect(adminPage.getByRole("list", { name: "Messages" }).getByText("Thursday works.")).toBeVisible();

@@ -31,6 +31,11 @@ test("a client who wrote last shows until answered", () => {
   const rows = one({ status: "proposal-sent", clientName: "Avery Example", lastInAt: "2026-11-23T15:00:00Z", lastOutAt: "2026-11-20T15:00:00Z" });
   expect(rows).toMatchObject([{ rule: "reply", reason: "Avery wrote 2 days ago, not answered yet" }]);
   expect(one({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" })).toEqual([]);
+  // A new inquiry's answer is the inquiry reply; later, Compose opens on no template.
+  expect(rows[0].action.href).toBe("/admin/projects/p?tab=messages#compose");
+  expect(one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z" })[0].action.href).toBe(
+    "/admin/projects/p?compose=inquiry-reply#compose",
+  );
   // An evening message counts on the studio's day it was sent.
   expect(one({ status: "proposal-sent", lastInAt: "2026-11-25T02:30:00Z" })).toMatchObject([
     { rule: "reply", reason: "The client wrote yesterday, not answered yet", due: "2026-11-24" },

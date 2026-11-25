@@ -1,6 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 import { test, expect, hasTestStore } from "./support/fixtures";
-import { patchProject } from "./support/test-store";
+import { patchProject, readProject } from "./support/test-store";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
 
 // Owner-composed pipeline emails (/api/admin/send-email). The owner picks a
@@ -95,6 +95,8 @@ test("send-email: a 'not available' email archives the project and clears its fo
   await expect(page.locator("#project-status")).toHaveValue("archived");
   await expect(page.getByText("None set.")).toBeVisible();
   await expect(page.getByText("No hold running")).toBeVisible();
+  // Cleared in the store, not only hidden while closed.
+  expect(await readProject(p.id, "hold_until, follow_up_at")).toEqual({ hold_until: null, follow_up_at: null });
 });
 
 test("send-email: the contract and retainer tell the client their date is being reserved", async ({
@@ -131,6 +133,8 @@ test("status: closing a project by hand clears its follow-up and hold", async ({
   await expect(page.locator("#project-status")).toHaveValue("lost");
   await expect(page.getByText("None set.")).toBeVisible();
   await expect(page.getByText("No hold running")).toBeVisible();
+  // Cleared in the store, not only hidden while closed.
+  expect(await readProject(p.id, "hold_until, follow_up_at")).toEqual({ hold_until: null, follow_up_at: null });
 });
 
 test("compose: a proposal shows what sending does, names the running hold, and confirms what moved", async ({
