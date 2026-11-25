@@ -41,8 +41,9 @@ export type NextStepProject = {
 export type NextStepContext = {
   // The studio's calendar day.
   today: string;
-  // The templates already sent on this project.
-  sent: ReadonlySet<string>;
+  // The templates already sent on this project, each with the studio day it
+  // last went out ("" when only the activity log tells of it).
+  sent: ReadonlyMap<string, string>;
   // Whether the service has a planning questionnaire.
   questionnaire: boolean;
   // Days from the shoot to the delivered gallery, when the service says.
@@ -67,33 +68,37 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
   ),
 }));
 
-// The templates already sent on a project, from its outgoing emails: each
-// records the template it started from, and counts once it went out (a
-// bounced or failed one doesn't). An email sent before that was recorded
-// counts when its subject still reads as a template's, or when the activity
-// log notes the send ("<template name> sent", written when it moved the
-// project) and no recorded email carries that template, so a step done before
-// then isn't offered again.
+// The templates already sent on a project, from its outgoing emails, with
+// the studio day each last went out. An email records the template it started
+// from, and counts once it went out (a bounced or failed one doesn't). An
+// email sent before that was recorded counts when its subject still reads as
+// a template's, or when the activity log notes the send ("<template name>
+// sent", written when it moved the project) and no recorded email carries
+// that template, so a step done before then isn't offered again.
 export function sentTemplates(
-  messages: { direction: string; template?: string; subject?: string; wentOut: boolean }[],
+  messages: { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean }[],
   history: { note?: string }[] = [],
-): Set<string> {
-  const sent = new Set<string>();
+): Map<string, string> {
+  const sent = new Map<string, string>();
   const recorded = new Set<string>();
+  const mark = (id: string, at?: string) => {
+    const day = at ? studioDayOf(at) : "";
+    if (!sent.has(id) || day > (sent.get(id) ?? "")) sent.set(id, day);
+  };
   for (const m of messages) {
     if (m.direction !== "out") continue;
     if (m.template) {
       recorded.add(m.template);
-      if (m.wentOut) sent.add(m.template);
+      if (m.wentOut) mark(m.template, m.sentAt);
       continue;
     }
     if (!m.wentOut) continue;
     const subject = m.subject?.trim() ?? "";
-    for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) sent.add(t.id);
+    for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) mark(t.id, m.sentAt);
   }
   for (const h of history) {
     const t = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
-    if (t && !recorded.has(t.id)) sent.add(t.id);
+    if (t && !recorded.has(t.id) && !sent.has(t.id)) sent.set(t.id, "");
   }
   return sent;
 }
@@ -150,7 +155,8 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
     (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
     !hiddenByMark(p.todayDismissed?.[replyKey(p.lastInAt)], today)
   ) {
-    const lead = !status || status === "new-inquiry";
+    // Nothing has gone to them yet: the first answer is the inquiry reply.
+    const lead = (!status || status === "new-inquiry") && !p.lastOutAt;
     return {
       title: `Answer ${first}`,
       detail: `${First} wrote ${dayAgo(studioDayOf(p.lastInAt), today)}.`,
@@ -166,11 +172,34 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
   const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
+  // The proposal's link, then the email that carries it: the recap after a
+  // held call, or the proposal without one.
+  const sendProposal = (): NextStep => {
+    if (!has("proposal")) {
+      return {
+        title: "Add the proposal link",
+        detail: callHeld ? "The recap email carries it." : "The proposal email carries it.",
+        action: { label: "Add a link", href: tab("links") },
+      };
+    }
+    return callHeld
+      ? {
+          title: "Send the recap and proposal",
+          action: { label: "Write the recap", href: compose("discovery-recap") },
+        }
+      : {
+          title: "Send the proposal",
+          action: { label: "Write the email", href: compose("proposal") },
+        };
+  };
+
   // A new inquiry that has had an answer (one written without the inquiry
-  // reply, or marked handled on Today) is past replying to.
+  // reply), or that was marked handled on Today (the inquiry, or the client's
+  // message), is past replying to. A snooze only puts it off.
+  const handled = (key: string) => p.todayDismissed?.[key] === "handled";
   const answered =
     (!status || status === "new-inquiry") &&
-    (!!p.lastOutAt || hiddenByMark(p.todayDismissed?.inquiry, today));
+    (!!p.lastOutAt || handled("inquiry") || (!!p.lastInAt && handled(replyKey(p.lastInAt))));
 
   switch (answered ? "responded" : status) {
     case undefined:
@@ -205,37 +234,26 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
     }
 
     case "in-conversation":
-      if (!has("proposal")) {
-        return {
-          title: "Add the proposal link",
-          detail: callHeld ? "The recap email carries it." : "The proposal email carries it.",
-          action: { label: "Add a link", href: tab("links") },
-        };
-      }
-      return callHeld
-        ? {
-            title: "Send the recap and proposal",
-            action: { label: "Write the recap", href: compose("discovery-recap") },
-          }
-        : {
-            title: "Send the proposal",
-            action: { label: "Write the email", href: compose("proposal") },
-          };
+      return sendProposal();
 
-    case "proposal-sent":
+    case "proposal-sent": {
       if (has("contract") && unpaid.length) {
         return {
           title: "Send the contract and retainer",
           action: { label: "Write the email", href: compose("contract-deposit") },
         };
       }
-      // A hold that ran out, until a follow-up is set past it (the follow-up
-      // email sets one).
+      // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
+      if (!sent.has("discovery-recap") && !sent.has("proposal")) return sendProposal();
+      // A hold that ran out, until it's followed up after it ended or marked
+      // handled on Today.
+      const followedUp = (sent.get("proposal-follow-up") ?? "") >= (p.holdUntil ?? "");
       if (
         p.holdUntil &&
         DAY.test(p.holdUntil) &&
         p.holdUntil < today &&
-        !(p.followUpAt && p.followUpAt > p.holdUntil)
+        !followedUp &&
+        !hiddenByMark(p.todayDismissed?.[`hold:${p.holdUntil}`], today)
       ) {
         return {
           title: "The date hold ended",
@@ -254,6 +272,7 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
         detail: "When they say yes, add the Square contract and invoice.",
         action: { label: "Add the contract", href: tab("links") },
       };
+    }
 
     case "booked":
       if (!has("contract") || !invoices.length) {
@@ -399,6 +418,12 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           title: overdue ? "The final invoice is overdue" : "Waiting on the final invoice",
           detail: dueLine,
           action: { label: "Send a reminder", href: compose("payment-reminder") },
+        };
+      }
+      if (sent.has("review-request")) {
+        return {
+          title: "Review asked for",
+          detail: "Set the status to Complete if it hasn't moved.",
         };
       }
       return {

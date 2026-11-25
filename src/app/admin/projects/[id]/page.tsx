@@ -67,15 +67,14 @@ export default async function AdminProjectDetailPage({
   // ?tab= picks the tab (the Overview without one). ?compose=<template id>
   // opens Compose, on the Messages tab, on a template: the assessment, the
   // next step and the links hand off this way. A link's "Tell the client"
-  // adds &doc=<entry id>, and the assessment's "Draft a reply" adds &v=<when
-  // it was made>; both only tell one hand-off from the next. No client detail
-  // rides in the address: the inquiry reply is steered from the saved
-  // assessment.
-  searchParams: Promise<{ compose?: string; doc?: string; v?: string; tab?: string }>;
+  // adds &doc=<entry id>, which only tells one hand-off from the next. No
+  // client detail rides in the address: the inquiry reply is steered from the
+  // saved assessment.
+  searchParams: Promise<{ compose?: string; doc?: string; tab?: string }>;
 }) {
   if (!(await getAdminSession())) redirect("/admin");
   const { id } = await params;
-  const { compose, doc, v, tab: tabParam } = await searchParams;
+  const { compose, doc, tab: tabParam } = await searchParams;
   const tab: TabKey =
     TABS.find((t) => t.key && t.key === tabParam)?.key ?? (compose ? "messages" : "");
   const record = await getClientFull(id);
@@ -155,8 +154,8 @@ export default async function AdminProjectDetailPage({
 
   const page = record ? `/admin/projects/${record.id}` : "";
   // Each hand-off opens Compose afresh; the same address opens the same one.
-  // With none ("||", NO_HANDOFF), it shows the email being written.
-  const composeKey = `${compose ?? ""}|${doc ?? ""}|${v ?? ""}`;
+  // With none ("|", NO_HANDOFF), it shows the email being written.
+  const composeKey = `${compose ?? ""}|${doc ?? ""}`;
   const venue = record?.locations?.[0]?.label || record?.locations?.[0]?.address;
   const facts = record
     ? [

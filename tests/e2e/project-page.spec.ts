@@ -20,7 +20,7 @@ import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-form
 const TODAY = "2026-11-25";
 const ctx = (over: Partial<NextStepContext> = {}): NextStepContext => ({
   today: TODAY,
-  sent: new Set(),
+  sent: new Map(),
   questionnaire: true,
   ...over,
 });
@@ -28,7 +28,9 @@ const next = (p: Partial<NextStepProject>, c = ctx()) =>
   ownerNextStep({ id: "p", email: "client@example.com", clientName: "Avery Example", ...p }, c);
 const compose = (template: string) => `/admin/projects/p?compose=${template}#compose`;
 const tab = (name: string) => `/admin/projects/p?tab=${name}`;
-const sent = (...ids: string[]) => ctx({ sent: new Set(ids) });
+// Templates sent, each "<id>" (on November 1) or "<id>@<day>".
+const sent = (...ids: string[]) =>
+  ctx({ sent: new Map(ids.map((id) => [id.split("@")[0], id.split("@")[1] ?? "2026-11-01"])) });
 const own = (type: string, more: Record<string, string> = {}) => ({ type, uploadedBy: "julian", ...more });
 
 test("stages: ten in all, passing over a call and a proposal the project never had", () => {
@@ -120,12 +122,17 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "in-conversation", documents: proposal }).action?.href).toBe(compose("proposal"));
 
   // Waiting on an answer, with what to do meanwhile.
-  expect(next({ status: "proposal-sent" })).toMatchObject({
+  const proposed = sent("proposal");
+  expect(next({ status: "proposal-sent" }, proposed)).toMatchObject({
     title: "Waiting on Avery's answer",
     action: { href: tab("links") },
   });
-  expect(next({ status: "proposal-sent", followUpAt: TODAY }).action?.href).toBe(compose("proposal-follow-up"));
-  expect(next({ status: "proposal-sent", holdUntil: "2026-11-20" })).toMatchObject({
+  // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
+  expect(next({ status: "proposal-sent", documents: proposal }).action?.href).toBe(compose("proposal"));
+  expect(next({ status: "proposal-sent", followUpAt: TODAY }, proposed).action?.href).toBe(
+    compose("proposal-follow-up"),
+  );
+  expect(next({ status: "proposal-sent", holdUntil: "2026-11-20" }, proposed)).toMatchObject({
     title: "The date hold ended",
     detail: "It ran until November 20, 2026. Follow up, or let the date go.",
   });
@@ -133,8 +140,9 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "proposal-sent", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action
       ?.href,
   ).toBe(compose("contract-deposit"));
-  // A yes after the hold ran out still gets the contract; a follow-up set past
-  // the hold (the follow-up email sets one) means it was followed up.
+  // A yes after the hold ran out still gets the contract. A follow-up sent
+  // after the hold ended, or the Today row marked handled, settles it; the
+  // proposal's own follow-up date doesn't.
   expect(
     next({
       status: "proposal-sent",
@@ -142,9 +150,19 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })],
     }).action?.href,
   ).toBe(compose("contract-deposit"));
-  expect(next({ status: "proposal-sent", holdUntil: "2026-11-20", followUpAt: "2026-11-27" }).title).toBe(
-    "Waiting on Avery's answer",
+  expect(next({ status: "proposal-sent", holdUntil: "2026-11-20", followUpAt: "2026-11-27" }, proposed).title).toBe(
+    "The date hold ended",
   );
+  expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-22")).title,
+  ).toBe("Waiting on Avery's answer");
+  expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-10")).title,
+  ).toBe("The date hold ended");
+  expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20", todayDismissed: { "hold:2026-11-20": "handled" } }, proposed)
+      .title,
+  ).toBe("Waiting on Avery's answer");
 
   // Reserving the date: the paperwork, the retainer, then the welcome.
   expect(next({ status: "booked" }).title).toBe("Add the Square contract and invoice");
@@ -243,6 +261,9 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery")).action?.href).toBe(
     compose("review-request"),
   );
+  expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery", "review-request")).title).toBe(
+    "Review asked for",
+  );
   expect(next({ status: "complete" }).action?.href).toBe(compose("referral-ask"));
   expect(next({ status: "complete" }, sent("referral-ask")).title).toBe("All done");
 });
@@ -254,25 +275,36 @@ test("next step: a closed project, a missing email, then an unanswered client co
     detail: "Avery wrote 2 days ago.",
     action: { label: "Write a reply", href: "/admin/projects/p?tab=messages#compose" },
   });
-  // A new inquiry's answer is the inquiry reply.
-  expect(next({ status: "new-inquiry", ...wrote }).action).toEqual({
+  // A new inquiry's first answer is the inquiry reply; once anything has
+  // gone to them, Compose opens on no template.
+  expect(next({ status: "new-inquiry", lastInAt: wrote.lastInAt }).action).toEqual({
     label: "Draft a reply",
     href: compose("inquiry-reply"),
   });
+  expect(next({ status: "new-inquiry", ...wrote }).action?.href).toBe("/admin/projects/p?tab=messages#compose");
   // A message marked handled, or snoozed past today, on the Today list needs no answer here.
   const key = `reply:${wrote.lastInAt}`;
-  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "handled" } }).title).toBe(
+  const proposed = sent("proposal");
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "handled" } }, proposed).title).toBe(
     "Waiting on Avery's answer",
   );
-  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-28" } }).title).toBe(
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-28" } }, proposed).title).toBe(
     "Waiting on Avery's answer",
   );
-  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-24" } }).title).toBe("Answer Avery");
+  expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-24" } }, proposed).title).toBe(
+    "Answer Avery",
+  );
+  // A new inquiry whose message was marked handled is past replying to; one
+  // only snoozed on Today still wants the reply.
+  expect(
+    next({ status: "new-inquiry", lastInAt: wrote.lastInAt, todayDismissed: { [key]: "handled" } }).title,
+  ).toBe("Invite them to a discovery call");
+  expect(next({ status: "new-inquiry", todayDismissed: { inquiry: "2026-11-28" } }).title).toBe("Reply to the inquiry");
   expect(next({ status: "lost", ...wrote }).title).toBe("Closed as lost");
   expect(next({ status: "booked", email: "", ...wrote }).title).toBe("Add the client's email");
-  expect(next({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" }).title).toBe(
-    "Waiting on Avery's answer",
-  );
+  expect(
+    next({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" }, proposed).title,
+  ).toBe("Waiting on Avery's answer");
   expect(next({ status: "booked", email: "" })).toMatchObject({
     title: "Add the client's email",
     action: { href: tab("details") },
@@ -291,7 +323,7 @@ test("next step: a closed project, a missing email, then an unanswered client co
 test("sent templates: recorded ones that went out, and older emails by subject or by the activity log", () => {
   const sentIds = sentTemplates(
     [
-      { direction: "out", template: "week-of", subject: "Anything", wentOut: true },
+      { direction: "out", template: "week-of", subject: "Anything", sentAt: "2026-11-20T15:00:00Z", wentOut: true },
       // A recorded send that bounced doesn't count, nor does its activity note.
       { direction: "out", template: "inquiry-reply", subject: "Your wedding inquiry", wentOut: false },
       // Sent before templates were recorded, with the subject as the template had it.
@@ -302,7 +334,10 @@ test("sent templates: recorded ones that went out, and older emails by subject o
     ],
     [{ note: "Booking welcome sent" }, { note: "Inquiry reply sent" }, { note: "Updated by admin" }],
   );
-  expect([...sentIds].sort()).toEqual(["booking-welcome", "gallery-delivery", "week-of"]);
+  expect([...sentIds.keys()].sort()).toEqual(["booking-welcome", "gallery-delivery", "week-of"]);
+  // With the studio day each went out, when the email says.
+  expect(sentIds.get("week-of")).toBe("2026-11-20");
+  expect(sentIds.get("booking-welcome")).toBe("");
 });
 
 // A fresh wedding project for one test.
@@ -407,7 +442,13 @@ test("status: picking one saves it and moves the tracker; closing asks first and
   await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
   await expect(page.getByText("Step 2 of 10: Call", { exact: true })).toBeVisible();
   await expect(nextStep(page)).toContainText("Add the proposal link");
-  expect((await readProject(p.id, "status")).status).toBe("in-conversation");
+  const moved = (await readProject(p.id, "status, status_history")) as {
+    status: string;
+    status_history: { status?: string; note?: string; changedAt?: string }[];
+  };
+  expect(moved.status).toBe("in-conversation");
+  expect(moved.status_history.at(-1)).toMatchObject({ status: "in-conversation", note: "Updated by admin" });
+  expect(moved.status_history.at(-1)?.changedAt).toBeTruthy();
 
   // Closing asks; saying no leaves it as it was.
   await patchProject(p.id, { follow_up_at: shiftDay(studioToday(), { days: 5 }), follow_up_note: "Check in" });
@@ -422,6 +463,12 @@ test("status: picking one saves it and moves the tracker; closing asks first and
   await expect(page.getByText("Closed at Call", { exact: true })).toBeVisible();
   await expect(page.getByText("None set.")).toBeVisible();
   await expect(nextStep(page)).toContainText("Closed as lost");
+  // The activity log lists the moves, newest first.
+  await page.goto(`${p.page}?tab=details`);
+  const log = page.getByRole("list", { name: "Activity" }).getByRole("listitem");
+  await expect(log.nth(0)).toContainText("Lost");
+  await expect(log.nth(1)).toContainText("In conversation");
+  await expect(log.nth(1)).toContainText("Updated by admin");
   expect(await readProject(p.id, "status, follow_up_at, hold_until")).toEqual({
     status: "lost",
     follow_up_at: null,
@@ -546,6 +593,15 @@ test("compose: an unsent email survives a tab change, Write email only brings it
 
   await page.goto(`${p.page}?compose=proposal`);
   await body.fill("Hi,\n\nA draft still being written.\n\nJulian");
+
+  // A hand-off to another template opens afresh; Back shows the email again.
+  await nextStep(page).getByRole("link", { name: "Draft a reply" }).click();
+  await expect(template).toHaveValue("inquiry-reply");
+  await expect(body).not.toHaveValue(/A draft still being written/);
+  await page.goBack();
+  await expect(template).toHaveValue("proposal");
+  await expect(body).toHaveValue(/A draft still being written/);
+
   await tabs.getByRole("link", { name: "Overview" }).click();
   await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
 
@@ -554,7 +610,9 @@ test("compose: an unsent email survives a tab change, Write email only brings it
   await expect(template).toHaveValue("proposal");
   await expect(body).toHaveValue(/A draft still being written/);
   await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
   await page.getByRole("link", { name: "Write email", exact: true }).click();
+  await expect(page).toHaveURL(/\?tab=messages#compose$/);
   await expect(body).toHaveValue(/A draft still being written/);
 
   // With Compose open, Write email only brings it into view.
@@ -567,6 +625,7 @@ test("compose: an unsent email survives a tab change, Write email only brings it
   await page.getByRole("button", { name: "Send to client" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
   await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
   await tabs.getByRole("link", { name: "Messages" }).click();
   await expect(template).toHaveValue("");
 });

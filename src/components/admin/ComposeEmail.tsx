@@ -95,8 +95,8 @@ export default function ComposeEmail({
   // project's next step.
   initialTemplateId?: string;
   initialSteer?: string;
-  // The hand-off this opening of the panel came from (the template, link and
-  // assessment in the address, NO_HANDOFF for none). What's typed and not sent
+  // The hand-off this opening of the panel came from (the template and link
+  // in the address, NO_HANDOFF for none). What's typed and not sent
   // is kept under it while the browser tab is open (compose-draft.ts).
   handoff: string;
   projectId: string;
@@ -138,7 +138,7 @@ export default function ComposeEmail({
   const [notMovedNote, setNotMovedNote] = useState("");
   // One key per version of the message: a retry or double click of the same
   // text sends once, and any edit makes it a new message.
-  const [sendKey, setSendKey] = useState(() => crypto.randomUUID());
+  const [sendKey, setSendKey] = useState(() => kept?.sendKey ?? crypto.randomUUID());
   const newVersion = () => setSendKey(crypto.randomUUID());
   // A hand-off (#compose) can come from another tab of the page, where the
   // panel wasn't on screen to scroll to, so it brings itself into view.
@@ -147,8 +147,8 @@ export default function ComposeEmail({
   }, []);
   // Keep what's been changed for coming back to; a send clears it.
   useEffect(() => {
-    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions });
-  }, [touched, projectId, keepAs, templateId, subject, body, instructions]);
+    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions, sendKey });
+  }, [touched, projectId, keepAs, templateId, subject, body, instructions, sendKey]);
 
   function pick(id: string) {
     setTouched(true);

@@ -105,8 +105,7 @@ test("links: highlights move the project to Editing and the gallery to Delivered
   await expect(adminPage.getByRole("heading", { name: "Compose email" })).toBeInViewport();
 
   // A replacement gallery link added after Compose opened on that template
-  // still gets a fresh draft carrying the new link (the tab is changed in the
-  // page, so a draft kept from the first hand-off would show if it were reused).
+  // gets a fresh draft carrying the new link.
   await adminPage.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Links & files" }).click();
   await links.getByLabel("Kind").selectOption({ label: "Gallery" });
   await links.getByLabel("Link", { exact: true }).fill(link("gallery-final"));

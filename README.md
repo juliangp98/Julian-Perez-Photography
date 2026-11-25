@@ -392,8 +392,8 @@ The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
 client portal, owner-only). Sign in at `/admin` with that email.
 
 Each project's admin page opens on where it stands: a stage tracker, the one
-next step with a button that does it (`ownerNextStep` in `src/lib/next-step.ts`,
-rules rather than AI), the status, the next follow-up and a Write email button.
+next step with a button when there's something to do (`ownerNextStep` in
+`src/lib/next-step.ts`, rules rather than AI), the status, the next follow-up and a Write email button.
 Below are tabs for the overview of the current stage, the discovery call, the
 message thread with Compose, links and files, and the details with a dated
 activity log.

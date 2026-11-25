@@ -1,6 +1,6 @@
 // The email being written in a project's Compose panel and not sent yet, kept
 // for as long as the browser tab is open: one per project, with the hand-off
-// it was opened on (the template, link and assessment in the address).
+// it was opened on (the template and link in the address).
 // Switching tabs on the project page unmounts the panel; the Messages tab, or
 // the same hand-off again (by a link or the back button), shows the email as
 // it was left. A hand-off to something else opens afresh.
@@ -10,10 +10,13 @@ export type ComposeDraftState = {
   subject: string;
   body: string;
   instructions: string;
+  // The send's idempotency key for this text, so a send retried after the
+  // panel was reopened (its first reply lost, or still on the way) goes once.
+  sendKey: string;
 };
 
 // The Messages tab's own address names no hand-off.
-export const NO_HANDOFF = "||";
+export const NO_HANDOFF = "|";
 
 const drafts = new Map<string, { handoff: string; draft: ComposeDraftState }>();
 
@@ -29,4 +32,9 @@ export const composeDraft = {
     void drafts.set(projectId, { handoff, draft }),
   // Once it has been sent, the panel opens afresh.
   clear: (projectId: string) => void drafts.delete(projectId),
+  // A kept email on a template the project has changed under (the recap,
+  // after the call summary is edited) opens afresh from the new facts.
+  dropTemplate(projectId: string, template: string) {
+    if (drafts.get(projectId)?.draft.templateId === template) drafts.delete(projectId);
+  },
 };

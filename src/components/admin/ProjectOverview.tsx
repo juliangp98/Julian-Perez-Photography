@@ -19,7 +19,7 @@ import {
 import type { ClientRecordFull } from "@/lib/clients";
 import { eventDay, formatEventDate, formatHumanDate } from "@/lib/field-format";
 import { invoiceState, paymentMethodLabel } from "@/lib/labels";
-import { projectLink } from "@/lib/project-links";
+import { openInvoice, projectLink } from "@/lib/project-links";
 import type { AnswerGroup } from "@/lib/questionnaire-digest";
 import type { AiResults } from "@/lib/ai-results";
 
@@ -60,8 +60,8 @@ export default function ProjectOverview({
 }: {
   record: ClientRecordFull;
   ai: boolean;
-  // The templates already sent on this project.
-  sent: ReadonlySet<string>;
+  // The templates already sent on this project (with the day each went out).
+  sent: ReadonlyMap<string, string>;
   // Whether the service has a planning questionnaire.
   questionnaire: boolean;
   // The date hold running, if any.
@@ -202,7 +202,8 @@ export default function ProjectOverview({
     </details>
   );
 
-  const paidLine = unpaid[0] ? invoiceState(unpaid[0]) : invoices.length ? "Paid" : "No invoice yet";
+  const open = openInvoice(record);
+  const paidLine = open ? invoiceState(open) : invoices.length ? "Paid" : "No invoice yet";
   const items: Item[] =
     phase === "booked"
       ? [

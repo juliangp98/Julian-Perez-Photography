@@ -81,6 +81,7 @@ test.describe("the thread against the test store", () => {
     });
     const [alert] = sentTo(await fakes.calls("resend"), OWNER).slice(-1);
     expect(alert.body?.subject).toMatch(/bounced/);
+    expect(String(alert.body?.text)).toContain(`/admin/projects/${p.id}?tab=messages`);
     await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     await expect(adminPage.getByText("Mailbox does not exist")).toBeVisible();
   });

@@ -108,7 +108,7 @@ export default function InquiryTriage({
 
           {draftLink && (
             <ComposeLink
-              href={draftReplyHref("", result.at)}
+              href={draftReplyHref("")}
               className="inline-block text-sm underline underline-offset-4 hover:text-accent"
             >
               Draft a reply from this

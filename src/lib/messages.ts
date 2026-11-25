@@ -60,8 +60,11 @@ const SELECT_BASE =
 // project reads do for their later columns (src/lib/clients.ts).
 let templateColumn = true;
 const select = () => (templateColumn ? `${SELECT_BASE}, template` : SELECT_BASE);
+// A read names a missing column to Postgres (42703); a write is refused by
+// the API layer first (PGRST204).
 function templateMissing(error: { code?: string; message?: string } | null): boolean {
-  if (!templateColumn || error?.code !== "42703" || !/template/.test(error.message ?? "")) return false;
+  const missing = error?.code === "42703" || error?.code === "PGRST204";
+  if (!templateColumn || !missing || !/template/.test(error?.message ?? "")) return false;
   templateColumn = false;
   return true;
 }
