@@ -24,6 +24,7 @@ import {
   draftPlanSummary,
 } from "@/lib/ai/project-ai";
 import { AI_KINDS } from "@/lib/ai-results";
+import { aiBasis } from "@/lib/ai/project-context";
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -38,30 +39,31 @@ export const POST = defineRoute({
   schema,
   rateLimit: { max: 20, windowMs: 60_000 },
   failure: { status: 502, error: "Couldn't do that right now. Try again." },
-  tags: () => ({ model: aiModel() }),
+  tags: ({ kind }) => ({ model: aiModel(), kind }),
   run: async ({ projectId, kind }) => {
     if (!aiEnabled()) return none;
     const record = await getClientFull(projectId);
     if (!record) return none;
 
+    let made;
     try {
       const at = new Date().toISOString();
       if (kind === "triage") {
         const result = await assessProjectInquiry(record);
-        if (!result) return none;
-        const saved = { result, at };
-        await saveAiResult(record.id, "triage", saved);
-        return { ok: true, generated: true, saved };
-      }
-      if (kind === "shoot-brief") {
+        made = result && {
+          kind,
+          saved: { result, at, basis: aiBasis(record.inquiryMessage) },
+        };
+      } else if (kind === "shoot-brief") {
         const result = await buildShootBrief(record);
-        if (!result) return none;
-        const saved = { result, at };
-        await saveAiResult(record.id, "shoot-brief", saved);
-        return { ok: true, generated: true, saved };
+        made = result && {
+          kind,
+          saved: { result, at, basis: aiBasis(record.questionnaireSnapshot) },
+        };
+      } else {
+        const summary = await draftPlanSummary(record);
+        return summary ? { ok: true, generated: true, summary } : none;
       }
-      const summary = await draftPlanSummary(record);
-      return summary ? { ok: true, generated: true, summary } : none;
     } catch (err) {
       if (!(err instanceof TriageParseError || err instanceof AiParseError)) throw err;
       // The model returned something unusable: a soft failure worth a retry.
@@ -71,5 +73,17 @@ export const POST = defineRoute({
       });
       return apiError(502, "Couldn't read the AI's answer. Try again.");
     }
+    if (!made) return none;
+
+    // Saving is half this kind's job: a failure is reported on its own, and
+    // the answer isn't shown as saved when it wasn't.
+    try {
+      if (made.kind === "triage") await saveAiResult(record.id, "triage", made.saved);
+      else await saveAiResult(record.id, "shoot-brief", made.saved);
+    } catch (err) {
+      Sentry.captureException(err, { tags: { route: "admin/ai", stage: "save", kind } });
+      return apiError(502, "Couldn't save it. Try again.");
+    }
+    return { ok: true, generated: true, saved: made.saved };
   },
 });

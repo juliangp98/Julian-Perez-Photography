@@ -10,6 +10,7 @@
 // the gap itself.
 
 import "server-only";
+import { createHash } from "node:crypto";
 import type { ClientRecordFull } from "@/lib/clients";
 import { daysUntil, formatHumanDate } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
@@ -60,8 +61,9 @@ export function projectFacts(
 }
 
 // The planning questionnaire's answers as "Label: value" lines under their
-// sections, or null before one is submitted. Both tiers may read it: the
-// client wrote it for Julian to plan from.
+// sections, without the client's contact details, or null before one is
+// submitted. Both tiers may read it: the client wrote it for Julian to plan
+// from.
 export function projectAnswers(record: ClientRecordFull): string | null {
   return record.questionnaireSnapshot?.trim()
     ? buildAnswerDigest(record.serviceType, record.questionnaireSnapshot)
@@ -71,4 +73,21 @@ export function projectAnswers(record: ClientRecordFull): string | null {
 // Facts as a bulleted block for a prompt.
 export function factLines(facts: string[]): string {
   return facts.map((f) => `- ${f}`).join("\n");
+}
+
+// A short fingerprint of the text an AI result was made from: what the
+// assessment read (the inquiry message) or the brief (the questionnaire
+// answers). A saved result whose fingerprint no longer matches the project is
+// out of date.
+export function aiBasis(text: string | undefined): string {
+  return createHash("sha256").update((text ?? "").trim()).digest("hex").slice(0, 16);
+}
+
+// Whether a saved result was made from what the project holds now. One saved
+// without a fingerprint counts as current.
+export function isCurrent(
+  saved: { basis?: string } | undefined,
+  text: string | undefined,
+): boolean {
+  return !!saved && (!saved.basis || saved.basis === aiBasis(text));
 }

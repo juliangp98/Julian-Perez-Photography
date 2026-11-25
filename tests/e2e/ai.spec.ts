@@ -96,7 +96,18 @@ test("ai: the plan summary is a draft for the form, built without private detail
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const id = await newProject(request, "plan");
-  await patchProject(id, { budget: "$4,500", referral: "venue", internal_notes: "Prefers texts" });
+  await patchProject(id, {
+    budget: "$4,500",
+    referral: "venue",
+    internal_notes: "Prefers texts",
+    // The questionnaire opens with the client's contact details.
+    questionnaire_snapshot: JSON.stringify({
+      fullName: "E2E AI",
+      email: "e2e-ai-contact@example.com",
+      phone: "(703) 555-0164",
+      gettingReady: "Yes",
+    }),
+  });
   await fakes.script({ replies: ['"A relaxed spring day, planned around golden hour."'] });
 
   const res = await request.post("/api/admin/ai", { data: { projectId: id, kind: "plan-summary" } });
@@ -107,8 +118,10 @@ test("ai: the plan summary is a draft for the form, built without private detail
   });
   const prompt = JSON.stringify((await fakes.calls("ai")).at(-1)?.body);
   expect(prompt).toContain("Event date: May 2, 2027");
+  // The answers are there, without the contact details.
+  expect(prompt).toContain("Would you like getting-ready coverage?: Yes");
   // No budget, referral, internal note or contact detail.
-  for (const hidden of ["$4,500", "Budget", "found Julian", "Prefers texts", "example.com"]) {
+  for (const hidden of ["$4,500", "Budget", "found Julian", "Prefers texts", "example.com", "555-0164"]) {
     expect(prompt, hidden).not.toContain(hidden);
   }
 });
@@ -128,4 +141,29 @@ test("ai: an answer the model garbled says so, and saves nothing", async ({
   await page.goto(`/admin/projects/${id}`);
   await expect(page.getByRole("button", { name: "Assess this inquiry" })).toBeVisible();
   await expect(page.getByText(/^Assessed /)).toHaveCount(0);
+});
+
+test("ai: a saved brief says when the client's answers have changed since", async ({
+  adminRequest: request,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const id = await newProject(request, "stale");
+  await patchProject(id, { questionnaire_snapshot: JSON.stringify({ gettingReady: "Yes" }) });
+  await fakes.script({ replies: [brief] });
+  await request.post("/api/admin/ai", { data: { projectId: id, kind: "shoot-brief" } });
+
+  await page.goto(`/admin/projects/${id}`);
+  await expect(page.getByText("Getting ready at 1 PM")).toBeVisible();
+  await expect(page.getByText(/changed their answers since this brief/)).toHaveCount(0);
+
+  // The client resubmits with a different answer.
+  await patchProject(id, { questionnaire_snapshot: JSON.stringify({ gettingReady: "No" }) });
+  await page.reload();
+  await expect(page.getByText(/changed their answers since this brief/)).toBeVisible();
+  await fakes.script({ replies: [brief] });
+  await page.getByRole("button", { name: "Re-generate brief" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Brief ready." })).toBeVisible();
+  await expect(page.getByText(/changed their answers since this brief/)).toHaveCount(0);
 });

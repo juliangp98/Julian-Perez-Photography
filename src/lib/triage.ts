@@ -36,9 +36,11 @@ export function triageVerdict(t: Pick<InquiryTriage, "fit" | "urgency">): string
 // no client detail rides in the address. Triage writes no reply itself; the
 // compose panel is the one place client email is drafted. `projectPath` is ""
 // for a link on the project page itself, or an absolute project URL for an
-// email.
-export function draftReplyHref(projectPath = ""): string {
-  return `${projectPath}?compose=inquiry-reply#compose`;
+// email. `version` (the assessment's timestamp) makes a link after a new
+// assessment a new address, so Compose opens afresh with the new steer.
+export function draftReplyHref(projectPath = "", version?: string): string {
+  const v = version ? `&v=${encodeURIComponent(version)}` : "";
+  return `${projectPath}?compose=inquiry-reply${v}#compose`;
 }
 
 // The steer an assessment gives the AI draft of the reply.

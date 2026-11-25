@@ -457,7 +457,8 @@ export async function getProjectForViewer(
 // new service for an existing person becomes a separate project while a repeat
 // inquiry for the same service updates the existing one. On a match we only
 // fill blank fields + bump the timestamp (never clobber a curated field or an
-// advanced status). New projects start at `new-inquiry`.
+// advanced status). New projects start at `new-inquiry`. Says which project,
+// and whether it now holds this message.
 export async function upsertClientFromInquiry(input: {
   name: string;
   email: string;
@@ -471,7 +472,7 @@ export async function upsertClientFromInquiry(input: {
   // When set (a manually-created project's completion link), attach to that
   // exact project rather than matching by email+service.
   projectId?: string;
-}): Promise<string | null> {
+}): Promise<{ id: string; messageStored: boolean } | null> {
   if (!isClientsStoreConfigured()) return null;
   const email = normalizeEmail(input.email);
   const ts = nowIso();
@@ -525,9 +526,15 @@ export async function upsertClientFromInquiry(input: {
     if (!existing.referral && input.referral) patch.referral = input.referral;
     if (!existing.inquiry_message && input.message)
       patch.inquiry_message = input.message;
+    // Whether the project now holds this message (a repeat inquiry keeps the
+    // first one), so what's said about it is saved only when it matches.
+    const messageStored =
+      !!input.message &&
+      (!existing.inquiry_message ||
+        existing.inquiry_message.trim() === input.message.trim());
     const { error } = await db().from(TABLE).update(patch).eq("id", existing.id);
     if (error) throw error;
-    return existing.id as string;
+    return { id: existing.id as string, messageStored };
   }
 
   const locations = input.location
@@ -556,7 +563,7 @@ export async function upsertClientFromInquiry(input: {
     .select("id")
     .single();
   if (error) throw error;
-  return data.id as string;
+  return { id: data.id as string, messageStored: !!input.message };
 }
 
 // Manually create a project stub (admin or client portal). No dedup here — the

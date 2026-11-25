@@ -1,8 +1,11 @@
 // Turn a stored questionnaire snapshot (JSON keyed by field id) into a readable
 // "Label: value" digest, grouped under the questionnaire's own sections so order
-// and grouping carry meaning for whatever reads it next. Shared by the AI
-// prep-brief and plan-summary routes. Server-safe — pulls the schema from
-// `questionnaires.ts` to resolve field ids back to human labels.
+// and grouping carry meaning for whatever reads it next. The digest is what the
+// project AI tools read (`projectAnswers` in src/lib/ai/project-context.ts),
+// so it leaves out the client's contact details. The same file builds the
+// grouped read-out for the admin and portal pages (`buildAnswerGroups`) and a
+// second photographer's answers (`shootAnswers`). Server-safe — pulls the
+// schema from `questionnaires.ts` to resolve field ids back to human labels.
 
 import { getQuestionnaire } from "./questionnaires";
 
@@ -19,8 +22,15 @@ function formatVal(v: unknown): string {
   return String(v).trim();
 }
 
-// Returns the grouped digest, or null when the snapshot can't be parsed into a
-// non-empty set of answers (so callers can no-op cleanly).
+// Answers that are the client's contact details. A model never needs them, and
+// the project's facts already name the client.
+const CONTACT_IDS = new Set(["fullName", "email", "phone", "instagram"]);
+const isContact = (id: string, type?: string) =>
+  CONTACT_IDS.has(id) || type === "email" || type === "tel";
+
+// Returns the grouped digest, without contact details, or null when the
+// snapshot can't be parsed into a non-empty set of answers (so callers can
+// no-op cleanly).
 export function buildAnswerDigest(
   serviceType: string | undefined,
   snapshot: string,
@@ -44,6 +54,10 @@ export function buildAnswerDigest(
     for (const section of q.sections) {
       const sectionLines: string[] = [];
       for (const field of section.fields) {
+        if (isContact(field.id, field.type)) {
+          used.add(field.id);
+          continue;
+        }
         const val = formatVal(answers[field.id]);
         if (!val) continue;
         used.add(field.id);
@@ -58,7 +72,7 @@ export function buildAnswerDigest(
   // Answers not covered by the schema (e.g. schema drift) — keep them by key.
   const extras: string[] = [];
   for (const [key, raw] of Object.entries(answers)) {
-    if (used.has(key)) continue;
+    if (used.has(key) || isContact(key)) continue;
     const val = formatVal(raw);
     if (!val) continue;
     extras.push(`- ${key}: ${val}`);

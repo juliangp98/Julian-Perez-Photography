@@ -112,8 +112,8 @@ async function callModel(
 }
 
 // Tries the chosen models in order: on to the next when one is gone or still
-// rate-limited. When all are gone, picks fresh ones once; when the last one
-// left is rate-limited too, that error stands.
+// rate-limited. When any is gone and none answered, picks fresh ones once;
+// when every one is only rate-limited, that error stands.
 async function complete(
   role: "text" | "vision",
   messages: Message[],
@@ -137,8 +137,9 @@ async function complete(
         else throw err;
       }
     }
-    // A model that's only busy isn't a reason to re-choose the models.
-    if (limited) throw limited;
+    // A model that's only busy isn't a reason to re-choose the models; a
+    // retired one is, even when the other is busy.
+    if (limited && (fresh || !gone)) throw limited;
     if (fresh) throw gone ?? new Error("No AI model is available");
   }
   return null;

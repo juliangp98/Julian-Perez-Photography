@@ -19,6 +19,9 @@ export type SavedAiResult<T> = {
   result: T;
   // When it was made (an ISO timestamp).
   at: string;
+  // A fingerprint of what it was made from (the inquiry message, the
+  // questionnaire answers), so the page can tell when that has changed since.
+  basis?: string;
 };
 
 // What a project holds (client_records.ai_results), keyed by kind.

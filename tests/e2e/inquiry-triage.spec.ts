@@ -81,6 +81,30 @@ test("the owner email links to Compose on the filed project, with no client deta
   expect((await fakes.calls("ai")).length).toBe(before);
 });
 
+test("a repeat inquiry keeps the project's first message and its assessment", async ({
+  request,
+  fakes,
+  adminPage,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const email = `e2e-triage-repeat-${Date.now()}@example.com`;
+  await fakes.script({ replies: [assessment()] });
+  await request.post("/api/inquire", { data: inquiry(email) });
+  const link = String((await ownerEmail(fakes))?.body?.text).match(/Draft a reply: (\S+)/)?.[1] ?? "";
+
+  // Same person, same service, a different message: the owner email assesses
+  // it, but the project keeps the first message and the first assessment.
+  await fakes.script({ replies: [assessment({ summary: "A question about adding an engagement session." })] });
+  await request.post("/api/inquire", {
+    data: { ...inquiry(email), message: "Could we add an engagement session too?" },
+  });
+  expect(String((await ownerEmail(fakes))?.body?.text)).toContain("A question about adding an engagement session.");
+
+  await adminPage.goto(new URL(link).pathname);
+  await expect(adminPage.getByText("A fall wedding at a Leesburg vineyard for about 120 guests.")).toBeVisible();
+  await expect(adminPage.getByText("A question about adding an engagement session.")).toHaveCount(0);
+});
+
 test("a good lead texts the owner; a poor, unhurried one doesn't", async ({ request, fakes }) => {
   await fakes.script({ replies: [assessment()] });
   await request.post("/api/inquire", { data: inquiry(`e2e-triage-good-${Date.now()}@example.com`) });

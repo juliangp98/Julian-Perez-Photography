@@ -28,19 +28,24 @@ const URGENCY_TONE: Record<TriageUrgency, BadgeTone> = { high: "bad", medium: "w
 export default function InquiryTriage({
   projectId,
   saved,
+  stale = false,
   canRun = true,
 }: {
   projectId: string;
   saved?: SavedAiResult<Triage>;
+  // The saved assessment was made from an earlier version of the inquiry.
+  stale?: boolean;
   // False when AI isn't set up: the saved assessment shows, without the button.
   canRun?: boolean;
 }) {
   const { run, status, result, error } = useAiAction<SavedAiResult<Triage>>(
     "/api/admin/ai",
     (json) => (json.generated ? (json.saved as SavedAiResult<Triage>) : null),
-    saved ?? null,
+    { initial: saved ?? null, keepOnEmpty: true },
   );
   const triage = result?.result;
+  // A fresh run replaces the out-of-date one.
+  const outOfDate = stale && result?.at === saved?.at;
 
   return (
     <div className="space-y-4">
@@ -68,6 +73,13 @@ export default function InquiryTriage({
             </span>
           </div>
 
+          {outOfDate && (
+            <p className="text-sm text-danger">
+              The inquiry has changed since this assessment, so the reply
+              isn&rsquo;t steered by it. Assess it again to bring it up to date.
+            </p>
+          )}
+
           <p className="text-sm leading-relaxed">{triage.summary}</p>
 
           {(triage.fitReason || triage.urgencyReason) && (
@@ -91,7 +103,7 @@ export default function InquiryTriage({
           )}
 
           <ComposeLink
-            href={draftReplyHref()}
+            href={draftReplyHref("", result.at)}
             className="inline-block text-sm underline underline-offset-4 hover:text-accent"
           >
             Draft a reply from this

@@ -24,19 +24,24 @@ function briefToText(brief: Brief): string {
 export default function PrepBrief({
   projectId,
   saved,
+  stale = false,
   canRun = true,
 }: {
   projectId: string;
   saved?: SavedAiResult<Brief>;
+  // The saved brief was made from answers the client has since changed.
+  stale?: boolean;
   // False when AI isn't set up: the saved brief shows, without the button.
   canRun?: boolean;
 }) {
   const { run, status, result, error } = useAiAction<SavedAiResult<Brief>>(
     "/api/admin/ai",
     (json) => (json.generated ? (json.saved as SavedAiResult<Brief>) : null),
-    saved ?? null,
+    { initial: saved ?? null, keepOnEmpty: true },
   );
   const brief = result?.result;
+  // A fresh run replaces the out-of-date one.
+  const outOfDate = stale && result?.at === saved?.at;
 
   return (
     <div className="space-y-4">
@@ -57,6 +62,12 @@ export default function PrepBrief({
 
       {brief && (
         <Panel className="space-y-4">
+          {outOfDate && (
+            <p className="text-sm text-danger">
+              The client has changed their answers since this brief was made.
+              Re-generate it before the shoot.
+            </p>
+          )}
           {brief.headline && (
             <p className="font-serif text-lg leading-snug">{brief.headline}</p>
           )}
