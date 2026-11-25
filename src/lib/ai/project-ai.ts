@@ -244,7 +244,17 @@ export async function buildCallGuide(
   const openers = Object.fromEntries(
     Object.entries(valid.data.openers).filter(([id, line]) => ids.has(id) && line.trim()),
   );
-  return { ...valid.data, openers };
+  // One question per key: no blanks, no repeats.
+  const seen = new Set<string>();
+  const questions = valid.data.questions
+    .map((q) => q.trim())
+    .filter((q) => {
+      const key = tailoredKey(q);
+      if (!q || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return { ...valid.data, questions, openers };
 }
 
 const summarySchema = z.object({

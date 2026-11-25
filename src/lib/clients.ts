@@ -1287,14 +1287,16 @@ export type CallSave =
 // Merge a patch into one call (see merge_call in supabase/schema.sql): answers
 // and the questions they were typed under key by key, the held time kept once
 // set, anything else replaced. Answers and notes are stamped with the time
-// they were saved, and with `base` (the stamp they were typed against, "" for
-// never saved) land only when nothing was saved since. Null without a store or
-// for no such project.
+// they were saved and the copy that saved them (`writer`), and with `base`
+// (the stamp they were typed against, "" for never saved) land only when
+// nothing was saved since by another copy. Null without a store or for no
+// such project.
 export async function saveCall(
   id: string,
   call: CallKind,
   patch: CallNotes,
   base?: string,
+  writer?: string,
 ): Promise<CallSave | null> {
   if (!isClientsStoreConfigured() || !isRecordId(id)) return null;
   const notes = patch.answers !== undefined || patch.notes !== undefined;
@@ -1302,8 +1304,9 @@ export async function saveCall(
   const { data, error } = await db().rpc("merge_call", {
     p_id: id,
     p_call: call,
-    p_patch: savedAt ? { ...patch, savedAt } : patch,
+    p_patch: savedAt ? { ...patch, savedAt, ...(writer ? { savedBy: writer } : {}) } : patch,
     p_base: base ?? null,
+    p_writer: writer ?? null,
   });
   if (error) throw error;
   const found = data as { conflict: boolean; held?: boolean; status?: string } | null;

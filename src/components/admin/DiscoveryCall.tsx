@@ -109,7 +109,7 @@ export default function DiscoveryCall({
   locations?: Place[];
 }) {
   const router = useRouter();
-  const { draft, answers, asked, notes, state, lastSaved } = useCallDraft(projectId, call);
+  const { draft, answers, asked, notes, listed, state, lastSaved } = useCallDraft(projectId, call);
 
   const tailor = useAiAction<SavedAiResult<CallGuideTailoring>>(
     "/api/admin/ai",
@@ -117,6 +117,8 @@ export default function DiscoveryCall({
     { initial: tailoring ?? null, keepOnEmpty: true },
   );
   const fitted = tailor.result?.result;
+  // One box per question, even if a tailoring repeats one.
+  const fittedQuestions = [...new Map((fitted?.questions ?? []).map((q) => [tailoredKey(q), q])).entries()];
   const outOfDate = tailoringStale && tailor.result?.at === tailoring?.at;
 
   // Saved with the question on screen, so the answer reads right later.
@@ -131,12 +133,10 @@ export default function DiscoveryCall({
     />
   );
 
-  // Answers to questions no longer on screen, so nothing typed is hidden.
-  const shown = new Set([
-    ...guideQuestions(guide).map((q) => q.key),
-    ...(fitted?.questions ?? []).map(tailoredKey),
-  ]);
-  const earlier = Object.keys(answers).filter((key) => !shown.has(key) && answers[key]?.trim());
+  // Answers to questions no longer on screen, so nothing typed is hidden. One
+  // emptied here stays listed until the page is next opened.
+  const shown = new Set([...guideQuestions(guide).map((q) => q.key), ...fittedQuestions.map(([key]) => key)]);
+  const earlier = Object.keys(answers).filter((key) => !shown.has(key) && (answers[key]?.trim() || listed[key]));
 
   const renderSection = (section: GuideSection) => (
     <details
@@ -179,11 +179,12 @@ export default function DiscoveryCall({
 
   return (
     <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[1.6fr_1fr] items-start">
+      {/* Below lg the notes sit at the bottom: the save status stays in view
+          the whole way down, the notes included. */}
+      {saveStatus && (
+        <div className="col-span-full sticky top-16 z-30 bg-background py-2 lg:hidden">{saveStatus}</div>
+      )}
       <div className="min-w-0 space-y-6">
-        {/* Below lg the notes sit at the bottom: the save status stays in view. */}
-        {saveStatus && (
-          <div className="sticky top-16 z-30 bg-background py-2 lg:hidden">{saveStatus}</div>
-        )}
 
         {/* Fitted to this client by AI, when run. */}
         <Panel className="space-y-4">
@@ -241,7 +242,7 @@ export default function DiscoveryCall({
               )}
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Their questions</div>
-                {fitted.questions.map((q) => answerBox(tailoredKey(q), q))}
+                {fittedQuestions.map(([key, q]) => answerBox(key, q))}
               </div>
             </>
           )}
@@ -271,6 +272,7 @@ export default function DiscoveryCall({
           locations={locations}
           onSaved={() => router.refresh()}
           flush={() => draft.flush()}
+          saveState={state}
         />
       </div>
 
@@ -309,6 +311,7 @@ function CallSummaryPanel({
   locations = [],
   onSaved,
   flush,
+  saveState: notesState,
 }: {
   projectId: string;
   call?: CallNotes;
@@ -317,6 +320,8 @@ function CallSummaryPanel({
   onSaved: () => void;
   // Saves the notes typed so far; false when they couldn't be saved.
   flush: () => Promise<boolean>;
+  // How the notes' autosave stands, for why they couldn't be read.
+  saveState: CallSaveState;
 }) {
   const router = useRouter();
   const [summary, setSummary] = useState<CallSummary>(call?.summary ?? EMPTY_SUMMARY);
@@ -405,11 +410,23 @@ function CallSummaryPanel({
     }
   }
 
-  // The recap draft reads the saved summary: an edited one is saved first.
+  // The recap draft reads the saved summary: an edited one is saved first, and
+  // the page refreshed, so Back finds the saved summary rather than the copy
+  // the browser kept from before.
   async function writeRecap() {
-    if (dirty && hasText && !(await save())) return;
+    if (dirty && hasText) {
+      if (!(await save())) return;
+      onSaved();
+    }
     router.push(`/admin/projects/${projectId}?compose=discovery-recap#compose`);
   }
+
+  const unsaved =
+    notesState === "conflict"
+      ? "These notes stopped saving because they changed in another window, so the summary can't read them. Copy anything new, then reload."
+      : notesState === "rejected"
+        ? "Your latest change couldn't save, so the summary can't read it. Edit it and try again."
+        : "Your latest notes haven't saved, so the summary can't read them yet. Try again in a moment.";
 
   const suggested = (Object.keys(updates) as (keyof CallUpdates)[]).filter(
     (k) => updates[k] !== undefined && updates[k] !== null,
@@ -431,15 +448,18 @@ function CallSummaryPanel({
           </Button>
         )}
       </div>
+      {/* This click's outcome first: a skipped run leaves the last one's status. */}
       <FormStatus
-        state={draft.status === "done" ? "ok" : draft.status === "error" || summarizeNote ? "error" : "idle"}
+        state={summarizeNote || draft.status === "error" ? "error" : draft.status === "done" ? "ok" : "idle"}
         ok="Drafted from your notes. Edit, then save."
         error={
           summarizeNote === "unsaved"
-            ? "Your latest notes haven't saved, so the summary can't read them yet. Try again in a moment."
-            : summarizeNote === "empty"
-              ? "Nothing to summarize yet. Add answers or notes first."
-              : draft.error
+            ? unsaved
+            : draft.status === "error"
+              ? draft.error
+              : summarizeNote === "empty"
+                ? "Nothing to summarize yet. Add answers or notes first."
+                : draft.error
         }
         className="block"
       />

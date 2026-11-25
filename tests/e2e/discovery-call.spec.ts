@@ -51,6 +51,10 @@ test("each family's guide fits its kind of shoot", () => {
   expect(asks("wedding-films")).not.toContain("Any interest in a wedding film");
   // A pet session is asked about a baby only for maternity or a newborn.
   expect(asks("pet")).not.toMatch(/^When is the baby due/m);
+  // A couples session opens without assuming an engagement or a wedding.
+  const open = (slug: string) => discoveryGuide(slug).sections.find((s) => s.id === "open")?.say?.join(" ");
+  expect(open("engagements-couples")).not.toMatch(/congratulations|planning/i);
+  expect(open("weddings")).toMatch(/congratulations/i);
 });
 
 test("a project with no service, or one the catalog doesn't know, gets the general guide", () => {
@@ -178,18 +182,26 @@ test("leaving the Call tab and coming back shows the latest notes, and keeps sav
   expect((row.calls as { discovery?: { notes?: string } }).discovery?.notes).toBe("First thoughts. Second thoughts");
 });
 
-test("a save typed against an older copy of the notes is refused", async ({ adminRequest }) => {
+test("a save typed against an older copy of the notes is refused, unless it's that copy's own", async ({
+  adminRequest,
+}) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "stale");
-  const save = (notes: string, base: string) =>
-    adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes, base } } });
-  const first = await save("From the laptop", "");
+  const laptop = "6f0c8a52-0d3e-4c1b-9a77-1f2e3d4c5b6a";
+  const phone = "0b1c2d3e-4f50-4617-8293-a4b5c6d7e8f9";
+  const save = (notes: string, base: string, writer?: string) =>
+    adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes, base, writer } } });
+  const first = await save("From the laptop", "", laptop);
   expect(first.status()).toBe(200);
   const { savedAt } = await first.json();
   // A second window that opened before that save.
-  expect((await save("From the phone", "")).status()).toBe(409);
+  expect((await save("From the phone", "", phone)).status()).toBe(409);
+  expect((await save("From somewhere", "")).status()).toBe(409);
+  // The laptop retrying that save, its reply lost: still its own.
+  const retry = await save("From the laptop", "", laptop);
+  expect(retry.status()).toBe(200);
   // The same window, building on its own save.
-  expect((await save("From the laptop, more", savedAt)).status()).toBe(200);
+  expect((await save("From the laptop, more", (await retry.json()).savedAt ?? savedAt, laptop)).status()).toBe(200);
   const row = await readProject(p.id, "calls");
   expect((row.calls as { discovery?: { notes?: string } }).discovery?.notes).toBe("From the laptop, more");
 });
@@ -338,6 +350,42 @@ test("saving the summary again changes only the summary", async ({ adminRequest 
   const call = (row.calls as { discovery: { heldAt: string; summary: { background: string } } }).discovery;
   expect(call.heldAt).toBe(heldAt);
   expect(call.summary.background).toBe("Met at a friend's wedding in Leesburg.");
+});
+
+test("Write the recap saves an edited summary, and Back shows it", async ({
+  adminRequest,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "recap-back");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Garden wedding, relaxed" } } });
+  await callTab(page, p.id);
+  await fakes.script({
+    replies: [
+      JSON.stringify({ background: "Met in college.", event: "Garden wedding.", priorities: "Candids.", logistics: "", actions: "", updates: {} }),
+    ],
+  });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByLabel(/^Background/)).toHaveValue("Met in college.");
+  await page.getByLabel(/^Background/).fill("Met in college, six years ago.");
+
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  await expect(page).toHaveURL(/compose=discovery-recap/);
+  await page.goBack();
+  await expect(page.getByLabel(/^Background/)).toHaveValue("Met in college, six years ago.");
+  await expect(page.getByText(/^Call held /)).toBeVisible();
+});
+
+test("Summarize says when the AI's answer couldn't be used", async ({ adminRequest, adminPage: page, fakes }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "garbled");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Loves golden hour" } } });
+  await callTab(page, p.id);
+  await fakes.script({ replies: ["Not JSON at all."] });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Couldn't read the AI's answer." })).toBeVisible();
+  await expect(page.getByText("Nothing to summarize yet.")).toHaveCount(0);
 });
 
 test("Summarize with nothing typed says so, without asking the AI", async ({

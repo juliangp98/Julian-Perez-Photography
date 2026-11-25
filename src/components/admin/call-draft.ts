@@ -5,10 +5,11 @@
 // up what was typed rather than the page's older copy, and a save still going
 // out finishes after the tab is left.
 //
-// Each save names the save it was typed against, so a copy left open
-// somewhere else can't overwrite newer notes: the route refuses it (409) and
-// the panel says so. A failed save keeps what's pending and tries again; a
-// refused one waits for the next change.
+// Each save names the save it was typed against and this copy's own id, so a
+// copy left open somewhere else can't overwrite newer notes (the route refuses
+// it, 409, and the panel says so), while this copy retrying a save whose reply
+// was lost isn't taken for another. A failed save keeps what's pending and
+// tries again; a refused one waits for the next change.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CallNotes } from "@/lib/calls";
@@ -23,6 +24,9 @@ export type CallDraftSnapshot = {
   // The question each answer was typed under.
   asked: Record<string, string>;
   notes: string;
+  // Answers that have had text in this copy: one emptied while typing stays
+  // listed, to retype into.
+  listed: Record<string, true>;
   state: CallSaveState;
   // When the notes were last saved.
   lastSaved: string;
@@ -35,6 +39,8 @@ class CallDraft {
   private snap: CallDraftSnapshot;
   // The save this copy builds on: "" before the first.
   base: string;
+  // This copy, as the save route knows it.
+  readonly writer = crypto.randomUUID();
   private pending: Patch = emptyPatch();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private saving: Promise<void> | null = null;
@@ -45,10 +51,16 @@ class CallDraft {
     call?: CallNotes,
   ) {
     this.base = call?.savedAt ?? "";
+    const answers = call?.answers ?? {};
     this.snap = {
-      answers: call?.answers ?? {},
+      answers,
       asked: call?.asked ?? {},
       notes: call?.notes ?? "",
+      listed: Object.fromEntries(
+        Object.keys(answers)
+          .filter((key) => answers[key]?.trim())
+          .map((key) => [key, true as const]),
+      ),
       state: call?.savedAt ? "saved" : "idle",
       lastSaved: call?.savedAt ?? "",
     };
@@ -100,6 +112,7 @@ class CallDraft {
     this.set({
       answers: { ...this.snap.answers, [key]: value },
       ...(ask ? { asked: { ...this.snap.asked, [key]: ask } } : {}),
+      ...(value.trim() && !this.snap.listed[key] ? { listed: { ...this.snap.listed, [key]: true } } : {}),
     });
     this.changed();
   }
@@ -131,7 +144,10 @@ class CallDraft {
         const res = await fetch("/api/admin/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: this.projectId, call: { ...patch, base: this.base } }),
+          body: JSON.stringify({
+            id: this.projectId,
+            call: { ...patch, base: this.base, writer: this.writer },
+          }),
         });
         if (res.ok) {
           const json = await res.json().catch(() => ({}));

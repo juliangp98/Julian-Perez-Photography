@@ -3,11 +3,11 @@
 // form's fields, one change to the project's links and files (add an entry,
 // remove one, or change one, like an invoice marked paid), or the discovery
 // call's notes: an autosave of answers and notes, or the summary saved after
-// the call. The summary's first save marks the call held, moves a lead to In
-// conversation and, before a proposal has gone out, sets a follow-up to send
-// the recap; saving it again changes only the summary. An autosave names the
-// save it was typed against and is refused (409) when the notes were saved
-// somewhere else since. Removing an entry takes it off the
+// the call. The summary's first save moves a lead to In conversation and,
+// before a proposal has gone out, sets a follow-up to send the recap, then
+// marks the call held; saving it again changes only the summary. An autosave
+// names the save it was typed against and the open copy it came from, and is
+// refused (409) when another copy saved the notes since. Removing an entry takes it off the
 // project; an uploaded file itself stays in storage. Nothing here emails the
 // client; telling them is a Compose email.
 
@@ -91,13 +91,15 @@ const schema = z.object({
     .optional(),
   removeDocumentId: documentId.optional(),
   // The discovery call's notes as typed: only the answers that changed, the
-  // question each was typed under, and the save they were typed against.
+  // question each was typed under, the save they were typed against and the
+  // open copy of the Call tab they came from.
   call: z
     .object({
       answers: z.record(answerKey, z.string().max(CALL_ANSWER_MAX)).optional(),
       asked: z.record(answerKey, z.string().max(1000)).optional(),
       notes: z.string().max(CALL_NOTES_MAX).optional(),
       base: z.string().max(40).optional(),
+      writer: z.string().max(64).optional(),
     })
     .optional(),
   // The summary written after the call.
@@ -144,23 +146,20 @@ export const POST = defineRoute({
       try {
         let savedAt: string | undefined;
         if (call) {
-          const { base, ...patch } = call;
-          const saved = await saveCall(id, "discovery", patch, base);
+          const { base, writer, ...patch } = call;
+          const saved = await saveCall(id, "discovery", patch, base, writer);
           if (saved?.conflict) {
             return apiError(409, "These notes were saved somewhere else since this page opened.");
           }
           savedAt = saved?.savedAt;
         }
         let held = false;
-        let followUp = false;
+        let recapFollowUp = false;
         if (callSummary) {
-          const saved = await saveCall(id, "discovery", {
-            summary: callSummary,
-            heldAt: new Date().toISOString(),
-          });
-          // Only the first save marks the call held.
+          const saved = await saveCall(id, "discovery", { summary: callSummary });
+          // Until the call is marked held, a save moves the project on, and
+          // the mark comes last: if a step fails, saving again redoes them.
           if (saved && !saved.conflict && !saved.held) {
-            held = true;
             await advanceStatus(id, "in-conversation", "Discovery call held");
             const closed = CLIENT_STATUS_TERMINAL.includes(saved.status as ClientStatus);
             if (!closed && statusRank(saved.status) < statusRank("proposal-sent")) {
@@ -169,11 +168,13 @@ export const POST = defineRoute({
                 shiftDay(studioToday(), { days: 1 }),
                 "Send the recap and proposal",
               );
-              followUp = true;
+              recapFollowUp = true;
             }
+            await saveCall(id, "discovery", { heldAt: new Date().toISOString() });
+            held = true;
           }
         }
-        return { ok: true, savedAt: savedAt ?? null, held, followUp };
+        return { ok: true, savedAt: savedAt ?? null, held, followUp: recapFollowUp };
       } catch (err) {
         Sentry.captureException(err, {
           tags: { route: "admin/update", stage: callSummary ? "call-summary" : "call" },

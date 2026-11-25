@@ -65,14 +65,15 @@ const BEFORE: GuideSection = {
   ],
 };
 
-const openSection = (family: GuideFamily): GuideSection => ({
+// The warm open, ending on the family's opener or the service's own.
+const openSection = (opener: string): GuideSection => ({
   id: "open",
   title: "Warm open",
   minutes: "1 to 2 min",
   say: [
     "Greet them by name and thank them for reaching out.",
     "Light agenda: \"I'd love to hear all about it, share a bit about how I work, and answer anything. Sound good?\"",
-    family.opener,
+    opener,
   ],
 });
 
@@ -613,6 +614,14 @@ const SERVICE_SECTIONS: Partial<Record<ServiceSlug, GuideSection[]>> = {
 
 // Questions a service leaves out of its family's sections, by answer key: ones
 // its own sections already cover.
+// Openers a service uses in place of its family's: ones the family's would
+// assume wrongly.
+const SERVICE_OPENERS: Partial<Record<ServiceSlug, string>> = {
+  // Not every couples session is an engagement, or a wedding being planned.
+  "engagements-couples":
+    "Easy opener: \"First, tell me a bit about the two of you. What has you thinking about photos right now?\"",
+};
+
 const SERVICE_DROPS: Partial<Record<ServiceSlug, string[]>> = {
   // The film section asks how film and photos fit together.
   "wedding-films": ["priorities.film"],
@@ -642,7 +651,7 @@ export function discoveryGuide(serviceType?: string): DiscoveryGuide {
     family,
     sections: [
       BEFORE,
-      openSection(family),
+      openSection((slug && SERVICE_OPENERS[slug]) || family.opener),
       aboutSection(family),
       ...middle,
       ...added,

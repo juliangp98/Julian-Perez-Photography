@@ -44,12 +44,15 @@ export type CallNotes = {
   asked?: Record<string, string>;
   notes?: string;
   summary?: CallSummary;
-  // When the call was held: set the first time its summary is saved.
+  // When the call was held: set by the summary's first save, once the
+  // project has moved on.
   heldAt?: string;
-  // When the answers or notes were last saved. An autosave names the one it
-  // was typed against, so a copy left open elsewhere can't overwrite newer
-  // notes.
+  // When the answers or notes were last saved, and by which open copy of the
+  // Call tab. An autosave names the save it was typed against, so a copy left
+  // open elsewhere can't overwrite newer notes, while a copy retrying its own
+  // save still can.
   savedAt?: string;
+  savedBy?: string;
 };
 
 // What a project holds (client_records.calls), keyed by call.
