@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
-import { contactLine, formatEventDate, formatStamp, formatHumanDate, studioToday } from "@/lib/field-format";
+import {
+  contactLine,
+  formatEventDate,
+  formatOtherDates,
+  formatStamp,
+  guestCountLabel,
+  studioToday,
+} from "@/lib/field-format";
 import { DOCUMENT_TYPES, paymentMethodLabel, sourceLabel } from "@/lib/labels";
 import { formatReferral } from "@/lib/referral";
 import { headers } from "next/headers";
@@ -160,9 +167,7 @@ export default async function AdminProjectDetailPage({
         service?.title ?? serviceTitle(record.serviceType),
         formatEventDate(record.eventDate),
         venue,
-        record.guestCount != null
-          ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}`
-          : undefined,
+        guestCountLabel(record.guestCount),
         record.paymentMethod ? `Pays by ${paymentMethodLabel(record.paymentMethod)}` : undefined,
         contactLine(lastInAt, lastOutAt, today) ?? undefined,
       ].filter(Boolean)
@@ -390,11 +395,7 @@ export default async function AdminProjectDetailPage({
                     {record.secondaryDates && record.secondaryDates.length > 0 && (
                       <Detail
                         label="Other dates"
-                        value={record.secondaryDates
-                          .map((d) =>
-                            [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": "),
-                          )
-                          .join("\n")}
+                        value={formatOtherDates(record.secondaryDates)}
                         className="py-2"
                         preLine
                       />

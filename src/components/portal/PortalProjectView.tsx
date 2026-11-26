@@ -25,7 +25,14 @@ import {
   type ClientStatus,
   type StageProject,
 } from "@/lib/client-status";
-import { eventDay, formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
+import {
+  eventDay,
+  formatEventDate,
+  formatHumanDate,
+  formatOtherDates,
+  guestCountLabel,
+  studioToday,
+} from "@/lib/field-format";
 import { DOCUMENT_TYPES, documentTypeLabel, invoiceState, paymentMethodLabel } from "@/lib/labels";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
@@ -103,9 +110,6 @@ function LocationList({ locations }: { locations: NonNullable<ClientRecordSafe["
   );
 }
 
-// A project's other dates (a rehearsal dinner, an engagement session), one a line.
-const otherDates = (dates: NonNullable<ClientRecordSafe["secondaryDates"]>) =>
-  dates.map((d) => [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": ")).join("\n");
 
 // The project's links and files, grouped by kind in the order the kinds are
 // listed (proposal, contract, invoices, timeline, highlights, gallery, ...).
@@ -171,14 +175,14 @@ function CallSheet({ record, dayOfContact }: { record: ClientRecordSafe; dayOfCo
             label="Who"
             value={[
               people,
-              record.guestCount != null ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}` : "",
+              guestCountLabel(record.guestCount),
             ]
               .filter(Boolean)
               .join(", ")}
           />
           <Detail label="Day-of contact" value={`Julian, ${dayOfContact}`} />
           {record.secondaryDates && record.secondaryDates.length > 0 && (
-            <Detail label="Other dates" value={otherDates(record.secondaryDates)} preLine />
+            <Detail label="Other dates" value={formatOtherDates(record.secondaryDates)} preLine />
           )}
         </div>
         {record.locations && record.locations.length > 0 && (
@@ -347,7 +351,7 @@ export default function PortalProjectView({
                 {facts.map((f) => (
                   <Detail key={f.label} label={f.label} value={f.value} />
                 ))}
-                {hasDates && <Detail label="Other dates" value={otherDates(record.secondaryDates ?? [])} preLine />}
+                {hasDates && <Detail label="Other dates" value={formatOtherDates(record.secondaryDates)} preLine />}
               </div>
             )}
             {paymentLine && <p className="mt-4 text-sm text-muted">{paymentLine}</p>}

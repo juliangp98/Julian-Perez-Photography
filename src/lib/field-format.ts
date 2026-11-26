@@ -254,6 +254,17 @@ export function formatEventDate(d?: string | null, opts: { month?: "long" | "sho
   return formatHumanDate(eventDay(d), opts) || (d ?? "").trim();
 }
 
+// A guest count as a phrase ("1 guest", "120 guests"), or "" with none.
+export function guestCountLabel(n?: number | null): string {
+  return n == null ? "" : `${n} ${n === 1 ? "guest" : "guests"}`;
+}
+
+// A project's other dates (a rehearsal dinner, an engagement session), one a
+// line: "Rehearsal dinner: June 11, 2027".
+export function formatOtherDates(dates: { label?: string; date?: string }[] = []): string {
+  return dates.map((d) => [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": ")).join("\n");
+}
+
 // An event date to name as settled ("June 6, 2026 is yours"): one day
 // written out, or text that is only a year, a month or season and a year
 // ("Fall 2027"), or a run of days in one month ("Nov 20-21, 2026"). A hedge
