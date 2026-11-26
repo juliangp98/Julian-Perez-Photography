@@ -9,6 +9,7 @@ import {
   dayAgo,
   daysBetween,
   eventDay,
+  eventMonthYear,
   formatEventDate,
   formatHumanDate,
   shiftDay,
@@ -708,6 +709,17 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
   const reserving = (): ClientStep => {
     const contract = own("contract");
     if (!contract) {
+      // The invoice can come before the contract.
+      if (invoices.some((d) => d.paidAt)) {
+        return { title: "Your retainer is in", detail: "Thank you. Your contract is on its way." };
+      }
+      if (invoices.length) {
+        return {
+          title: "Your contract is on its way",
+          detail: [dueLine("The retainer", invoice?.dueAt), ctx.paymentLine].filter(Boolean).join(" ") || undefined,
+          secondary: link("Pay the retainer", invoice?.url),
+        };
+      }
       return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
     }
     if (invoices.some((d) => d.paidAt)) {
@@ -776,7 +788,12 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       );
 
     case "in-conversation":
-      return lead({ title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." });
+      // Julian's proposal link on before the email that carries it: it's ready.
+      return lead(
+        own("proposal")
+          ? { title: "Your proposal is ready", action: link("View your proposal", own("proposal")?.url) }
+          : { title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." },
+      );
 
     case "proposal-sent": {
       const held = ctx.holdUntil ? `I'm holding your date until ${formatHumanDate(ctx.holdUntil)}.` : undefined;
@@ -802,8 +819,9 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
           ? `Your planning questionnaire is below whenever you're ready, and I'll remind you ${ahead}.`
           : `I'll be in touch to plan ${ahead}.`;
-      // The date as they gave it, or none claimed when there isn't one.
-      const named = formatEventDate(p.eventDate);
+      // The date as they gave it, or none claimed when there isn't one (text
+      // with no year, like "TBD", names nothing, as in the email tokens).
+      const named = eventMonthYear(p.eventDate) ? formatEventDate(p.eventDate) : "";
       return {
         title: "You're booked",
         detail: named ? `${named} is yours. ${later}` : `You're all set. ${later}`,

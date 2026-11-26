@@ -234,7 +234,8 @@ export default function PortalProjectView({
   ].filter((f): f is { label: string; value: string } => !!f && !!f.value);
 
   return (
-    <>
+    // One column, header and banner included, so their edges line up.
+    <div className="max-w-4xl">
       <h1 className="mt-4 font-serif text-4xl">{projectDisplayName(record)}</h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="inline-block rounded-full bg-accent/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-accent">
@@ -263,7 +264,7 @@ export default function PortalProjectView({
         </div>
       )}
 
-      <div className="mt-8 max-w-4xl space-y-10">
+      <div className="mt-8 space-y-10">
         {!isCollaborator && next && <NextStepCard step={next} preview={preview} />}
 
         {/* A second photographer's project before its booking has no stage to show. */}
@@ -414,6 +415,6 @@ export default function PortalProjectView({
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }

@@ -57,6 +57,11 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "I read every inquiry and reply myself.",
   });
   expect(step({ status: "in-conversation" })?.title).toBe("Your proposal is on its way");
+  // The proposal link on before the email that carries it: it's ready.
+  expect(step({ status: "in-conversation", documents: [own("proposal")] })).toMatchObject({
+    title: "Your proposal is ready",
+    action: { label: "View your proposal", href: "https://links.example.com/proposal" },
+  });
 
   // The proposal, with the date held.
   expect(step({ status: "proposal-sent", documents: [own("proposal")] }, ctx({ holdUntil: "2026-12-02" }))).toMatchObject({
@@ -82,6 +87,16 @@ test("client next step: one per stage, from booking the call to the review", () 
     secondary: { label: "Pay the retainer", href: "https://links.example.com/invoice" },
   });
   expect(step({ status: "booked" })?.title).toBe("Your contract is on its way");
+  // The invoice can come before the contract: it's payable, or paid.
+  expect(step({ status: "booked", documents: [own("invoice", { dueAt: "2026-12-01" })] })).toMatchObject({
+    title: "Your contract is on its way",
+    detail: "The retainer is due December 1, 2026.",
+    secondary: { label: "Pay the retainer", href: "https://links.example.com/invoice" },
+  });
+  expect(step({ status: "booked", documents: [own("invoice", { paidAt: "2026-11-20" })] })).toEqual({
+    title: "Your retainer is in",
+    detail: "Thank you. Your contract is on its way.",
+  });
   // An overdue retainer says it was due.
   expect(step({ status: "booked", documents: [own("contract"), own("invoice", { dueAt: "2026-11-20" })] })?.detail).toBe(
     "The retainer was due November 20, 2026. Your date is reserved once both are in.",
@@ -145,6 +160,10 @@ test("client next step: one per stage, from booking the call to the review", () 
   );
   // Answers sent before the booking aren't asked for again.
   expect(step({ status: "contract-signed", questionnaireSnapshot: "{}" })?.detail).toBe(
+    "You're all set. I'll be in touch to plan closer to the day.",
+  );
+  // Text with no year names no date.
+  expect(step({ status: "contract-signed", eventDate: "TBD" }, ctx({ questionnaireUrl: undefined }))?.detail).toBe(
     "You're all set. I'll be in touch to plan closer to the day.",
   );
   // A date given as text is named as they gave it.
