@@ -867,6 +867,7 @@ test("compose: a template picked brings back its unsent email, and sending anoth
     documents: [{ id: "pr", type: "proposal", label: "Proposal", url: "https://links.example.com/pr", uploadedBy: "julian" }],
   });
   await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
   await expect(nextStep(page)).toContainText("Send the proposal");
   await nextStep(page).getByRole("link", { name: "Write the email" }).click();
   await expect(body).toHaveValue(/The proposal, in my words/);
@@ -881,8 +882,9 @@ test("compose: a template picked brings back its unsent email, and sending anoth
   await page.getByRole("button", { name: "Send to client" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
   await tabs.getByRole("link", { name: "Overview" }).click();
-  await expect(nextStep(page)).toBeVisible();
+  await expect(page.getByText("No inquiry message on this project.")).toBeVisible();
   await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(template).toHaveValue("proposal");
   await expect(body).toHaveValue(/The proposal, in my words/);
 });
 

@@ -170,10 +170,17 @@ test("a row marked handled stays gone; a snoozed one comes back on its day", () 
   expect(one({ status: "proposal-sent", holdUntil: "2026-11-22", todayDismissed: { "hold:2026-11-20": "handled" } })).toHaveLength(1);
 });
 
-test("a closed project keeps only its follow-up", () => {
-  expect(one({ status: "lost", followUpAt: "2026-11-25", holdUntil: "2026-11-20", lastInAt: "2026-11-24T00:00:00Z" })).toMatchObject([
-    { rule: "follow-up" },
-  ]);
+test("a closed project keeps only its follow-up, and a lost lead writing back after the close", () => {
+  const closed = { followUpAt: "2026-11-25", holdUntil: "2026-11-20", lastInAt: "2026-11-24T00:00:00Z" };
+  expect(one({ status: "archived", ...closed })).toMatchObject([{ rule: "follow-up" }]);
+  // A message from before it was closed as lost had its answer in the closing.
+  expect(
+    one({ status: "lost", ...closed, statusHistory: [{ status: "lost", changedAt: "2026-11-24T12:00:00Z" }] }),
+  ).toMatchObject([{ rule: "follow-up" }]);
+  // One after it is the check-in working: Reply opens Compose.
+  const back = one({ status: "lost", ...closed, statusHistory: [{ status: "lost", changedAt: "2026-11-20T12:00:00Z" }] });
+  expect(back.map((r) => r.rule)).toEqual(["reply", "follow-up"]);
+  expect(back[0].action.href).toBe("/admin/projects/p?tab=messages#compose");
 });
 
 async function newProject(request: APIRequestContext, tag: string) {
