@@ -1,6 +1,6 @@
 // POST /api/admin/search: owner-only, read-only. The model turns a plain-English
 // query into a structured filter applied to the client list server-side; matches
-// carry the fields the board already shows, never internal notes.
+// carry the fields the board already shows, never the owner's notes.
 
 export const runtime = "nodejs";
 

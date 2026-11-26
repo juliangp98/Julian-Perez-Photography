@@ -12,8 +12,9 @@ export const inputClass =
 const inputErrorClass = "border-danger focus:border-danger";
 export const labelClass = "block text-sm font-medium mb-1.5";
 
-// Dense variant for inline tool bars (quick log, list filters, upload rows)
-// where the full field padding would overwhelm the row. No width — callers add
+// Dense variant for inline tool bars (the project status select, list
+// filters, upload rows) where the full field padding would overwhelm the row.
+// No width — callers add
 // `w-full`/`flex-1` as the layout needs.
 export const compactInputClass =
   "px-3 py-2 rounded border border-border bg-white text-sm focus:outline-none focus:border-foreground";

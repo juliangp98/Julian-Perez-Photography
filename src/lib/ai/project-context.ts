@@ -1,7 +1,7 @@
 // The one place a project is turned into facts for an AI prompt, in two tiers:
 //
 // - "client": what may end up in words a client reads (a plan summary, an
-//   email draft). Never the budget, the referral, the internal note, the
+//   email draft). Never the budget, the referral, the owner's notes, the
 //   inquiry's own wording, or the client's email and phone.
 // - "internal": what only Julian reads (an assessment, a shoot brief). Adds
 //   the budget, how they found him, where the project came from and its status.

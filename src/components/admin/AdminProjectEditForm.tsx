@@ -1,11 +1,12 @@
 "use client";
 
-// Owner edit form for one client record. Posts the editable fields and
-// locations to /api/admin/update (admin-gated).
+// Owner edit form for one project's details, in two parts: what the client
+// sees in their portal, and what stays private. Posts the fields and locations
+// to /api/admin/update (admin-gated). The status is set in the project's
+// header, and private notes go in the activity log.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CLIENT_STATUS_OPTIONS } from "@/lib/client-status";
 import { PAYMENT_METHODS } from "@/lib/labels";
 // Imported directly (not via @/lib/content) so this client component doesn't
 // pull the server-only content layer into the browser bundle.
@@ -31,14 +32,12 @@ type Initial = {
   email?: string;
   phone?: string;
   partnerName?: string;
-  status?: string;
   serviceType?: string;
   package?: string;
   eventDate?: string;
   guestCount?: number;
   budget?: string;
   planSummary?: string;
-  internalNotes?: string;
   paymentMethod?: string;
   locations?: LocationEntry[];
 };
@@ -68,7 +67,6 @@ export default function AdminProjectEditForm({
     email: initial.email ?? "",
     phone: formatPhone(initial.phone ?? ""),
     partnerName: initial.partnerName ?? "",
-    status: initial.status ?? "new-inquiry",
     serviceType: initial.serviceType ?? "",
     package: initial.package ?? "",
     eventDate: eventDateUnparseable
@@ -77,22 +75,12 @@ export default function AdminProjectEditForm({
     guestCount: initial.guestCount != null ? String(initial.guestCount) : "",
     budget: initial.budget ?? "",
     planSummary: initial.planSummary ?? "",
-    internalNotes: initial.internalNotes ?? "",
     paymentMethod: initial.paymentMethod ?? "",
   });
   const [locations, setLocations] = useState<LocationEntry[]>(
     initial.locations ?? [],
   );
   const [status, setStatus] = useState<Status>("idle");
-  // The status can move while this form is open (adding a gallery link
-  // delivers the project). The select follows the record's status as soon as
-  // the page hears of a change, and a save sends the status only when the owner
-  // picked a different one here, so it never writes an old one back.
-  const [recordStatus, setRecordStatus] = useState(initial.status);
-  if (initial.status !== recordStatus) {
-    setRecordStatus(initial.status);
-    setV((prev) => ({ ...prev, status: initial.status ?? "new-inquiry" }));
-  }
   const [planStatus, setPlanStatus] = useState<
     "idle" | "drafting" | "drafted" | "error"
   >("idle");
@@ -154,8 +142,6 @@ export default function AdminProjectEditForm({
           id,
           fields: {
             ...v,
-            status:
-              v.status !== (recordStatus ?? "new-inquiry") ? v.status : undefined,
             guestCount: v.guestCount === "" ? undefined : Number(v.guestCount),
             locations: locations.filter((l) => l.label || l.address || l.notes),
           },
@@ -169,161 +155,160 @@ export default function AdminProjectEditForm({
     }
   }
 
+  const legend = "font-serif text-xl";
   return (
-    <form onSubmit={submit} className="space-y-5">
-      <div>
-        <label htmlFor="a-project-name" className={labelClass}>
-          Project name{" "}
-          <span className="text-muted font-normal">
-            (leave blank for the auto name)
-          </span>
-        </label>
-        <input
-          id="a-project-name"
-          value={v.projectName}
-          onChange={set("projectName")}
-          placeholder={namePlaceholder}
-          className={inputClass}
-        />
-      </div>
-      <div className="grid sm:grid-cols-2 gap-5">
-        <SelectField
-          id="a-status"
-          label="Status"
-          value={v.status}
-          onChange={setStr("status")}
-          options={CLIENT_STATUS_OPTIONS.map((s) => ({
-            value: s.value,
-            label: s.title,
-          }))}
-        />
-        <SelectField
-          id="a-service"
-          label="Service"
-          value={v.serviceType}
-          onChange={setService}
-          placeholder="Select a service"
-          clearable
-          options={[
-            ...services.map((s) => ({ value: s.slug, label: s.title })),
-            // Preserve an existing slug that isn't in the current catalog.
-            ...(v.serviceType && !services.some((s) => s.slug === v.serviceType)
-              ? [{ value: v.serviceType, label: v.serviceType }]
-              : []),
-          ]}
-        />
-        <div>
-          <label htmlFor="a-name" className={labelClass}>
-            Client name
-          </label>
-          <input id="a-name" value={v.clientName} onChange={set("clientName")} className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor="a-partner" className={labelClass}>
-            Partner name
-          </label>
-          <input id="a-partner" value={v.partnerName} onChange={set("partnerName")} className={inputClass} />
-        </div>
-        <EmailField
-          id="a-email"
-          label="Email"
-          value={v.email}
-          onChange={setStr("email")}
-        />
-        <PhoneField id="a-phone" value={v.phone} onChange={setStr("phone")} />
-        <SelectField
-          id="a-package"
-          label="Package"
-          value={v.package}
-          onChange={setStr("package")}
-          disabled={!v.serviceType}
-          placeholder={
-            v.serviceType ? "Select a package" : "Choose a service first"
-          }
-          clearable
-          options={[
-            ...packageOptions.map((p) => p.name),
-            // Preserve an existing package that isn't in the service's list.
-            ...(v.package && !packageOptions.some((p) => p.name === v.package)
-              ? [v.package]
-              : []),
-          ]}
-        />
-        {eventDateUnparseable ? (
-          <TextField
-            id="a-date"
-            label="Event date"
-            value={v.eventDate}
-            onChange={setStr("eventDate")}
-            placeholder="YYYY-MM-DD"
-            help="Re-enter as YYYY-MM-DD to use the calendar."
-          />
-        ) : (
-          <DateField
-            id="a-date"
-            label="Event date"
-            value={v.eventDate}
-            onChange={setStr("eventDate")}
-          />
-        )}
-        <NumberField
-          id="a-guests"
-          label="Guest count"
-          value={v.guestCount}
-          onChange={setStr("guestCount")}
-        />
-        <BudgetField
-          id="a-budget"
-          value={v.budget}
-          onChange={setStr("budget")}
-        />
-        <SelectField
-          id="a-payment"
-          label="How they'll pay"
-          value={v.paymentMethod}
-          onChange={setStr("paymentMethod")}
-          placeholder="Not chosen yet"
-          clearable
-          help="The client sees this in their portal."
-          options={PAYMENT_METHODS.map((m) => ({ value: m.value, label: m.label }))}
-        />
-      </div>
+    <form onSubmit={submit} className="space-y-10">
+      <fieldset>
+        <legend className={legend}>Shared with the client</legend>
+        <p className="mt-1 text-sm text-muted">The client sees these in their portal.</p>
+        <div className="mt-5 space-y-5">
+          <div>
+            <label htmlFor="a-project-name" className={labelClass}>
+              Project name{" "}
+              <span className="text-muted font-normal">
+                (leave blank for the auto name)
+              </span>
+            </label>
+            <input
+              id="a-project-name"
+              value={v.projectName}
+              onChange={set("projectName")}
+              placeholder={namePlaceholder}
+              className={inputClass}
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label htmlFor="a-name" className={labelClass}>
+                Client name
+              </label>
+              <input id="a-name" value={v.clientName} onChange={set("clientName")} className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="a-partner" className={labelClass}>
+                Partner name
+              </label>
+              <input id="a-partner" value={v.partnerName} onChange={set("partnerName")} className={inputClass} />
+            </div>
+            <EmailField
+              id="a-email"
+              label="Email"
+              value={v.email}
+              onChange={setStr("email")}
+            />
+            <PhoneField id="a-phone" value={v.phone} onChange={setStr("phone")} />
+            <SelectField
+              id="a-service"
+              label="Service"
+              value={v.serviceType}
+              onChange={setService}
+              placeholder="Select a service"
+              clearable
+              options={[
+                ...services.map((s) => ({ value: s.slug, label: s.title })),
+                // Preserve an existing slug that isn't in the current catalog.
+                ...(v.serviceType && !services.some((s) => s.slug === v.serviceType)
+                  ? [{ value: v.serviceType, label: v.serviceType }]
+                  : []),
+              ]}
+            />
+            <SelectField
+              id="a-package"
+              label="Package"
+              value={v.package}
+              onChange={setStr("package")}
+              disabled={!v.serviceType}
+              placeholder={
+                v.serviceType ? "Select a package" : "Choose a service first"
+              }
+              clearable
+              options={[
+                ...packageOptions.map((p) => p.name),
+                // Preserve an existing package that isn't in the service's list.
+                ...(v.package && !packageOptions.some((p) => p.name === v.package)
+                  ? [v.package]
+                  : []),
+              ]}
+            />
+            {eventDateUnparseable ? (
+              <TextField
+                id="a-date"
+                label="Event date"
+                value={v.eventDate}
+                onChange={setStr("eventDate")}
+                placeholder="YYYY-MM-DD"
+                help="Re-enter as YYYY-MM-DD to use the calendar."
+              />
+            ) : (
+              <DateField
+                id="a-date"
+                label="Event date"
+                value={v.eventDate}
+                onChange={setStr("eventDate")}
+              />
+            )}
+            <NumberField
+              id="a-guests"
+              label="Guest count"
+              value={v.guestCount}
+              onChange={setStr("guestCount")}
+            />
+            <SelectField
+              id="a-payment"
+              label="How they'll pay"
+              value={v.paymentMethod}
+              onChange={setStr("paymentMethod")}
+              placeholder="Not chosen yet"
+              clearable
+              options={PAYMENT_METHODS.map((m) => ({ value: m.value, label: m.label }))}
+            />
+          </div>
 
-      <AdminLocationsEditor locations={locations} onChange={setLocations} />
-      <div>
-        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-          <label htmlFor="a-plan" className="text-sm font-medium">
-            Plan summary{" "}
-            <span className="text-muted font-normal">
-              (shown to the client)
-            </span>
-          </label>
-          {aiEnabled && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={draftPlan}
-              loading={planStatus === "drafting"}
-              loadingLabel="Drafting…"
-            >
-              Draft with AI
-            </Button>
-          )}
+          <AdminLocationsEditor locations={locations} onChange={setLocations} />
+          <div>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="a-plan" className="text-sm font-medium">
+                Plan summary
+              </label>
+              {aiEnabled && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={draftPlan}
+                  loading={planStatus === "drafting"}
+                  loadingLabel="Drafting…"
+                >
+                  Draft with AI
+                </Button>
+              )}
+            </div>
+            <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={inputClass} />
+            {planStatus === "drafted" && (
+              <p className="mt-1 text-xs text-accent">
+                AI draft. Review and edit before saving.
+              </p>
+            )}
+            <FormStatus state={planStatus} error="Couldn't draft. Try again." className="mt-1 block" />
+          </div>
         </div>
-        <textarea id="a-plan" rows={4} value={v.planSummary} onChange={set("planSummary")} className={inputClass} />
-        {planStatus === "drafted" && (
-          <p className="mt-1 text-xs text-accent">
-            AI draft. Review and edit before saving.
-          </p>
-        )}
-        <FormStatus state={planStatus} error="Couldn't draft. Try again." className="mt-1 block" />
-      </div>
-      <div>
-        <label htmlFor="a-notes" className={labelClass}>
-          Internal notes <span className="text-muted font-normal">(private, never shown to the client)</span>
-        </label>
-        <textarea id="a-notes" rows={4} value={v.internalNotes} onChange={set("internalNotes")} className={inputClass} />
-      </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className={legend}>Private</legend>
+        <p className="mt-1 text-sm text-muted">
+          Only you see these. Notes go in the activity log.
+        </p>
+        <div className="mt-5 space-y-5">
+          <div className="grid sm:grid-cols-2 gap-5">
+            <BudgetField
+              id="a-budget"
+              value={v.budget}
+              onChange={setStr("budget")}
+            />
+          </div>
+        </div>
+      </fieldset>
+
       <div className="flex items-center gap-4">
         <Button type="submit" size="lg" loading={status === "saving"} loadingLabel="Saving…">
           Save changes

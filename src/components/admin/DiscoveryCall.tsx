@@ -36,6 +36,7 @@ import {
 } from "@/lib/calls";
 import { formatHumanDate, STUDIO_TIME_ZONE } from "@/lib/field-format";
 import { useAiAction } from "./ai/useAiAction";
+import { composeDraft } from "@/components/admin/compose-draft";
 import { useCallDraft, type CallSaveState } from "./call-draft";
 
 type Place = { label?: string; address?: string; notes?: string };
@@ -384,6 +385,8 @@ function CallSummaryPanel({
         body: JSON.stringify({ id: projectId, fields }),
       });
       if (!res.ok) throw new Error();
+      // A recap left unsent was written from the old details.
+      composeDraft.dropTemplate(projectId, "discovery-recap");
       setAccepted((prev) => ({ ...prev, [field]: "ok" }));
     } catch {
       setAccepted((prev) => ({ ...prev, [field]: "error" }));
@@ -400,6 +403,8 @@ function CallSummaryPanel({
       });
       if (!res.ok) throw new Error();
       const json = await res.json().catch(() => ({}));
+      // A recap left unsent was written from the old summary.
+      composeDraft.dropTemplate(projectId, "discovery-recap");
       setSavedSummary(summary);
       setSaved({ held: !!json.held, followUp: !!json.followUp });
       setSaveState("ok");

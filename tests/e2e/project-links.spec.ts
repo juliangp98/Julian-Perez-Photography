@@ -86,14 +86,14 @@ test("links: highlights move the project to Editing and the gallery to Delivered
   await p.update({ addDocument: { type: "highlights", label: "Highlights", url: link("highlights") } });
   // A save of other fields carries no status, so it leaves the new one alone.
   await p.update({ fields: { partnerName: "Sam" } });
-  await adminPage.goto(`/admin/projects/${p.id}`);
-  await expect(adminPage.locator("#a-status")).toHaveValue("editing");
+  await adminPage.goto(`/admin/projects/${p.id}?tab=links`);
+  await expect(adminPage.locator("#project-status")).toHaveValue("editing");
 
   await p.update({ addDocument: { type: "gallery", label: "Gallery", url: link("gallery") } });
   // A later highlights link never moves a delivered project back.
   await p.update({ addDocument: { type: "highlights", label: "More highlights", url: link("more") } });
   await adminPage.reload();
-  await expect(adminPage.locator("#a-status")).toHaveValue("delivered");
+  await expect(adminPage.locator("#project-status")).toHaveValue("delivered");
 
   const links = adminPage.locator("#links");
   await expect(links.getByRole("link", { name: "More highlights" })).toHaveAttribute("href", link("more"));
@@ -104,8 +104,9 @@ test("links: highlights move the project to Editing and the gallery to Delivered
   await expect(adminPage.getByLabel("Email body")).toHaveValue(new RegExp(link("gallery")));
   await expect(adminPage.getByRole("heading", { name: "Compose email" })).toBeInViewport();
 
-  // A replacement gallery link added while Compose is already on that template
-  // still gets a fresh draft carrying the new link.
+  // A replacement gallery link added after Compose opened on that template
+  // gets a fresh draft carrying the new link.
+  await adminPage.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Links & files" }).click();
   await links.getByLabel("Kind").selectOption({ label: "Gallery" });
   await links.getByLabel("Link", { exact: true }).fill(link("gallery-final"));
   await links.getByLabel("Shown as (optional)").fill("Final gallery");
@@ -127,29 +128,31 @@ test("links: highlights move the project to Editing and the gallery to Delivered
   expect(sent).toEqual([]);
 });
 
-test("links: the edit form takes on the status a link moved, and saving keeps it", async ({
+test("links: the status in the header follows a link that moved it, and saving details keeps it", async ({
   adminRequest,
   adminPage: page,
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "form");
-  await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("new-inquiry");
+  await page.goto(`/admin/projects/${p.id}?tab=links`);
+  await expect(page.locator("#project-status")).toHaveValue("new-inquiry");
 
   const links = page.locator("#links");
   await links.getByLabel("Kind").selectOption({ label: "Highlights" });
   await links.getByLabel("Link", { exact: true }).fill(link("highlights"));
   await links.getByRole("button", { name: "Add link" }).click();
   await expect(links.getByRole("status").filter({ hasText: "Added." })).toBeVisible();
-  // No reload: the open form shows the new status.
-  await expect(page.locator("#a-status")).toHaveValue("editing");
+  // No reload: the header shows the new status, and the tracker the new stage.
+  await expect(page.locator("#project-status")).toHaveValue("editing");
+  await expect(page.getByText(/^Step \d+ of \d+: Editing$/)).toBeVisible();
 
-  // Saving some other field must not write the old status back.
+  // Saving the details never writes a status back.
+  await page.goto(`/admin/projects/${p.id}?tab=details`);
   await page.getByLabel("Partner name").fill("Sam");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
   await page.reload();
-  await expect(page.locator("#a-status")).toHaveValue("editing");
+  await expect(page.locator("#project-status")).toHaveValue("editing");
   await expect(page.getByLabel("Partner name")).toHaveValue("Sam");
 });
 
@@ -160,7 +163,7 @@ test("links: two added at the same moment are both kept", async ({ adminRequest,
     p.update({ addDocument: { type: "proposal", label: "Proposal", url: link("proposal") } }),
     p.update({ addDocument: { type: "contract", label: "Contract", url: link("contract") } }),
   ]);
-  await adminPage.goto(`/admin/projects/${p.id}`);
+  await adminPage.goto(`/admin/projects/${p.id}?tab=links`);
   const links = adminPage.locator("#links");
   await expect(links.getByRole("link", { name: "Proposal" })).toBeVisible();
   await expect(links.getByRole("link", { name: "Contract" })).toBeVisible();
@@ -172,7 +175,7 @@ test("links: the owner adds an invoice, marks it paid and removes it from the pr
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "page");
-  await page.goto(`/admin/projects/${p.id}`);
+  await page.goto(`/admin/projects/${p.id}?tab=links`);
   const links = page.locator("#links");
   await expect(links.getByText(/Nothing here yet/)).toBeVisible();
 
@@ -228,7 +231,7 @@ test("portal: a client can upload a timeline, never a contract", async ({
   }
   expect((await attach("timeline")).status()).toBe(200);
 
-  await adminPage.goto(`/admin/projects/${p.id}`);
+  await adminPage.goto(`/admin/projects/${p.id}?tab=links`);
   const row = adminPage.locator("#links").getByRole("listitem").filter({ hasText: "Day-of timeline.pdf" });
   await expect(row).toContainText("Timeline · Client");
   await expect(adminPage.locator("#links").getByRole("listitem")).toHaveCount(1);

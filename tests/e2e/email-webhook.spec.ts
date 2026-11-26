@@ -51,7 +51,7 @@ test.describe("the thread against the test store", () => {
   test("a send shows on the thread and moves to Delivered", async ({ adminRequest, adminPage, fakes }) => {
     const p = await startThread(adminRequest, fakes);
     await post(adminRequest, deliveryEvent("email.delivered", p.resendId));
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     const thread = adminPage.getByRole("list", { name: "Messages" });
     await expect(thread.getByText("Opening note")).toBeVisible();
     await expect(thread.getByText("Delivered")).toBeVisible();
@@ -61,7 +61,7 @@ test.describe("the thread against the test store", () => {
   // new message has to appear on the thread without a reload.
   test("a send from Compose shows on the thread without a reload", async ({ adminRequest, adminPage, fakes }) => {
     const p = await startThread(adminRequest, fakes);
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     await adminPage.getByRole("combobox", { name: "Email template" }).selectOption({ label: "Inquiry reply" });
     await adminPage.getByRole("textbox", { name: "Subject" }).fill("Second note");
     await adminPage.getByRole("textbox", { name: "Email body" }).fill("Following up from Compose.");
@@ -81,7 +81,8 @@ test.describe("the thread against the test store", () => {
     });
     const [alert] = sentTo(await fakes.calls("resend"), OWNER).slice(-1);
     expect(alert.body?.subject).toMatch(/bounced/);
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    expect(String(alert.body?.text)).toContain(`/admin/projects/${p.id}?tab=messages`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     await expect(adminPage.getByText("Mailbox does not exist")).toBeVisible();
   });
 
@@ -97,8 +98,10 @@ test.describe("the thread against the test store", () => {
     expect(forward.body?.reply_to).toBe(p.replyAddress);
     expect(String(forward.body?.text)).toContain("Thursday works.");
     expect(String(forward.body?.text)).not.toContain("> hi");
+    // The alert opens the project's thread, on its Messages tab.
+    expect(String(forward.body?.text)).toContain(`/admin/projects/${p.id}?tab=messages`);
 
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     await expect(adminPage.getByRole("list", { name: "Messages" }).getByText("Thursday works.")).toBeVisible();
   });
 
@@ -149,7 +152,7 @@ test.describe("the thread against the test store", () => {
     await receive(adminRequest, fakes, p, { from: "admin@example.com", text: "Unverified hello." });
     expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(1);
 
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     const released = adminPage.waitForResponse((r) => r.url().endsWith("/api/admin/messages"));
     await adminPage.getByRole("button", { name: /send it to the client/i }).click();
     expect((await released).status()).toBe(200);
@@ -185,7 +188,7 @@ test.describe("the thread against the test store", () => {
       headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
     });
     expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(1);
-    await adminPage.goto(`/admin/projects/${p.id}`);
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     const thread = adminPage.getByRole("list", { name: "Messages" });
     await expect(thread.getByText("The reply that started all this.")).toBeVisible();
     await expect(thread.getByText("Filed from Gmail")).toBeVisible();

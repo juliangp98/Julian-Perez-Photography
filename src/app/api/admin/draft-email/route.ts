@@ -1,6 +1,6 @@
 // POST /api/admin/draft-email: owner-only. Drafts a personalized email from a
 // pipeline template and the project's own record; it never sends, and never
-// passes internal notes, budget, the client's email or phone, or body-supplied
+// passes the owner's notes, budget, the client's email or phone, or body-supplied
 // PII to the model.
 
 export const runtime = "nodejs";

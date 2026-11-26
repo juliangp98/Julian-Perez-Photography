@@ -31,6 +31,27 @@ test("a client who wrote last shows until answered", () => {
   const rows = one({ status: "proposal-sent", clientName: "Avery Example", lastInAt: "2026-11-23T15:00:00Z", lastOutAt: "2026-11-20T15:00:00Z" });
   expect(rows).toMatchObject([{ rule: "reply", reason: "Avery wrote 2 days ago, not answered yet" }]);
   expect(one({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" })).toEqual([]);
+  // A new inquiry's answer is the inquiry reply; later, Compose opens on no template.
+  expect(rows[0].action.href).toBe("/admin/projects/p?tab=messages#compose");
+  expect(one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z" })[0].action.href).toBe(
+    "/admin/projects/p?compose=inquiry-reply#compose",
+  );
+  // Answered outside the site (the inquiry, or an earlier message, marked
+  // handled), or booked by phone (a contract on it): a plain reply.
+  expect(
+    one({
+      status: "new-inquiry",
+      lastInAt: "2026-11-23T15:00:00Z",
+      todayDismissed: { "reply:2026-11-20T15:00:00Z": "handled" },
+    })[0].action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
+  expect(
+    one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", documents: [{ type: "contract", uploadedBy: "julian" }] })[0]
+      .action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
+  expect(
+    one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", todayDismissed: { inquiry: "handled" } })[0].action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
   // An evening message counts on the studio's day it was sent.
   expect(one({ status: "proposal-sent", lastInAt: "2026-11-25T02:30:00Z" })).toMatchObject([
     { rule: "reply", reason: "The client wrote yesterday, not answered yet", due: "2026-11-24" },
@@ -40,6 +61,8 @@ test("a client who wrote last shows until answered", () => {
 test("a new inquiry nobody answered shows at any age, due from the day it came", () => {
   expect(one({ status: "new-inquiry" })).toMatchObject([{ rule: "inquiry", action: { label: "Draft a reply" } }]);
   expect(one({ status: "new-inquiry", lastOutAt: "2026-11-24T10:00:00Z" })).toEqual([]);
+  // Booked by phone (a contract on it): nothing to reply to.
+  expect(one({ status: "new-inquiry", documents: [{ type: "contract", uploadedBy: "julian" }] })).toEqual([]);
   expect(one({ status: "new-inquiry", createdAt: "2026-11-01T12:00:00Z" })).toMatchObject([
     { rule: "inquiry", reason: "New inquiry 3 weeks ago, not answered yet", due: "2026-11-01" },
   ]);
@@ -61,6 +84,10 @@ test("an expired hold shows for a lead, not once they've booked", () => {
   ]);
   expect(one({ status: "booked", holdUntil: "2026-11-20" })).toEqual([]);
   expect(one({ status: "proposal-sent", holdUntil: "2026-11-25" })).toEqual([]);
+  // A yes (the contract added) before the status moved.
+  expect(
+    one({ status: "proposal-sent", holdUntil: "2026-11-20", documents: [{ type: "contract", uploadedBy: "julian" }] }),
+  ).toEqual([]);
 });
 
 test("an unpaid invoice due within a week shows; a paid or later one doesn't", () => {
@@ -165,10 +192,17 @@ test("a row marked handled stays gone; a snoozed one comes back on its day", () 
   expect(one({ status: "proposal-sent", holdUntil: "2026-11-22", todayDismissed: { "hold:2026-11-20": "handled" } })).toHaveLength(1);
 });
 
-test("a closed project keeps only its follow-up", () => {
-  expect(one({ status: "lost", followUpAt: "2026-11-25", holdUntil: "2026-11-20", lastInAt: "2026-11-24T00:00:00Z" })).toMatchObject([
-    { rule: "follow-up" },
-  ]);
+test("a closed project keeps only its follow-up, and a lost lead writing back after the close", () => {
+  const closed = { followUpAt: "2026-11-25", holdUntil: "2026-11-20", lastInAt: "2026-11-24T00:00:00Z" };
+  expect(one({ status: "archived", ...closed })).toMatchObject([{ rule: "follow-up" }]);
+  // A message from before it was closed as lost had its answer in the closing.
+  expect(
+    one({ status: "lost", ...closed, statusHistory: [{ status: "lost", changedAt: "2026-11-24T12:00:00Z" }] }),
+  ).toMatchObject([{ rule: "follow-up" }]);
+  // One after it is the check-in working: Reply opens Compose.
+  const back = one({ status: "lost", ...closed, statusHistory: [{ status: "lost", changedAt: "2026-11-20T12:00:00Z" }] });
+  expect(back.map((r) => r.rule)).toEqual(["reply", "follow-up"]);
+  expect(back[0].action.href).toBe("/admin/projects/p?tab=messages#compose");
 });
 
 async function newProject(request: APIRequestContext, tag: string) {

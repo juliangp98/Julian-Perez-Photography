@@ -3,7 +3,7 @@
 // the Compose panel's tokens and the specs all work from the same rules; the
 // route applies the plan once the email has gone.
 
-import type { EmailTemplate } from "./email-pipeline";
+import { EMAIL_TEMPLATES, type EmailTemplate } from "./email-pipeline";
 import {
   CLIENT_STATUS_TERMINAL,
   statusRank,
@@ -16,7 +16,26 @@ export type SendEffectsProject = {
   status?: string;
   eventDate?: string;
   holdUntil?: string;
+  followUpAt?: string;
+  followUpNote?: string;
 };
+
+// The follow-up the call summary's first save sets.
+export const RECAP_FOLLOW_UP_NOTE = "Send the recap and proposal";
+
+// The notes of the follow-ups the pipeline set before a status: the call
+// summary's, and those of templates for an earlier stage. A template that
+// settles them can tell them from one set by hand, or by a later stage.
+function earlierFollowUps(before: ClientStatus): Set<string> {
+  const rank = statusRank(before);
+  return new Set([
+    RECAP_FOLLOW_UP_NOTE,
+    ...EMAIL_TEMPLATES.flatMap((t) => {
+      const r = statusRank(t.stage);
+      return t.followUp && r >= 0 && r < rank ? [t.followUp.note] : [];
+    }),
+  ]);
+}
 
 export type SendEffectsPlan = {
   // Move the project forward to this status.
@@ -25,6 +44,8 @@ export type SendEffectsPlan = {
   closeAs?: ClientStatus;
   // Set the next follow-up.
   followUp?: { at: string; note: string };
+  // Clear the follow-up an earlier stage set.
+  clearFollowUp?: boolean;
   // Start a date hold running to this day.
   hold?: string;
 };
@@ -106,5 +127,37 @@ export function planSendEffects(
     if (at && at >= today) plan.followUp = { at, note: f.note };
   }
 
+  if (
+    template.settlesFollowUp &&
+    template.advancesTo &&
+    !plan.followUp &&
+    project.followUpAt &&
+    earlierFollowUps(template.advancesTo).has(project.followUpNote ?? "")
+  ) {
+    plan.clearFollowUp = true;
+  }
+
   return plan;
+}
+
+// "a, b and c"
+export function listOf(parts: string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+}
+
+// What applying a send meant to change but couldn't, in a line after `lead`
+// ("The email went", "Noted"), for Compose and Already sent alike.
+const NOT_MOVED: Record<string, string> = {
+  status: "the status",
+  hold: "the date hold",
+  followUp: "the follow-up",
+};
+export function notMovedLine(lead: string, notMoved?: string[]): string {
+  if (!notMoved?.length) return "";
+  const what = listOf(notMoved.map((n) => NOT_MOVED[n] ?? n));
+  return `${lead}, but ${what} couldn't be updated.${
+    notMoved.includes("status") ? " Set the status at the top of the page." : ""
+  }`;
 }

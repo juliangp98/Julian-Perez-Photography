@@ -1,5 +1,6 @@
 import { getQuestionnaire } from "@/lib/questionnaires";
 import { documentType } from "@/lib/labels";
+import { studioToday } from "@/lib/field-format";
 import type { ClientDocumentEntry, ClientRecordSafe } from "@/lib/clients";
 
 // The one builder for every link that belongs to a project: the portal page,
@@ -26,6 +27,24 @@ export function projectLink(
         (type !== "invoice" || !d.paidAt),
     )
     .at(-1);
+}
+
+// The invoice a client is asked to pay next, of Julian's unpaid invoices: the
+// one overdue longest, else the first added with no due day (due on receipt,
+// like a retainer), else the one due first. The next step on the project
+// page and the email tokens read the same one, so a reminder names the
+// invoice the step said was due. `today` is the studio's calendar day.
+export function openInvoice<D extends { type?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }>(
+  record: { documents?: D[] },
+  today: string,
+): D | undefined {
+  const unpaid = (record.documents ?? []).filter(
+    (d) => d.type === "invoice" && d.uploadedBy !== "client" && !d.paidAt,
+  );
+  const isDay = (d: D) => /^\d{4}-\d{2}-\d{2}$/.test(d.dueAt ?? "");
+  const dated = unpaid.filter(isDay).sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""));
+  const overdue = dated.find((d) => (d.dueAt ?? "") < today);
+  return overdue ?? unpaid.find((d) => !isDay(d)) ?? dated[0];
 }
 
 export type ProjectLinks = {
@@ -78,7 +97,7 @@ export function projectLinks(record: ClientRecordSafe, origin: string): ProjectL
       : `${origin}/inquire?${known.toString()}`,
     proposalUrl: projectLink(record, "proposal")?.url,
     contractUrl: projectLink(record, "contract")?.url,
-    invoiceUrl: projectLink(record, "invoice")?.url,
+    invoiceUrl: openInvoice(record, studioToday())?.url,
     highlightsUrl: projectLink(record, "highlights")?.url,
     galleryUrl: projectLink(record, "gallery")?.url,
     timelineUrl: projectLink(record, "timeline", { fromOwner: true })?.url,

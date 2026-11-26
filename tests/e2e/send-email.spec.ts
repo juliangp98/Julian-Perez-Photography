@@ -1,6 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 import { test, expect, hasTestStore } from "./support/fixtures";
-import { patchProject } from "./support/test-store";
+import { patchProject, readProject } from "./support/test-store";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
 
 // Owner-composed pipeline emails (/api/admin/send-email). The owner picks a
@@ -75,7 +75,7 @@ test("send-email: an inquiry reply moves the project on and sets a follow-up", a
   expect(recap.moved.holdUntil).toBeUndefined();
 
   await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("proposal-sent");
+  await expect(page.locator("#project-status")).toHaveValue("proposal-sent");
   await expect(page.getByText(`${formatHumanDate(shiftDay(studioToday(), { days: 6 }))}: Follow up on the proposal`)).toBeVisible();
 });
 
@@ -92,9 +92,11 @@ test("send-email: a 'not available' email archives the project and clears its fo
   expect(json.moved).toEqual({ status: "archived" });
 
   await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("archived");
-  await expect(page.getByText("Next follow-up")).toHaveCount(0);
-  await expect(page.getByText("Date held until")).toHaveCount(0);
+  await expect(page.locator("#project-status")).toHaveValue("archived");
+  await expect(page.getByText("None set.")).toBeVisible();
+  await expect(page.getByText("No hold running")).toBeVisible();
+  // Cleared in the store, not only hidden while closed.
+  expect(await readProject(p.id, "hold_until, follow_up_at")).toEqual({ hold_until: null, follow_up_at: null });
 });
 
 test("send-email: the contract and retainer tell the client their date is being reserved", async ({
@@ -114,7 +116,7 @@ test("send-email: the contract and retainer tell the client their date is being 
   await expect(client.getByText("Date held until")).toHaveCount(0);
 });
 
-test("quick log: closing a project by hand clears its follow-up and hold", async ({
+test("status: closing a project by hand clears its follow-up and hold", async ({
   adminRequest: request,
   adminPage: page,
 }) => {
@@ -122,15 +124,17 @@ test("quick log: closing a project by hand clears its follow-up and hold", async
   const p = await newProject(request, "lost");
   await send(request, p.id, "inquiry-reply");
   await patchProject(p.id, { hold_until: shiftDay(studioToday(), { days: 4 }) });
-  const res = await request.post("/api/admin/quick-log", {
-    data: { projectId: p.id, status: "lost", note: "Went quiet" },
+  const res = await request.post("/api/admin/update", {
+    data: { id: p.id, fields: { status: "lost" } },
   });
   expect(res.status()).toBe(200);
 
   await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("lost");
-  await expect(page.getByText("Next follow-up")).toHaveCount(0);
-  await expect(page.getByText("Date held until")).toHaveCount(0);
+  await expect(page.locator("#project-status")).toHaveValue("lost");
+  await expect(page.getByText("None set.")).toBeVisible();
+  await expect(page.getByText("No hold running")).toBeVisible();
+  // Cleared in the store, not only hidden while closed.
+  expect(await readProject(p.id, "hold_until, follow_up_at")).toEqual({ hold_until: null, follow_up_at: null });
 });
 
 test("compose: a proposal shows what sending does, names the running hold, and confirms what moved", async ({

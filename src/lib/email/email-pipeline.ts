@@ -63,8 +63,12 @@ export type EmailTemplate = {
   closesAs?: ClientStatus;
   // sets the project's next follow-up;
   followUp?: TemplateFollowUp;
-  // and holds the date for the service's hold days, unless a hold is running.
+  // and holds the date for the service's hold days, unless a hold is running;
   holdsDate?: boolean;
+  // and clears a follow-up the pipeline set at a stage before the one it
+  // moves to (one a template for an earlier stage or the call summary set),
+  // which it settles; one set by hand, or by a later stage, stays.
+  settlesFollowUp?: boolean;
 };
 
 // The full set, ordered along the communication pipeline (new inquiry →
@@ -242,6 +246,7 @@ Reply any time with questions.
 
 Julian`,
     advancesTo: "contract-signed",
+    settlesFollowUp: true,
   },
   {
     id: "planning-kickoff",

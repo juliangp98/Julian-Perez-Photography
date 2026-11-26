@@ -1,41 +1,31 @@
-import { test, expect, hasTestStore } from "./support/fixtures";
+import { test, expect } from "./support/fixtures";
 
-// Admin projects overview: quick-log API (status/note from the board) and the
-// search/filter params. The API cases use an id no project has ("p1"), so the
-// helpers find no row and do nothing while the route still accepts the shape;
-// that holds with or without the test store. The pages cover the server-side
-// filter path and the not-found state, and, with the test store, a quick-log
-// note saved from the board.
+// Admin projects overview: the board's search/filter params, the project
+// page's not-found state, and the shapes /api/admin/update accepts. The API
+// cases use an id no project has ("p1"), so the helpers find no row and do
+// nothing while the route still checks the shape; that holds with or without
+// the test store. The project page itself is in project-page.spec.ts.
 
-test("admin quick-log: rejects an unauthenticated request", async ({
-  request,
-}) => {
-  const res = await request.post("/api/admin/quick-log", {
+test("admin update: a note needs a session", async ({ request }) => {
+  const res = await request.post("/api/admin/update", {
     headers: { "x-forwarded-for": "10.88.0.1" },
-    data: { projectId: "x", note: "hi" },
+    data: { id: "x", note: "hi" },
   });
   expect(res.status()).toBe(401);
 });
 
-test("admin quick-log: rejects an empty update when authenticated", async ({ adminRequest: request }) => {
-  // Neither a status change nor a note → schema refinement rejects it (400),
-  // proving the session was accepted (otherwise this would be 401).
-  const res = await request.post("/api/admin/quick-log", {
-    data: { projectId: "x" },
-  });
-  expect(res.status()).toBe(400);
+test("admin update: a note needs some text, and a project", async ({ adminRequest }) => {
+  // A blank note is refused (400), proving the session was accepted.
+  expect((await adminRequest.post("/api/admin/update", { data: { id: "p1", note: "   " } })).status()).toBe(400);
+  // No project has this id.
+  expect(
+    (await adminRequest.post("/api/admin/update", { data: { id: "p1", note: "Called, left a voicemail" } })).status(),
+  ).toBe(404);
 });
 
-test("admin quick-log: accepts a note when authenticated", async ({ adminRequest: request }) => {
-  const res = await request.post("/api/admin/quick-log", {
-    data: {
-      projectId: "p1",
-      note: "Called, left a voicemail",
-    },
-  });
-  // No project has this id → the helper does nothing, but the route accepts it.
-  expect(res.status()).toBe(200);
-  expect((await res.json()).ok).toBe(true);
+test("admin update: an email noted as sent needs a template it knows, and a project", async ({ adminRequest }) => {
+  expect((await adminRequest.post("/api/admin/update", { data: { id: "p1", sent: "made-up" } })).status()).toBe(400);
+  expect((await adminRequest.post("/api/admin/update", { data: { id: "p1", sent: "referral-ask" } })).status()).toBe(404);
 });
 
 test("admin projects: filter params render without error", async ({ adminPage: page }) => {
@@ -86,6 +76,11 @@ test("admin update: accepts the typed service/package/date values when authentic
   expect((await res.json()).ok).toBe(true);
 });
 
+test("admin update: refuses a status it doesn't know", async ({ adminRequest }) => {
+  const res = await adminRequest.post("/api/admin/update", { data: { id: "p1", fields: { status: "made-up" } } });
+  expect(res.status()).toBe(400);
+});
+
 test("admin update: accepts the declined status and a locations array", async ({ adminRequest: request }) => {
   // The new terminal "declined" status (booked-elsewhere) and the admin-editable
   // locations array both round-trip through the update schema.
@@ -106,17 +101,4 @@ test("admin update: accepts the declined status and a locations array", async ({
   });
   expect(res.status()).toBe(200);
   expect((await res.json()).ok).toBe(true);
-});
-
-test("admin quick-log: a note saved from the board says so", async ({ adminRequest, adminPage }) => {
-  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
-  const email = `e2e-quick-${Date.now()}@example.com`;
-  await adminRequest.post("/api/admin/create-project", {
-    data: { email, clientName: "E2E Quick", serviceType: "weddings", force: true },
-  });
-  await adminPage.goto(`/admin/projects?q=${encodeURIComponent(email)}`);
-  await adminPage.getByRole("button", { name: "Quick update +" }).click();
-  await adminPage.getByPlaceholder("Add a note…").fill("Called, left a voicemail");
-  await adminPage.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(adminPage.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
 });

@@ -48,7 +48,8 @@ export type OutgoingEmail = {
   attachments?: CreateEmailOptions["attachments"];
   idempotencyKey?: string;
   // A client-facing email that belongs on a project's thread.
-  thread?: { projectId: string; kind: MessageKind };
+  // `template` is the pipeline template a composed email started from.
+  thread?: { projectId: string; kind: MessageKind; template?: string };
 };
 
 // Resend error names that mean "try again shortly" rather than "this send is
@@ -115,6 +116,7 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
       projectId: email.thread.projectId,
       direction: "out",
       kind: email.thread.kind,
+      template: email.thread.template,
       fromAddr: payload.from,
       toAddr: [email.to].flat().join(", "),
       subject,

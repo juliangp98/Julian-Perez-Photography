@@ -2,8 +2,8 @@
 // project's client. The recipient comes from the record, never the body; the
 // owner gets a copy and the response says whether it left and why not. Once it
 // has gone, the template it started from moves the project on: its status,
-// its next follow-up, the date hold (src/lib/email/send-effects.ts). The
-// response says what moved.
+// its next follow-up, the date hold (applySendEffects in
+// src/lib/email/apply-send.ts). The response says what moved.
 
 export const runtime = "nodejs";
 
@@ -12,19 +12,10 @@ import { z } from "zod";
 import { render } from "@react-email/components";
 import * as Sentry from "@sentry/nextjs";
 import { apiError, defineRoute } from "@/lib/api-route";
-import {
-  advanceStatus,
-  closeProject,
-  getClientFull,
-  setFollowUp,
-  setHold,
-  type ClientRecordFull,
-} from "@/lib/clients";
-import { getAnyService, getSiteSettings } from "@/lib/content";
-import { EMAIL_TEMPLATES, type EmailTemplate } from "@/lib/email/email-pipeline";
-import { planSendEffects } from "@/lib/email/send-effects";
-import { studioToday } from "@/lib/field-format";
-import type { ClientStatus } from "@/lib/client-status";
+import { getClientFull } from "@/lib/clients";
+import { getSiteSettings } from "@/lib/content";
+import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
+import { applySendEffects } from "@/lib/email/apply-send";
 import { sendEmail, EmailError, describeEmailFailure } from "@/lib/email/send";
 import {
   BrandedEmailLayout,
@@ -32,77 +23,6 @@ import {
 } from "@/lib/email/email-templates";
 
 const TEMPLATE_IDS = EMAIL_TEMPLATES.map((t) => t.id) as [string, ...string[]];
-
-// What the send changed on the project, for the panel to confirm, and what it
-// meant to change but couldn't.
-type Moved = {
-  status?: ClientStatus;
-  followUpAt?: string;
-  followUpNote?: string;
-  holdUntil?: string;
-};
-type NotMoved = "status" | "hold" | "followUp";
-
-// Apply what the template does, one step at a time, so a failed step doesn't
-// undo the record of the ones that worked. A failure is reported at warning:
-// the email has already gone.
-async function applyTemplate(
-  record: ClientRecordFull,
-  template: EmailTemplate,
-): Promise<{ moved: Moved; notMoved: NotMoved[] }> {
-  const moved: Moved = {};
-  const notMoved: NotMoved[] = [];
-  const step = async (name: NotMoved, run: () => Promise<void>) => {
-    try {
-      await run();
-    } catch (err) {
-      notMoved.push(name);
-      Sentry.captureException(err, {
-        tags: { route: "admin/send-email", stage: "advance" },
-        level: "warning",
-      });
-    }
-  };
-
-  let plan;
-  try {
-    const service = record.serviceType ? await getAnyService(record.serviceType) : undefined;
-    plan = planSendEffects(template, record, { today: studioToday(), holdDays: service?.holdDays });
-  } catch (err) {
-    Sentry.captureException(err, {
-      tags: { route: "admin/send-email", stage: "advance" },
-      level: "warning",
-    });
-    return { moved, notMoved: ["status", "hold", "followUp"] };
-  }
-
-  const note = `${template.name} sent`;
-  const { closeAs, advanceTo, hold, followUp } = plan;
-  if (closeAs) {
-    await step("status", async () => {
-      if (await closeProject(record.id, closeAs, note)) moved.status = closeAs;
-    });
-  }
-  if (advanceTo) {
-    await step("status", async () => {
-      if (await advanceStatus(record.id, advanceTo, note)) moved.status = advanceTo;
-    });
-  }
-  if (hold) {
-    await step("hold", async () => {
-      await setHold(record.id, hold);
-      moved.holdUntil = hold;
-    });
-  }
-  if (followUp) {
-    await step("followUp", async () => {
-      await setFollowUp(record.id, followUp.at, followUp.note);
-      moved.followUpAt = followUp.at;
-      moved.followUpNote = followUp.note;
-    });
-  }
-  return { moved, notMoved };
-}
 
 const schema = z.object({
   projectId: z.string().min(1),
@@ -142,7 +62,7 @@ export const POST = defineRoute({
         html,
         text: body,
         idempotencyKey,
-        thread: { projectId, kind: "compose" },
+        thread: { projectId, kind: "compose", template: templateId },
       }));
     } catch (err) {
       Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });
@@ -166,7 +86,10 @@ export const POST = defineRoute({
     // reported, not surfaced as a failed send.
     const template = EMAIL_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return { ok: true, sent: true, id };
-    const { moved, notMoved } = await applyTemplate(record, template);
+    const { moved, notMoved } = await applySendEffects(record, template, {
+      note: `${template.name} sent`,
+      route: "admin/send-email",
+    });
     return { ok: true, sent: true, id, moved, ...(notMoved.length ? { notMoved } : {}) };
   },
 });

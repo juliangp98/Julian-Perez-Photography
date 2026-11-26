@@ -47,10 +47,29 @@ export type ClientMessage = {
   statusDetail?: string;
   attachments: MessageAttachment[];
   sentAt: string;
+  // The pipeline template it was sent from, when there was one.
+  template?: string;
 };
 
-const SELECT =
+const SELECT_BASE =
   "id, projectId:project_id, direction, channel, kind, fromAddr:from_addr, toAddr:to_addr, subject, bodyText:body_text, resendId:resend_id, messageId:message_id, inReplyTo:in_reply_to, status, statusDetail:status_detail, attachments, sentAt:sent_at";
+
+// The template column came after the table. If a deploy lands before it's
+// added, the first read or write that names it fails (SQLSTATE 42703); that's
+// noted once and the rest of the process reads and writes without it, as the
+// project reads do for their later columns (src/lib/clients.ts).
+let templateColumn = true;
+const select = () => (templateColumn ? `${SELECT_BASE}, template` : SELECT_BASE);
+// A read names a missing column to Postgres (42703); a write is refused by
+// the API layer first (PGRST204).
+// A request built before another noticed the missing column retries too.
+function templateMissing(error: { code?: string; message?: string } | null): boolean {
+  const missing =
+    (error?.code === "42703" || error?.code === "PGRST204") && /template/.test(error?.message ?? "");
+  if (!missing) return false;
+  templateColumn = false;
+  return true;
+}
 
 // What the client may see of their own thread: nothing held back for review.
 const CLIENT_VISIBLE: MessageStatus[] = ["sent", "delivered", "delayed", "received"];
@@ -85,6 +104,7 @@ export type NewMessage = {
   statusDetail?: string;
   attachments?: MessageAttachment[];
   sentAt?: string;
+  template?: string;
 };
 
 // Records a message and returns whether it was new. A repeat of the same Resend
@@ -92,7 +112,15 @@ export type NewMessage = {
 // rather than duplicated, and returns false.
 export async function recordMessage(m: NewMessage): Promise<boolean> {
   if (!isClientsStoreConfigured()) return false;
-  const { error } = await db().from(TABLE).insert({
+  let { error } = await insertMessage(m);
+  if (templateMissing(error)) ({ error } = await insertMessage(m));
+  if (error?.code === "23505") return false;
+  if (error) throw error;
+  return true;
+}
+
+function insertMessage(m: NewMessage) {
+  return db().from(TABLE).insert({
     project_id: m.projectId,
     direction: m.direction,
     channel: m.channel ?? "email",
@@ -109,10 +137,8 @@ export async function recordMessage(m: NewMessage): Promise<boolean> {
     status_detail: m.statusDetail,
     attachments: m.attachments ?? [],
     ...(m.sentAt ? { sent_at: m.sentAt } : {}),
+    ...(m.template && templateColumn ? { template: m.template } : {}),
   });
-  if (error?.code === "23505") return false;
-  if (error) throw error;
-  return true;
 }
 
 export async function listProjectMessages(
@@ -120,16 +146,22 @@ export async function listProjectMessages(
   opts: { clientView?: boolean } = {},
 ): Promise<ClientMessage[]> {
   if (!isClientsStoreConfigured() || !isRecordId(projectId)) return [];
-  let q = db().from(TABLE).select(SELECT).eq("project_id", projectId);
-  if (opts.clientView) q = q.in("status", CLIENT_VISIBLE);
-  const { data, error } = await q.order("sent_at", { ascending: true });
+  const read = () => {
+    let q = db().from(TABLE).select(select()).eq("project_id", projectId);
+    if (opts.clientView) q = q.in("status", CLIENT_VISIBLE);
+    return q.order("sent_at", { ascending: true });
+  };
+  let { data, error } = await read();
+  if (templateMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   return (data as unknown as ClientMessage[] | null) ?? [];
 }
 
 export async function getMessage(id: string): Promise<ClientMessage | null> {
   if (!isClientsStoreConfigured()) return null;
-  const { data, error } = await db().from(TABLE).select(SELECT).eq("id", id).maybeSingle();
+  const read = () => db().from(TABLE).select(select()).eq("id", id).maybeSingle();
+  let { data, error } = await read();
+  if (templateMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   return (data as unknown as ClientMessage | null) ?? null;
 }

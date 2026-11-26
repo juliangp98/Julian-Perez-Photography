@@ -105,7 +105,7 @@ test("questionnaire: a prospect keeps their status; a booked project moves on to
   }
 
   await adminPage.goto(`/admin/projects/${prospect.id}`);
-  await expect(adminPage.locator("#a-status")).toHaveValue("proposal-sent");
+  await expect(adminPage.locator("#project-status")).toHaveValue("proposal-sent");
   await adminPage.goto(`/admin/projects/${booked.id}`);
-  await expect(adminPage.locator("#a-status")).toHaveValue("planning");
+  await expect(adminPage.locator("#project-status")).toHaveValue("planning");
 });

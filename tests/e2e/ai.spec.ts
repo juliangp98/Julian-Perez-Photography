@@ -99,7 +99,8 @@ test("ai: the plan summary is a draft for the form, built without private detail
   await patchProject(id, {
     budget: "$4,500",
     referral: "venue",
-    internal_notes: "Prefers texts",
+    // A private note in the activity log.
+    status_history: [{ kind: "note", status: "new-inquiry", note: "Prefers texts", changedAt: new Date().toISOString() }],
     // The questionnaire opens with the client's contact details.
     questionnaire_snapshot: JSON.stringify({
       fullName: "E2E AI",

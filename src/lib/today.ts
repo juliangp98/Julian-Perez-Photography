@@ -5,7 +5,7 @@
 // new (a later message, a new hold, an invoice gone overdue) shows again.
 // Pure, so the board and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
 import { draftReplyHref } from "./triage";
 
@@ -21,12 +21,14 @@ export type TodayProject = {
   followUpNote?: string;
   holdUntil?: string;
   questionnaireSnapshot?: string;
-  documents?: { id?: string; type?: string; label?: string; dueAt?: string; paidAt?: string }[];
+  documents?: { id?: string; type?: string; label?: string; dueAt?: string; paidAt?: string; uploadedBy?: string }[];
   lastInAt?: string;
   lastOutAt?: string;
   todayDismissed?: Record<string, string>;
   // When the project was created: an inquiry's arrival.
   createdAt?: string;
+  // Its moves, for when a lost lead was closed.
+  statusHistory?: { status?: string; changedAt?: string; kind?: string }[];
 };
 
 export type TodayRule =
@@ -80,6 +82,8 @@ function rowsFor(
   const rank = statusRank(p.status);
   const closed = isClosed(p.status);
   const first = p.clientName?.trim().split(/\s+/)[0] || "The client";
+  // Booked by phone, or a yes before the proposal's hold ran out.
+  const booked = hasOwnContract(p.documents);
 
   // A follow-up that's due, on any project (a closed lead's last check-in too).
   if (p.followUpAt && DAY.test(p.followUpAt) && p.followUpAt <= today) {
@@ -92,20 +96,35 @@ function rowsFor(
       { label: "Open", href: page },
     );
   }
-  if (closed) return rows;
+  // A closed project has nothing more to do, except a lost lead writing back
+  // after it was closed: the check-in worked.
+  if (closed && p.status !== "lost") return rows;
 
-  // The client wrote last, and hasn't had an answer.
-  const replied = !!p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt);
+  // The client wrote last, and hasn't had an answer. A new inquiry nothing
+  // has gone to yet gets the inquiry reply; otherwise Compose opens on no
+  // template, as the project page's next step does.
+  const closedAt = closed ? lostAt(p.statusHistory) : undefined;
+  const replied =
+    !!p.lastInAt &&
+    (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
+    (!closedAt || Date.parse(p.lastInAt) > Date.parse(closedAt));
   if (replied) {
     const day = dayOf(p.lastInAt);
-    add("reply", `reply:${p.lastInAt}`, `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
+    // Answered outside the site (the inquiry or an earlier message marked
+    // handled): a plain reply, as on the project page.
+    const byHand = Object.entries(p.todayDismissed ?? {}).some(
+      ([k, v]) => (k === "inquiry" || k.startsWith("reply:")) && v === "handled",
+    );
+    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt && !byHand && !booked;
+    add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
-      href: compose("inquiry-reply"),
+      href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,
     });
   }
+  if (closed) return rows;
 
   // A new inquiry nobody has answered, at any age: due from the day it came.
-  if (p.status === "new-inquiry" && !p.lastOutAt && !replied) {
+  if (p.status === "new-inquiry" && !p.lastOutAt && !replied && !booked) {
     const since = dayOf(p.createdAt) || today;
     add("inquiry", "inquiry", `New inquiry ${dayAgo(since, today)}, not answered yet`, since, {
       label: "Draft a reply",
@@ -114,7 +133,7 @@ function rowsFor(
   }
 
   // A date hold that ran out before they booked.
-  if (p.holdUntil && DAY.test(p.holdUntil) && p.holdUntil < today && rank < statusRank("booked")) {
+  if (p.holdUntil && DAY.test(p.holdUntil) && p.holdUntil < today && rank < statusRank("booked") && !booked) {
     add(
       "hold",
       `hold:${p.holdUntil}`,
@@ -179,11 +198,34 @@ function rowsFor(
   return rows;
 }
 
-// Whether a row is hidden: marked handled, or snoozed until a day after today.
-function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
-  const mark = p.todayDismissed?.[row.key];
+// Whether a row's mark hides it: marked handled, or snoozed until a day after
+// today. The project page's next step reads the same marks.
+export function hiddenByMark(mark: string | undefined, today: string): boolean {
   if (!mark) return false;
   return mark === "handled" || (DAY.test(mark) && mark > today);
+}
+
+// Whether a Square contract of Julian's is on the project: a lead with one
+// said yes, so it's past the inquiry reply and the proposal's follow-ups (the
+// project page's next step reads it the same way).
+export function hasOwnContract(docs?: { type?: string; uploadedBy?: string }[]): boolean {
+  return !!docs?.some((d) => d.type === "contract" && d.uploadedBy !== "client");
+}
+
+// The key of the row for a client's message that hasn't had an answer.
+export const replyKey = (lastInAt: string) => `reply:${lastInAt}`;
+
+// When a lead was last closed as lost: a message from before then had its
+// answer in the closing.
+export function lostAt(
+  history?: { status?: string; changedAt?: string; kind?: string; from?: string }[],
+): string | undefined {
+  // A note added since carries the status too, but isn't the close.
+  return statusMoves(history ?? []).filter((h) => h.status === "lost").at(-1)?.changedAt;
+}
+
+function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
+  return hiddenByMark(p.todayDismissed?.[row.key], today);
 }
 
 // Today's rows across projects, by the day each fell due: the

@@ -6,7 +6,7 @@
 // The panel says up front what sending the template does to the project (its
 // status, follow-up, date hold) and confirms what moved once it has gone.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Select from "@/components/ui/fields/Select";
 import { useRouter } from "next/navigation";
 import {
@@ -17,8 +17,9 @@ import {
 } from "@/lib/email/email-pipeline";
 import { statusTitle } from "@/lib/labels";
 import { formatHumanDate } from "@/lib/field-format";
-import type { SendEffectsPlan } from "@/lib/email/send-effects";
+import { listOf, notMovedLine, type SendEffectsPlan } from "@/lib/email/send-effects";
 import { inputClass } from "@/components/ui/fields/Field";
+import { composeDraft } from "@/components/admin/compose-draft";
 import Button from "@/components/ui/Button";
 import CopyButton from "@/components/ui/CopyButton";
 import FormStatus from "@/components/ui/FormStatus";
@@ -27,12 +28,6 @@ type Status = "idle" | "drafting" | "drafted" | "sending" | "sent" | "error";
 
 const input = `${inputClass} text-sm`;
 
-// "a, b and c"
-function listOf(parts: string[]): string {
-  return parts.length < 2
-    ? (parts[0] ?? "")
-    : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
-}
 
 // What sending this template does to this project, in a line.
 function effectsLine(plan?: SendEffectsPlan): string {
@@ -44,21 +39,8 @@ function effectsLine(plan?: SendEffectsPlan): string {
   if (plan.followUp) {
     parts.push(`sets a follow-up for ${formatHumanDate(plan.followUp.at)}`);
   }
+  if (plan.clearFollowUp) parts.push("clears the follow-up it settles");
   return parts.length ? `Sending this ${listOf(parts)}.` : "";
-}
-
-// What a send meant to change but couldn't, in a line.
-const NOT_MOVED: Record<string, string> = {
-  status: "the status",
-  hold: "the date hold",
-  followUp: "the follow-up",
-};
-function notMovedLine(notMoved?: string[]): string {
-  if (!notMoved?.length) return "";
-  const what = listOf(notMoved.map((n) => NOT_MOVED[n] ?? n));
-  return `The email went, but ${what} couldn't be updated.${
-    notMoved.includes("status") ? " Set the status in the form above." : ""
-  }`;
 }
 
 type Moved = {
@@ -66,6 +48,7 @@ type Moved = {
   followUpAt?: string;
   followUpNote?: string;
   holdUntil?: string;
+  followUpCleared?: boolean;
 };
 
 // What the send changed, in a line after "Sent to the client."
@@ -77,6 +60,7 @@ function movedLine(moved?: Moved): string {
   if (moved.followUpAt) {
     parts.push(`Follow-up on ${formatHumanDate(moved.followUpAt)}: ${moved.followUpNote}.`);
   }
+  if (moved.followUpCleared) parts.push("Follow-up cleared.");
   return parts.join(" ");
 }
 
@@ -88,11 +72,16 @@ export default function ComposeEmail({
   aiEnabled = false,
   initialTemplateId,
   initialSteer,
+  handoff,
 }: {
   // Opens on this template (and AI steer), as linked from triage or the
-  // suggested next step.
+  // project's next step.
   initialTemplateId?: string;
   initialSteer?: string;
+  // The hand-off this opening of the panel came from (the template and link
+  // in the address, NO_HANDOFF for none). What's typed and not sent
+  // is kept under it while the page stays loaded (compose-draft.ts).
+  handoff: string;
   projectId: string;
   context: Record<string, string | undefined>;
   // What sending each template would do to this project, by template id.
@@ -110,24 +99,60 @@ export default function ComposeEmail({
     return context.holdUntil || !hold ? context : { ...context, holdUntil: formatHumanDate(hold) };
   };
   const initial = EMAIL_TEMPLATES.find((t) => t.id === initialTemplateId);
-  const [templateId, setTemplateId] = useState(initial?.id ?? "");
+  // An email left unsent here earlier comes back as it was.
+  const [{ handoff: resumedAs, draft: kept }] = useState(() => composeDraft.resume(projectId, handoff));
+  // The hand-off what's typed here is kept under.
+  const [keepAs, setKeepAs] = useState(resumedAs);
+  const [templateId, setTemplateId] = useState(kept?.templateId ?? initial?.id ?? "");
   const [subject, setSubject] = useState(
-    initial ? fillTemplate(initial.subject, tokensFor(initial)) : "",
+    kept?.subject ?? (initial ? fillTemplate(initial.subject, tokensFor(initial)) : ""),
   );
-  const [body, setBody] = useState(initial ? fillTemplate(initial.body, tokensFor(initial)) : "");
-  const [instructions, setInstructions] = useState(initial ? (initialSteer ?? "") : "");
+  const [body, setBody] = useState(
+    kept?.body ?? (initial ? fillTemplate(initial.body, tokensFor(initial)) : ""),
+  );
+  const [instructions, setInstructions] = useState(
+    kept?.instructions ?? (initial ? (initialSteer ?? "") : ""),
+  );
+  // Whether the owner has changed anything since it opened: only then is
+  // there something to keep, and an untouched panel opens afresh from the
+  // project as it is next time.
+  const [touched, setTouched] = useState(!!kept);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [sentNote, setSentNote] = useState("");
   const [notMovedNote, setNotMovedNote] = useState("");
   // One key per version of the message: a retry or double click of the same
   // text sends once, and any edit makes it a new message.
-  const [sendKey, setSendKey] = useState(() => crypto.randomUUID());
+  const [sendKey, setSendKey] = useState(() => kept?.sendKey ?? crypto.randomUUID());
   const newVersion = () => setSendKey(crypto.randomUUID());
+  // A hand-off (#compose) can come from another tab of the page, where the
+  // panel wasn't on screen to scroll to, so it brings itself into view.
+  useEffect(() => {
+    if (window.location.hash === "#compose") document.getElementById("compose")?.scrollIntoView();
+  }, []);
+  // Keep what's been changed for coming back to; a send clears it.
+  useEffect(() => {
+    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions, sendKey });
+  }, [touched, projectId, keepAs, templateId, subject, body, instructions, sendKey]);
 
+  // Picking a template shows the email left unsent on it, if there is one;
+  // otherwise its fresh fill, which is kept only once it's changed, so
+  // looking through the templates never replaces the email being written.
   function pick(id: string) {
     setTemplateId(id);
     setStatus("idle");
+    const left = composeDraft.peek(projectId);
+    if (left && left.draft.templateId === id) {
+      setSubject(left.draft.subject);
+      setBody(left.draft.body);
+      setInstructions(left.draft.instructions);
+      setSendKey(left.draft.sendKey);
+      setKeepAs(left.handoff);
+      setTouched(true);
+      return;
+    }
+    setTouched(false);
+    setKeepAs(handoff);
     newVersion();
     const t = EMAIL_TEMPLATES.find((x) => x.id === id);
     setSubject(t ? fillTemplate(t.subject, tokensFor(t)) : "");
@@ -150,6 +175,7 @@ export default function ComposeEmail({
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.drafted) {
+        setTouched(true);
         setSubject(data.subject);
         setBody(data.body);
         newVersion();
@@ -193,7 +219,13 @@ export default function ComposeEmail({
         return;
       }
       setSentNote(movedLine(json.moved));
-      setNotMovedNote(notMovedLine(json.notMoved));
+      setNotMovedNote(notMovedLine("The email went", json.notMoved));
+      // What was sent is gone from the kept email; one kept on another
+      // template stays for later.
+      if (touched || composeDraft.peek(projectId)?.draft.templateId === templateId) {
+        composeDraft.clear(projectId);
+      }
+      setTouched(false);
       setStatus("sent");
       newVersion();
       router.refresh();
@@ -213,7 +245,7 @@ export default function ComposeEmail({
         aria-label="Email template"
         className="text-sm"
       >
-        <option value="">Choose a template…</option>
+        <option value="">No template: write your own</option>
         {GROUPED_TEMPLATES.map((g) => (
           <optgroup key={g.stage} label={statusTitle(g.stage)}>
             {g.items.map((t) => (
@@ -225,94 +257,98 @@ export default function ComposeEmail({
         ))}
       </Select>
 
-      {templateId && (
-        <>
-          {aiEnabled && (
-            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-medium">
-                  Personalize this with AI
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={draft}
-                  loading={status === "drafting"}
-                  loadingLabel="Drafting…"
-                >
-                  Draft with AI
-                </Button>
-              </div>
-              <input
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
-                aria-label="Extra instructions for the AI draft"
-                className={input}
-              />
-              <p className="text-xs text-muted">
-                Rewrites the template from this project&rsquo;s details in your
-                voice. It never sends. You always review and edit first.
+      {/* With no template, a plain email: a reply in the conversation. */}
+      <>
+        {templateId && aiEnabled && (
+          <div className="rounded-lg border border-border bg-white p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium">
+                Personalize this with AI
               </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={draft}
+                loading={status === "drafting"}
+                loadingLabel="Drafting…"
+              >
+                Draft with AI
+              </Button>
             </div>
-          )}
-          <input
-            value={subject}
-            onChange={(e) => {
-              setSubject(e.target.value);
-              newVersion();
-            }}
-            placeholder="Subject"
-            aria-label="Subject"
-            className={input}
-          />
-          <textarea
-            value={body}
-            onChange={(e) => {
-              setBody(e.target.value);
-              newVersion();
-            }}
-            rows={14}
-            aria-label="Email body"
-            className={`${input} font-sans leading-relaxed`}
-          />
-          {status === "drafted" && (
-            <p className="text-xs text-accent">
-              AI draft. Review and edit before sending.
-            </p>
-          )}
-          <p className="text-xs text-muted">
-            Fill in any <code>[bracketed]</code> bits before sending. It goes
-            to the client in your branded layout, you get a copy, and it joins
-            the thread above.
-          </p>
-          {effects && <p className="text-xs text-muted">{effects}</p>}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={send}
-              disabled={!hasEmail || !subject.trim() || !body.trim()}
-              loading={status === "sending"}
-              loadingLabel="Sending…"
-            >
-              Send to client
-            </Button>
-            <CopyButton text={`Subject: ${subject}\n\n${body}`} />
-            {!hasEmail && (
-              <span className="text-xs text-muted">
-                No email on file for this client.
-              </span>
-            )}
-            <FormStatus
-              state={status === "sent" ? "ok" : status}
-              ok={sentNote ? `Sent to the client. ${sentNote}` : "Sent to the client."}
-              error={message || "Something went wrong. Try again."}
+            <input
+              value={instructions}
+              onChange={(e) => {
+                setTouched(true);
+                setInstructions(e.target.value);
+              }}
+              placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
+              aria-label="Extra instructions for the AI draft"
+              className={input}
             />
-            {status === "sent" && notMovedNote && (
-              <FormStatus state="error" error={notMovedNote} className="basis-full" />
-            )}
+            <p className="text-xs text-muted">
+              Rewrites the template from this project&rsquo;s details in your
+              voice. It never sends. You always review and edit first.
+            </p>
           </div>
-        </>
-      )}
+        )}
+        <input
+          value={subject}
+          onChange={(e) => {
+            setTouched(true);
+            setSubject(e.target.value);
+            newVersion();
+          }}
+          placeholder="Subject"
+          aria-label="Subject"
+          className={input}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => {
+            setTouched(true);
+            setBody(e.target.value);
+            newVersion();
+          }}
+          rows={14}
+          aria-label="Email body"
+          className={`${input} font-sans leading-relaxed`}
+        />
+        {status === "drafted" && (
+          <p className="text-xs text-accent">
+            AI draft. Review and edit before sending.
+          </p>
+        )}
+        <p className="text-xs text-muted">
+          Fill in any <code>[bracketed]</code> bits before sending. It goes
+          to the client in your branded layout, you get a copy, and it joins
+          the thread above.
+        </p>
+        {effects && <p className="text-xs text-muted">{effects}</p>}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={send}
+            disabled={!hasEmail || !subject.trim() || !body.trim()}
+            loading={status === "sending"}
+            loadingLabel="Sending…"
+          >
+            Send to client
+          </Button>
+          <CopyButton text={`Subject: ${subject}\n\n${body}`} />
+          {!hasEmail && (
+            <span className="text-xs text-muted">
+              No email on file for this client.
+            </span>
+          )}
+          <FormStatus
+            state={status === "sent" ? "ok" : status}
+            ok={sentNote ? `Sent to the client. ${sentNote}` : "Sent to the client."}
+            error={message || "Something went wrong. Try again."}
+          />
+          {status === "sent" && notMovedNote && (
+            <FormStatus state="error" error={notMovedNote} className="basis-full" />
+          )}
+        </div>
+      </>
     </div>
   );
 }

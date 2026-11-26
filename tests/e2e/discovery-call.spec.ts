@@ -166,9 +166,9 @@ test("leaving the Call tab and coming back shows the latest notes, and keeps sav
   await page.getByLabel("My notes").press("Tab");
   expect((await first).ok()).toBe(true);
 
-  // Back to the project, then back again: the browser redraws the Call tab
-  // as it was first loaded, and the notes typed since still show.
-  await page.getByRole("link", { name: "Project", exact: true }).click();
+  // To the Overview, then back again: the browser redraws the Call tab as it
+  // was first loaded, and the notes typed since still show.
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Overview" }).click();
   await expect(page).not.toHaveURL(/tab=call/);
   await page.goBack();
   await expect(page.getByLabel("My notes")).toHaveValue("First thoughts");
@@ -329,8 +329,8 @@ test("the summary is drafted from the notes, updates apply when accepted, and sa
   await page.getByRole("button", { name: "Save summary" }).click();
   await expect(page.getByRole("status").filter({ hasText: "The call is marked held" })).toBeVisible();
 
-  await page.goto(`/admin/projects/${p.id}`);
-  await expect(page.locator("#a-status")).toHaveValue("in-conversation");
+  await page.goto(`/admin/projects/${p.id}?tab=details`);
+  await expect(page.locator("#project-status")).toHaveValue("in-conversation");
   await expect(page.locator("#a-guests")).toHaveValue("150");
   // A follow-up to send the recap, tomorrow.
   await expect(page.getByText(/: Send the recap and proposal$/)).toBeVisible();
@@ -389,6 +389,65 @@ test("Write the recap saves an edited summary, and Back shows it", async ({
   await page.goBack();
   await expect(page.getByLabel(/^Background/)).toHaveValue("Met in college, six years ago.");
   await expect(page.getByText(/^Call held /)).toBeVisible();
+});
+
+test("a recap left unsent opens afresh once the summary changes", async ({ adminRequest, adminPage: page, fakes }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "recap-fresh");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Garden wedding, relaxed" } } });
+  await callTab(page, p.id);
+  await fakes.script({
+    replies: [
+      JSON.stringify({ background: "Met in college.", event: "Garden wedding.", priorities: "Candids.", logistics: "", actions: "", updates: {} }),
+    ],
+  });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByLabel(/^Background/)).toHaveValue("Met in college.");
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  const body = page.getByLabel("Email body");
+  await body.fill("Hi,\n\nMy own words about the garden.\n\nJulian");
+
+  // Back on the Call tab the summary is edited; the recap opens from it, not
+  // from the email left unsent.
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Call" }).click();
+  await page.getByLabel(/^Background/).fill("Met in college, six years ago.");
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  await expect(page).toHaveURL(/compose=discovery-recap/);
+  await expect(body).not.toHaveValue(/My own words about the garden/);
+});
+
+test("a recap left unsent opens afresh once an update from the call is accepted", async ({
+  adminRequest,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "recap-accept");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "About 150 guests" } } });
+  await callTab(page, p.id);
+  const drafted = JSON.stringify({
+    background: "Met in college.",
+    event: "Garden wedding.",
+    priorities: "Candids.",
+    logistics: "",
+    actions: "",
+    updates: { guestCount: 150, eventDate: null, venue: null, package: null },
+  });
+  await fakes.script({ replies: [drafted, drafted] });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  await page.getByLabel("Email body").fill("Hi,\n\nWords from before the guest count.\n\nJulian");
+
+  // Back on the Call tab, an update the call suggested is accepted: the recap
+  // left unsent was written without it, so the Messages tab opens afresh.
+  const tabs = page.getByRole("navigation", { name: "Project" });
+  await tabs.getByRole("link", { name: "Call" }).click();
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  const suggestion = page.getByRole("listitem").filter({ hasText: "Guest count: 150" });
+  await suggestion.getByRole("button", { name: "Accept" }).click();
+  await expect(suggestion.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(page.getByRole("combobox", { name: "Email template" })).toHaveValue("");
 });
 
 test("Summarize says when the AI's answer couldn't be used", async ({ adminRequest, adminPage: page, fakes }) => {

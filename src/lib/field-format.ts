@@ -342,6 +342,21 @@ export function dayAgo(day: string, today: string): string {
   return agoText(Math.max(0, daysBetween(day, today)));
 }
 
+// When each side last wrote, in the studio's days as the Today list counts
+// them: "Client wrote 2 days ago, you 5 days ago", or "You wrote today". Null
+// when neither has.
+export function contactLine(lastInAt: string | undefined, lastOutAt: string | undefined, today: string): string | null {
+  const ago = (iso?: string) => {
+    const day = iso ? studioDayOf(iso) : "";
+    return day ? dayAgo(day, today) : "";
+  };
+  const client = ago(lastInAt);
+  const you = ago(lastOutAt);
+  if (client && you) return `Client wrote ${client}, you ${you}`;
+  if (client) return `Client wrote ${client}`;
+  return you ? `You wrote ${you}` : null;
+}
+
 function agoText(days: number): string {
   if (days === 0) return "today";
   if (days === 1) return "yesterday";

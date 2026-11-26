@@ -18,6 +18,7 @@ export default function TextField({
   type = "text",
   autoComplete,
   onBlur,
+  maxLength,
 }: {
   id: string;
   name?: string;
@@ -31,6 +32,7 @@ export default function TextField({
   type?: "text" | "url";
   autoComplete?: string;
   onBlur?: () => void;
+  maxLength?: number;
 }) {
   return (
     <Field id={id} label={label} required={required} help={help} error={error}>
@@ -43,6 +45,7 @@ export default function TextField({
         onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        maxLength={maxLength}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId(id) : undefined}
         className={controlClass(!!error)}
