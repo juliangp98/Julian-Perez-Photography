@@ -463,6 +463,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       };
 
     case "scheduled": {
+      // Until the shoot (or with no day set), a booking left undone comes
+      // first, as the client's page reads it (stillReserving).
+      if (unreserved && (!shoot || daysBetween(today, shoot) >= 0)) return reserving();
       if (!shoot) {
         return {
           title: "Set the shoot date",
@@ -470,7 +473,6 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
       }
       const days = daysBetween(today, shoot);
-      if (days >= 0 && unreserved) return reserving();
       if (days < 0) return thankYou();
       if (days <= 7 && !sent.has("week-of")) {
         return {
@@ -755,7 +757,8 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         ctx.discoveryCallUrl
           ? {
               title: "Book a discovery call",
-              detail: "A short call so I can hear what you're planning and answer your questions.",
+              detail:
+                "A short call so I can hear what you're planning and answer your questions. Already booked? I'll see you then.",
               action: link("Pick a time", ctx.discoveryCallUrl),
             }
           : { title: "I'll be in touch soon", detail: "I read every inquiry and reply myself." },
@@ -819,12 +822,12 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         return call.kind === "timeline"
           ? {
               title: "Book your timeline call",
-              detail: "We'll walk through the day together and set the timeline.",
+              detail: "We'll walk through the day together and set the timeline. Already booked? I'll see you then.",
               action: link("Pick a time", call.url),
             }
           : {
               title: "Book your planning call",
-              detail: "We'll go over your plans together before the shoot.",
+              detail: "We'll go over your plans together before the shoot. Already booked? I'll see you then.",
               action: link("Pick a time", call.url),
             };
       }
@@ -847,11 +850,15 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       return own("gallery")
         ? {
             title: "Your gallery is ready",
+            // The one the button pays, and when it's due.
             detail: !invoiceLink
               ? "View, download and share your photos."
-              : open > 1
-                ? `There are ${open} invoices still open.`
-                : "There's one invoice still open.",
+              : [
+                  open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
+                  dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
+                ]
+                  .filter(Boolean)
+                  .join(" "),
             action: link("View your gallery", own("gallery")?.url),
             secondary: invoiceLink,
           }

@@ -279,6 +279,12 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(
     step({ status: "delivered", documents: [own("gallery"), own("invoice"), own("invoice", { dueAt: "2026-12-10" })] })?.detail,
   ).toBe("There are 2 invoices still open.");
+  // An overdue balance says so.
+  expect(step({ status: "delivered", documents: [own("gallery"), own("invoice", { dueAt: "2026-11-10" })] })?.detail).toBe(
+    "There's one invoice still open. It was due November 10, 2026.",
+  );
+  // A call to book reads right for someone who already booked it.
+  expect(step({ status: "new-inquiry" })?.detail).toMatch(/Already booked\? I'll see you then\.$/);
   expect(step({ status: "complete", documents: [own("gallery")] })).toMatchObject({
     title: "Leave a review",
     action: { href: "https://reviews.example.com/julian" },
@@ -523,6 +529,11 @@ test("a second photographer's invite opens the project, with a call sheet, not t
   await expect(page.getByText("In progress", { exact: true })).toBeVisible();
   await expect(page.getByText("Reserving your date")).toHaveCount(0);
   await expect(page.getByText(/^Step \d+ of \d+:/)).toHaveCount(0);
+  // Their dashboard card too.
+  await page.goto("/portal/dashboard");
+  const card = page.locator(`a[href="/portal/projects/${p.id}"]`);
+  await expect(card).toContainText("In progress");
+  await expect(card.getByRole("img")).toHaveCount(0);
 });
 
 test("a booking the questionnaire moved past stays at Reserving your date until the welcome goes out", async ({

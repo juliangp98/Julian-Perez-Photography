@@ -361,6 +361,14 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "scheduled", eventDate: "2026-12-15" }).title).toBe("Shoot in 20 days");
   expect(next({ status: "scheduled", eventDate: "2026-11-22" }).action?.href).toBe(compose("post-shoot-thank-you"));
   expect(next({ status: "scheduled", eventDate: "Fall 2026" }).title).toBe("Set the shoot date");
+  // A booking left undone comes before the date, as the client's page asks
+  // them to sign and pay.
+  expect(
+    next(
+      { status: "scheduled", eventDate: "June 6-7, 2027", documents: [own("contract"), own("invoice")] },
+      sent("contract-deposit"),
+    ).title,
+  ).toBe("Waiting on the signed contract and retainer");
   expect(next({ status: "shot" }).action?.href).toBe(compose("post-shoot-thank-you"));
 
   // Editing: highlights, the sneak peek, then the gallery (whose email comes
