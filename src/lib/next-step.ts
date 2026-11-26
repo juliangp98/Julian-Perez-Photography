@@ -303,7 +303,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // with an invoice to pay, the email that sends them both; without one, the
   // invoice.
   const booking = (): NextStep | undefined => {
-    if (!has("contract")) return undefined;
+    // A booking already confirmed (the welcome went out) and set back to a
+    // lead isn't asked for again, as the client's page reads it.
+    if (!has("contract") || confirmed(p, sent.has("booking-welcome"))) return undefined;
     if (invoices.some((d) => d.paidAt)) {
       return {
         title: "Send the booking welcome",

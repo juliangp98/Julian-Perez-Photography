@@ -6,6 +6,7 @@ import { stagesFor } from "../../src/lib/client-status";
 import {
   ownerNextStep,
   sentTemplates,
+  stillReserving,
   type NextStepContext,
   type NextStepProject,
 } from "../../src/lib/next-step";
@@ -280,6 +281,11 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       calls: { discovery: { notes: "Talked through the day.", heldAt: "2026-11-20T15:00:00.000Z" } },
     }).action?.href,
   ).toBe(compose("discovery-recap"));
+  // A booking confirmed by the welcome and set back to a lead isn't asked for
+  // again, by either side.
+  const welcomedLead = { status: "proposal-sent", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] };
+  expect(next(welcomedLead, sent("booking-welcome", "proposal")).action?.href).not.toBe(compose("booking-welcome"));
+  expect(stillReserving(welcomedLead, true, TODAY)).toBe(false);
   // A lead with Julian's proposal link and no call: the proposal email, unless
   // call notes are waiting on their summary.
   expect(next({ status: "responded", documents: [own("proposal")] }, sent("inquiry-reply"))).toMatchObject({

@@ -12,7 +12,9 @@
 //
 // Privacy boundary: the safe projection (`safeSelect()`) is what the portal
 // lists — it omits `internal_notes`, `budget`, `status_history`, inquiry
-// context, and meta timestamps, so those never reach a client. The
+// context, and meta timestamps, so those never reach a client. The statuses
+// in the log (no notes or timestamps) reach portal pages only through
+// listStageFacts, with the other stage facts it lists. The
 // questionnaire snapshot is held out of the list and layered onto the
 // single-project reads: the client's own answers in full, and for a second
 // photographer only the answers about the shoot. Portal reads are additionally

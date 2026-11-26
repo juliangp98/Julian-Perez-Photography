@@ -361,6 +361,8 @@ export default function PortalProjectView({
         )}
 
         {isCollaborator ? (
+          // Only a service with a questionnaire has answers to wait for.
+          (questionnaireUrl || (answerGroups && answerGroups.length > 0)) && (
           <section aria-labelledby="planning-heading">
             <h2 id="planning-heading" className="font-serif text-2xl">
               Planning details
@@ -376,6 +378,7 @@ export default function PortalProjectView({
               )}
             </div>
           </section>
+          )
         ) : (
           questionnaireUrl &&
           (submitted || preparing) && (
