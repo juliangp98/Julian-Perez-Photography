@@ -1,7 +1,7 @@
 import type { APIRequestContext, Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore } from "./support/fixtures";
-import { patchProject, readProject, testStore } from "./support/test-store";
+import { addMessage, patchProject, readProject, testStore } from "./support/test-store";
 import { stagesFor } from "../../src/lib/client-status";
 import {
   ownerNextStep,
@@ -292,10 +292,11 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery")).action?.href).toBe(
     compose("review-request"),
   );
-  // The review request moves the step on to the referral, even if the status didn't move.
-  expect(
-    next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery", "review-request")).action?.href,
-  ).toBe(compose("referral-ask"));
+  // Asked for already, while the status hasn't moved.
+  expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery", "review-request"))).toEqual({
+    title: "Review asked for",
+    detail: "Set the status to Complete once it's in.",
+  });
   expect(next({ status: "complete" }).action?.href).toBe(compose("referral-ask"));
   expect(next({ status: "complete" }, sent("referral-ask")).title).toBe("All done");
 });
@@ -341,6 +342,17 @@ test("next step: a closed project, a missing email, then an unanswered client co
   expect(
     next({ status: "lost", ...wrote, statusHistory: [{ status: "lost", changedAt: "2026-11-22T15:00:00Z" }] }).title,
   ).toBe("Answer Avery");
+  // A note added after the close isn't the close.
+  expect(
+    next({
+      status: "lost",
+      ...wrote,
+      statusHistory: [
+        { status: "lost", changedAt: "2026-11-22T15:00:00Z" },
+        { kind: "note", status: "lost", changedAt: "2026-11-24T15:00:00Z" },
+      ],
+    }).title,
+  ).toBe("Answer Avery");
   expect(next({ status: "archived", ...wrote }).title).toBe("Closed");
   expect(next({ status: "booked", email: "", ...wrote }).title).toBe("Add the client's email");
   expect(
@@ -365,33 +377,33 @@ test("next step: a closed project, a missing email, then an unanswered client co
   );
 });
 
-test("next step: a stage email sent goes once, and can be noted as sent another way", () => {
+test("next step: a stage email can be noted as sent another way, and a message as handled", () => {
   // The step names the template it sends, unless it's one that repeats.
   expect(next({ status: "contract-signed" }).once).toBe("booking-welcome");
   expect(next({ status: "proposal-sent", followUpAt: TODAY }, sent("proposal")).once).toBeUndefined();
   expect(next({ status: "proposal-sent" }, sent("proposal")).once).toBeUndefined();
-  // Once it has gone (here, or noted), the step moves on with it, though the
-  // status wasn't moved.
-  expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, sent("booking-welcome")).title).toBe("Booked");
-  expect(next({ status: "in-conversation", documents: [own("proposal")] }, sent("proposal")).title).toBe(
-    "Waiting on Avery's answer",
-  );
+  // A client's message waiting on an answer is settled by its Today row, not as an email sent.
+  const reply = next({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z" });
+  expect(reply).toMatchObject({ title: "Answer Avery", handled: "reply:2026-11-23T15:00:00Z" });
+  expect(reply.once).toBeUndefined();
+  // Noted as sent counts even when a recorded email of that template bounced.
   expect(
     sentTemplates([{ direction: "out", template: "booking-welcome", wentOut: false }], [
-      { kind: "note", note: "Booking welcome sent" },
+      { note: "Booking welcome noted as sent" },
     ]).has("booking-welcome"),
   ).toBe(true);
 });
 
-test("the invoice a client pays next: an undated one (a retainer due now), else the one due first", () => {
+test("the invoice a client pays next: an overdue one, else an undated one (due now), else the one due first", () => {
   const docs = [
     own("invoice", { id: "balance", dueAt: "2027-05-01" }),
     own("invoice", { id: "retainer" }),
     own("invoice", { id: "prints", dueAt: "2026-12-10" }),
   ];
-  expect(openInvoice({ documents: docs })?.id).toBe("retainer");
-  expect(openInvoice({ documents: docs.filter((d) => d.id !== "retainer") })?.id).toBe("prints");
-  expect(openInvoice({ documents: [own("invoice", { id: "paid", paidAt: "2026-11-01" })] })).toBeUndefined();
+  expect(openInvoice({ documents: docs }, TODAY)?.id).toBe("retainer");
+  expect(openInvoice({ documents: docs.filter((d) => d.id !== "retainer") }, TODAY)?.id).toBe("prints");
+  expect(openInvoice({ documents: [...docs, own("invoice", { id: "late", dueAt: "2026-11-20" })] }, TODAY)?.id).toBe("late");
+  expect(openInvoice({ documents: [own("invoice", { id: "paid", paidAt: "2026-11-01" })] }, TODAY)).toBeUndefined();
   // The booked step reads the same one: no due line for a retainer due now.
   expect(
     next(
@@ -671,7 +683,7 @@ test("a template sent from Compose is recorded, and its step clears", async ({ a
   await expect(nextStep(page)).toContainText("Shoot in 3 days");
 });
 
-test("compose: an unsent email survives a tab change, Write email only brings it into view, and a send starts afresh", async ({
+test("compose: an unsent email survives a tab change and a hand-off elsewhere, and a send starts afresh", async ({
   adminRequest,
   adminPage: page,
 }) => {
@@ -704,12 +716,6 @@ test("compose: an unsent email survives a tab change, Write email only brings it
   await page.getByRole("link", { name: "Write email", exact: true }).click();
   await expect(page).toHaveURL(/\?tab=messages#compose$/);
   await expect(body).toHaveValue(/A draft still being written/);
-
-  // With Compose open, Write email only brings it into view.
-  const at = page.url();
-  await page.getByRole("link", { name: "Write email", exact: true }).click();
-  await expect(body).toHaveValue(/A draft still being written/);
-  expect(page.url()).toBe(at);
 
   // Sent, it's gone: Compose opens afresh.
   await page.getByRole("button", { name: "Send to client" }).click();
@@ -808,20 +814,49 @@ test("overview: a checklist toward the shoot, then toward delivery, and a closed
   await expect(page.getByRole("heading", { name: "Toward the shoot" })).toBeVisible();
 });
 
-test("Already sent notes a stage email that went another way, and the step moves on", async ({
+test("Already sent moves the project on as the email would, and Mark handled settles a message", async ({
   adminRequest,
   adminPage: page,
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "already");
-  await patchProject(p.id, { status: "contract-signed" });
+  await patchProject(p.id, {
+    status: "in-conversation",
+    event_date: shiftDay(studioToday(), { days: 120 }),
+    documents: [{ id: "pr", type: "proposal", label: "Proposal", url: "https://links.example.com/pr", uploadedBy: "julian" }],
+  });
   await page.goto(p.page);
+  await expect(nextStep(page)).toContainText("Send the proposal");
+  await nextStep(page).getByRole("button", { name: "Already sent" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Noted as sent." })).toBeVisible();
+  // The proposal moved the project to Proposal sent, as sending it would have.
+  await expect(page.getByText(/^Step \d+ of \d+: Proposal$/)).toBeVisible();
+  await expect(nextStep(page)).toContainText("Waiting on E2E's answer");
+  const moved = (await readProject(p.id, "status, status_history")) as {
+    status: string;
+    status_history: { status?: string; note?: string }[];
+  };
+  expect(moved.status).toBe("proposal-sent");
+  expect(moved.status_history.at(-1)).toMatchObject({ status: "proposal-sent", note: "Proposal noted as sent" });
+
+  // A stage email that moves nothing (the status set by hand past it) is noted on its own.
+  await patchProject(p.id, { status: "contract-signed" });
+  await page.reload();
   await expect(nextStep(page)).toContainText("Send the booking welcome");
   await nextStep(page).getByRole("button", { name: "Already sent" }).click();
-  // The shoot is months away, so planning waits.
   await expect(nextStep(page)).toContainText("Planning starts about two months before the shoot");
-  const history = (await readProject(p.id, "status_history")).status_history as { kind?: string; note?: string }[];
-  expect(history.at(-1)).toMatchObject({ kind: "note", note: "Booking welcome sent" });
+  const noted = (await readProject(p.id, "status_history")).status_history as { kind?: string; note?: string }[];
+  expect(noted.at(-1)).toMatchObject({ kind: "note", note: "Booking welcome noted as sent" });
+
+  // A client's message answered another way is marked handled, here and on Today.
+  const wrote = new Date().toISOString();
+  await addMessage(p.id, { direction: "in", sentAt: wrote });
+  await page.reload();
+  await expect(nextStep(page)).toContainText("Answer E2E");
+  await nextStep(page).getByRole("button", { name: "Mark handled" }).click();
+  await expect(nextStep(page)).toContainText("Planning starts about two months before the shoot");
+  const dismissed = (await readProject(p.id, "today_dismissed")).today_dismissed as Record<string, string>;
+  expect(Object.entries(dismissed).some(([k, v]) => k.startsWith("reply:") && v === "handled")).toBe(true);
 });
 
 test("a proposal follow-up after the hold ran out settles Today's row about it", async ({ adminRequest }) => {
@@ -846,13 +881,9 @@ test("compose: a template picked brings back its unsent email, and sending anoth
   const body = page.getByLabel("Email body");
   const template = page.getByRole("combobox", { name: "Email template" });
 
-  // On the tab's own address, Write email only brings the open panel into view.
   await page.goto(`${p.page}?tab=messages`);
   await template.selectOption("proposal");
   await body.fill("Hi,\n\nThe proposal, in my words.\n\nJulian");
-  await page.getByRole("link", { name: "Write email", exact: true }).click();
-  await expect(body).toHaveValue(/The proposal, in my words/);
-  await expect(page).toHaveURL(/\?tab=messages$/);
 
   // Looking at another template shows its fill; picking Proposal again
   // brings the email back.

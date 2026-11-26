@@ -3,7 +3,7 @@
 // with one button. A step that waits on the client says so, and its button is
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
 import { openInvoice } from "./project-links";
@@ -17,9 +17,12 @@ export type NextStep = {
   detail?: string;
   action?: { label: string; href: string };
   // The template the action sends, when it goes once: the owner can record
-  // that it already went another way (from Gmail, say), which settles the
-  // step.
+  // that it already went another way (from Gmail, say), which moves the
+  // project on as sending it would.
   once?: string;
+  // For a client's message waiting on an answer, the Today row it shares
+  // (src/lib/today.ts): marking it handled settles both.
+  handled?: string;
 };
 
 // Templates a step may offer again and again, so "already sent" doesn't
@@ -45,7 +48,7 @@ export type NextStepProject = {
   // message marked handled there needs no answer here either.
   todayDismissed?: Record<string, string>;
   // Its moves, for when a lost lead was closed.
-  statusHistory?: { status?: string; changedAt?: string }[];
+  statusHistory?: { status?: string; changedAt?: string; kind?: string }[];
 };
 
 export type NextStepContext = {
@@ -84,10 +87,12 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
 // email sent before that was recorded counts when its subject still reads as
 // a template's, or when the activity log notes the send ("<template name>
 // sent", written when it moved the project) and no recorded email carries
-// that template, so a step done before then isn't offered again.
+// that template, so a step done before then isn't offered again. One the
+// owner noted as sent another way ("<template name> noted as sent") always
+// counts.
 export function sentTemplates(
   messages: { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean }[],
-  history: { note?: string; kind?: string }[] = [],
+  history: { note?: string }[] = [],
 ): Map<string, string> {
   const sent = new Map<string, string>();
   const recorded = new Set<string>();
@@ -106,18 +111,23 @@ export function sentTemplates(
     const subject = m.subject?.trim() ?? "";
     for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) mark(t.id, m.sentAt);
   }
-  // A note the owner added ("Already sent") always counts.
   for (const h of history) {
-    const t = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
-    if (t && (h.kind === "note" || !recorded.has(t.id)) && !sent.has(t.id)) sent.set(t.id, "");
+    const noted = EMAIL_TEMPLATES.find((x) => h.note === notedAsSent(x.name));
+    const moved = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
+    const t = noted ?? (moved && !recorded.has(moved.id) ? moved : undefined);
+    if (t && !sent.has(t.id)) sent.set(t.id, "");
   }
   return sent;
 }
 
+// What the activity log says when the owner notes a template as sent another
+// way (Already sent on the next step).
+export const notedAsSent = (templateName: string) => `${templateName} noted as sent`;
+
 export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextStep {
   const step = stepFor(p, ctx);
   const template = step.action?.href.match(/[?&]compose=([a-z-]+)/)?.[1];
-  return template && !REPEATS.has(template) ? { ...step, once: template } : step;
+  return template && !REPEATS.has(template) && !step.handled ? { ...step, once: template } : step;
 }
 
 function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
@@ -136,7 +146,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   const unpaid = invoices.filter((d) => !d.paidAt);
   // The invoice the client pays next (the one a reminder names), and how it
   // stands.
-  const nextDue = openInvoice(p);
+  const nextDue = openInvoice(p, today);
   const dueLine =
     nextDue?.dueAt && DAY.test(nextDue.dueAt)
       ? nextDue.dueAt < today
@@ -155,6 +165,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     title: `Answer ${first}`,
     detail: `${First} wrote ${dayAgo(studioDayOf(p.lastInAt ?? ""), today)}.`,
     action: { label: "Write a reply", href: `${page}?tab=messages#compose` },
+    handled: replyKey(p.lastInAt ?? ""),
   });
 
   if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) {
@@ -224,16 +235,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     (!status || status === "new-inquiry") &&
     (!!p.lastOutAt || handled("inquiry") || (!!p.lastInAt && handled(replyKey(p.lastInAt))));
 
-  // Where the emails sent have taken it: a stage email that went out (sent
-  // here, or noted as sent another way) moves the step on even when the
-  // status wasn't moved with it.
-  let stage: string | undefined = answered ? "responded" : status;
-  for (const id of sent.keys()) {
-    const to = EMAIL_TEMPLATES.find((t) => t.id === id)?.advancesTo;
-    if (to && statusRank(to) > statusRank(stage)) stage = to;
-  }
-
-  switch (stage) {
+  switch (answered ? "responded" : status) {
     case undefined:
     case "new-inquiry":
       return {
@@ -273,6 +275,14 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         return {
           title: "Send the contract and retainer",
           action: { label: "Write the email", href: compose("contract-deposit") },
+        };
+      }
+      // The contract went another way and the retainer is in: they're booked.
+      if (has("contract") && invoices.some((d) => d.paidAt)) {
+        return {
+          title: "Send the booking welcome",
+          detail: "The retainer is paid.",
+          action: { label: "Write the welcome", href: compose("booking-welcome") },
         };
       }
       // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
@@ -458,6 +468,10 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           detail: dueLine,
           action: { label: "Send a reminder", href: compose("payment-reminder") },
         };
+      }
+      // Asked for already, while the status hasn't moved to Complete.
+      if (sent.has("review-request")) {
+        return { title: "Review asked for", detail: "Set the status to Complete once it's in." };
       }
       return {
         title: "Ask for a review",

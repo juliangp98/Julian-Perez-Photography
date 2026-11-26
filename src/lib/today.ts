@@ -28,7 +28,7 @@ export type TodayProject = {
   // When the project was created: an inquiry's arrival.
   createdAt?: string;
   // Its moves, for when a lost lead was closed.
-  statusHistory?: { status?: string; changedAt?: string }[];
+  statusHistory?: { status?: string; changedAt?: string; kind?: string }[];
 };
 
 export type TodayRule =
@@ -203,8 +203,9 @@ export const replyKey = (lastInAt: string) => `reply:${lastInAt}`;
 
 // When a lead was last closed as lost: a message from before then had its
 // answer in the closing.
-export function lostAt(history?: { status?: string; changedAt?: string }[]): string | undefined {
-  return [...(history ?? [])].reverse().find((h) => h.status === "lost")?.changedAt;
+export function lostAt(history?: { status?: string; changedAt?: string; kind?: string }[]): string | undefined {
+  // A note added since carries the status too, but isn't the close.
+  return [...(history ?? [])].reverse().find((h) => h.status === "lost" && h.kind !== "note")?.changedAt;
 }
 
 function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {

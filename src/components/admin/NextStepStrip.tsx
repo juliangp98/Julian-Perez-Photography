@@ -1,12 +1,13 @@
 // The one next step on a project (ownerNextStep in src/lib/next-step.ts), with
 // its one button. A step that hands off to Compose opens it through
-// ComposeLink, so the panel comes into view; one that sends a stage email
-// also offers "Already sent", for an email that went another way.
+// ComposeLink, so the panel comes into view. One that sends a stage email
+// also offers Already sent, and one about a client's message Mark handled,
+// for work done outside the site (StepSettled).
 
 import Panel from "@/components/ui/Panel";
 import Button, { buttonClass } from "@/components/ui/Button";
 import ComposeLink from "@/components/admin/ComposeLink";
-import AlreadySent from "@/components/admin/AlreadySent";
+import StepSettled from "@/components/admin/StepSettled";
 import type { NextStep } from "@/lib/next-step";
 
 export default function NextStepStrip({ projectId, step }: { projectId: string; step: NextStep }) {
@@ -21,7 +22,14 @@ export default function NextStepStrip({ projectId, step }: { projectId: string; 
         </div>
         {action && (
           <div className="flex flex-wrap items-center gap-4">
-            {step.once && <AlreadySent projectId={projectId} template={step.once} />}
+            {(step.once || step.handled) && (
+              <StepSettled
+                key={`${step.once ?? ""}|${step.handled ?? ""}`}
+                projectId={projectId}
+                sent={step.once}
+                handled={step.handled}
+              />
+            )}
             {action.href.includes("#compose") ? (
               <ComposeLink href={action.href} className={buttonClass("primary", "md")}>
                 {action.label}

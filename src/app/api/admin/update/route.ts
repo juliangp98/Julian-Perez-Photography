@@ -9,8 +9,8 @@
 // names the save it was typed against and the open copy it came from, and is
 // refused (409) when another copy saved the notes since. It also takes a
 // follow-up set, moved or cleared (from the project page or the Today list),
-// a Today row marked handled or snoozed, and a dated note for the activity
-// log. Removing an entry takes it off the project; an uploaded file itself
+// a Today row marked handled or snoozed, a dated note for the activity log,
+// and a pipeline email noted as sent another way. Removing an entry takes it off the project; an uploaded file itself
 // stays in storage. Nothing here emails the client; telling them is a Compose
 // email.
 
@@ -39,7 +39,10 @@ import {
 } from "@/lib/client-status";
 import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
+import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
+import { notedAsSent } from "@/lib/next-step";
 
+const TEMPLATE_IDS = EMAIL_TEMPLATES.map((t) => t.id) as [string, ...string[]];
 const STATUS_VALUES = CLIENT_STATUS_OPTIONS.map((o) => o.value) as [ClientStatus, ...ClientStatus[]];
 const OWNER_KINDS = OWNER_DOCUMENT_TYPES.map((t) => t.value) as [string, ...string[]];
 const METHODS = PAYMENT_METHODS.map((m) => m.value) as [string, ...string[]];
@@ -135,6 +138,9 @@ const schema = z.object({
     .optional(),
   // A note added to the activity log.
   note: z.string().trim().min(1).max(2000).optional(),
+  // A pipeline email the owner sent another way (Already sent on the next
+  // step): noted in the log, and the project moved on as sending it would.
+  sent: z.enum(TEMPLATE_IDS).optional(),
   // A Today row marked handled, or snoozed until a day.
   dismiss: z
     .object({
@@ -170,9 +176,17 @@ export const POST = defineRoute({
     followUp,
     dismiss,
     note,
+    sent,
   }) => {
     if (fields) await updateClientAdmin(id, fields);
     if (note && !(await addNote(id, note))) return apiError(404, "That project wasn't found.");
+    if (sent) {
+      // The move carries the note; with nothing to move, the note goes alone.
+      const template = EMAIL_TEMPLATES.find((t) => t.id === sent);
+      const name = notedAsSent(template?.name ?? sent);
+      const moved = template?.advancesTo ? await advanceStatus(id, template.advancesTo, name) : false;
+      if (!moved && !(await addNote(id, name))) return apiError(404, "That project wasn't found.");
+    }
     if (followUp && !(await setFollowUp(id, followUp.at, followUp.note, followUp.expect))) {
       return apiError(409, "That follow-up changed since this page loaded.");
     }

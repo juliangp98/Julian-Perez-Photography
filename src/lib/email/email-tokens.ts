@@ -42,7 +42,7 @@ export async function emailTokens(
     proposalUrl: links.proposalUrl,
     contractUrl: links.contractUrl,
     invoiceUrl: links.invoiceUrl,
-    invoiceDueDate: formatHumanDate(openInvoice(record)?.dueAt) || undefined,
+    invoiceDueDate: formatHumanDate(openInvoice(record, studioToday())?.dueAt) || undefined,
     highlightsUrl: links.highlightsUrl,
     galleryUrl: links.galleryUrl,
     timelineUrl: links.timelineUrl,

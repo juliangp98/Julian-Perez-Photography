@@ -17,7 +17,7 @@ import {
   type ClientStatus,
 } from "@/lib/client-status";
 import type { ClientRecordFull } from "@/lib/clients";
-import { eventDay, formatEventDate, formatHumanDate } from "@/lib/field-format";
+import { eventDay, formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { invoiceState, paymentMethodLabel } from "@/lib/labels";
 import { openInvoice, projectLink } from "@/lib/project-links";
 import type { AnswerGroup } from "@/lib/questionnaire-digest";
@@ -202,7 +202,7 @@ export default function ProjectOverview({
     </details>
   );
 
-  const open = openInvoice(record);
+  const open = openInvoice(record, studioToday());
   const paidLine = open ? invoiceState(open) : invoices.length ? "Paid" : "No invoice yet";
   const items: Item[] =
     phase === "booked"
