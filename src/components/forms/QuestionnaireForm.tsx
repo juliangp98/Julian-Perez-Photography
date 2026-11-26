@@ -511,7 +511,7 @@ export default function QuestionnaireForm({
           <p className="mt-1 text-xs text-muted">
             Everything you just shared is saved to your project. Sign in to your
             client portal anytime to check your status, add more detail, and
-            find your documents &mdash; same email, no password.
+            find your documents. Same email, no password.
           </p>
           {/* Opened from the project's own link: straight back to it (signing
               in first returns there too). */}
@@ -523,7 +523,7 @@ export default function QuestionnaireForm({
           <Panel className="mt-6">
             <p className="text-sm font-medium">Booking more than one session?</p>
             <p className="mt-1 mb-3 text-xs text-muted">
-              Continue into a matching questionnaire &mdash; the details you just
+              Continue into a matching questionnaire. The details you just
               shared arrive prefilled, so you won&rsquo;t retype them.
             </p>
             <div className="flex flex-wrap gap-3">

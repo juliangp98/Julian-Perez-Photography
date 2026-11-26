@@ -267,10 +267,11 @@ test("portal: the client sees their links, the invoice's due date and how they'r
   await expect(page.getByRole("heading", { name: "Invoice", exact: true })).toBeVisible();
   await expect(page.getByText("Paying by")).toBeVisible();
   await expect(page.getByText("Zelle", { exact: true })).toBeVisible();
-  // The how-to-pay line for that method sits under it.
-  await expect(
-    page.getByText("Pay by Zelle. Ask me for the details if you don't have them."),
-  ).toBeVisible();
+  // The how-to-pay line for that method sits under it, and the next step
+  // that asks for the payment carries it too.
+  const howToPay = "Pay by Zelle. Ask me for the details if you don't have them.";
+  await expect(page.getByText(howToPay, { exact: true })).toBeVisible();
+  await expect(next).toContainText(howToPay);
   await expect(page.getByText("Silver", { exact: true })).toBeVisible();
 
   await expect(page.getByText("Budget")).toHaveCount(0);

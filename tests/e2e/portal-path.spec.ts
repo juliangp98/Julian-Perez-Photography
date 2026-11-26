@@ -299,9 +299,15 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "The link is in your email.",
     action: { label: "Sign in to your galleries", href: "https://gallery.example.com/client" },
   });
-  expect(step({ status: "delivered", documents: [own("invoice")] })).toMatchObject({
-    detail: "The link is in your email. There's one invoice still open.",
+  expect(step({ status: "delivered", documents: [own("invoice")] }, ctx({ paymentLine: "Pay by Zelle." }))).toMatchObject({
+    detail: "The link is in your email. There's one invoice still open. Pay by Zelle.",
     secondary: { label: "Pay the invoice" },
+  });
+  // Complete keeps the way back to the photos.
+  expect(step({ status: "complete" }, ctx({ galleryLoginUrl: "https://gallery.example.com/client" }))?.secondary).toEqual({
+    label: "Sign in to your galleries",
+    href: "https://gallery.example.com/client",
+    external: true,
   });
   // An overdue balance says so.
   expect(step({ status: "delivered", documents: [own("gallery"), own("invoice", { dueAt: "2026-11-10" })] })?.detail).toBe(

@@ -251,12 +251,12 @@ export default function PortalProjectView({
         <div className="mt-6 rounded-lg border border-accent/40 bg-accent/[0.04] px-5 py-3 text-sm text-muted">
           {preview ? (
             <>
-              <span className="font-medium text-foreground">Viewing as the client</span> This is their page,
+              <span className="font-medium text-foreground">Viewing as the client.</span> This is their page,
               read-only. Nothing here sends or saves.
             </>
           ) : (
             <>
-              <span className="font-medium text-foreground">Shared with you</span> You have
+              <span className="font-medium text-foreground">Shared with you.</span> You have
               second-photographer access to this project. Everything here is view-only.
             </>
           )}

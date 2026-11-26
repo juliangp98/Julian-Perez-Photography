@@ -40,13 +40,19 @@ export async function GET(req: NextRequest) {
     await setSessionCookie({ email: claims.email });
     let landing = claims.next;
     if (!landing) {
-      const projects = await listPortalProjects(claims.email);
-      landing = projects.length === 1 ? `/portal/projects/${projects[0].id}` : "/portal/dashboard";
+      // Signed in by now: a failed lookup only means the list opens.
+      try {
+        const projects = await listPortalProjects(claims.email);
+        landing = projects.length === 1 ? `/portal/projects/${projects[0].id}` : "/portal/dashboard";
+      } catch (err) {
+        Sentry.captureException(err, { tags: { route: "portal-verify", stage: "landing" }, level: "warning" });
+        landing = "/portal/dashboard";
+      }
     }
     return NextResponse.redirect(new URL(landing, req.nextUrl.origin));
   } catch (err) {
     console.error("[portal] verify error:", err);
-    Sentry.captureException(err, { tags: { route: "portal-verify" } });
+    Sentry.captureException(err, { tags: { route: "portal-verify", stage: "verify" } });
     loginUrl.searchParams.set("error", "invalid-link");
     return NextResponse.redirect(loginUrl);
   }

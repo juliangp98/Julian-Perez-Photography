@@ -865,6 +865,7 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         ? [
             open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
             dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
+            ctx.paymentLine,
           ]
             .filter(Boolean)
             .join(" ")
@@ -890,7 +891,8 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
           ? "If you loved your photos, a few words help the next client find me."
           : "It was a joy working with you.",
         action: link("Write a review", ctx.reviewUrl),
-        secondary: link("View your gallery", own("gallery")?.url),
+        // Back to the photos: Julian's gallery link, else the gallery sign-in.
+        secondary: link("View your gallery", own("gallery")?.url) ?? link("Sign in to your galleries", ctx.galleryLoginUrl),
       };
 
     default:
