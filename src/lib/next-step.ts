@@ -367,6 +367,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       // A call already held (its summary saved) is past: the proposal comes next.
       if (callHeld) return sendProposal();
       if (typed) return saveSummary;
+      // The proposal link added without a call: its email comes next, as the
+      // client's page reads it as ready.
+      if (has("proposal")) return sendProposal();
       // The inquiry reply carries the call link too.
       if (sent.has("discovery-invite") || sent.has("inquiry-reply")) {
         return {

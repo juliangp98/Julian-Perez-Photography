@@ -267,6 +267,19 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     }).action?.href,
   ).toBe(compose("booking-welcome"));
 
+  // A lead with Julian's proposal link and no call: the proposal email, unless
+  // call notes are waiting on their summary.
+  expect(next({ status: "responded", documents: [own("proposal")] }, sent("inquiry-reply"))).toMatchObject({
+    title: "Send the proposal",
+    action: { href: compose("proposal") },
+  });
+  expect(
+    next(
+      { status: "responded", documents: [own("proposal")], calls: { discovery: { notes: "Wants golden hour." } } },
+      sent("inquiry-reply"),
+    ).title,
+  ).toBe("Save the call summary");
+
   // Set to Contract signed by hand: the welcome first. Then planning starts
   // within two months of the shoot.
   expect(next({ status: "contract-signed" }).action?.href).toBe(compose("booking-welcome"));
