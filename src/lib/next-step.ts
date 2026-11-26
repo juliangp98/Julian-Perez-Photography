@@ -272,13 +272,10 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // A project moved past Booked before the booking was done (the client's
   // questionnaire moves a booked project to Planning): while its Square
   // contract and invoice are on the project and the welcome hasn't gone,
-  // that comes first. A welcome sent another way settles it (Already sent
-  // offers the welcome where the step itself sends nothing once).
+  // that comes first. Its steps offer Already sent only for the email they
+  // send: once the retainer is marked paid, the welcome step offers it for
+  // a welcome that went another way.
   const unreserved = has("contract") && invoices.length > 0 && !sent.has("booking-welcome");
-  const unreservedStep = (): NextStep => {
-    const step = reserving();
-    return onceTemplate(step) ? step : { ...step, once: "booking-welcome" };
-  };
 
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
@@ -429,7 +426,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "planning":
-      if (unreserved) return unreservedStep();
+      if (unreserved) return reserving();
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Waiting on the questionnaire",
@@ -457,7 +454,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
       }
       const days = daysBetween(today, shoot);
-      if (days >= 0 && unreserved) return unreservedStep();
+      if (days >= 0 && unreserved) return reserving();
       if (days < 0) {
         return {
           title: "Send the thank-you",
@@ -489,6 +486,13 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         shoot && ctx.turnaroundDays
           ? `The gallery is due ${formatHumanDate(shiftDay(shoot, { days: ctx.turnaroundDays }))}.`
           : undefined;
+      // The gallery already on (the status set back by hand): its email next.
+      if (has("gallery") && !sent.has("gallery-delivery")) {
+        return {
+          title: "Send the gallery",
+          action: { label: "Write the email", href: compose("gallery-delivery") },
+        };
+      }
       if (has("highlights") && !sent.has("sneak-peek")) {
         return {
           title: "Send the sneak peek",

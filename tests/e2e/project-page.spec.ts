@@ -295,10 +295,15 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(
     next({ status: "scheduled", eventDate: "2026-12-20", documents: paperwork }, sent("contract-deposit")).title,
   ).toBe("Waiting on the signed contract and retainer");
-  // That detour can be settled by noting the welcome as sent another way.
-  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: paperwork }, sent("contract-deposit")).once).toBe(
-    "booking-welcome",
-  );
+  // Already sent on that detour only ever names the email its step sends:
+  // none beside waiting on the retainer, the welcome once it's paid.
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: paperwork }, sent("contract-deposit")).once).toBeUndefined();
+  expect(
+    next(
+      { status: "planning", questionnaireSnapshot: "{}", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] },
+      sent("contract-deposit"),
+    ).once,
+  ).toBe("booking-welcome");
   // With only one of the two papers, planning goes on as usual.
   expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: [own("invoice")] }).title).toBe(
     "Add the timeline",
@@ -339,7 +344,9 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "scheduled", eventDate: "Fall 2026" }).title).toBe("Set the shoot date");
   expect(next({ status: "shot" }).action?.href).toBe(compose("post-shoot-thank-you"));
 
-  // Editing: highlights, the sneak peek, then the gallery.
+  // Editing: highlights, the sneak peek, then the gallery (whose email comes
+  // first when the gallery is already on, the status set back by hand).
+  expect(next({ status: "editing", documents: [own("gallery")] }).action?.href).toBe(compose("gallery-delivery"));
   expect(next({ status: "editing" }).title).toBe("Add the highlights or the gallery");
   expect(next({ status: "editing", documents: [own("highlights")] }).action?.href).toBe(compose("sneak-peek"));
   expect(next({ status: "editing", documents: [own("highlights")] }, sent("sneak-peek")).title).toBe("Add the gallery");
