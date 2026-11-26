@@ -27,11 +27,13 @@ export default function ComposeLink({
       href={href}
       scroll={false}
       onClick={(e) => {
-        // Already open, and the link names no template: bring it into view
-        // rather than open it afresh on nothing.
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        // Already open on the Messages tab's own address, and the link names
+        // no template: bring it into view rather than reopen it. Open on a
+        // hand-off, the link goes to the tab, which shows any email kept.
         const panel = document.getElementById("compose");
-        if (panel && !href.includes("compose=")) {
+        const onHandoff = new URLSearchParams(window.location.search).has("compose");
+        if (panel && !href.includes("compose=") && !onHandoff) {
           e.preventDefault();
           panel.scrollIntoView();
         }

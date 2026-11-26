@@ -121,8 +121,12 @@ export default async function AdminProjectDetailPage({
   const conversation = messages.filter(isConversation);
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
+  // An email the client marked as spam arrived, so it counts as sent.
   const sent = sentTemplates(
-    messages.map((m) => ({ ...m, wentOut: isConversation(m) })),
+    messages.map((m) => ({
+      ...m,
+      wentOut: isConversation(m) || (m.direction === "out" && m.status === "complained"),
+    })),
     record?.statusHistory,
   );
   const hasQuestionnaire = !!record?.serviceType && !!getQuestionnaire(record.serviceType);
@@ -162,7 +166,9 @@ export default async function AdminProjectDetailPage({
         service?.title ?? serviceTitle(record.serviceType),
         formatEventDate(record.eventDate),
         venue,
-        record.guestCount != null ? `${record.guestCount} guests` : undefined,
+        record.guestCount != null
+          ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}`
+          : undefined,
         record.paymentMethod ? `Pays by ${paymentMethodLabel(record.paymentMethod)}` : undefined,
         contactLine(lastInAt, lastOutAt, today) ?? undefined,
       ].filter(Boolean)

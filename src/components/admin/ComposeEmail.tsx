@@ -117,7 +117,9 @@ export default function ComposeEmail({
   };
   const initial = EMAIL_TEMPLATES.find((t) => t.id === initialTemplateId);
   // An email left unsent here earlier comes back as it was.
-  const [{ handoff: keepAs, draft: kept }] = useState(() => composeDraft.resume(projectId, handoff));
+  const [{ handoff: resumedAs, draft: kept }] = useState(() => composeDraft.resume(projectId, handoff));
+  // The hand-off what's typed here is kept under.
+  const [keepAs, setKeepAs] = useState(resumedAs);
   const [templateId, setTemplateId] = useState(kept?.templateId ?? initial?.id ?? "");
   const [subject, setSubject] = useState(
     kept?.subject ?? (initial ? fillTemplate(initial.subject, tokensFor(initial)) : ""),
@@ -150,10 +152,24 @@ export default function ComposeEmail({
     if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions, sendKey });
   }, [touched, projectId, keepAs, templateId, subject, body, instructions, sendKey]);
 
+  // Picking a template shows the email left unsent on it, if there is one;
+  // otherwise its fresh fill, which is kept only once it's changed, so
+  // looking through the templates never replaces the email being written.
   function pick(id: string) {
-    setTouched(true);
     setTemplateId(id);
     setStatus("idle");
+    const left = composeDraft.peek(projectId);
+    if (left && left.draft.templateId === id) {
+      setSubject(left.draft.subject);
+      setBody(left.draft.body);
+      setInstructions(left.draft.instructions);
+      setSendKey(left.draft.sendKey);
+      setKeepAs(left.handoff);
+      setTouched(true);
+      return;
+    }
+    setTouched(false);
+    setKeepAs(handoff);
     newVersion();
     const t = EMAIL_TEMPLATES.find((x) => x.id === id);
     setSubject(t ? fillTemplate(t.subject, tokensFor(t)) : "");

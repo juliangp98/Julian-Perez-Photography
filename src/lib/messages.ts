@@ -62,9 +62,11 @@ let templateColumn = true;
 const select = () => (templateColumn ? `${SELECT_BASE}, template` : SELECT_BASE);
 // A read names a missing column to Postgres (42703); a write is refused by
 // the API layer first (PGRST204).
+// A request built before another noticed the missing column retries too.
 function templateMissing(error: { code?: string; message?: string } | null): boolean {
-  const missing = error?.code === "42703" || error?.code === "PGRST204";
-  if (!templateColumn || !missing || !/template/.test(error?.message ?? "")) return false;
+  const missing =
+    (error?.code === "42703" || error?.code === "PGRST204") && /template/.test(error?.message ?? "");
+  if (!missing) return false;
   templateColumn = false;
   return true;
 }

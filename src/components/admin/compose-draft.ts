@@ -28,6 +28,8 @@ export const composeDraft = {
     if (kept && (kept.handoff === handoff || handoff === NO_HANDOFF)) return kept;
     return { handoff };
   },
+  // The kept email, whatever it was opened on.
+  peek: (projectId: string) => drafts.get(projectId),
   set: (projectId: string, handoff: string, draft: ComposeDraftState) =>
     void drafts.set(projectId, { handoff, draft }),
   // Once it has been sent, the panel opens afresh.

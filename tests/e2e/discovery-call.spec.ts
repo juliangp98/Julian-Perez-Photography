@@ -391,6 +391,31 @@ test("Write the recap saves an edited summary, and Back shows it", async ({
   await expect(page.getByText(/^Call held /)).toBeVisible();
 });
 
+test("a recap left unsent opens afresh once the summary changes", async ({ adminRequest, adminPage: page, fakes }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "recap-fresh");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Garden wedding, relaxed" } } });
+  await callTab(page, p.id);
+  await fakes.script({
+    replies: [
+      JSON.stringify({ background: "Met in college.", event: "Garden wedding.", priorities: "Candids.", logistics: "", actions: "", updates: {} }),
+    ],
+  });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByLabel(/^Background/)).toHaveValue("Met in college.");
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  const body = page.getByLabel("Email body");
+  await body.fill("Hi,\n\nMy own words about the garden.\n\nJulian");
+
+  // Back on the Call tab the summary is edited; the recap opens from it, not
+  // from the email left unsent.
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Call" }).click();
+  await page.getByLabel(/^Background/).fill("Met in college, six years ago.");
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  await expect(page).toHaveURL(/compose=discovery-recap/);
+  await expect(body).not.toHaveValue(/My own words about the garden/);
+});
+
 test("Summarize says when the AI's answer couldn't be used", async ({ adminRequest, adminPage: page, fakes }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "garbled");

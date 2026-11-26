@@ -182,8 +182,8 @@ export default function AdminProjectLinks({
                       </Button>
                     )}
                     {template && (
-                      // The entry's id rides along so Compose opens afresh,
-                      // even if it was already on this template.
+                      // The entry's id rides along, so this is its own
+                      // hand-off, apart from one on the same template.
                       <ComposeLink
                         href={`?compose=${template}&doc=${d.id}#compose`}
                         className={buttonClass("text")}

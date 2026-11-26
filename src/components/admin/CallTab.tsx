@@ -73,7 +73,9 @@ export default async function CallTab({
   const facts = [
     formatEventDate(record.eventDate) || "No date yet",
     venue,
-    record.guestCount != null ? `${record.guestCount} guests` : undefined,
+    record.guestCount != null
+      ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}`
+      : undefined,
     record.budget ? `Budget ${record.budget}` : undefined,
     record.referral ? `Found you: ${formatReferral(record.referral, undefined)}` : undefined,
   ].filter(Boolean);

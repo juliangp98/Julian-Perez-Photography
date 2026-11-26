@@ -140,9 +140,9 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "proposal-sent", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action
       ?.href,
   ).toBe(compose("contract-deposit"));
-  // A yes after the hold ran out still gets the contract. A follow-up sent
-  // after the hold ended, or the Today row marked handled, settles it; the
-  // proposal's own follow-up date doesn't.
+  // A yes after the hold ran out still gets the contract. A follow-up sent on
+  // or after the hold's last day, or the Today row marked handled or snoozed,
+  // settles it; the proposal's own follow-up date doesn't.
   expect(
     next({
       status: "proposal-sent",
@@ -160,9 +160,20 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-10")).title,
   ).toBe("The date hold ended");
   expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-20")).title,
+  ).toBe("Waiting on Avery's answer");
+  expect(
     next({ status: "proposal-sent", holdUntil: "2026-11-20", todayDismissed: { "hold:2026-11-20": "handled" } }, proposed)
       .title,
   ).toBe("Waiting on Avery's answer");
+  expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20", todayDismissed: { "hold:2026-11-20": "2026-11-28" } }, proposed)
+      .title,
+  ).toBe("Waiting on Avery's answer");
+  expect(
+    next({ status: "proposal-sent", holdUntil: "2026-11-20", todayDismissed: { "hold:2026-11-20": "2026-11-24" } }, proposed)
+      .title,
+  ).toBe("The date hold ended");
 
   // Reserving the date: the paperwork, the retainer, then the welcome.
   expect(next({ status: "booked" }).title).toBe("Add the Square contract and invoice");
@@ -300,7 +311,9 @@ test("next step: a closed project, a missing email, then an unanswered client co
     next({ status: "new-inquiry", lastInAt: wrote.lastInAt, todayDismissed: { [key]: "handled" } }).title,
   ).toBe("Invite them to a discovery call");
   expect(next({ status: "new-inquiry", todayDismissed: { inquiry: "2026-11-28" } }).title).toBe("Reply to the inquiry");
-  expect(next({ status: "lost", ...wrote }).title).toBe("Closed as lost");
+  // A lost lead writing back is answered; another closed project stays closed.
+  expect(next({ status: "lost", ...wrote }).title).toBe("Answer Avery");
+  expect(next({ status: "archived", ...wrote }).title).toBe("Closed");
   expect(next({ status: "booked", email: "", ...wrote }).title).toBe("Add the client's email");
   expect(
     next({ status: "proposal-sent", lastInAt: "2026-11-20T15:00:00Z", lastOutAt: "2026-11-23T15:00:00Z" }, proposed).title,
@@ -310,6 +323,10 @@ test("next step: a closed project, a missing email, then an unanswered client co
     action: { href: tab("details") },
   });
   expect(next({ status: "lost" }).action?.href).toBe(compose("re-engagement"));
+  expect(next({ status: "lost" }, sent("re-engagement"))).toEqual({
+    title: "Closed as lost",
+    detail: "A check-in went out. If they write back, it shows here.",
+  });
   expect(next({ status: "archived" })).toEqual({
     title: "Closed",
     detail: "Nothing left to do. Change the status to reopen it.",
@@ -430,7 +447,7 @@ test("tabs: each shows its part, and a Compose link with no tab opens Messages",
   await expect(active()).toHaveText("Overview");
 });
 
-test("status: picking one saves it and moves the tracker; closing asks first and clears the follow-up", async ({
+test("status: a pick waits for Save, then moves the tracker; closing asks first and clears the follow-up", async ({
   adminRequest,
   adminPage: page,
 }) => {
@@ -438,7 +455,11 @@ test("status: picking one saves it and moves the tracker; closing asks first and
   const p = await newProject(adminRequest, "status");
   await page.goto(p.page);
 
+  // Moving through the list changes nothing until Save.
+  await page.locator("#project-status").selectOption("booked");
   await page.locator("#project-status").selectOption("in-conversation");
+  expect((await readProject(p.id, "status")).status).toBe("new-inquiry");
+  await page.getByRole("button", { name: "Save status" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
   await expect(page.getByText("Step 2 of 10: Call", { exact: true })).toBeVisible();
   await expect(nextStep(page)).toContainText("Add the proposal link");
@@ -453,13 +474,18 @@ test("status: picking one saves it and moves the tracker; closing asks first and
   // Closing asks; saying no leaves it as it was.
   await patchProject(p.id, { follow_up_at: shiftDay(studioToday(), { days: 5 }), follow_up_note: "Check in" });
   await page.reload();
+  await page.locator("#project-status").selectOption("lost");
   page.once("dialog", (d) => d.dismiss());
-  await page.locator("#project-status").selectOption("lost");
-  await expect(page.locator("#project-status")).toHaveValue("in-conversation");
+  await page.getByRole("button", { name: "Save status" }).click();
+  await expect(page.getByRole("button", { name: "Save status" })).toBeVisible();
   expect((await readProject(p.id, "status")).status).toBe("in-conversation");
+  // Cancel puts the pick back.
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator("#project-status")).toHaveValue("in-conversation");
 
-  page.once("dialog", (d) => d.accept());
   await page.locator("#project-status").selectOption("lost");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Save status" }).click();
   await expect(page.getByText("Closed at Call", { exact: true })).toBeVisible();
   await expect(page.getByText("None set.")).toBeVisible();
   await expect(nextStep(page)).toContainText("Closed as lost");

@@ -128,8 +128,25 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
       : undefined;
   const overdue = !!nextDue?.dueAt && DAY.test(nextDue.dueAt) && nextDue.dueAt < today;
 
+  // The client wrote last and hasn't had an answer, unless their message was
+  // marked handled (or snoozed) on the Today list.
+  const unanswered =
+    !!p.lastInAt &&
+    (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
+    !hiddenByMark(p.todayDismissed?.[replyKey(p.lastInAt)], today);
+  const answer = (): NextStep => ({
+    title: `Answer ${first}`,
+    detail: `${First} wrote ${dayAgo(studioDayOf(p.lastInAt ?? ""), today)}.`,
+    action: { label: "Write a reply", href: `${page}?tab=messages#compose` },
+  });
+
   if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) {
     if (status === "lost") {
+      // A lost lead writing back is the point of the check-in.
+      if (unanswered) return answer();
+      if (sent.has("re-engagement")) {
+        return { title: "Closed as lost", detail: "A check-in went out. If they write back, it shows here." };
+      }
       return {
         title: "Closed as lost",
         detail: "If the date is still open, a check-in can bring them back.",
@@ -147,23 +164,11 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
     };
   }
 
-  // The client wrote last and hasn't had an answer, whatever the stage, unless
-  // their message was marked handled (or snoozed) on the Today list. A new
-  // inquiry's answer is the inquiry reply.
-  if (
-    p.lastInAt &&
-    (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
-    !hiddenByMark(p.todayDismissed?.[replyKey(p.lastInAt)], today)
-  ) {
-    // Nothing has gone to them yet: the first answer is the inquiry reply.
+  // An unanswered client comes before the stage's step. A new inquiry
+  // nothing has gone to yet gets the inquiry reply.
+  if (unanswered) {
     const lead = (!status || status === "new-inquiry") && !p.lastOutAt;
-    return {
-      title: `Answer ${first}`,
-      detail: `${First} wrote ${dayAgo(studioDayOf(p.lastInAt), today)}.`,
-      action: lead
-        ? { label: "Draft a reply", href: draftReplyHref(page) }
-        : { label: "Write a reply", href: `${page}?tab=messages#compose` },
-    };
+    return lead ? { ...answer(), action: { label: "Draft a reply", href: draftReplyHref(page) } } : answer();
   }
 
   const call = p.calls?.discovery;
