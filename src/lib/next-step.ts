@@ -3,7 +3,7 @@
 // with one button. A step that waits on the client says so, and its button is
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import {
   dayAgo,
@@ -597,24 +597,37 @@ const LEAD_STATUSES: readonly (string | undefined)[] = [
   "proposal-sent",
 ];
 
-type BookingProject = { status?: string; documents?: BookingDoc[]; statusHistory?: { status?: string }[] };
+type BookingProject = {
+  status?: string;
+  documents?: BookingDoc[];
+  statusHistory?: { status?: string; kind?: string; from?: string }[];
+};
 
-// The booking is confirmed once the welcome went out, or once the project
-// held Contract signed (set by hand, that says so).
-const confirmed = (p: BookingProject, welcomed: boolean) =>
-  welcomed || (p.statusHistory ?? []).some((h) => h.status === "contract-signed");
+// Where the booking last stood: the latest status at or below Contract signed
+// among the project's moves and its current status, so a status set back by
+// hand counts from then on.
+function bookingPosition(p: BookingProject): string | undefined {
+  const cutoff = statusRank("contract-signed");
+  return [...statusMoves(p.statusHistory ?? []), { status: p.status }]
+    .filter((m) => statusRank(m.status) >= 0 && statusRank(m.status) <= cutoff)
+    .at(-1)?.status;
+}
+
+// The booking is confirmed once the welcome went out, or while it last stood
+// at Contract signed (set by hand, that says so).
+const confirmed = (p: BookingProject, welcomed: boolean) => welcomed || bookingPosition(p) === "contract-signed";
 
 // The booking isn't finished: Julian's Square contract and its invoice are on
 // the project and the booking isn't confirmed, whatever the status says (the
-// client's questionnaire moves a booked project to Planning). Once it held
-// Booked, either piece alone counts, so the other is still asked for; a lone
-// invoice on a project that was never booked is something else.
+// client's questionnaire moves a booked project to Planning). While it last
+// stood at Booked, either piece alone counts, so the other is still asked
+// for; a lone invoice on a project never booked is something else.
 function bookingOpen(p: BookingProject, welcomed: boolean): boolean {
   const docs = p.documents ?? [];
   if (confirmed(p, welcomed)) return false;
   const contract = julians(docs, "contract");
   const invoice = julians(docs, "invoice");
-  const heldBooked = p.status === "booked" || (p.statusHistory ?? []).some((h) => h.status === "booked");
+  const heldBooked = bookingPosition(p) === "booked";
   return (contract && invoice) || (heldBooked && (contract || invoice));
 }
 

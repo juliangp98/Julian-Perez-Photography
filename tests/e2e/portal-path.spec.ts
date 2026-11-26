@@ -255,13 +255,34 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(stillReserving({ status: "planning", documents: [own("contract")], statusHistory: wasBooked }, false, TODAY)).toBe(true);
   expect(stillReserving({ status: "planning", documents: [own("invoice")] }, false, TODAY)).toBe(false);
   expect(step({ status: "planning", documents: [own("contract")], reserving: true })?.title).toBe("Sign your contract");
-  // Once the project held Contract signed (set by hand), the booking is
-  // confirmed, at Planning and on a lead alike.
+  // Contract signed set by hand confirms the booking, unless it was set back.
   const signed = [{ status: "booked" }, { status: "contract-signed" }, { status: "planning" }];
   expect(stillReserving({ status: "planning", documents: unbooked, statusHistory: signed }, false, TODAY)).toBe(false);
+  const setBack = [{ status: "booked" }, { status: "contract-signed" }, { status: "booked" }, { status: "planning" }];
+  expect(stillReserving({ status: "planning", documents: unbooked, statusHistory: setBack }, false, TODAY)).toBe(true);
   expect(
-    stillReserving({ status: "proposal-sent", documents: [own("contract")], statusHistory: [{ status: "contract-signed" }] }, false, TODAY),
-  ).toBe(false);
+    stillReserving(
+      {
+        status: "proposal-sent",
+        documents: [own("contract")],
+        statusHistory: [{ status: "contract-signed" }, { status: "proposal-sent" }],
+      },
+      false,
+      TODAY,
+    ),
+  ).toBe(true);
+  // A note filed while it sat at Contract signed isn't a move.
+  expect(
+    stillReserving(
+      {
+        status: "planning",
+        documents: unbooked,
+        statusHistory: [{ status: "booked" }, { status: "contract-signed", kind: "note" }, { status: "planning" }],
+      },
+      false,
+      TODAY,
+    ),
+  ).toBe(true);
   // Booked itself, and the stages after the shoot, aren't a detour.
   expect(stillReserving({ status: "booked", documents: unbooked }, false, TODAY)).toBe(false);
   expect(stillReserving({ status: "editing", documents: unbooked }, false, TODAY)).toBe(false);
