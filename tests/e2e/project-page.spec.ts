@@ -282,6 +282,17 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     detail: "The kickoff email sends the questionnaire.",
   });
   expect(next({ status: "contract-signed", questionnaireSnapshot: "{}" }, welcomed).detail).toBeUndefined();
+  // The shoot came and went with no planning email moving it on: the
+  // thank-you, as the client's page reads it as past.
+  for (const status of ["contract-signed", "planning"]) {
+    expect(next({ status, eventDate: "2026-11-20", questionnaireSnapshot: "{}" }, welcomed), status).toMatchObject({
+      title: "Send the thank-you",
+      detail: "The shoot was November 20, 2026.",
+      action: { href: compose("post-shoot-thank-you") },
+    });
+  }
+  // The welcome still comes first.
+  expect(next({ status: "contract-signed", eventDate: "2026-11-20" }).action?.href).toBe(compose("booking-welcome"));
   expect(next({ status: "contract-signed" }, { ...welcomed, questionnaire: false }).detail).toBeUndefined();
   expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, welcomed)).toEqual({
     title: "Booked",

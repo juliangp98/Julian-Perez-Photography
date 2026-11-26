@@ -217,6 +217,13 @@ test("client next step: one per stage, from booking the call to the review", () 
     documents: [{ type: "proposal" }],
     reserving: true,
   });
+  // Before the booking (or closed before it) there's no stage to show them.
+  expect(shootStage({ status: "proposal-sent" }).status).toBeUndefined();
+  expect(shootStage({ status: "booked", statusHistory: [{ status: "booked" }] }).status).toBeUndefined();
+  expect(shootStage({ status: "lost", statusHistory: [{ status: "booked" }, { status: "lost" }] }).status).toBeUndefined();
+  expect(
+    stageLine(shootStage({ status: "archived", statusHistory: [{ status: "booked" }, { status: "planning" }, { status: "archived" }] })),
+  ).toBe("Closed at Planning");
   expect(stagesFor(shared).stages.map((s) => s.key)).not.toContain("call");
   expect(stagesFor(shared).stages.map((s) => s.key)).not.toContain("proposal");
   expect(shared.reserving).toBeUndefined();
@@ -508,6 +515,14 @@ test("a second photographer's invite opens the project, with a call sheet, not t
   await expect(
     page.locator(`a[href="/portal/projects/${p.id}"]`).getByRole("img", { name: "Step 5 of 8: Shoot" }),
   ).toBeVisible();
+
+  // Before the booking is done, nothing tells them how it stands.
+  await patchProject(p.id, { status: "booked" });
+  await page.goto(`/portal/projects/${p.id}`);
+  await expect(page.getByRole("region", { name: "Call sheet" })).toBeVisible();
+  await expect(page.getByText("In progress", { exact: true })).toBeVisible();
+  await expect(page.getByText("Reserving your date")).toHaveCount(0);
+  await expect(page.getByText(/^Step \d+ of \d+:/)).toHaveCount(0);
 });
 
 test("a booking the questionnaire moved past stays at Reserving your date until the welcome goes out", async ({

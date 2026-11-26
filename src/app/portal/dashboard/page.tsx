@@ -67,7 +67,7 @@ function ProjectCard({
       {p.eventDate && (
         <div className="mt-2 text-sm text-muted">{formatEventDate(p.eventDate)}</div>
       )}
-      {!closed && (
+      {!closed && facts.status && (
         <div className="mt-3 flex items-center gap-1" role="img" aria-label={stageLine(facts)}>
           {stages.map((s) => (
             <span

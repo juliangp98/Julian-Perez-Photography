@@ -226,6 +226,13 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
+  // After the shoot: the thank-you, which moves it to Editing.
+  const thankYou = (): NextStep => ({
+    title: "Send the thank-you",
+    detail: `The shoot was ${formatHumanDate(shoot)}.`,
+    action: { label: "Write the thank-you", href: compose("post-shoot-thank-you") },
+  });
+
   // Notes typed on the Call tab and the summary not saved yet.
   const typed = !!call?.notes?.trim() || Object.values(call?.answers ?? {}).some((a) => a.trim());
   const saveSummary: NextStep = {
@@ -415,6 +422,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           action: { label: "Write the welcome", href: compose("booking-welcome") },
         };
       }
+      // The shoot came and went with no planning email moving it on (the
+      // client's page reads it as past, shootPassed).
+      if (shootPassed(p, today)) return thankYou();
       if (shoot && daysBetween(today, shoot) > PLANNING_WINDOW_DAYS) {
         const start = formatHumanDate(shiftDay(shoot, { days: -PLANNING_WINDOW_DAYS }));
         return {
@@ -432,6 +442,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 
     case "planning":
       if (unreserved) return reserving();
+      if (shootPassed(p, today)) return thankYou();
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Waiting on the questionnaire",
@@ -460,13 +471,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       }
       const days = daysBetween(today, shoot);
       if (days >= 0 && unreserved) return reserving();
-      if (days < 0) {
-        return {
-          title: "Send the thank-you",
-          detail: `The shoot was ${formatHumanDate(shoot)}.`,
-          action: { label: "Write the thank-you", href: compose("post-shoot-thank-you") },
-        };
-      }
+      if (days < 0) return thankYou();
       if (days <= 7 && !sent.has("week-of")) {
         return {
           title: "Send the week-of email",
@@ -612,9 +617,10 @@ export function stillReserving(
 // thank-you email moved it on.
 const BEFORE_SHOOT = ["contract-signed", "planning", "scheduled"];
 
-// For the client, a project whose shoot is past while its status still reads
-// as before it: their page shows what comes after (the editing step), and its
-// status and tracker read Captured. A date still being reserved comes first.
+// A project whose shoot is past while its status still reads as before it:
+// the client's page shows what comes after (the editing step), its status
+// reads Captured and its tracker moves to Editing, and the owner's step is the
+// thank-you. For the client, a date still being reserved comes first.
 export function shootPassed(p: { status?: string; eventDate?: string }, today: string): boolean {
   if (!BEFORE_SHOOT.includes(p.status ?? "")) return false;
   const shoot = eventDay(p.eventDate);
@@ -634,8 +640,9 @@ export type ClientStepProject = {
   questionnaireSnapshot?: string;
   documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
   planSummary?: string;
-  // Whether the date is still being reserved though the status moved past
-  // Booked (stillReserving, worked out with the emails sent).
+  // The date is being reserved though the status says otherwise (a lead with
+  // Julian's contract, or a project moved past Booked before the booking was
+  // done: stillReserving, worked out with the emails sent).
   reserving?: boolean;
 };
 

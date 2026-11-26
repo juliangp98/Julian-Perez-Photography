@@ -141,7 +141,8 @@ export type StageProject = {
   // and status read Reserving your date.
   reserving?: boolean;
   // The shoot is past while the status still reads as before it
-  // (shootPassed): their tracker and status read Captured.
+  // (shootPassed): their status reads Captured and their tracker moves to
+  // Editing.
   shot?: boolean;
 };
 
@@ -157,15 +158,16 @@ export function reachedStatus(p: StageProject): string | undefined {
   return p.reserving ? "booked" : p.shot ? "shot" : lastOpenStatus(p);
 }
 
-// What a second photographer's tracker reads: where the shoot stands, without
-// the sales steps before the booking (a call, a proposal) or how the
-// booking itself stands.
+// What a second photographer's tracker reads: where the shoot stands from
+// the booking on, without the sales steps (a call, a proposal) or how the
+// booking itself stands. Before the booking (or closed before it) there's
+// no stage to show them: no status, so no tracker and a neutral badge.
 export function shootStage(p: StageProject): StageProject {
-  return {
-    status: p.status,
-    shot: p.shot,
-    statusHistory: (p.statusHistory ?? []).filter((h) => h.status !== "in-conversation" && h.status !== "proposal-sent"),
-  };
+  const fromBooking = (status?: string) => statusRank(status) >= statusRank("contract-signed");
+  const statusHistory = (p.statusHistory ?? []).filter((h) => fromBooking(h.status));
+  const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
+  const status = fromBooking(p.status) || (closed && statusHistory.length > 0) ? p.status : undefined;
+  return { status, shot: p.shot, statusHistory };
 }
 
 // The stage a status belongs to, or -1 for a closed or unknown one.

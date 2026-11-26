@@ -273,7 +273,8 @@ export default function PortalProjectView({
       <div className="mt-8 max-w-4xl space-y-10">
         {!isCollaborator && next && <NextStepCard step={next} preview={preview} />}
 
-        <StageTracker project={stage} />
+        {/* A second photographer's project before its booking has no stage to show. */}
+        {stage.status && <StageTracker project={stage} />}
 
         {isCollaborator && <CallSheet record={record} dayOfContact={dayOfContact} />}
 
