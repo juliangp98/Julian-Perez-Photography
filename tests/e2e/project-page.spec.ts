@@ -165,11 +165,23 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" }), own("invoice", { dueAt: "2027-05-01" })],
     }).action?.href,
   ).toBe(compose("booking-welcome"));
-  // The contract added, the invoice still to come.
-  expect(next({ status: "proposal-sent", documents: [own("contract")] }, sent("proposal"))).toMatchObject({
-    title: "Waiting on Avery's answer",
-    action: { label: "Add the invoice", href: tab("links") },
-  });
+  // The contract added, the invoice still to come: a yes, so that comes
+  // before a due follow-up or a hold that ran out.
+  expect(
+    next(
+      { status: "proposal-sent", documents: [own("contract")], followUpAt: TODAY, holdUntil: "2026-11-20" },
+      sent("proposal"),
+    ),
+  ).toMatchObject({ title: "Add the invoice", action: { href: tab("links") } });
+  // A booking made on the call, or before a proposal: the contract leads at every lead stage.
+  const held = { discovery: { heldAt: "2026-11-20T15:00:00Z" } };
+  expect(next({ status: "in-conversation", calls: held, documents: [own("contract"), own("invoice")] }).action?.href).toBe(
+    compose("contract-deposit"),
+  );
+  expect(
+    next({ status: "responded", calls: held, documents: [own("contract"), own("invoice", { paidAt: "2026-11-21" })] }).action
+      ?.href,
+  ).toBe(compose("booking-welcome"));
   // A yes after the hold ran out still gets the contract. A follow-up sent on
   // or after the hold's last day, or the Today row marked handled or snoozed,
   // settles it; the proposal's own follow-up date doesn't.
@@ -348,6 +360,11 @@ test("next step: a closed project, a missing email, then an unanswered client co
   );
   expect(next({ status: "proposal-sent", ...wrote, todayDismissed: { [key]: "2026-11-24" } }, proposed).title).toBe(
     "Answer Avery",
+  );
+  // Answered outside the site (its inquiry marked handled on Today), a later
+  // message gets a plain reply, not the inquiry reply.
+  expect(next({ status: "new-inquiry", lastInAt: wrote.lastInAt, todayDismissed: { inquiry: "handled" } }).action?.href).toBe(
+    "/admin/projects/p?tab=messages#compose",
   );
   // A new inquiry whose message was marked handled is past replying to; one
   // only snoozed on Today still wants the reply.
@@ -883,7 +900,8 @@ test("Already sent moves the project on as the email would, and Mark handled set
   await expect(page.getByRole("combobox", { name: "Email template" })).toHaveValue("");
   await expect(page.getByLabel("Email body")).toHaveValue("");
 
-  // A stage email that moves nothing (the status set by hand past it) is noted on its own.
+  // A stage email that moves no status (set by hand past it) is noted on its
+  // own, and the welcome settles the proposal's follow-up.
   await patchProject(p.id, { status: "contract-signed" });
   await page.reload();
   await expect(nextStep(page)).toContainText("Send the booking welcome");
@@ -891,6 +909,7 @@ test("Already sent moves the project on as the email would, and Mark handled set
   await expect(nextStep(page)).toContainText("Planning starts about two months before the shoot");
   const noted = (await readProject(p.id, "status_history")).status_history as { kind?: string; note?: string }[];
   expect(noted.at(-1)).toMatchObject({ kind: "note", note: "Booking welcome noted as sent" });
+  expect(await readProject(p.id, "follow_up_at, follow_up_note")).toEqual({ follow_up_at: null, follow_up_note: null });
 
   // A client's message answered another way is marked handled, here and on Today.
   const wrote = new Date().toISOString();

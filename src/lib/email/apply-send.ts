@@ -92,8 +92,8 @@ export async function applySendEffects(
       moved.followUpCleared = true;
     });
   }
-  // A follow-up on the proposal once its date hold ran out settles the Today
-  // row about that hold, as it settles the project page's step.
+  // A follow-up on the proposal sent on or after its hold's last day settles
+  // the Today row about that hold, as it settles the project page's step.
   if (template.id === "proposal-follow-up" && record.holdUntil && record.holdUntil <= studioToday()) {
     try {
       await dismissToday(record.id, `hold:${record.holdUntil}`, "handled");

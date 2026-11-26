@@ -36,6 +36,10 @@ test("a client who wrote last shows until answered", () => {
   expect(one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z" })[0].action.href).toBe(
     "/admin/projects/p?compose=inquiry-reply#compose",
   );
+  // Answered outside the site (the inquiry marked handled): a plain reply.
+  expect(
+    one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", todayDismissed: { inquiry: "handled" } })[0].action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
   // An evening message counts on the studio's day it was sent.
   expect(one({ status: "proposal-sent", lastInAt: "2026-11-25T02:30:00Z" })).toMatchObject([
     { rule: "reply", reason: "The client wrote yesterday, not answered yet", due: "2026-11-24" },

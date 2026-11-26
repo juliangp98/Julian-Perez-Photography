@@ -108,7 +108,12 @@ function rowsFor(
     (!closedAt || Date.parse(p.lastInAt) > Date.parse(closedAt));
   if (replied) {
     const day = dayOf(p.lastInAt);
-    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt;
+    // Answered outside the site (the inquiry or an earlier message marked
+    // handled): a plain reply, as on the project page.
+    const byHand = Object.entries(p.todayDismissed ?? {}).some(
+      ([k, v]) => (k === "inquiry" || k.startsWith("reply:")) && v === "handled",
+    );
+    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt && !byHand;
     add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
       href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,

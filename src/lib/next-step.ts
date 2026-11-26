@@ -194,10 +194,17 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     };
   }
 
+  // A lead answered outside the site: its inquiry, or a message of theirs,
+  // marked handled on Today.
+  const answeredByHand =
+    p.todayDismissed?.inquiry === "handled" ||
+    Object.entries(p.todayDismissed ?? {}).some(([k, v]) => k.startsWith("reply:") && v === "handled");
+
   // An unanswered client comes before the stage's step. A new inquiry
-  // nothing has gone to yet gets the inquiry reply.
+  // nothing has gone to yet, and none was marked handled on Today, gets the
+  // inquiry reply.
   if (unanswered) {
-    const lead = (!status || status === "new-inquiry") && !p.lastOutAt;
+    const lead = (!status || status === "new-inquiry") && !p.lastOutAt && !answeredByHand;
     return lead ? { ...answer(), action: { label: "Draft a reply", href: draftReplyHref(page) } } : answer();
   }
 
@@ -213,6 +220,33 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     title: "Save the call summary",
     detail: "Your call notes are in. Summarize them, and the recap follows.",
     action: { label: "Open the call", href: tab("call") },
+  };
+
+  // A Square contract on a lead means they said yes, whatever came before (a
+  // proposal skipped, a booking made on the call): with the retainer paid,
+  // the booking welcome (a balance invoice left open belongs to delivery);
+  // with an invoice to pay, the email that sends them both; without one, the
+  // invoice.
+  const booking = (): NextStep | undefined => {
+    if (!has("contract")) return undefined;
+    if (invoices.some((d) => d.paidAt)) {
+      return {
+        title: "Send the booking welcome",
+        detail: "The retainer is paid.",
+        action: { label: "Write the welcome", href: compose("booking-welcome") },
+      };
+    }
+    if (unpaid.length) {
+      return {
+        title: "Send the contract and retainer",
+        action: { label: "Write the email", href: compose("contract-deposit") },
+      };
+    }
+    return {
+      title: "Add the invoice",
+      detail: "The contract is added. The email sends them both.",
+      action: { label: "Add a link", href: tab("links") },
+    };
   };
 
   // The proposal's link, then the email that carries it: the recap after a
@@ -237,12 +271,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   };
 
   // A new inquiry that has had an answer (one written without the inquiry
-  // reply), or that was marked handled on Today (the inquiry, or the client's
-  // message), is past replying to. A snooze only puts it off.
-  const handled = (key: string) => p.todayDismissed?.[key] === "handled";
-  const answered =
-    (!status || status === "new-inquiry") &&
-    (!!p.lastOutAt || handled("inquiry") || (!!p.lastInAt && handled(replyKey(p.lastInAt))));
+  // reply, or one outside the site) is past replying to. A snooze on Today
+  // only puts it off.
+  const answered = (!status || status === "new-inquiry") && (!!p.lastOutAt || answeredByHand);
 
   switch (answered ? "responded" : status) {
     case undefined:
@@ -254,6 +285,8 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       };
 
     case "responded": {
+      const yes = booking();
+      if (yes) return yes;
       // A call already held (its summary saved) is past: the proposal comes next.
       if (callHeld) return sendProposal();
       if (typed) return saveSummary;
@@ -273,29 +306,17 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 
     case "in-conversation":
       // Notes from a call not yet summarized: the recap comes from the summary.
-      return !callHeld && typed ? saveSummary : sendProposal();
+      return booking() ?? (!callHeld && typed ? saveSummary : sendProposal());
 
     case "proposal-sent": {
-      // The contract went another way and the retainer is in: they're booked
-      // (a balance invoice left open belongs to delivery).
-      if (has("contract") && invoices.some((d) => d.paidAt)) {
-        return {
-          title: "Send the booking welcome",
-          detail: "The retainer is paid.",
-          action: { label: "Write the welcome", href: compose("booking-welcome") },
-        };
-      }
-      if (has("contract") && unpaid.length) {
-        return {
-          title: "Send the contract and retainer",
-          action: { label: "Write the email", href: compose("contract-deposit") },
-        };
-      }
+      const yes = booking();
+      if (yes) return yes;
       // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
       if (!sent.has("discovery-recap") && !sent.has("proposal")) return sendProposal();
       // A hold that ran out, until its Today row is settled: marked handled
-      // or snoozed there or here, or by a follow-up sent after it ended (the
-      // send marks the row), so the page and Today read the same mark.
+      // or snoozed on Today, marked handled here, or by a proposal follow-up
+      // sent from Compose on or after the hold's last day (the send marks
+      // the row), so the page and Today read the same mark.
       if (
         p.holdUntil &&
         DAY.test(p.holdUntil) &&
@@ -315,18 +336,11 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           action: { label: "Write a follow-up", href: compose("proposal-follow-up") },
         };
       }
-      // The contract added and the invoice still to come: that's what's missing.
-      return has("contract")
-        ? {
-            title: `Waiting on ${first}'s answer`,
-            detail: "The contract is added. Add the invoice to send them both.",
-            action: { label: "Add the invoice", href: tab("links") },
-          }
-        : {
-            title: `Waiting on ${first}'s answer`,
-            detail: "When they say yes, add the Square contract and invoice.",
-            action: { label: "Add the contract", href: tab("links") },
-          };
+      return {
+        title: `Waiting on ${first}'s answer`,
+        detail: "When they say yes, add the Square contract and invoice.",
+        action: { label: "Add the contract", href: tab("links") },
+      };
     }
 
     case "booked":

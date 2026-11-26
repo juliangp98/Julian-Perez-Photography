@@ -26,11 +26,13 @@ export default function StatusControl({
   const [value, setValue] = useState(recorded);
   const [seen, setSeen] = useState(recorded);
   const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
+  // What this control saved last, so a status moved elsewhere since (a link
+  // added, an email sent) clears its line.
+  const [savedAs, setSavedAs] = useState<string | null>(null);
   if (recorded !== seen) {
     setSeen(recorded);
     setValue(recorded);
-    // A save that failed no longer applies to the status now showing.
-    if (state === "error") setState("idle");
+    if (state === "error" || (state === "ok" && recorded !== savedAs)) setState("idle");
   }
   const changed = value !== recorded;
 
@@ -50,6 +52,7 @@ export default function StatusControl({
         body: JSON.stringify({ id: projectId, fields: { status: value } }),
       });
       if (!res.ok) throw new Error("save failed");
+      setSavedAs(value);
       setState("ok");
       router.refresh();
     } catch {
