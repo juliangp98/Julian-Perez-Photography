@@ -173,6 +173,11 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       sent("proposal"),
     ),
   ).toMatchObject({ title: "Add the invoice", action: { href: tab("links") } });
+  // A booking made by phone on a new inquiry: the contract comes before the inquiry reply.
+  expect(next({ status: "new-inquiry", documents: [own("contract"), own("invoice")] }).action?.href).toBe(
+    compose("contract-deposit"),
+  );
+  expect(next({ status: "new-inquiry", documents: [own("contract")] }).title).toBe("Add the invoice");
   // A booking made on the call, or before a proposal: the contract leads at every lead stage.
   const held = { discovery: { heldAt: "2026-11-20T15:00:00Z" } };
   expect(next({ status: "in-conversation", calls: held, documents: [own("contract"), own("invoice")] }).action?.href).toBe(
@@ -271,6 +276,21 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     detail: "Planning starts about two months before the shoot, around April 13, 2027. Nothing to send yet.",
   });
 
+  // Moved to Planning by the client's questionnaire before the booking was
+  // done: the retainer, then the welcome, come first.
+  const paperwork = [own("contract"), own("invoice")];
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: paperwork }, sent("contract-deposit")).title).toBe(
+    "Waiting on the signed contract and retainer",
+  );
+  expect(
+    next(
+      { status: "planning", questionnaireSnapshot: "{}", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] },
+      sent("contract-deposit"),
+    ).action?.href,
+  ).toBe(compose("booking-welcome"));
+  expect(
+    next({ status: "scheduled", eventDate: "2026-12-20", documents: paperwork }, sent("contract-deposit")).title,
+  ).toBe("Waiting on the signed contract and retainer");
   // Planning: the questionnaire, then the timeline.
   expect(next({ status: "planning" })).toMatchObject({
     title: "Waiting on the questionnaire",

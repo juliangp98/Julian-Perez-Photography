@@ -222,6 +222,51 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     action: { label: "Open the call", href: tab("call") },
   };
 
+  // Reserving the date: the Square paperwork, the email that carries it, the
+  // retainer, then the booking welcome once it's paid (a balance invoice
+  // left open belongs to delivery).
+  const reserving = (): NextStep => {
+    if (!has("contract") || !invoices.length) {
+      return {
+        title: "Add the Square contract and invoice",
+        detail: "The client signs and pays the retainer from these.",
+        action: { label: "Add a link", href: tab("links") },
+      };
+    }
+    if (invoices.some((d) => d.paidAt)) {
+      return {
+        title: "Send the booking welcome",
+        detail: "The retainer is paid.",
+        action: { label: "Write the welcome", href: compose("booking-welcome") },
+      };
+    }
+    // Set to Booked by hand: the email with the signing and payment links
+    // hasn't gone yet.
+    if (!sent.has("contract-deposit")) {
+      return {
+        title: "Send the contract and retainer",
+        action: { label: "Write the email", href: compose("contract-deposit") },
+      };
+    }
+    if (overdue) {
+      return {
+        title: "The retainer is overdue",
+        detail: dueLine,
+        action: { label: "Send a reminder", href: compose("payment-reminder") },
+      };
+    }
+    return {
+      title: "Waiting on the signed contract and retainer",
+      detail: [dueLine, "Mark the invoice paid when it comes in."].filter(Boolean).join(" "),
+      action: { label: "Mark it paid", href: tab("links") },
+    };
+  };
+  // A project moved past Booked before the booking was done (the client's
+  // questionnaire moves a booked project to Planning): while its Square
+  // paperwork is on the project and the welcome hasn't gone, that comes
+  // first.
+  const unreserved = (has("contract") || invoices.length > 0) && !sent.has("booking-welcome");
+
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
   // the booking welcome (a balance invoice left open belongs to delivery);
@@ -278,11 +323,13 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   switch (answered ? "responded" : status) {
     case undefined:
     case "new-inquiry":
-      return {
-        title: "Reply to the inquiry",
-        detail: "Compose opens on the inquiry reply.",
-        action: { label: "Draft a reply", href: draftReplyHref(page) },
-      };
+      return (
+        booking() ?? {
+          title: "Reply to the inquiry",
+          detail: "Compose opens on the inquiry reply.",
+          action: { label: "Draft a reply", href: draftReplyHref(page) },
+        }
+      );
 
     case "responded": {
       const yes = booking();
@@ -344,42 +391,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "booked":
-      if (!has("contract") || !invoices.length) {
-        return {
-          title: "Add the Square contract and invoice",
-          detail: "The client signs and pays the retainer from these.",
-          action: { label: "Add a link", href: tab("links") },
-        };
-      }
-      // The retainer is the first invoice paid; a balance invoice left open
-      // belongs to delivery.
-      if (invoices.some((d) => d.paidAt)) {
-        return {
-          title: "Send the booking welcome",
-          detail: "The retainer is paid.",
-          action: { label: "Write the welcome", href: compose("booking-welcome") },
-        };
-      }
-      // Set to Booked by hand: the email with the signing and payment links
-      // hasn't gone yet.
-      if (!sent.has("contract-deposit")) {
-        return {
-          title: "Send the contract and retainer",
-          action: { label: "Write the email", href: compose("contract-deposit") },
-        };
-      }
-      if (overdue) {
-        return {
-          title: "The retainer is overdue",
-          detail: dueLine,
-          action: { label: "Send a reminder", href: compose("payment-reminder") },
-        };
-      }
-      return {
-        title: "Waiting on the signed contract and retainer",
-        detail: [dueLine, "Mark the invoice paid when it comes in."].filter(Boolean).join(" "),
-        action: { label: "Mark it paid", href: tab("links") },
-      };
+      return reserving();
 
     case "contract-signed": {
       // Set to Contract signed by hand: the welcome hasn't gone yet.
@@ -404,6 +416,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "planning":
+      if (unreserved) return reserving();
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Waiting on the questionnaire",
@@ -431,6 +444,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
       }
       const days = daysBetween(today, shoot);
+      if (days >= 0 && unreserved) return reserving();
       if (days < 0) {
         return {
           title: "Send the thank-you",

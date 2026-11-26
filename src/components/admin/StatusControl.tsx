@@ -5,7 +5,8 @@
 // waits for Save (so moving through the list by keyboard changes nothing),
 // and the select follows a status that moved elsewhere (a link added, an email
 // sent). Closing a project asks first, since it clears the follow-up and the
-// date hold.
+// date hold; so does moving a closed one to another closed status, when it
+// has either to clear.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,9 +18,12 @@ import { CLIENT_STATUS_OPTIONS, CLIENT_STATUS_TERMINAL, type ClientStatus } from
 export default function StatusControl({
   projectId,
   status,
+  clears = false,
 }: {
   projectId: string;
   status?: string;
+  // Whether the project has a follow-up or a date hold that closing clears.
+  clears?: boolean;
 }) {
   const router = useRouter();
   const recorded = status ?? "new-inquiry";
@@ -38,12 +42,15 @@ export default function StatusControl({
 
   async function save() {
     if (!changed) return;
-    const closing =
-      CLIENT_STATUS_TERMINAL.includes(value as ClientStatus) &&
-      !CLIENT_STATUS_TERMINAL.includes(recorded as ClientStatus);
-    if (closing && !window.confirm("Close this project? Its follow-up and date hold are cleared.")) {
-      return;
-    }
+    // The server clears the follow-up and hold on any move to a closed
+    // status, so the question follows the same rule.
+    const wasClosed = CLIENT_STATUS_TERMINAL.includes(recorded as ClientStatus);
+    const toClosed = CLIENT_STATUS_TERMINAL.includes(value as ClientStatus);
+    const ask = toClosed && (!wasClosed || clears);
+    const question = wasClosed
+      ? "Its follow-up and date hold are cleared. Save the new status?"
+      : "Close this project? Its follow-up and date hold are cleared.";
+    if (ask && !window.confirm(question)) return;
     setState("saving");
     try {
       const res = await fetch("/api/admin/update", {
