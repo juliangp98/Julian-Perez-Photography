@@ -380,13 +380,16 @@ and grouped under Julian's photographic categories. Two or more related projects
 can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
 (from the admin project page) or the client (from their menu); bundled projects
 render together in their own accent-bordered group, labelled and tagged so the
-relationship is obvious at a glance. Clicking a project opens its detail view —
-status, dates, locations, plan, links and files (the proposal, contract,
-invoice, highlights and gallery links Julian adds, plus anything the client
-uploads), how they're paying, and the project's message thread (see "Client
-messages" below). There the client can make limited edits, upload
-files, write to the owner, and open the matching planning questionnaire
-prefilled with their details.
+relationship is obvious at a glance. Clicking a project opens its page: the
+client's one next step with a button that does it (`clientNextStep` in
+`src/lib/next-step.ts`), the same stage tracker the admin page shows, links and
+files by kind (the proposal, contract, invoice, highlights and gallery links
+Julian adds, plus anything the client uploads), the project's message thread
+(see "Client messages" below), the plan once proposed, how they're paying, the
+matching planning questionnaire prefilled with their details, limited edits
+and uploads. Signing in returns a client to the page they came from. A second
+photographer sees a call sheet instead, and Julian can open any project as its
+client sees it ("View as client").
 
 The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
 client portal, owner-only). Sign in at `/admin` with that email.

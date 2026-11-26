@@ -27,6 +27,7 @@ import {
   CLIENT_STATUS_TERMINAL,
   statusRank,
   type ClientStatus,
+  type StageProject,
 } from "@/lib/client-status";
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
@@ -476,6 +477,37 @@ export async function getProjectForViewer(
     },
     viewerRole: "collaborator",
   };
+}
+
+// What a project's stage tracker reads, for the projects a client is shown:
+// the status, the statuses in its log, whether its call was held, and the
+// kinds of its links (stagesFor in client-status.ts). The log and the call
+// notes are owner-side columns, so only these facts leave this function.
+export async function listStageFacts(ids: string[]): Promise<Map<string, StageProject>> {
+  const facts = new Map<string, StageProject>();
+  const wanted = ids.filter(isRecordId);
+  if (!isClientsStoreConfigured() || !wanted.length) return facts;
+  const { data, error } = await readWithOptionalColumns(
+    () => "id, status, statusHistory:status_history, documents" + cols(callsGroup),
+    (sel) => db().from(TABLE).select(sel).in("id", wanted),
+  );
+  if (error) throw error;
+  type Row = {
+    id: string;
+    status?: string;
+    statusHistory?: { status?: string }[];
+    documents?: { type?: string }[];
+    calls?: ProjectCalls;
+  };
+  for (const r of (data as Row[] | null) ?? []) {
+    facts.set(r.id, {
+      status: r.status,
+      statusHistory: (r.statusHistory ?? []).map((h) => ({ status: h.status })),
+      calls: { discovery: { heldAt: r.calls?.discovery?.heldAt } },
+      documents: (r.documents ?? []).map((d) => ({ type: d.type })),
+    });
+  }
+  return facts;
 }
 
 // ── Writes ──

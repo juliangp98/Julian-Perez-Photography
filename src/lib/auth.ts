@@ -23,6 +23,15 @@ const SESSION_TTL = "30d";
 // projects; the portal lists + authorizes them by this email (project ids come
 // from the DB scoped to the email, never from the token).
 export type SessionClaims = { email: string };
+// A magic link may also carry the portal page to open after signing in.
+export type MagicClaims = SessionClaims & { next?: string };
+
+// A portal page to return to after signing in: a path under /portal/ made of
+// plain path characters (no query, no other host, no going up), or nothing.
+export function portalReturnPath(path: unknown): string | undefined {
+  if (typeof path !== "string" || path.length > 200) return undefined;
+  return /^\/portal\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(path) ? path : undefined;
+}
 
 function secretKey(): Uint8Array {
   const s = process.env.AUTH_SECRET;
@@ -38,7 +47,7 @@ export function isAuthConfigured(): boolean {
 }
 
 async function sign(
-  claims: SessionClaims,
+  claims: MagicClaims,
   purpose: "magic" | "session",
   ttl: string,
 ): Promise<string> {
@@ -52,21 +61,23 @@ async function sign(
 async function verify(
   token: string,
   purpose: "magic" | "session",
-): Promise<SessionClaims | null> {
+): Promise<MagicClaims | null> {
   try {
     const { payload } = await jwtVerify(token, secretKey());
     if (payload.purpose !== purpose) return null;
     if (typeof payload.email !== "string") return null;
-    return { email: payload.email };
+    const next = purpose === "magic" ? portalReturnPath(payload.next) : undefined;
+    return next ? { email: payload.email, next } : { email: payload.email };
   } catch {
     return null;
   }
 }
 
-export const signMagicToken = (c: SessionClaims) => sign(c, "magic", MAGIC_TTL);
+export const signMagicToken = (c: MagicClaims) =>
+  sign(c.next ? { email: c.email, next: c.next } : { email: c.email }, "magic", MAGIC_TTL);
 export const verifyMagicToken = (t: string) => verify(t, "magic");
 export const signSessionToken = (c: SessionClaims) =>
-  sign(c, "session", SESSION_TTL);
+  sign({ email: c.email }, "session", SESSION_TTL);
 export const verifySessionToken = (t: string) => verify(t, "session");
 
 // ── Admin auth ──

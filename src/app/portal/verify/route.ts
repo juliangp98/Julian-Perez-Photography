@@ -1,14 +1,16 @@
 // GET /portal/verify?token=… — the magic-link landing. Verifies the one-time
 // token, confirms the record still exists, sets the session cookie, and
-// redirects into the portal. Any failure redirects back to the login page with
-// a friendly error flag (never an error page).
+// redirects into the portal: to the page the link was asked for from, else
+// straight to the project when the person has just one, else to their
+// projects. Any failure redirects back to the login page with a friendly
+// error flag (never an error page).
 
 export const runtime = "nodejs";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyMagicToken } from "@/lib/auth";
 import { setSessionCookie } from "@/lib/auth-cookies";
-import { emailHasPortalAccess } from "@/lib/clients";
+import { emailHasPortalAccess, listPortalProjects } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
@@ -36,9 +38,12 @@ export async function GET(req: NextRequest) {
     }
 
     await setSessionCookie({ email: claims.email });
-    return NextResponse.redirect(
-      new URL("/portal/dashboard", req.nextUrl.origin),
-    );
+    let landing = claims.next;
+    if (!landing) {
+      const projects = await listPortalProjects(claims.email);
+      landing = projects.length === 1 ? `/portal/projects/${projects[0].id}` : "/portal/dashboard";
+    }
+    return NextResponse.redirect(new URL(landing, req.nextUrl.origin));
   } catch (err) {
     console.error("[portal] verify error:", err);
     Sentry.captureException(err, { tags: { route: "portal-verify" } });

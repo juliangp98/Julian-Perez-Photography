@@ -5,7 +5,7 @@
 
 import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
-import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
+import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf, weekdayOf } from "./field-format";
 import { openInvoice } from "./project-links";
 import { hiddenByMark, lostAt, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
@@ -547,5 +547,168 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 
     default:
       return { title: "Open the project", action: { label: "Open details", href: tab("details") } };
+  }
+}
+
+// ── The client's next step ──
+//
+// The one thing a client does next (or is waiting on), shown at the top of
+// their portal page with one button and sometimes a second: the same stages
+// as the owner's steps, said to the client. Links come from the caller, so
+// this stays pure: the questionnaire (prefilled), the call bookings, the
+// review page and the how-to-pay line.
+
+export type ClientStep = {
+  title: string;
+  detail?: string;
+  action?: { label: string; href: string; external?: boolean };
+  secondary?: { label: string; href: string; external?: boolean };
+};
+
+export type ClientStepProject = {
+  status?: string;
+  eventDate?: string;
+  questionnaireSnapshot?: string;
+  documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
+};
+
+export type ClientStepContext = {
+  today: string;
+  // The date hold running, if any.
+  holdUntil?: string;
+  // The service's planning questionnaire, prefilled; unset when it has none.
+  questionnaireUrl?: string;
+  discoveryCallUrl?: string;
+  timelineCallUrl?: string;
+  reviewUrl?: string;
+  // How to pay with the method chosen.
+  paymentLine?: string;
+};
+
+export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): ClientStep | undefined {
+  const status = p.status as ClientStatus | undefined;
+  if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) return undefined;
+  const { today } = ctx;
+  // Julian's own entry of a kind, the newest (a client's upload never stands in).
+  const own = (type: string) =>
+    (p.documents ?? []).filter((d) => d.type === type && d.uploadedBy !== "client" && d.url).at(-1);
+  const link = (label: string, url?: string) => (url ? { label, href: url, external: true } : undefined);
+  const invoice = openInvoice(p, today);
+  const invoiceLink = invoice?.url ? { label: "Pay the invoice", href: invoice.url, external: true } : undefined;
+  const shoot = eventDay(p.eventDate);
+  const editing: ClientStep = own("highlights")
+    ? {
+        title: "Your highlights are ready",
+        detail: "A first look while I finish your gallery.",
+        action: link("View your highlights", own("highlights")?.url),
+      }
+    : { title: "I'm editing your photos", detail: "Your gallery comes next. I'll email you the moment it's ready." };
+
+  switch (status) {
+    case undefined:
+    case "new-inquiry":
+    case "responded":
+      return ctx.discoveryCallUrl
+        ? {
+            title: "Book a discovery call",
+            detail: "A short call so I can hear what you're planning and answer your questions.",
+            action: link("Pick a time", ctx.discoveryCallUrl),
+          }
+        : { title: "I'll be in touch soon", detail: "I read every inquiry and reply myself." };
+
+    case "in-conversation":
+      return { title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." };
+
+    case "proposal-sent": {
+      const held = ctx.holdUntil ? `I'm holding your date until ${formatHumanDate(ctx.holdUntil)}.` : undefined;
+      return own("proposal")
+        ? { title: "Your proposal is ready", detail: held, action: link("View your proposal", own("proposal")?.url) }
+        : { title: "Your proposal is on its way", detail: held };
+    }
+
+    case "booked": {
+      if (!own("contract")) {
+        return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
+      }
+      const due = invoice?.dueAt && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueAt) ? `The retainer is due ${formatHumanDate(invoice.dueAt)}.` : undefined;
+      return {
+        title: "Sign your contract and pay the retainer",
+        detail: [due, ctx.paymentLine, "Your date is reserved once both are in."].filter(Boolean).join(" "),
+        action: link("Sign the contract", own("contract")?.url),
+        secondary: invoiceLink ? { ...invoiceLink, label: "Pay the retainer" } : undefined,
+      };
+    }
+
+    case "contract-signed":
+      return {
+        title: "You're booked",
+        detail: shoot
+          ? `${formatHumanDate(shoot)} is yours. I'll send your planning questionnaire closer to the day.`
+          : "Your date is yours. I'll send your planning questionnaire closer to the day.",
+      };
+
+    case "planning":
+      if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
+        return {
+          title: "Fill in your planning questionnaire",
+          detail: "What you already told me is filled in. It goes straight back to this project.",
+          action: { label: "Open the questionnaire", href: ctx.questionnaireUrl },
+        };
+      }
+      return ctx.timelineCallUrl
+        ? {
+            title: "Book your timeline call",
+            detail: "We'll walk through the day together and set the timeline.",
+            action: link("Pick a time", ctx.timelineCallUrl),
+          }
+        : { title: "Thanks for your answers", detail: "I'll send your timeline soon." };
+
+    case "scheduled": {
+      if (shoot) {
+        const days = daysBetween(today, shoot);
+        if (days < 0) return editing;
+        const when =
+          days === 0
+            ? "today"
+            : days === 1
+              ? "tomorrow"
+              : days < 7
+                ? `on ${weekdayOf(shoot)}`
+                : `on ${formatHumanDate(shoot)}`;
+        return {
+          title: `Your shoot is ${when}`,
+          detail: "Your plan is below. Write to me here with anything that changes.",
+          action: link("View your timeline", own("timeline")?.url),
+        };
+      }
+      return { title: "Your shoot is on the calendar", detail: "Your plan is below." };
+    }
+
+    case "shot":
+    case "editing":
+      return editing;
+
+    case "delivered":
+      return own("gallery")
+        ? {
+            title: "Your gallery is ready",
+            detail: invoiceLink ? "There's one invoice still open." : "View, download and share your photos.",
+            action: link("View your gallery", own("gallery")?.url),
+            secondary: invoiceLink,
+          }
+        : editing;
+
+    case "complete":
+      return {
+        title: ctx.reviewUrl ? "Leave a review" : "Thank you",
+        detail: ctx.reviewUrl
+          ? "If you loved your photos, a few words help the next client find me."
+          : "It was a joy working with you.",
+        action: link("Write a review", ctx.reviewUrl),
+        secondary: link("View your gallery", own("gallery")?.url),
+      };
+
+    default:
+      return undefined;
   }
 }

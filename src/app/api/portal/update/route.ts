@@ -14,7 +14,7 @@ import {
   BrandedEmailLayout,
   NotificationEmailTemplate,
 } from "@/lib/email/email-templates";
-import { clientEditNotifyEnabled } from "@/lib/email/notify";
+import { portalNotifyEnabled } from "@/lib/email/notify";
 import { sendEmail } from "@/lib/email/send";
 
 const schema = z.object({
@@ -41,7 +41,7 @@ export const POST = defineRoute({
 
     // Notify the owner (fire-and-forget) so the change gets reviewed.
     try {
-      if (clientEditNotifyEnabled()) {
+      if (portalNotifyEnabled()) {
         const settings = await getSiteSettings();
         const to = process.env.INQUIRY_TO || settings.contactEmail;
         const origin = originOf(req);

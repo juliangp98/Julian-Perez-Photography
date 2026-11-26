@@ -73,9 +73,9 @@ export const CLIENT_STATUS_CLIENT_LABEL: Record<ClientStatus, string> = {
   responded: "In touch",
   "in-conversation": "In conversation",
   "proposal-sent": "Proposal sent",
-  // The agreement and retainer are out but not back yet.
+  // The agreement and retainer are out but not back yet, then both are in.
   booked: "Reserving your date",
-  "contract-signed": "Contract signed",
+  "contract-signed": "Booked",
   planning: "Planning your day",
   scheduled: "On the calendar",
   shot: "Captured",
@@ -94,87 +94,10 @@ export function statusRank(status: string | undefined): number {
   return CLIENT_STATUS_FLOW.indexOf(status as ClientStatus);
 }
 
-// Client-facing milestone view of the pipeline. The twelve internal statuses
-// collapse into six milestones a couple can follow at a glance; each carries a
-// warm "here's what's happening / next" hint for the portal timeline.
-export const CLIENT_MILESTONES: { key: string; label: string; hint: string }[] = [
-  {
-    key: "inquiry",
-    label: "Inquiry",
-    hint: "Thanks for reaching out! I'll be in touch about next steps and a proposal.",
-  },
-  {
-    key: "booked",
-    label: "Booked",
-    hint: "You're booked. Next we'll start planning your day.",
-  },
-  {
-    key: "planning",
-    label: "Planning",
-    hint: "We're planning the details together and will lock in your timeline before the day.",
-  },
-  {
-    key: "shoot",
-    label: "Shoot day",
-    hint: "Your day is photographed. Your photos head into editing next.",
-  },
-  {
-    key: "editing",
-    label: "Editing",
-    hint: "I'm editing your photos now. Your gallery comes next.",
-  },
-  {
-    key: "delivered",
-    label: "Delivered",
-    hint: "Your gallery is ready to view and download.",
-  },
-];
-
-// Maps each internal status onto a client milestone index. Terminal states
-// (archived/lost) return -1 so the portal hides the timeline for them.
-const STATUS_MILESTONE: Record<ClientStatus, number> = {
-  "new-inquiry": 0,
-  responded: 0,
-  "in-conversation": 0,
-  "proposal-sent": 0,
-  booked: 0,
-  "contract-signed": 1,
-  planning: 2,
-  scheduled: 2,
-  shot: 3,
-  editing: 4,
-  delivered: 5,
-  complete: 5,
-  archived: -1,
-  lost: -1,
-  declined: -1,
-};
-
-// A status whose "what's next" differs from its milestone's.
-const STATUS_HINT: Partial<Record<ClientStatus, string>> = {
-  booked:
-    "Sign the agreement and pay the retainer, and your date is reserved. The links are in my email and on this page.",
-};
-
-// The "what's next" line for a status: its own, or its milestone's.
-export function clientStatusHint(status: string | undefined): string {
-  const own = STATUS_HINT[status as ClientStatus];
-  if (own) return own;
-  const i = clientMilestoneIndex(status);
-  return i >= 0 ? CLIENT_MILESTONES[i].hint : "";
-}
-
-export function clientMilestoneIndex(status: string | undefined): number {
-  if (!status) return 0;
-  const i = STATUS_MILESTONE[status as ClientStatus];
-  return i === undefined ? 0 : i;
-}
-
 // ── Stages ──
 //
-// The path every project follows, as the admin project page tracks it: each
-// stage covers the statuses listed. (The client portal still shows the six
-// milestones above.) The call and the proposal are passed over when a
+// The path every project follows, one list for both sides (the admin project
+// page and the client's portal page): each stage covers the statuses listed. The call and the proposal are passed over when a
 // project moved on without them (a small session booked straight away), so a
 // tracker never shows a step nobody took.
 export type StageKey =

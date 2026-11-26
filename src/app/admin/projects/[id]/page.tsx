@@ -220,9 +220,14 @@ export default async function AdminProjectDetailPage({
                 note={record.followUpNote}
                 today={today}
               />
-              <ComposeLink href={`${page}?tab=messages#compose`} className={buttonClass("ghost", "sm")}>
-                Write email
-              </ComposeLink>
+              <div className="flex flex-wrap gap-3">
+                <ComposeLink href={`${page}?tab=messages#compose`} className={buttonClass("ghost", "sm")}>
+                  Write email
+                </ComposeLink>
+                <Link href={`${page}/client`} className={buttonClass("ghost", "sm")}>
+                  View as client
+                </Link>
+              </div>
             </Panel>
           </div>
 

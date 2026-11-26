@@ -2,13 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
-import { listPortalProjects, type ClientRecordSafe } from "@/lib/clients";
+import { listPortalProjects, listStageFacts, type ClientRecordSafe } from "@/lib/clients";
 import { formatEventDate } from "@/lib/field-format";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
-  CLIENT_MILESTONES,
-  clientMilestoneIndex,
+  stagesFor,
   type ClientStatus,
+  type StageProject,
 } from "@/lib/client-status";
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
@@ -36,12 +36,15 @@ const UMBRELLA_TITLE: Record<string, string> = Object.fromEntries(
 function ProjectCard({
   p,
   bundled,
+  stage,
 }: {
   p: ClientRecordSafe;
   bundled?: boolean;
+  // What its stage tracker reads; the card shows the same steps, small.
+  stage?: StageProject;
 }) {
   const title = projectDisplayName(p);
-  const milestone = clientMilestoneIndex(p.status);
+  const { stages, closed } = stagesFor(stage ?? { status: p.status });
   return (
     <Link
       href={`/portal/projects/${p.id}`}
@@ -60,14 +63,12 @@ function ProjectCard({
       {p.eventDate && (
         <div className="mt-2 text-sm text-muted">{formatEventDate(p.eventDate)}</div>
       )}
-      {milestone >= 0 && (
+      {!closed && (
         <div className="mt-3 flex items-center gap-1" aria-hidden>
-          {CLIENT_MILESTONES.map((_, i) => (
+          {stages.map((s) => (
             <span
-              key={i}
-              className={`h-1 flex-1 rounded-full ${
-                i <= milestone ? "bg-accent" : "bg-border"
-              }`}
+              key={s.key}
+              className={`h-1 flex-1 rounded-full ${s.state === "upcoming" ? "bg-border" : "bg-accent"}`}
             />
           ))}
         </div>
@@ -80,6 +81,7 @@ export default async function PortalProjectsMenuPage() {
   const session = await getSession();
   if (!session) redirect("/portal");
   const all = await listPortalProjects(session.email);
+  const facts = await listStageFacts(all.map((p) => p.id));
   // Owner projects drive the existing bundle/category grouping + owner actions;
   // projects shared with this viewer (as a second photographer) render in their
   // own read-only group.
@@ -153,7 +155,7 @@ export default async function PortalProjectsMenuPage() {
               </div>
               <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {b.items.map((p) => (
-                  <ProjectCard key={p.id} p={p} bundled />
+                  <ProjectCard key={p.id} p={p} bundled stage={facts.get(p.id)} />
                 ))}
               </div>
             </div>
@@ -167,7 +169,7 @@ export default async function PortalProjectsMenuPage() {
               </h2>
               <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {byUmbrella.get(u)!.map((p) => (
-                  <ProjectCard key={p.id} p={p} />
+                  <ProjectCard key={p.id} p={p} stage={facts.get(p.id)} />
                 ))}
               </div>
             </div>
@@ -184,7 +186,7 @@ export default async function PortalProjectsMenuPage() {
               </p>
               <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {shared.map((p) => (
-                  <ProjectCard key={p.id} p={p} />
+                  <ProjectCard key={p.id} p={p} stage={facts.get(p.id)} />
                 ))}
               </div>
             </div>

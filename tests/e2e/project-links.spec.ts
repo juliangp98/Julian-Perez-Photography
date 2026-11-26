@@ -256,12 +256,15 @@ test("portal: the client sees their links, the invoice's due date and how they'r
   const page = await portalPage(p.email);
   await page.goto(`/portal/projects/${p.id}`);
 
-  await expect(page.getByRole("link", { name: /View gallery/ })).toHaveAttribute("href", link("gallery"));
+  // Delivered, so the next step is the gallery, with the open invoice beside it.
+  const next = page.getByRole("region", { name: "Your next step" });
+  await expect(next.getByRole("link", { name: "View your gallery" })).toHaveAttribute("href", link("gallery"));
+  await expect(next.getByRole("link", { name: "Pay the invoice" })).toHaveAttribute("href", link("retainer"));
   const invoice = page.getByRole("link", { name: /Retainer invoice/ });
   await expect(invoice).toHaveAttribute("href", link("retainer"));
   await expect(invoice).toContainText("Due June 1, 2027");
-  // The kind reads as a word, not a stored slug.
-  await expect(invoice).toContainText(/Invoice\s*↗/);
+  // Links are grouped by kind, which reads as a word, not a stored slug.
+  await expect(page.getByRole("heading", { name: "Invoice", exact: true })).toBeVisible();
   await expect(page.getByText("Paying by")).toBeVisible();
   await expect(page.getByText("Zelle", { exact: true })).toBeVisible();
   // The how-to-pay line for that method sits under it.
@@ -327,7 +330,7 @@ test("portal: a second photographer sees the timeline, not the money or the pape
   ]) {
     await expect(page.getByText(hidden), hidden).toHaveCount(0);
   }
-  await expect(page.getByRole("link", { name: /View gallery/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /View your gallery/ })).toHaveCount(0);
   // The same holds for what the page was sent, not only what it draws.
   const html = await page.content();
   for (const hidden of ["$3,000", "Silver", "already booked", link("retainer"), link("gallery")]) {

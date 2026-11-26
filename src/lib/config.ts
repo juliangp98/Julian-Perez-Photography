@@ -22,7 +22,7 @@ export const SETTINGS: Setting[] = [
   { area: "Email", name: "RESEND_INBOUND_DOMAIN", purpose: "The receiving subdomain for client replies (reply+<token>@ and log+<token>@).", without: "Replies go straight to your inbox and don't appear on the project thread.", example: "in.julianperezphotography.com" },
   { area: "Email", name: "RESEND_WEBHOOK_SECRET", purpose: "Verifies Resend's delivery and inbound events at /api/email/webhook.", without: "No delivery status or replies on project threads (the webhook refuses everything).", example: "whsec_..." },
   { area: "Email", name: "DEV_EMAIL_TO", purpose: "Where preview and local builds send email instead of the real recipient.", without: "Those builds send to the first ADMIN_EMAIL." },
-  { area: "Email", name: "NOTIFY_CLIENT_EDITS", purpose: "Set to false to stop the email when a client edits their portal details.", without: "" },
+  { area: "Email", name: "NOTIFY_CLIENT_EDITS", purpose: "Set to false to stop the emails when a client edits their portal details, starts a project or uploads a file.", without: "" },
   // Client store and sign-in
   { area: "Clients and sign-in", name: "SUPABASE_URL", purpose: "The private client store (projects, messages, settings).", without: "No client records, portal, admin projects or message threads.", neededInProd: true, example: "https://<ref>.supabase.co" },
   { area: "Clients and sign-in", name: "SUPABASE_SERVICE_ROLE_KEY", purpose: "Server-only key for the client store.", without: "Same as SUPABASE_URL.", neededInProd: true },

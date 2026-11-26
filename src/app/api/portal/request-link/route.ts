@@ -1,6 +1,8 @@
 // POST /api/portal/request-link: emails a one-time magic sign-in link. The
 // response is identical whatever the input, record, store, or send outcome, so
 // it never reveals whether an email has a project; a link goes only to one that does.
+// `next` is the portal page the visitor was on, which the link opens after
+// signing in (only a plain /portal/ path is kept).
 
 export const runtime = "nodejs";
 
@@ -9,7 +11,7 @@ import * as Sentry from "@sentry/nextjs";
 import { render } from "@react-email/components";
 import { defineRoute, originOf } from "@/lib/api-route";
 import { isHoneypotTriggered } from "@/lib/request-guard";
-import { isAuthConfigured, signMagicToken } from "@/lib/auth";
+import { isAuthConfigured, portalReturnPath, signMagicToken } from "@/lib/auth";
 import { emailHasPortalAccess } from "@/lib/clients";
 import { sendEmail } from "@/lib/email/send";
 import {
@@ -20,6 +22,7 @@ import {
 const schema = z.object({
   email: z.string().email(),
   hp_company: z.string().max(0).optional().or(z.literal("")),
+  next: z.string().max(200).optional(),
 });
 
 const UNIFORM = {
@@ -46,7 +49,7 @@ export const POST = defineRoute({
       const hasAccess = await emailHasPortalAccess(email);
       if (!hasAccess) return UNIFORM;
 
-      const token = await signMagicToken({ email });
+      const token = await signMagicToken({ email, next: portalReturnPath(parsed.data.next) });
       const link = `${originOf(req)}/portal/verify?token=${encodeURIComponent(token)}`;
 
       // Local dev without Resend: hand the link back so sign-in still works.

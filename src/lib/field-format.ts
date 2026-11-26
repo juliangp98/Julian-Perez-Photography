@@ -281,6 +281,14 @@ export function shiftDay(iso: string, by: { days?: number; months?: number }): s
   return isoFromDate(new Date(y, mo, d + (by.days ?? 0)));
 }
 
+// The weekday a calendar day falls on, written out ("Saturday"); "" for a
+// value that isn't a day.
+export function weekdayOf(iso: string): string {
+  const m = (iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-US", { weekday: "long" });
+}
+
 // Human-readable date for UI + emails: "June 7, 2026" (or "Jun 7, 2026" with
 // `month: "short"`). Accepts an ISO calendar date (anchored to local midnight so
 // it never shifts a day in a negative-offset locale) or any Date-parseable

@@ -10,10 +10,37 @@ import {
 import { sendEmail } from "./send";
 import { getSiteSettings } from "@/lib/content";
 
-// Whether the "a client edited their details" email to Julian is enabled.
-// Defaults on; set NOTIFY_CLIENT_EDITS=false to mute it.
-export function clientEditNotifyEnabled(): boolean {
+// Whether Julian is emailed about what clients do in the portal (edit their
+// details, start a project, upload a file). Defaults on; set
+// NOTIFY_CLIENT_EDITS=false to mute them.
+export function portalNotifyEnabled(): boolean {
   return process.env.NOTIFY_CLIENT_EDITS !== "false";
+}
+
+// Tell Julian what a client did in the portal, with a link to the project.
+// Throws when the email doesn't go out; callers report it at warning, since
+// what the client did has already been saved.
+export async function notifyOwnerOfPortal(opts: {
+  subject: string;
+  heading: string;
+  lines: string[];
+  cta: { label: string; href: string };
+}): Promise<void> {
+  if (!portalNotifyEnabled()) return;
+  const settings = await getSiteSettings();
+  const to = process.env.INQUIRY_TO || settings.contactEmail;
+  const html = await render(
+    BrandedEmailLayout({
+      preview: opts.heading,
+      children: NotificationEmailTemplate({ heading: opts.heading, lines: opts.lines, cta: opts.cta }),
+    }),
+  );
+  await sendEmail({
+    to,
+    subject: opts.subject,
+    html,
+    text: `${opts.lines.join("\n\n")}\n\n${opts.cta.label}: ${opts.cta.href}`,
+  });
 }
 
 // Invite a second photographer to a project they've been granted read access to.

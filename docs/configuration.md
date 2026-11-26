@@ -14,7 +14,7 @@ The site checks itself: missing settings that production needs are logged once w
 | `RESEND_INBOUND_DOMAIN` | optional | The receiving subdomain for client replies (reply+<token>@ and log+<token>@). Example: `in.julianperezphotography.com`. | Replies go straight to your inbox and don't appear on the project thread. |
 | `RESEND_WEBHOOK_SECRET` | optional | Verifies Resend's delivery and inbound events at /api/email/webhook. Example: `whsec_...`. | No delivery status or replies on project threads (the webhook refuses everything). |
 | `DEV_EMAIL_TO` | optional | Where preview and local builds send email instead of the real recipient. | Those builds send to the first ADMIN_EMAIL. |
-| `NOTIFY_CLIENT_EDITS` | optional | Set to false to stop the email when a client edits their portal details. | Nothing breaks. |
+| `NOTIFY_CLIENT_EDITS` | optional | Set to false to stop the emails when a client edits their portal details, starts a project or uploads a file. | Nothing breaks. |
 
 ## Clients and sign-in
 

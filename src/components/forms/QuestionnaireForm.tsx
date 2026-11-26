@@ -445,6 +445,9 @@ export default function QuestionnaireForm({
 
   if (status === "success") {
     const isWedding = questionnaire.slug === "weddings";
+    // The project the form was opened for, when its id is a real one.
+    const projectPage =
+      projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? `/portal/projects/${projectId}` : undefined;
     // Cross-prefill into bundle siblings: each sibling button carries every
     // answer that sibling's form also asks for \u2014 the intersection of what was
     // answered and what the target asks, matched by canonical field id. No
@@ -509,8 +512,10 @@ export default function QuestionnaireForm({
             client portal anytime to check your status, add more detail, and
             find your documents &mdash; same email, no password.
           </p>
-          <Button href="/portal" className="mt-3">
-            Open your portal &rarr;
+          {/* Opened from the project's own link: straight back to it (signing
+              in first returns there too). */}
+          <Button href={projectPage ?? "/portal"} className="mt-3">
+            {projectPage ? "Back to your project" : "Open your portal"} &rarr;
           </Button>
         </Panel>
         {siblingLinks.length > 0 && (

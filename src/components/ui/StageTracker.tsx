@@ -2,7 +2,8 @@ import { stagesFor, type StageProject } from "@/lib/client-status";
 
 // Where a project is on its path, as a row of steps: the ones done filled in,
 // the current one marked, the rest still to come. A step the project passed
-// over isn't shown. Server-safe; the admin project page's header draws it.
+// over isn't shown. Server-safe; the admin project page's header and the
+// client's portal page draw it.
 // Below the large breakpoint only the step line is visible and the step names
 // are read out to screen readers.
 export default function StageTracker({ project }: { project: StageProject }) {
