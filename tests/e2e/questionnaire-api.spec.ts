@@ -106,8 +106,11 @@ test("questionnaire: a prospect keeps their status; a booked project moves on to
     expect((await res.json()).attachedToProject).toBe(true);
   }
   // Another email lands them elsewhere, and the reply says only that.
+  // From its own address, so a rerun on a server still up stays under the
+  // submission limit.
   const other = await request.post("/api/questionnaire", {
     data: portraiture(`e2e-q-other-${Date.now()}@example.com`, prospect.id),
+    headers: { "x-forwarded-for": `10.251.${Math.floor(Math.random() * 250)}.1` },
   });
   expect(other.status()).toBe(200);
   const otherJson = await other.json();

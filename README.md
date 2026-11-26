@@ -418,7 +418,8 @@ tracker's facts come from `listStageFacts`, which reads the status history,
 the event date and the calls on the server, with the emails sent that
 `portalStageFacts` reads and passes in, and returns only the statuses, the
 discovery call's held date, the kinds of links on the project, whether the
-date is still being reserved and whether the shoot is past. The
+date is still being reserved, whether the proposal went out by email and
+whether the shoot is past. The
 questionnaire answers are held out of the project list and added on a single
 project's page: the client's own in full, and for a second photographer only
 the ones about the shoot. A second photographer with read access gets a

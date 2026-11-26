@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import Panel from "./Panel";
 
-// Rail modules for the project pages (admin and portal), so both render
-// reference info the same way. Server-safe.
+// RailCard is the admin project page's rail module; Detail is the labeled
+// field both project pages (admin and portal) use. Server-safe.
 
 export function RailCard({
   title,
