@@ -387,7 +387,9 @@ files by kind (the proposal, contract, invoice, highlights and gallery links
 Julian adds, plus anything the client uploads), the project's message thread
 (see "Client messages" below), the plan once the project is at Proposal sent or later, how they're paying, the
 matching planning questionnaire prefilled with their details, limited edits
-and uploads. Signing in returns a client to the page they came from. A second
+and uploads. Signing in returns a client to the page they came from; with no
+page asked for, it opens their one project, or the menu when they have
+several. A second
 photographer sees a call sheet instead, and Julian can open any project as its
 client sees it ("View as client").
 

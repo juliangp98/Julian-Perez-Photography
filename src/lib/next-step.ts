@@ -295,7 +295,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // that comes first. Its steps offer Already sent only for the email they
   // send: once the retainer is marked paid, the welcome step offers it for
   // a welcome that went another way.
-  const unreserved = bookingOpen(docs, sent.has("booking-welcome"));
+  const unreserved = bookingOpen(p, sent.has("booking-welcome"));
 
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
@@ -597,11 +597,25 @@ const LEAD_STATUSES: readonly (string | undefined)[] = [
   "proposal-sent",
 ];
 
-// Julian's Square contract and an invoice are on the project and the booking
-// welcome hasn't gone out: the booking isn't finished, whatever the status
-// says (the client's questionnaire moves a booked project to Planning).
-function bookingOpen(docs: BookingDoc[] = [], welcomed: boolean): boolean {
-  return julians(docs, "contract") && julians(docs, "invoice") && !welcomed;
+type BookingProject = { status?: string; documents?: BookingDoc[]; statusHistory?: { status?: string }[] };
+
+// The booking is confirmed once the welcome went out, or once the project
+// held Contract signed (set by hand, that says so).
+const confirmed = (p: BookingProject, welcomed: boolean) =>
+  welcomed || (p.statusHistory ?? []).some((h) => h.status === "contract-signed");
+
+// The booking isn't finished: Julian's Square contract and its invoice are on
+// the project and the booking isn't confirmed, whatever the status says (the
+// client's questionnaire moves a booked project to Planning). Once it held
+// Booked, either piece alone counts, so the other is still asked for; a lone
+// invoice on a project that was never booked is something else.
+function bookingOpen(p: BookingProject, welcomed: boolean): boolean {
+  const docs = p.documents ?? [];
+  if (confirmed(p, welcomed)) return false;
+  const contract = julians(docs, "contract");
+  const invoice = julians(docs, "invoice");
+  const heldBooked = p.status === "booked" || (p.statusHistory ?? []).some((h) => h.status === "booked");
+  return (contract && invoice) || (heldBooked && (contract || invoice));
 }
 
 // For the client, a project whose date is being reserved though its status
@@ -611,12 +625,12 @@ function bookingOpen(docs: BookingDoc[] = [], welcomed: boolean): boolean {
 // step sends back to the booking). Their page asks them to sign and pay, and
 // its status and tracker read Reserving your date.
 export function stillReserving(
-  p: { status?: string; eventDate?: string; documents?: BookingDoc[] },
+  p: BookingProject & { eventDate?: string },
   welcomed: boolean,
   today: string,
 ): boolean {
-  if (LEAD_STATUSES.includes(p.status)) return julians(p.documents, "contract") && !welcomed;
-  if (!bookingOpen(p.documents, welcomed)) return false;
+  if (LEAD_STATUSES.includes(p.status)) return julians(p.documents, "contract") && !confirmed(p, welcomed);
+  if (!bookingOpen(p, welcomed)) return false;
   if (p.documents?.some((d) => d.type === "invoice" && d.uploadedBy !== "client" && d.paidAt)) return false;
   if (p.status === "planning") return true;
   if (p.status !== "scheduled") return false;

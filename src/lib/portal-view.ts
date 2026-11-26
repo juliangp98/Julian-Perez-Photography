@@ -19,9 +19,11 @@ import type { PaymentMethod } from "@/lib/labels";
 // The stage facts for the projects a person is shown in the portal, the
 // project page's and the dashboard's: a client's read with the emails sent on
 // their projects (whether the date is still being reserved), a second
-// photographer's narrowed to the shoot (shootStage).
+// photographer's narrowed to the shoot (shootStage). Every project gets an
+// entry: one the store didn't return reads from its own status, narrowed the
+// same way for a second photographer.
 export async function portalStageFacts(
-  projects: { id: string; viewerRole: PortalViewerRole }[],
+  projects: { id: string; viewerRole: PortalViewerRole; status?: string }[],
 ): Promise<Map<string, StageProject>> {
   const owned = projects.filter((p) => p.viewerRole === "owner").map((p) => p.id);
   const facts = await listStageFacts(
@@ -29,8 +31,8 @@ export async function portalStageFacts(
     await listSentEmails(owned),
   );
   for (const p of projects) {
-    const f = facts.get(p.id);
-    if (f && p.viewerRole !== "owner") facts.set(p.id, shootStage(f));
+    const f = facts.get(p.id) ?? { status: p.status };
+    facts.set(p.id, p.viewerRole === "owner" ? f : shootStage(f));
   }
   return facts;
 }
@@ -41,12 +43,12 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
     getSiteSettings(),
     // A second photographer doesn't see the client's thread.
     viewerRole === "owner" ? listProjectMessages(record.id, { clientView: true }) : Promise.resolve([]),
-    portalStageFacts([{ id: record.id, viewerRole }]),
+    portalStageFacts([{ id: record.id, viewerRole, status: record.status }]),
   ]);
   // In-app links (no origin): the prefilled questionnaire, or the inquiry for
   // a project with no service yet.
   const links = projectLinks(record, "");
-  const stage = facts.get(record.id) ?? (viewerRole === "owner" ? { status: record.status } : shootStage(record));
+  const stage = facts.get(record.id) ?? { status: record.status };
   // A hold stops showing once the date is being reserved.
   const hold = stage.reserving ? undefined : heldUntil(record, undefined, today);
   const paymentLine = record.paymentMethod

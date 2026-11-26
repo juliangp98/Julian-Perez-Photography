@@ -19,14 +19,14 @@ export default async function PortalLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  // A signed-in visitor lands on their dashboard rather than the sign-in form,
-  // so the "Client portal" tab resolves correctly from both states.
-  const session = await getSession();
-  if (session) redirect("/portal/dashboard");
   // `from` is the portal page the visitor was sent here from; the sign-in
   // link returns them to it.
-
   const { error, from } = await searchParams;
+  // A signed-in visitor goes on to that page (an expired link's, say), else
+  // their dashboard rather than the sign-in form, so the "Client portal" tab
+  // resolves correctly from both states. The page itself checks access.
+  const session = await getSession();
+  if (session) redirect(portalReturnPath(from) ?? "/portal/dashboard");
   const errorMsg =
     error === "invalid-link"
       ? "That sign-in link is invalid or has expired. Request a fresh one below."

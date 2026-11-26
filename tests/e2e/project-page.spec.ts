@@ -323,10 +323,28 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       sent("contract-deposit"),
     ).once,
   ).toBe("booking-welcome");
-  // With only one of the two papers, planning goes on as usual.
+  // With only one of the two papers on a project never booked, planning goes
+  // on as usual; once it held Booked, the missing one is asked for. Contract
+  // signed set by hand confirms the booking.
   expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: [own("invoice")] }).title).toBe(
     "Add the timeline",
   );
+  expect(
+    next({
+      status: "planning",
+      questionnaireSnapshot: "{}",
+      documents: [own("contract")],
+      statusHistory: [{ status: "booked" }, { status: "planning" }],
+    }).title,
+  ).toBe("Add the Square contract and invoice");
+  expect(
+    next({
+      status: "planning",
+      questionnaireSnapshot: "{}",
+      documents: paperwork,
+      statusHistory: [{ status: "booked" }, { status: "contract-signed" }, { status: "planning" }],
+    }).title,
+  ).toBe("Add the timeline");
   // Planning: the questionnaire, then the timeline.
   expect(next({ status: "planning" })).toMatchObject({
     title: "Waiting on the questionnaire",

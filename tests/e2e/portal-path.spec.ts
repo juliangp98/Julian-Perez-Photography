@@ -247,7 +247,21 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(
     stillReserving({ status: "planning", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] }, false, TODAY),
   ).toBe(false);
+  // Once it held Booked, either piece alone still leaves the booking open, so
+  // the other is asked for; a lone invoice on a project never booked isn't a
+  // booking.
+  const wasBooked = [{ status: "booked" }, { status: "planning" }];
+  expect(stillReserving({ status: "planning", documents: [own("invoice")], statusHistory: wasBooked }, false, TODAY)).toBe(true);
+  expect(stillReserving({ status: "planning", documents: [own("contract")], statusHistory: wasBooked }, false, TODAY)).toBe(true);
   expect(stillReserving({ status: "planning", documents: [own("invoice")] }, false, TODAY)).toBe(false);
+  expect(step({ status: "planning", documents: [own("contract")], reserving: true })?.title).toBe("Sign your contract");
+  // Once the project held Contract signed (set by hand), the booking is
+  // confirmed, at Planning and on a lead alike.
+  const signed = [{ status: "booked" }, { status: "contract-signed" }, { status: "planning" }];
+  expect(stillReserving({ status: "planning", documents: unbooked, statusHistory: signed }, false, TODAY)).toBe(false);
+  expect(
+    stillReserving({ status: "proposal-sent", documents: [own("contract")], statusHistory: [{ status: "contract-signed" }] }, false, TODAY),
+  ).toBe(false);
   // Booked itself, and the stages after the shoot, aren't a detour.
   expect(stillReserving({ status: "booked", documents: unbooked }, false, TODAY)).toBe(false);
   expect(stillReserving({ status: "editing", documents: unbooked }, false, TODAY)).toBe(false);
@@ -597,6 +611,9 @@ test("sign-in returns to the page the client was sent from, and one project open
   expect(expired.searchParams.get("from")).toBe(`/portal/projects/${p.id}`);
   const forged = await landing(await linkFor("not-the-site-secret-0123456789abcdef"));
   expect(forged.searchParams.get("from")).toBeNull();
+  // Someone already signed in goes on to that page.
+  await page.goto(`/portal?error=invalid-link&from=/portal/projects/${single.id}`);
+  await expect(page).toHaveURL(new RegExp(`/portal/projects/${single.id}$`));
 });
 
 test("a second photographer's invite opens the project, with a call sheet, not the client's next step or thread", async ({
