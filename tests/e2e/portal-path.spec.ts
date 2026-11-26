@@ -693,6 +693,13 @@ test("a second photographer's invite opens the project, with a call sheet, not t
     page.locator(`a[href="/portal/projects/${p.id}"]`).getByRole("img", { name: "Step 5 of 8: Shoot" }),
   ).toBeVisible();
 
+  // A service with no questionnaire has no planning answers to wait for.
+  await patchProject(p.id, { service_type: null });
+  await page.goto(`/portal/projects/${p.id}`);
+  await expect(page.getByRole("region", { name: "Call sheet" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Planning details" })).toHaveCount(0);
+  await patchProject(p.id, { service_type: "weddings" });
+
   // Before the booking is done, nothing tells them how it stands.
   await patchProject(p.id, { status: "booked" });
   await page.goto(`/portal/projects/${p.id}`);
