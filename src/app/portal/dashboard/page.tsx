@@ -5,14 +5,7 @@ import { getSession } from "@/lib/auth-cookies";
 import { listPortalProjects, type ClientRecordSafe } from "@/lib/clients";
 import { portalStageFacts } from "@/lib/portal-view";
 import { formatEventDate } from "@/lib/field-format";
-import {
-  CLIENT_STATUS_CLIENT_LABEL,
-  shownStatus,
-  stageLine,
-  stagesFor,
-  type ClientStatus,
-  type StageProject,
-} from "@/lib/client-status";
+import { shownLabel, stageLine, stagesFor, type StageProject } from "@/lib/client-status";
 import { services } from "@/lib/content";
 import { UMBRELLAS, type Umbrella } from "@/lib/types";
 import PortalBundles from "@/components/portal/PortalBundles";
@@ -61,7 +54,7 @@ function ProjectCard({
       <div className="flex items-baseline justify-between gap-3">
         <div className="font-serif text-xl">{title}</div>
         <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
-          {CLIENT_STATUS_CLIENT_LABEL[shownStatus(facts) as ClientStatus] ?? "In progress"}
+          {shownLabel(facts, p.status)}
         </span>
       </div>
       {p.eventDate && (

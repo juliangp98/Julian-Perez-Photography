@@ -152,6 +152,14 @@ export function shownStatus(p: StageProject): string | undefined {
   return p.reserving ? "booked" : p.shot ? "shot" : p.status;
 }
 
+// The label a project's portal page and dashboard card show: its shown
+// status, or for a second photographer's project with no stage to show them,
+// Closed once it closed and In progress before.
+export function shownLabel(p: StageProject, recordStatus?: string): string {
+  const closed = CLIENT_STATUS_TERMINAL.includes(recordStatus as ClientStatus) ? recordStatus : undefined;
+  return CLIENT_STATUS_CLIENT_LABEL[(shownStatus(p) ?? closed) as ClientStatus] ?? "In progress";
+}
+
 // How far a client's project has come, for its tracker and what the page
 // shows: as shownStatus, and for a closed one the last status it held.
 export function reachedStatus(p: StageProject): string | undefined {

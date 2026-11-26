@@ -5,7 +5,16 @@
 
 import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
-import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf, weekdayOf } from "./field-format";
+import {
+  dayAgo,
+  daysBetween,
+  eventDay,
+  formatEventDate,
+  formatHumanDate,
+  shiftDay,
+  studioDayOf,
+  weekdayOf,
+} from "./field-format";
 import { openInvoice } from "./project-links";
 import { hiddenByMark, lostAt, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
@@ -659,6 +668,8 @@ export type ClientStepContext = {
   // wedding, the planning call otherwise.
   planningCall?: { kind: "timeline" | "planning"; url: string };
   reviewUrl?: string;
+  // Where a client signs in to their galleries (Pic-Time).
+  galleryLoginUrl?: string;
   // How to pay with the method chosen.
   paymentLine?: string;
 };
@@ -791,9 +802,11 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
           ? `Your planning questionnaire is below whenever you're ready, and I'll remind you ${ahead}.`
           : `I'll be in touch to plan ${ahead}.`;
+      // The date as they gave it, or none claimed when there isn't one.
+      const named = formatEventDate(p.eventDate);
       return {
         title: "You're booked",
-        detail: shoot ? `${formatHumanDate(shoot)} is yours. ${later}` : `Your date is yours. ${later}`,
+        detail: named ? `${named} is yours. ${later}` : `You're all set. ${later}`,
       };
     }
 
@@ -847,22 +860,27 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
 
     case "delivered": {
       const open = invoices.filter((d) => !d.paidAt).length;
-      return own("gallery")
-        ? {
-            title: "Your gallery is ready",
-            // The one the button pays, and when it's due.
-            detail: !invoiceLink
-              ? "View, download and share your photos."
-              : [
-                  open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
-                  dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-            action: link("View your gallery", own("gallery")?.url),
-            secondary: invoiceLink,
-          }
-        : editing;
+      // The invoice the button pays, and when it's due.
+      const owed = invoiceLink
+        ? [
+            open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
+            dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
+          ]
+            .filter(Boolean)
+            .join(" ")
+        : undefined;
+      const gallery = own("gallery");
+      // Delivered with no gallery link on the project (sent in an email, or
+      // set by hand): it's in their email, and their galleries are a sign-in
+      // away.
+      return {
+        title: "Your gallery is ready",
+        detail: gallery
+          ? (owed ?? "View, download and share your photos.")
+          : ["The link is in your email.", owed].filter(Boolean).join(" "),
+        action: gallery ? link("View your gallery", gallery.url) : link("Sign in to your galleries", ctx.galleryLoginUrl),
+        secondary: invoiceLink,
+      };
     }
 
     case "complete":

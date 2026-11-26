@@ -61,6 +61,7 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
           discoveryCallUrl: settings.calls.discoveryCall.url,
           planningCall: planningCallFor(record.serviceType, settings.calls),
           reviewUrl: settings.googleProfileUrl,
+          galleryLoginUrl: settings.clientGalleryUrl,
           paymentLine,
         })
       : undefined;

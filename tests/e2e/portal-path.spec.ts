@@ -12,7 +12,14 @@ import {
 import { portalReturnPath } from "../../src/lib/auth";
 import { planningCallFor, thankYouCalls } from "../../src/lib/project-links";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
-import { CLIENT_STATUS_CLIENT_LABEL, shootStage, shownStatus, stageLine, stagesFor } from "../../src/lib/client-status";
+import {
+  CLIENT_STATUS_CLIENT_LABEL,
+  shootStage,
+  shownLabel,
+  shownStatus,
+  stageLine,
+  stagesFor,
+} from "../../src/lib/client-status";
 import { advanceToLastSection, satisfyVisible } from "./support/questionnaire";
 
 // The client's path through the portal: one next step per stage
@@ -138,11 +145,15 @@ test("client next step: one per stage, from booking the call to the review", () 
   );
   // Answers sent before the booking aren't asked for again.
   expect(step({ status: "contract-signed", questionnaireSnapshot: "{}" })?.detail).toBe(
-    "Your date is yours. I'll be in touch to plan closer to the day.",
+    "You're all set. I'll be in touch to plan closer to the day.",
+  );
+  // A date given as text is named as they gave it.
+  expect(step({ status: "contract-signed", eventDate: "Fall 2027" }, ctx({ questionnaireUrl: undefined }))?.detail).toBe(
+    "Fall 2027 is yours. I'll be in touch to plan closer to the day.",
   );
   // A service with no questionnaire isn't promised one.
   expect(step({ status: "contract-signed" }, ctx({ questionnaireUrl: undefined }))?.detail).toBe(
-    "Your date is yours. I'll be in touch to plan closer to the day.",
+    "You're all set. I'll be in touch to plan closer to the day.",
   );
 
   // Planning: the questionnaire, then the call that plans the day, then the
@@ -217,7 +228,10 @@ test("client next step: one per stage, from booking the call to the review", () 
     documents: [{ type: "proposal" }],
     reserving: true,
   });
-  // Before the booking (or closed before it) there's no stage to show them.
+  // Before the booking (or closed before it) there's no stage to show them,
+  // and the badge says only whether it's still on.
+  expect(shownLabel(shootStage({ status: "booked" }), "booked")).toBe("In progress");
+  expect(shownLabel(shootStage({ status: "lost", statusHistory: [{ status: "booked" }] }), "lost")).toBe("Closed");
   expect(shootStage({ status: "proposal-sent" }).status).toBeUndefined();
   expect(shootStage({ status: "booked", statusHistory: [{ status: "booked" }] }).status).toBeUndefined();
   expect(shootStage({ status: "lost", statusHistory: [{ status: "booked" }, { status: "lost" }] }).status).toBeUndefined();
@@ -279,6 +293,16 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(
     step({ status: "delivered", documents: [own("gallery"), own("invoice"), own("invoice", { dueAt: "2026-12-10" })] })?.detail,
   ).toBe("There are 2 invoices still open.");
+  // Delivered with no gallery link on the project: it's in their email.
+  expect(step({ status: "delivered" }, ctx({ galleryLoginUrl: "https://gallery.example.com/client" }))).toMatchObject({
+    title: "Your gallery is ready",
+    detail: "The link is in your email.",
+    action: { label: "Sign in to your galleries", href: "https://gallery.example.com/client" },
+  });
+  expect(step({ status: "delivered", documents: [own("invoice")] })).toMatchObject({
+    detail: "The link is in your email. There's one invoice still open.",
+    secondary: { label: "Pay the invoice" },
+  });
   // An overdue balance says so.
   expect(step({ status: "delivered", documents: [own("gallery"), own("invoice", { dueAt: "2026-11-10" })] })?.detail).toBe(
     "There's one invoice still open. It was due November 10, 2026.",
@@ -534,6 +558,10 @@ test("a second photographer's invite opens the project, with a call sheet, not t
   const card = page.locator(`a[href="/portal/projects/${p.id}"]`);
   await expect(card).toContainText("In progress");
   await expect(card.getByRole("img")).toHaveCount(0);
+  // Closed before the booking, it says so.
+  await patchProject(p.id, { status: "lost" });
+  await page.reload();
+  await expect(card).toContainText("Closed");
 });
 
 test("a booking the questionnaire moved past stays at Reserving your date until the welcome goes out", async ({

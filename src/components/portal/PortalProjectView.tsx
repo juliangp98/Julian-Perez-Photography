@@ -17,14 +17,7 @@ import MessageThread from "@/components/messages/MessageThread";
 import PortalMessageBox from "@/components/messages/PortalMessageBox";
 import type { ClientRecordSafe, PortalViewerRole } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
-import {
-  CLIENT_STATUS_CLIENT_LABEL,
-  reachedStatus,
-  shownStatus,
-  statusRank,
-  type ClientStatus,
-  type StageProject,
-} from "@/lib/client-status";
+import { reachedStatus, shownLabel, statusRank, type StageProject } from "@/lib/client-status";
 import { formatEventDate, formatHumanDate } from "@/lib/field-format";
 import { DOCUMENT_TYPES, documentTypeLabel, invoiceState, paymentMethodLabel } from "@/lib/labels";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
@@ -215,7 +208,7 @@ export default function PortalProjectView({
   preview = false,
 }: Props) {
   const isCollaborator = viewerRole === "collaborator";
-  const clientLabel = CLIENT_STATUS_CLIENT_LABEL[shownStatus(stage) as ClientStatus] ?? "In progress";
+  const clientLabel = shownLabel(stage, record.status);
   // Before a proposal, the plan isn't settled yet: the page shows the next
   // step and the messages, not the plan. It goes by how far the project has
   // come, as the tracker does (a closed one by the last stage it reached).
