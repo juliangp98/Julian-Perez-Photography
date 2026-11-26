@@ -307,6 +307,7 @@ test("next step: a closed project, a missing email, then an unanswered client co
     title: "Answer Avery",
     detail: "Avery wrote 2 days ago.",
     action: { label: "Write a reply", href: "/admin/projects/p?tab=messages#compose" },
+    handled: `reply:${wrote.lastInAt}`,
   });
   // A new inquiry's first answer is the inquiry reply; once anything has
   // gone to them, Compose opens on no template.
@@ -837,7 +838,7 @@ test("Already sent moves the project on as the email would, and Mark handled set
     status_history: { status?: string; note?: string }[];
   };
   expect(moved.status).toBe("proposal-sent");
-  expect(moved.status_history.at(-1)).toMatchObject({ status: "proposal-sent", note: "Proposal noted as sent" });
+  expect(moved.status_history.at(-1)).toMatchObject({ status: "proposal-sent", note: "Proposal (no call) noted as sent" });
 
   // A stage email that moves nothing (the status set by hand past it) is noted on its own.
   await patchProject(p.id, { status: "contract-signed" });
