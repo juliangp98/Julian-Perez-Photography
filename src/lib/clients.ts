@@ -33,6 +33,8 @@ import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
 import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
 import type { CallKind, CallNotes, ProjectCalls } from "@/lib/calls";
+import { studioToday } from "@/lib/field-format";
+import { sentTemplates, stillReserving, type SentEmail } from "@/lib/next-step";
 
 const TABLE = "client_records";
 
@@ -480,31 +482,41 @@ export async function getProjectForViewer(
 }
 
 // What a project's stage tracker reads, for the projects a client is shown:
-// the status, the statuses in its log, whether its call was held, and the
-// kinds of its links (stagesFor in client-status.ts). The log and the call
-// notes are owner-side columns, so only these facts leave this function.
-export async function listStageFacts(ids: string[]): Promise<Map<string, StageProject>> {
+// the status, the statuses in its log, whether its call was held, the kinds of
+// its links (stagesFor in client-status.ts), and whether the date is still
+// being reserved (stillReserving). That last one reads the templates sent on
+// the project, from its emails (`sends`, by project id, as messages.ts lists
+// them) and its log. The log, the call notes and the emails are owner-side,
+// so only these facts leave this function.
+export async function listStageFacts(
+  ids: string[],
+  sends: ReadonlyMap<string, SentEmail[]> = new Map(),
+): Promise<Map<string, StageProject>> {
   const facts = new Map<string, StageProject>();
   const wanted = ids.filter(isRecordId);
   if (!isClientsStoreConfigured() || !wanted.length) return facts;
   const { data, error } = await readWithOptionalColumns(
-    () => "id, status, statusHistory:status_history, documents" + cols(callsGroup),
+    () => "id, status, eventDate:event_date, statusHistory:status_history, documents" + cols(callsGroup),
     (sel) => db().from(TABLE).select(sel).in("id", wanted),
   );
   if (error) throw error;
   type Row = {
     id: string;
     status?: string;
-    statusHistory?: { status?: string }[];
-    documents?: { type?: string }[];
+    eventDate?: string;
+    statusHistory?: { status?: string; note?: string }[];
+    documents?: { type?: string; uploadedBy?: string; paidAt?: string }[];
     calls?: ProjectCalls;
   };
+  const today = studioToday();
   for (const r of (data as Row[] | null) ?? []) {
+    const sent = sentTemplates(sends.get(r.id) ?? [], r.statusHistory ?? []);
     facts.set(r.id, {
       status: r.status,
       statusHistory: (r.statusHistory ?? []).map((h) => ({ status: h.status })),
       calls: { discovery: { heldAt: r.calls?.discovery?.heldAt } },
       documents: (r.documents ?? []).map((d) => ({ type: d.type })),
+      reserving: stillReserving(r, sent.has("booking-welcome"), today),
     });
   }
   return facts;

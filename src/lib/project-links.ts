@@ -31,9 +31,10 @@ export function projectLink(
 
 // The invoice a client is asked to pay next, of Julian's unpaid invoices: the
 // one overdue longest, else the first added with no due day (due on receipt,
-// like a retainer), else the one due first. The next step on the project
-// page and the email tokens read the same one, so a reminder names the
-// invoice the step said was due. `today` is the studio's calendar day.
+// like a retainer), else the one due first. Both next steps (the client's
+// retainer too), the portal and the email tokens read the same one, so the
+// contract email, a reminder and the portal name the invoice the step said
+// was due. `today` is the studio's calendar day.
 export function openInvoice<D extends { type?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }>(
   record: { documents?: D[] },
   today: string,
@@ -49,8 +50,8 @@ export function openInvoice<D extends { type?: string; uploadedBy?: string; dueA
 
 // The call that plans the shoot once the questionnaire is in: the wedding
 // timeline call for a wedding or its film, the planning call for every other
-// service. The client's next step and the questionnaire's thank-you page both
-// offer this one.
+// service. The client's next step offers this one, and the questionnaire's
+// thank-you page offers it first.
 const TIMELINE_CALL_SERVICES = new Set(["weddings", "wedding-films"]);
 
 export function planningCallFor<C extends { label: string; url: string }>(
@@ -60,6 +61,20 @@ export function planningCallFor<C extends { label: string; url: string }>(
   return TIMELINE_CALL_SERVICES.has(service ?? "")
     ? { ...calls.weddingTimelineCall, kind: "timeline" }
     : { ...calls.planningCall, kind: "planning" };
+}
+
+// The calls the questionnaire's thank-you page offers, in order: the one
+// above first, then for a wedding or its film the general planning call, and
+// for a wedding the venue walkthrough.
+export function thankYouCalls<C extends { label: string; url: string }>(
+  service: string | undefined,
+  calls: { planningCall: C; weddingTimelineCall: C; venueWalkthrough: C },
+): C[] {
+  const first = planningCallFor(service, calls);
+  if (first.kind === "planning") return [calls.planningCall];
+  return service === "weddings"
+    ? [calls.weddingTimelineCall, calls.planningCall, calls.venueWalkthrough]
+    : [calls.weddingTimelineCall, calls.planningCall];
 }
 
 export type ProjectLinks = {

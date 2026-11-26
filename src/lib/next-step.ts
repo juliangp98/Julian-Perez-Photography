@@ -82,6 +82,10 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
   ),
 }));
 
+// An outgoing email as the rules read it: whether it went out, and the
+// template it started from or its subject (sentEmail in messages.ts).
+export type SentEmail = { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean };
+
 // The templates already sent on a project, from its outgoing emails, with
 // the studio day each last went out. An email records the template it started
 // from, and counts once it went out (a bounced or failed one doesn't). An
@@ -92,7 +96,7 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
 // owner noted as sent another way ("<template name> noted as sent") always
 // counts.
 export function sentTemplates(
-  messages: { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean }[],
+  messages: SentEmail[],
   history: { note?: string }[] = [],
 ): Map<string, string> {
   const sent = new Map<string, string>();
@@ -275,7 +279,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // that comes first. Its steps offer Already sent only for the email they
   // send: once the retainer is marked paid, the welcome step offers it for
   // a welcome that went another way.
-  const unreserved = has("contract") && invoices.length > 0 && !sent.has("booking-welcome");
+  const unreserved = bookingOpen(docs, sent.has("booking-welcome"));
 
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
@@ -558,6 +562,33 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 // this stays pure: the questionnaire (prefilled), the call bookings, the
 // review page and the how-to-pay line.
 
+type BookingDoc = { type?: string; uploadedBy?: string; paidAt?: string };
+
+// Julian's Square contract and an invoice are on the project and the booking
+// welcome hasn't gone out: the booking isn't finished, whatever the status
+// says (the client's questionnaire moves a booked project to Planning).
+function bookingOpen(docs: BookingDoc[] = [], welcomed: boolean): boolean {
+  const own = (type: string) => docs.some((d) => d.type === type && d.uploadedBy !== "client");
+  return own("contract") && own("invoice") && !welcomed;
+}
+
+// For the client, a project past Booked whose booking is still open and none
+// of whose invoices is paid, up to the shoot: their page still asks them to
+// sign and pay, and its stage and tracker stay at Reserving your date. The
+// owner's step goes back to the booking on the same projects.
+export function stillReserving(
+  p: { status?: string; eventDate?: string; documents?: BookingDoc[] },
+  welcomed: boolean,
+  today: string,
+): boolean {
+  if (!bookingOpen(p.documents, welcomed)) return false;
+  if (p.documents?.some((d) => d.type === "invoice" && d.uploadedBy !== "client" && d.paidAt)) return false;
+  if (p.status === "planning") return true;
+  if (p.status !== "scheduled") return false;
+  const shoot = eventDay(p.eventDate);
+  return !shoot || daysBetween(today, shoot) >= 0;
+}
+
 export type ClientStep = {
   title: string;
   detail?: string;
@@ -570,8 +601,10 @@ export type ClientStepProject = {
   eventDate?: string;
   questionnaireSnapshot?: string;
   documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
-  // The statuses it has held (listStageFacts lets only these out of the log).
-  statusHistory?: { status?: string }[];
+  planSummary?: string;
+  // Whether the date is still being reserved though the status moved past
+  // Booked (stillReserving, worked out with the emails sent).
+  reserving?: boolean;
 };
 
 export type ClientStepContext = {
@@ -615,62 +648,68 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       }
     : { title: "I'm editing your photos", detail: "Your gallery comes next. I'll email you the moment it's ready." };
 
-  // Reserving the date, read as the owner's step reads it: Julian's invoices
-  // in the order he added them, the first unpaid one the retainer, and the
-  // date reserved once one is paid (a balance invoice left open belongs to
-  // delivery).
+  // Reserving the date, read as the owner's step reads it: the date is
+  // reserved once one of Julian's invoices is paid (a balance invoice left
+  // open belongs to delivery), and until then the retainer is the invoice
+  // the contract email names (openInvoice).
   const invoices = docs.filter((d) => d.type === "invoice" && d.uploadedBy !== "client");
-  const retainerPaid = invoices.some((d) => d.paidAt);
   const reserving = (): ClientStep => {
     const contract = own("contract");
     if (!contract) {
       return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
     }
-    if (retainerPaid) {
+    if (invoices.some((d) => d.paidAt)) {
       return {
         title: "Your retainer is in",
         detail: "Thank you. Your booking confirmation is on its way.",
         action: link("View your contract", contract.url),
       };
     }
-    const retainer = invoices.find((d) => !d.paidAt);
+    if (!invoices.length) {
+      return {
+        title: "Sign your contract",
+        detail: "The invoice for the retainer is on its way.",
+        action: link("Sign the contract", contract.url),
+      };
+    }
     return {
       title: "Sign your contract and pay the retainer",
-      detail: [dueLine("The retainer", retainer?.dueAt), ctx.paymentLine, "Your date is reserved once both are in."]
+      detail: [dueLine("The retainer", invoice?.dueAt), ctx.paymentLine, "Your date is reserved once both are in."]
         .filter(Boolean)
         .join(" "),
       action: link("Sign the contract", contract.url),
-      secondary: link("Pay the retainer", retainer?.url),
+      secondary: link("Pay the retainer", invoice?.url),
     };
   };
-  // A project moved past Booked before the booking was done (the client's
-  // questionnaire moves a booked project to Planning): while Julian's
-  // contract and an invoice are on it, none is paid, and it never reached
-  // Booked (the booking welcome moves it there), signing and paying still
-  // come first.
-  const reached = new Set((p.statusHistory ?? []).map((h) => h.status));
-  const unreserved = !!own("contract") && invoices.length > 0 && !retainerPaid && !reached.has("contract-signed");
+  // Julian's contract on a lead means they said yes, whatever came before (a
+  // proposal skipped, a booking made on the call), as the owner's step reads
+  // it.
+  const lead = (step: ClientStep): ClientStep => (own("contract") ? reserving() : step);
 
   switch (status) {
     case undefined:
     case "new-inquiry":
     case "responded":
-      return ctx.discoveryCallUrl
-        ? {
-            title: "Book a discovery call",
-            detail: "A short call so I can hear what you're planning and answer your questions.",
-            action: link("Pick a time", ctx.discoveryCallUrl),
-          }
-        : { title: "I'll be in touch soon", detail: "I read every inquiry and reply myself." };
+      return lead(
+        ctx.discoveryCallUrl
+          ? {
+              title: "Book a discovery call",
+              detail: "A short call so I can hear what you're planning and answer your questions.",
+              action: link("Pick a time", ctx.discoveryCallUrl),
+            }
+          : { title: "I'll be in touch soon", detail: "I read every inquiry and reply myself." },
+      );
 
     case "in-conversation":
-      return { title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." };
+      return lead({ title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." });
 
     case "proposal-sent": {
       const held = ctx.holdUntil ? `I'm holding your date until ${formatHumanDate(ctx.holdUntil)}.` : undefined;
-      return own("proposal")
-        ? { title: "Your proposal is ready", detail: held, action: link("View your proposal", own("proposal")?.url) }
-        : { title: "Your proposal is on its way", detail: held };
+      return lead(
+        own("proposal")
+          ? { title: "Your proposal is ready", detail: held, action: link("View your proposal", own("proposal")?.url) }
+          : { title: "Your proposal is on its way", detail: held },
+      );
     }
 
     case "booked":
@@ -688,7 +727,7 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
     }
 
     case "planning": {
-      if (unreserved) return reserving();
+      if (p.reserving) return reserving();
       if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Fill in your planning questionnaire",
@@ -725,7 +764,10 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
 
     case "scheduled": {
       // Until the shoot, a booking left undone comes first.
-      if (unreserved && (!shoot || daysBetween(today, shoot) >= 0)) return reserving();
+      if (p.reserving) return reserving();
+      // The plan shows on their page once there is one.
+      const write = "Write to me here with anything that changes.";
+      const plan = p.planSummary?.trim() ? "Your plan is below." : undefined;
       if (shoot) {
         const days = daysBetween(today, shoot);
         if (days < 0) return editing;
@@ -739,11 +781,11 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
                 : `on ${formatHumanDate(shoot)}`;
         return {
           title: `Your shoot is ${when}`,
-          detail: "Your plan is below. Write to me here with anything that changes.",
+          detail: [plan, write].filter(Boolean).join(" "),
           action: link("View your timeline", own("timeline")?.url),
         };
       }
-      return { title: "Your shoot is on the calendar", detail: "Your plan is below." };
+      return { title: "Your shoot is on the calendar", detail: [plan, write].filter(Boolean).join(" ") };
     }
 
     case "shot":

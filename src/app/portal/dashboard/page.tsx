@@ -2,10 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getSession } from "@/lib/auth-cookies";
-import { listPortalProjects, listStageFacts, type ClientRecordSafe } from "@/lib/clients";
+import { listPortalProjects, type ClientRecordSafe } from "@/lib/clients";
+import { portalStageFacts } from "@/lib/portal-view";
 import { formatEventDate } from "@/lib/field-format";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
+  shownStatus,
+  stageLine,
   stagesFor,
   type ClientStatus,
   type StageProject,
@@ -44,7 +47,8 @@ function ProjectCard({
   stage?: StageProject;
 }) {
   const title = projectDisplayName(p);
-  const { stages, closed } = stagesFor(stage ?? { status: p.status });
+  const facts = stage ?? { status: p.status };
+  const { stages, closed } = stagesFor(facts);
   return (
     <Link
       href={`/portal/projects/${p.id}`}
@@ -57,14 +61,14 @@ function ProjectCard({
       <div className="flex items-baseline justify-between gap-3">
         <div className="font-serif text-xl">{title}</div>
         <span className="text-[10px] uppercase tracking-widest text-accent whitespace-nowrap">
-          {CLIENT_STATUS_CLIENT_LABEL[p.status as ClientStatus] ?? "In progress"}
+          {CLIENT_STATUS_CLIENT_LABEL[shownStatus(facts) as ClientStatus] ?? "In progress"}
         </span>
       </div>
       {p.eventDate && (
         <div className="mt-2 text-sm text-muted">{formatEventDate(p.eventDate)}</div>
       )}
       {!closed && (
-        <div className="mt-3 flex items-center gap-1" aria-hidden>
+        <div className="mt-3 flex items-center gap-1" role="img" aria-label={stageLine(facts)}>
           {stages.map((s) => (
             <span
               key={s.key}
@@ -81,7 +85,7 @@ export default async function PortalProjectsMenuPage() {
   const session = await getSession();
   if (!session) redirect("/portal");
   const all = await listPortalProjects(session.email);
-  const facts = await listStageFacts(all.map((p) => p.id));
+  const facts = await portalStageFacts(all);
   // Owner projects drive the existing bundle/category grouping + owner actions;
   // projects shared with this viewer (as a second photographer) render in their
   // own read-only group.

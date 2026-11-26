@@ -20,6 +20,7 @@ import type { ClientMessage } from "@/lib/messages";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   lastOpenStatus,
+  shownStatus,
   statusRank,
   type ClientStatus,
   type StageProject,
@@ -35,7 +36,7 @@ type Props = {
   record: ClientRecordSafe;
   viewerRole: PortalViewerRole;
   messages: ClientMessage[];
-  // What the stage tracker reads (listStageFacts).
+  // What the stage tracker and the status read (portalStageFacts).
   stage: StageProject;
   // The client's next step (none for a second photographer or a closed project).
   next?: ClientStep;
@@ -212,7 +213,7 @@ export default function PortalProjectView({
   preview = false,
 }: Props) {
   const isCollaborator = viewerRole === "collaborator";
-  const clientLabel = CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus] ?? "In progress";
+  const clientLabel = CLIENT_STATUS_CLIENT_LABEL[shownStatus(stage) as ClientStatus] ?? "In progress";
   // Before a proposal, the plan isn't settled yet: the page shows the next
   // step and the messages, not the plan. A closed project goes by the last
   // stage it reached, as the tracker does.

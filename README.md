@@ -414,9 +414,10 @@ place). Both are fire-and-forget and
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
 the client projection — `internal_notes`, the budget, status history, and
 inquiry context are never selected, so they can't reach a client. The stage
-tracker's facts come from `listStageFacts`, which reads the status history
-and the calls on the server and returns only the statuses, the discovery
-call's held date and the kinds of links on the project. The
+tracker's facts come from `listStageFacts`, which reads the status history,
+the calls and the emails sent on the server and returns only the statuses,
+the discovery call's held date, the kinds of links on the project and
+whether the date is still being reserved. The
 questionnaire answers are held out of the project list and added on a single
 project's page: the client's own in full, and for a second photographer only
 the ones about the shoot. A second photographer with read access gets a

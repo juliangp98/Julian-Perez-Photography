@@ -134,7 +134,27 @@ export type StageProject = {
   statusHistory?: { status?: string }[];
   calls?: { discovery?: { heldAt?: string } };
   documents?: { type?: string }[];
+  // The client's date is still being reserved though the status moved past
+  // Booked (stillReserving in src/lib/next-step.ts): their tracker and status
+  // stay at Reserving your date.
+  reserving?: boolean;
 };
+
+// The status a client's page shows: Booked's while the date is still being
+// reserved, else the project's own.
+export function shownStatus(p: StageProject): string | undefined {
+  return p.reserving ? "booked" : p.status;
+}
+
+// What a second photographer's tracker reads: where the shoot stands, without
+// the sales steps before the booking (a call, a proposal) or how the
+// booking itself stands.
+export function shootStage(p: StageProject): StageProject {
+  return {
+    status: p.status,
+    statusHistory: (p.statusHistory ?? []).filter((h) => h.status !== "in-conversation" && h.status !== "proposal-sent"),
+  };
+}
 
 // The stage a status belongs to, or -1 for a closed or unknown one.
 function stageIndex(status: string | undefined): number {
@@ -173,7 +193,7 @@ export function stagesFor(p: StageProject): {
 } {
   const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
   const history = p.statusHistory ?? [];
-  const current = Math.max(0, stageIndex(lastOpenStatus(p)));
+  const current = Math.max(0, stageIndex(p.reserving ? "booked" : lastOpenStatus(p)));
   const held = (status: ClientStatus) => history.some((h) => h.status === status);
   const took: Partial<Record<StageKey, boolean>> = {
     call: held("in-conversation") || !!p.calls?.discovery?.heldAt,
@@ -184,4 +204,12 @@ export function stagesFor(p: StageProject): {
     return [{ key: s.key, label: s.label, state: i < current ? "done" : i === current ? "current" : "upcoming" }];
   });
   return { stages, step: stages.findIndex((s) => s.state === "current") + 1, closed };
+}
+
+// The tracker in a line: "Step 3 of 9: Reserving your date", or where a
+// closed project stopped.
+export function stageLine(p: StageProject): string {
+  const { stages, step, closed } = stagesFor(p);
+  const current = stages[step - 1];
+  return closed ? `Closed at ${current.label}` : `Step ${step} of ${stages.length}: ${current.label}`;
 }

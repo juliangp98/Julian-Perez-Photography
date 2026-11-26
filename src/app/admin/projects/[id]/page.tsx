@@ -39,7 +39,7 @@ import { buttonClass } from "@/components/ui/Button";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
 import MessageThread from "@/components/messages/MessageThread";
-import { isConversation, listProjectMessages, ensureReplyToken } from "@/lib/messages";
+import { isConversation, listProjectMessages, ensureReplyToken, sentEmail } from "@/lib/messages";
 import { triageSteer } from "@/lib/triage";
 import { isCurrent } from "@/lib/ai/project-context";
 import { logAddress } from "@/lib/email/inbound";
@@ -121,14 +121,7 @@ export default async function AdminProjectDetailPage({
   const conversation = messages.filter(isConversation);
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
-  // An email the client marked as spam arrived, so it counts as sent.
-  const sent = sentTemplates(
-    messages.map((m) => ({
-      ...m,
-      wentOut: isConversation(m) || (m.direction === "out" && m.status === "complained"),
-    })),
-    record?.statusHistory,
-  );
+  const sent = sentTemplates(messages.map(sentEmail), record?.statusHistory);
   const hasQuestionnaire = !!record?.serviceType && !!getQuestionnaire(record.serviceType);
   const next = record
     ? ownerNextStep(
