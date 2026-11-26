@@ -25,7 +25,11 @@ export const composeDraft = {
   // keep it under.
   resume(projectId: string, handoff: string): { handoff: string; draft?: ComposeDraftState } {
     const kept = drafts.get(projectId);
-    if (kept && (kept.handoff === handoff || handoff === NO_HANDOFF)) return kept;
+    if (!kept) return { handoff };
+    // The same hand-off, the tab's own address, or a hand-off to the template
+    // the email was started on there.
+    const sameTemplate = kept.handoff === NO_HANDOFF && handoff === `${kept.draft.templateId}|`;
+    if (kept.handoff === handoff || handoff === NO_HANDOFF || sameTemplate) return kept;
     return { handoff };
   },
   // The kept email, whatever it was opened on.

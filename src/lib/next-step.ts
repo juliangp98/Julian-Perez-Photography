@@ -3,11 +3,11 @@
 // with one button. A step that waits on the client says so, and its button is
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
 import { openInvoice } from "./project-links";
-import { hiddenByMark, replyKey } from "./today";
+import { hiddenByMark, lostAt, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
 
 export type NextStep = {
@@ -16,7 +16,15 @@ export type NextStep = {
   // Why, or what comes after, in a sentence.
   detail?: string;
   action?: { label: string; href: string };
+  // The template the action sends, when it goes once: the owner can record
+  // that it already went another way (from Gmail, say), which settles the
+  // step.
+  once?: string;
 };
+
+// Templates a step may offer again and again, so "already sent" doesn't
+// settle them.
+const REPEATS = new Set(["payment-reminder", "proposal-follow-up", "questionnaire-reminder"]);
 
 // The parts of a project the rules read.
 export type NextStepProject = {
@@ -36,6 +44,8 @@ export type NextStepProject = {
   // The Today rows marked handled or snoozed (src/lib/today.ts): a client's
   // message marked handled there needs no answer here either.
   todayDismissed?: Record<string, string>;
+  // Its moves, for when a lost lead was closed.
+  statusHistory?: { status?: string; changedAt?: string }[];
 };
 
 export type NextStepContext = {
@@ -77,7 +87,7 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
 // that template, so a step done before then isn't offered again.
 export function sentTemplates(
   messages: { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean }[],
-  history: { note?: string }[] = [],
+  history: { note?: string; kind?: string }[] = [],
 ): Map<string, string> {
   const sent = new Map<string, string>();
   const recorded = new Set<string>();
@@ -96,14 +106,21 @@ export function sentTemplates(
     const subject = m.subject?.trim() ?? "";
     for (const t of SUBJECT_PATTERNS) if (subject && t.pattern.test(subject)) mark(t.id, m.sentAt);
   }
+  // A note the owner added ("Already sent") always counts.
   for (const h of history) {
     const t = EMAIL_TEMPLATES.find((x) => h.note === `${x.name} sent`);
-    if (t && !recorded.has(t.id) && !sent.has(t.id)) sent.set(t.id, "");
+    if (t && (h.kind === "note" || !recorded.has(t.id)) && !sent.has(t.id)) sent.set(t.id, "");
   }
   return sent;
 }
 
 export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextStep {
+  const step = stepFor(p, ctx);
+  const template = step.action?.href.match(/[?&]compose=([a-z-]+)/)?.[1];
+  return template && !REPEATS.has(template) ? { ...step, once: template } : step;
+}
+
+function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   const page = `/admin/projects/${p.id}`;
   const compose = (template: string) => `${page}?compose=${template}#compose`;
   const tab = (name: string) => `${page}?tab=${name}`;
@@ -142,8 +159,9 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
 
   if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) {
     if (status === "lost") {
-      // A lost lead writing back is the point of the check-in.
-      if (unanswered) return answer();
+      // A lost lead writing back after the close is the point of the check-in.
+      const closedAt = lostAt(p.statusHistory);
+      if (unanswered && (!closedAt || Date.parse(p.lastInAt ?? "") > Date.parse(closedAt))) return answer();
       if (sent.has("re-engagement")) {
         return { title: "Closed as lost", detail: "A check-in went out. If they write back, it shows here." };
       }
@@ -206,7 +224,16 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
     (!status || status === "new-inquiry") &&
     (!!p.lastOutAt || handled("inquiry") || (!!p.lastInAt && handled(replyKey(p.lastInAt))));
 
-  switch (answered ? "responded" : status) {
+  // Where the emails sent have taken it: a stage email that went out (sent
+  // here, or noted as sent another way) moves the step on even when the
+  // status wasn't moved with it.
+  let stage: string | undefined = answered ? "responded" : status;
+  for (const id of sent.keys()) {
+    const to = EMAIL_TEMPLATES.find((t) => t.id === id)?.advancesTo;
+    if (to && statusRank(to) > statusRank(stage)) stage = to;
+  }
+
+  switch (stage) {
     case undefined:
     case "new-inquiry":
       return {
@@ -347,6 +374,13 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           action: { label: "Send a reminder", href: compose("questionnaire-reminder") },
         };
       }
+      if (!has("timeline")) {
+        return {
+          title: "Add the timeline",
+          detail: "The timeline email carries it.",
+          action: { label: "Add a link", href: tab("links") },
+        };
+      }
       return {
         title: "Send the timeline details",
         action: { label: "Write the email", href: compose("timeline-details") },
@@ -423,12 +457,6 @@ export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextSte
           title: overdue ? "The final invoice is overdue" : "Waiting on the final invoice",
           detail: dueLine,
           action: { label: "Send a reminder", href: compose("payment-reminder") },
-        };
-      }
-      if (sent.has("review-request")) {
-        return {
-          title: "Review asked for",
-          detail: "Set the status to Complete if it hasn't moved.",
         };
       }
       return {

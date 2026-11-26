@@ -416,6 +416,40 @@ test("a recap left unsent opens afresh once the summary changes", async ({ admin
   await expect(body).not.toHaveValue(/My own words about the garden/);
 });
 
+test("a recap left unsent opens afresh once an update from the call is accepted", async ({
+  adminRequest,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "recap-accept");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "About 150 guests" } } });
+  await callTab(page, p.id);
+  const drafted = JSON.stringify({
+    background: "Met in college.",
+    event: "Garden wedding.",
+    priorities: "Candids.",
+    logistics: "",
+    actions: "",
+    updates: { guestCount: 150, eventDate: null, venue: null, package: null },
+  });
+  await fakes.script({ replies: [drafted, drafted] });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await page.getByRole("button", { name: "Write the recap" }).click();
+  await page.getByLabel("Email body").fill("Hi,\n\nWords from before the guest count.\n\nJulian");
+
+  // Back on the Call tab, an update the call suggested is accepted: the recap
+  // left unsent was written without it, so the Messages tab opens afresh.
+  const tabs = page.getByRole("navigation", { name: "Project" });
+  await tabs.getByRole("link", { name: "Call" }).click();
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  const suggestion = page.getByRole("listitem").filter({ hasText: "Guest count: 150" });
+  await suggestion.getByRole("button", { name: "Accept" }).click();
+  await expect(suggestion.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(page.getByRole("combobox", { name: "Email template" })).toHaveValue("");
+});
+
 test("Summarize says when the AI's answer couldn't be used", async ({ adminRequest, adminPage: page, fakes }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   const p = await newProject(adminRequest, "garbled");

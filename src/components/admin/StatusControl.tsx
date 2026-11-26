@@ -25,11 +25,13 @@ export default function StatusControl({
   const recorded = status ?? "new-inquiry";
   const [value, setValue] = useState(recorded);
   const [seen, setSeen] = useState(recorded);
+  const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
   if (recorded !== seen) {
     setSeen(recorded);
     setValue(recorded);
+    // A save that failed no longer applies to the status now showing.
+    if (state === "error") setState("idle");
   }
-  const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const changed = value !== recorded;
 
   async function save() {
@@ -64,6 +66,7 @@ export default function StatusControl({
         id="project-status"
         density="compact"
         value={value}
+        disabled={state === "saving"}
         onChange={(e) => {
           setValue(e.target.value);
           setState("idle");
@@ -80,7 +83,14 @@ export default function StatusControl({
           <Button size="sm" loading={state === "saving"} loadingLabel="Saving…" onClick={save}>
             Save status
           </Button>
-          <Button variant="text" disabled={state === "saving"} onClick={() => setValue(recorded)}>
+          <Button
+            variant="text"
+            disabled={state === "saving"}
+            onClick={() => {
+              setValue(recorded);
+              setState("idle");
+            }}
+          >
             Cancel
           </Button>
         </>

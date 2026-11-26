@@ -237,7 +237,11 @@ export default function ComposeEmail({
       }
       setSentNote(movedLine(json.moved));
       setNotMovedNote(notMovedLine(json.notMoved));
-      composeDraft.clear(projectId);
+      // What was sent is gone from the kept email; one kept on another
+      // template stays for later.
+      if (touched || composeDraft.peek(projectId)?.draft.templateId === templateId) {
+        composeDraft.clear(projectId);
+      }
       setTouched(false);
       setStatus("sent");
       newVersion();

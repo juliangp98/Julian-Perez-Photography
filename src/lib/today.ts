@@ -27,6 +27,8 @@ export type TodayProject = {
   todayDismissed?: Record<string, string>;
   // When the project was created: an inquiry's arrival.
   createdAt?: string;
+  // Its moves, for when a lost lead was closed.
+  statusHistory?: { status?: string; changedAt?: string }[];
 };
 
 export type TodayRule =
@@ -92,12 +94,18 @@ function rowsFor(
       { label: "Open", href: page },
     );
   }
-  if (closed) return rows;
+  // A closed project has nothing more to do, except a lost lead writing back
+  // after it was closed: the check-in worked.
+  if (closed && p.status !== "lost") return rows;
 
   // The client wrote last, and hasn't had an answer. A new inquiry nothing
   // has gone to yet gets the inquiry reply; otherwise Compose opens on no
   // template, as the project page's next step does.
-  const replied = !!p.lastInAt && (!p.lastOutAt || p.lastInAt > p.lastOutAt);
+  const closedAt = closed ? lostAt(p.statusHistory) : undefined;
+  const replied =
+    !!p.lastInAt &&
+    (!p.lastOutAt || p.lastInAt > p.lastOutAt) &&
+    (!closedAt || Date.parse(p.lastInAt) > Date.parse(closedAt));
   if (replied) {
     const day = dayOf(p.lastInAt);
     const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt;
@@ -106,6 +114,7 @@ function rowsFor(
       href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,
     });
   }
+  if (closed) return rows;
 
   // A new inquiry nobody has answered, at any age: due from the day it came.
   if (p.status === "new-inquiry" && !p.lastOutAt && !replied) {
@@ -191,6 +200,12 @@ export function hiddenByMark(mark: string | undefined, today: string): boolean {
 
 // The key of the row for a client's message that hasn't had an answer.
 export const replyKey = (lastInAt: string) => `reply:${lastInAt}`;
+
+// When a lead was last closed as lost: a message from before then had its
+// answer in the closing.
+export function lostAt(history?: { status?: string; changedAt?: string }[]): string | undefined {
+  return [...(history ?? [])].reverse().find((h) => h.status === "lost")?.changedAt;
+}
 
 function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {
   return hiddenByMark(p.todayDismissed?.[row.key], today);

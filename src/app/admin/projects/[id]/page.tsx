@@ -206,7 +206,7 @@ export default async function AdminProjectDetailPage({
           </div>
 
           <div className="mt-6 grid lg:grid-cols-[1.7fr_1fr] gap-6 items-start">
-            <NextStepStrip step={next} />
+            <NextStepStrip projectId={record.id} step={next} />
             <Panel className="space-y-4">
               <StatusControl projectId={record.id} status={record.status} />
               <FollowUpEditor

@@ -15,6 +15,7 @@ import { apiError, defineRoute } from "@/lib/api-route";
 import {
   advanceStatus,
   closeProject,
+  dismissToday,
   getClientFull,
   setFollowUp,
   setHold,
@@ -100,6 +101,19 @@ async function applyTemplate(
       moved.followUpAt = followUp.at;
       moved.followUpNote = followUp.note;
     });
+  }
+  // A follow-up on the proposal once its date hold ran out settles the Today
+  // row about that hold, as it settles the project page's step. Nothing the
+  // client sees depends on it, so a failure is only noted.
+  if (template.id === "proposal-follow-up" && record.holdUntil && record.holdUntil <= studioToday()) {
+    try {
+      await dismissToday(record.id, `hold:${record.holdUntil}`, "handled");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "admin/send-email", stage: "hold-row" },
+        level: "warning",
+      });
+    }
   }
   return { moved, notMoved };
 }

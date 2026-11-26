@@ -10,6 +10,8 @@ import {
   type NextStepProject,
 } from "../../src/lib/next-step";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
+import { openInvoice } from "../../src/lib/project-links";
+import { signedWebhook } from "./support/webhook-sign";
 
 // The admin project page (/admin/projects/[id]): a header with the facts, the
 // stage tracker, the one next step, the status and the follow-up, over five
@@ -31,7 +33,11 @@ const tab = (name: string) => `/admin/projects/p?tab=${name}`;
 // Templates sent, each "<id>" (on November 1) or "<id>@<day>".
 const sent = (...ids: string[]) =>
   ctx({ sent: new Map(ids.map((id) => [id.split("@")[0], id.split("@")[1] ?? "2026-11-01"])) });
-const own = (type: string, more: Record<string, string> = {}) => ({ type, uploadedBy: "julian", ...more });
+const own = (type: string, more: Record<string, string> = {}): Record<string, string> => ({
+  type,
+  uploadedBy: "julian",
+  ...more,
+});
 
 test("stages: ten in all, passing over a call and a proposal the project never had", () => {
   const fresh = stagesFor({ status: "new-inquiry" });
@@ -237,8 +243,22 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     title: "Waiting on the questionnaire",
     action: { href: compose("questionnaire-reminder") },
   });
-  expect(next({ status: "planning", questionnaireSnapshot: "{}" }).action?.href).toBe(compose("timeline-details"));
-  expect(next({ status: "planning" }, ctx({ questionnaire: false })).action?.href).toBe(compose("timeline-details"));
+  // The timeline link first, then the email that carries it.
+  expect(next({ status: "planning", questionnaireSnapshot: "{}" })).toMatchObject({
+    title: "Add the timeline",
+    action: { href: tab("links") },
+  });
+  const timeline = [own("timeline")];
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: timeline }).action?.href).toBe(
+    compose("timeline-details"),
+  );
+  expect(next({ status: "planning", documents: timeline }, ctx({ questionnaire: false })).action?.href).toBe(
+    compose("timeline-details"),
+  );
+  // A timeline the client uploaded isn't the one the email sends.
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: [{ type: "timeline", uploadedBy: "client" }] }).title).toBe(
+    "Add the timeline",
+  );
 
   // The week of the shoot, and after it.
   expect(next({ status: "scheduled", eventDate: "2026-11-28" })).toMatchObject({
@@ -272,9 +292,10 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery")).action?.href).toBe(
     compose("review-request"),
   );
-  expect(next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery", "review-request")).title).toBe(
-    "Review asked for",
-  );
+  // The review request moves the step on to the referral, even if the status didn't move.
+  expect(
+    next({ status: "delivered", documents: [own("gallery")] }, sent("gallery-delivery", "review-request")).action?.href,
+  ).toBe(compose("referral-ask"));
   expect(next({ status: "complete" }).action?.href).toBe(compose("referral-ask"));
   expect(next({ status: "complete" }, sent("referral-ask")).title).toBe("All done");
 });
@@ -313,6 +334,13 @@ test("next step: a closed project, a missing email, then an unanswered client co
   expect(next({ status: "new-inquiry", todayDismissed: { inquiry: "2026-11-28" } }).title).toBe("Reply to the inquiry");
   // A lost lead writing back is answered; another closed project stays closed.
   expect(next({ status: "lost", ...wrote }).title).toBe("Answer Avery");
+  // A message from before it was closed had its answer in the closing.
+  expect(
+    next({ status: "lost", ...wrote, statusHistory: [{ status: "lost", changedAt: "2026-11-24T15:00:00Z" }] }).title,
+  ).toBe("Closed as lost");
+  expect(
+    next({ status: "lost", ...wrote, statusHistory: [{ status: "lost", changedAt: "2026-11-22T15:00:00Z" }] }).title,
+  ).toBe("Answer Avery");
   expect(next({ status: "archived", ...wrote }).title).toBe("Closed");
   expect(next({ status: "booked", email: "", ...wrote }).title).toBe("Add the client's email");
   expect(
@@ -335,6 +363,42 @@ test("next step: a closed project, a missing email, then an unanswered client co
   expect(next({ status: "booked", documents: [{ type: "contract", uploadedBy: "client" }, own("invoice")] }).title).toBe(
     "Add the Square contract and invoice",
   );
+});
+
+test("next step: a stage email sent goes once, and can be noted as sent another way", () => {
+  // The step names the template it sends, unless it's one that repeats.
+  expect(next({ status: "contract-signed" }).once).toBe("booking-welcome");
+  expect(next({ status: "proposal-sent", followUpAt: TODAY }, sent("proposal")).once).toBeUndefined();
+  expect(next({ status: "proposal-sent" }, sent("proposal")).once).toBeUndefined();
+  // Once it has gone (here, or noted), the step moves on with it, though the
+  // status wasn't moved.
+  expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, sent("booking-welcome")).title).toBe("Booked");
+  expect(next({ status: "in-conversation", documents: [own("proposal")] }, sent("proposal")).title).toBe(
+    "Waiting on Avery's answer",
+  );
+  expect(
+    sentTemplates([{ direction: "out", template: "booking-welcome", wentOut: false }], [
+      { kind: "note", note: "Booking welcome sent" },
+    ]).has("booking-welcome"),
+  ).toBe(true);
+});
+
+test("the invoice a client pays next: an undated one (a retainer due now), else the one due first", () => {
+  const docs = [
+    own("invoice", { id: "balance", dueAt: "2027-05-01" }),
+    own("invoice", { id: "retainer" }),
+    own("invoice", { id: "prints", dueAt: "2026-12-10" }),
+  ];
+  expect(openInvoice({ documents: docs })?.id).toBe("retainer");
+  expect(openInvoice({ documents: docs.filter((d) => d.id !== "retainer") })?.id).toBe("prints");
+  expect(openInvoice({ documents: [own("invoice", { id: "paid", paidAt: "2026-11-01" })] })).toBeUndefined();
+  // The booked step reads the same one: no due line for a retainer due now.
+  expect(
+    next(
+      { status: "booked", documents: [own("contract"), own("invoice"), own("invoice", { dueAt: "2027-05-01" })] },
+      sent("contract-deposit"),
+    ),
+  ).toMatchObject({ title: "Waiting on the signed contract and retainer", detail: "Mark the invoice paid when it comes in." });
 });
 
 test("sent templates: recorded ones that went out, and older emails by subject or by the activity log", () => {
@@ -742,4 +806,104 @@ test("overview: a checklist toward the shoot, then toward delivery, and a closed
   await page.reload();
   await expect(page.getByText("Closed at Reserving your date", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Toward the shoot" })).toBeVisible();
+});
+
+test("Already sent notes a stage email that went another way, and the step moves on", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "already");
+  await patchProject(p.id, { status: "contract-signed" });
+  await page.goto(p.page);
+  await expect(nextStep(page)).toContainText("Send the booking welcome");
+  await nextStep(page).getByRole("button", { name: "Already sent" }).click();
+  // The shoot is months away, so planning waits.
+  await expect(nextStep(page)).toContainText("Planning starts about two months before the shoot");
+  const history = (await readProject(p.id, "status_history")).status_history as { kind?: string; note?: string }[];
+  expect(history.at(-1)).toMatchObject({ kind: "note", note: "Booking welcome sent" });
+});
+
+test("a proposal follow-up after the hold ran out settles Today's row about it", async ({ adminRequest }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "holdrow");
+  const ended = shiftDay(studioToday(), { days: -2 });
+  await patchProject(p.id, { status: "proposal-sent", hold_until: ended });
+  const res = await adminRequest.post("/api/admin/send-email", {
+    data: { projectId: p.id, templateId: "proposal-follow-up", subject: "Following up", body: "Hi,\n\nChecking in.\n\nJulian" },
+  });
+  expect(res.status()).toBe(200);
+  expect((await readProject(p.id, "today_dismissed")).today_dismissed).toMatchObject({ [`hold:${ended}`]: "handled" });
+});
+
+test("compose: a template picked brings back its unsent email, and sending another leaves it kept", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "keep");
+  const tabs = page.getByRole("navigation", { name: "Project" });
+  const body = page.getByLabel("Email body");
+  const template = page.getByRole("combobox", { name: "Email template" });
+
+  // On the tab's own address, Write email only brings the open panel into view.
+  await page.goto(`${p.page}?tab=messages`);
+  await template.selectOption("proposal");
+  await body.fill("Hi,\n\nThe proposal, in my words.\n\nJulian");
+  await page.getByRole("link", { name: "Write email", exact: true }).click();
+  await expect(body).toHaveValue(/The proposal, in my words/);
+  await expect(page).toHaveURL(/\?tab=messages$/);
+
+  // Looking at another template shows its fill; picking Proposal again
+  // brings the email back.
+  await template.selectOption("planning-kickoff");
+  await expect(body).not.toHaveValue(/The proposal, in my words/);
+  await template.selectOption("proposal");
+  await expect(body).toHaveValue(/The proposal, in my words/);
+
+  // A hand-off to the same template, from where it was started, shows it too.
+  await patchProject(p.id, {
+    status: "in-conversation",
+    documents: [{ id: "pr", type: "proposal", label: "Proposal", url: "https://links.example.com/pr", uploadedBy: "julian" }],
+  });
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(nextStep(page)).toContainText("Send the proposal");
+  await nextStep(page).getByRole("link", { name: "Write the email" }).click();
+  await expect(body).toHaveValue(/The proposal, in my words/);
+
+  // Open on a hand-off, Write email goes to the tab, which shows the email kept.
+  await page.getByRole("link", { name: "Write email", exact: true }).click();
+  await expect(page).toHaveURL(/\?tab=messages#compose$/);
+  await expect(body).toHaveValue(/The proposal, in my words/);
+
+  // Another email, sent as it was filled, leaves the proposal kept.
+  await template.selectOption("discovery-invite");
+  await page.getByRole("button", { name: "Send to client" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(nextStep(page)).toBeVisible();
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(body).toHaveValue(/The proposal, in my words/);
+});
+
+test("an email the client marked as spam still counts as sent", async ({ adminRequest, adminPage: page }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "spam");
+  await patchProject(p.id, { status: "scheduled", event_date: shiftDay(studioToday(), { days: 3 }) });
+  const res = await adminRequest.post("/api/admin/send-email", {
+    data: { projectId: p.id, templateId: "week-of", subject: "This week", body: "Hi,\n\nSee you soon.\n\nJulian" },
+  });
+  const { id: resendId } = await res.json();
+  expect(resendId).toBeTruthy();
+  const complained = {
+    type: "email.complained",
+    created_at: new Date().toISOString(),
+    data: { email_id: resendId, created_at: new Date().toISOString(), from: "", to: [], subject: "" },
+  };
+  expect((await adminRequest.post("/api/email/webhook", signedWebhook(complained))).status()).toBe(200);
+  const { data } = await testStore()!.from("client_messages").select("status").eq("project_id", p.id);
+  expect(data).toEqual([{ status: "complained" }]);
+
+  await page.goto(p.page);
+  await expect(nextStep(page)).toContainText("Shoot in 3 days");
 });

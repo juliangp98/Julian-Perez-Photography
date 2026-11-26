@@ -29,19 +29,19 @@ export function projectLink(
 }
 
 // The invoice a client is asked to pay next: of Julian's unpaid invoices, the
-// one due first, or the newest when none has a due day. The next step on the
-// project page and the email tokens read the same one, so a reminder names the
-// invoice the step said was due.
+// first one added with no due day (due on receipt, like a retainer), else the
+// one due first. The next step on the project page and the email tokens read
+// the same one, so a reminder names the invoice the step said was due.
 export function openInvoice<D extends { type?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }>(
   record: { documents?: D[] },
 ): D | undefined {
   const unpaid = (record.documents ?? []).filter(
     (d) => d.type === "invoice" && d.uploadedBy !== "client" && !d.paidAt,
   );
-  const dated = unpaid
-    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.dueAt ?? ""))
-    .sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""));
-  return dated[0] ?? unpaid.at(-1);
+  const isDay = (d: D) => /^\d{4}-\d{2}-\d{2}$/.test(d.dueAt ?? "");
+  const undated = unpaid.filter((d) => !isDay(d));
+  const dated = unpaid.filter(isDay).sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""));
+  return undated[0] ?? dated[0];
 }
 
 export type ProjectLinks = {
