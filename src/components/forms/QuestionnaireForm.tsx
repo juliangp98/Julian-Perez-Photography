@@ -12,6 +12,7 @@ import {
   prefillableFieldIds,
 } from "@/lib/questionnaire-bundles";
 import { serviceNoun } from "@/lib/project-name";
+import { planningCallFor } from "@/lib/project-links";
 import { referralDetailPrompt } from "@/lib/referral";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
@@ -445,6 +446,9 @@ export default function QuestionnaireForm({
 
   if (status === "success") {
     const isWedding = questionnaire.slug === "weddings";
+    // The call the project page offers next, first; for a wedding or its
+    // film, the general planning call after it.
+    const call = planningCallFor(questionnaire.slug, calls);
     // The project the form was opened for, when its id is a real one.
     const projectPage =
       projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? `/portal/projects/${projectId}` : undefined;
@@ -543,17 +547,19 @@ export default function QuestionnaireForm({
               details. Pick the one that fits.
             </p>
           </div>
-          <Button href={calls.planningCall.url} external>
-            {calls.planningCall.label} &rarr;
+          <Button href={call.url} external>
+            {call.label} &rarr;
           </Button>
-          {isWedding && (
+          {call.kind === "timeline" && (
             <div className="flex gap-3 flex-wrap">
-              <Button href={calls.weddingTimelineCall.url} external variant="secondary">
-                {calls.weddingTimelineCall.label} &rarr;
+              <Button href={calls.planningCall.url} external variant="secondary">
+                {calls.planningCall.label} &rarr;
               </Button>
-              <Button href={calls.venueWalkthrough.url} external variant="secondary">
-                {calls.venueWalkthrough.label} &rarr;
-              </Button>
+              {isWedding && (
+                <Button href={calls.venueWalkthrough.url} external variant="secondary">
+                  {calls.venueWalkthrough.label} &rarr;
+                </Button>
+              )}
             </div>
           )}
         </Panel>

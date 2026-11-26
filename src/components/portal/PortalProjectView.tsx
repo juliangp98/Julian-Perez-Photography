@@ -5,12 +5,11 @@
 // for a second photographer, who gets a call sheet instead of the next step),
 // and the admin draws it read-only for "View as client". Server-rendered.
 
-import Link from "next/link";
 import CalloutCard from "@/components/ui/CalloutCard";
 import Panel from "@/components/ui/Panel";
 import StageTracker from "@/components/ui/StageTracker";
 import { Detail } from "@/components/ui/RailCard";
-import { buttonClass } from "@/components/ui/Button";
+import Button from "@/components/ui/Button";
 import QuestionnaireCallout from "@/components/portal/QuestionnaireCallout";
 import PortalEditForm from "@/components/portal/PortalEditForm";
 import PortalDocumentUpload from "@/components/portal/PortalDocumentUpload";
@@ -20,6 +19,7 @@ import type { ClientRecordSafe, PortalViewerRole } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
+  lastOpenStatus,
   statusRank,
   type ClientStatus,
   type StageProject,
@@ -53,37 +53,41 @@ type Props = {
   preview?: boolean;
 };
 
-// A button-styled link out of the site, or within it.
-function StepLink({ step, primary }: { step: NonNullable<ClientStep["action"]>; primary: boolean }) {
-  const cls = buttonClass(primary ? "primary" : "secondary", "md");
-  return step.external ? (
-    <a href={step.href} target="_blank" rel="noreferrer" className={cls}>
-      {step.label}
-    </a>
-  ) : (
-    <Link href={step.href} className={cls}>
-      {step.label}
-    </Link>
-  );
-}
-
-function NextStepCard({ step }: { step: ClientStep }) {
+// In "View as client", a link within the site (the questionnaire, which
+// saves to the project and emails the client) is left out: only links out to
+// the client's paperwork and galleries stay.
+function NextStepCard({ step, preview }: { step: ClientStep; preview: boolean }) {
+  const shown = (a?: ClientStep["action"]) => (a && (!preview || a.external) ? a : undefined);
+  const action = shown(step.action);
+  const secondary = shown(step.secondary);
   return (
     <section aria-label="Your next step">
       <Panel tone="accent" className="space-y-3">
         <div className="text-xs uppercase tracking-[0.2em] text-muted">Your next step</div>
-        <p className="font-serif text-2xl">{step.title}</p>
+        <h2 className="font-serif text-2xl">{step.title}</h2>
         {step.detail && <p className="text-sm text-muted">{step.detail}</p>}
-        {(step.action || step.secondary) && (
+        {(action || secondary) && (
           <div className="flex flex-wrap gap-3 pt-1">
-            {step.action && <StepLink step={step.action} primary />}
-            {step.secondary && <StepLink step={step.secondary} primary={false} />}
+            {action && (
+              <Button href={action.href} external={action.external}>
+                {action.label}
+              </Button>
+            )}
+            {secondary && (
+              <Button href={secondary.href} external={secondary.external} variant="secondary">
+                {secondary.label}
+              </Button>
+            )}
           </div>
         )}
       </Panel>
     </section>
   );
 }
+
+// A project's other dates (a rehearsal dinner, an engagement session), one a line.
+const otherDates = (dates: NonNullable<ClientRecordSafe["secondaryDates"]>) =>
+  dates.map((d) => [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": ")).join("\n");
 
 // The project's links and files, grouped by kind in the order the kinds are
 // listed (proposal, contract, invoices, timeline, highlights, gallery, ...).
@@ -144,14 +148,18 @@ function CallSheet({ record, dayOfContact }: { record: ClientRecordSafe; dayOfCo
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Detail label="When" value={when || "Date to be set"} />
-          <Detail label="Who" value={[people, record.guestCount != null ? `${record.guestCount} guests` : ""].filter(Boolean).join(", ")} />
+          <Detail
+            label="Who"
+            value={[
+              people,
+              record.guestCount != null ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}` : "",
+            ]
+              .filter(Boolean)
+              .join(", ")}
+          />
           <Detail label="Day-of contact" value={`Julian, ${dayOfContact}`} />
           {record.secondaryDates && record.secondaryDates.length > 0 && (
-            <Detail
-              label="Other dates"
-              value={record.secondaryDates.map((d) => [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": ")).join("\n")}
-              preLine
-            />
+            <Detail label="Other dates" value={otherDates(record.secondaryDates)} preLine />
           )}
         </div>
         {record.locations && record.locations.length > 0 && (
@@ -206,8 +214,12 @@ export default function PortalProjectView({
   const isCollaborator = viewerRole === "collaborator";
   const clientLabel = CLIENT_STATUS_CLIENT_LABEL[record.status as ClientStatus] ?? "In progress";
   // Before a proposal, the plan isn't settled yet: the page shows the next
-  // step and the messages, not the plan.
-  const proposed = statusRank(record.status) >= statusRank("proposal-sent");
+  // step and the messages, not the plan. A closed project goes by the last
+  // stage it reached, as the tracker does.
+  const proposed = statusRank(lastOpenStatus(stage)) >= statusRank("proposal-sent");
+  const plan = proposed ? record.planSummary?.trim() : undefined;
+  const hasDates = !!record.secondaryDates?.length;
+  const hasLocations = !!record.locations?.length;
   const shown = (record.documents ?? []).filter((d) => !isCollaborator || d.type !== "timeline");
   const answerGroups = record.questionnaireSnapshot
     ? buildAnswerGroups(record.serviceType, record.questionnaireSnapshot)
@@ -254,7 +266,7 @@ export default function PortalProjectView({
       )}
 
       <div className="mt-8 max-w-4xl space-y-10">
-        {!isCollaborator && next && <NextStepCard step={next} />}
+        {!isCollaborator && next && <NextStepCard step={next} preview={preview} />}
 
         <StageTracker project={stage} />
 
@@ -301,25 +313,24 @@ export default function PortalProjectView({
           </section>
         )}
 
-        {(facts.length > 0 || (proposed && record.planSummary)) && !isCollaborator && (
+        {(facts.length > 0 || plan || hasDates || hasLocations) && !isCollaborator && (
           <section aria-labelledby="plan-heading">
             <h2 id="plan-heading" className="font-serif text-2xl">
-              {proposed && record.planSummary ? "Your plan" : "At a glance"}
+              {plan ? "Your plan" : "At a glance"}
             </h2>
-            {proposed && record.planSummary && (
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-foreground/90">
-                {record.planSummary}
-              </p>
+            {plan && (
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-foreground/90">{plan}</p>
             )}
-            {facts.length > 0 && (
+            {(facts.length > 0 || hasDates) && (
               <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {facts.map((f) => (
                   <Detail key={f.label} label={f.label} value={f.value} />
                 ))}
+                {hasDates && <Detail label="Other dates" value={otherDates(record.secondaryDates ?? [])} preLine />}
               </div>
             )}
             {paymentLine && <p className="mt-4 text-sm text-muted">{paymentLine}</p>}
-            {record.locations && record.locations.length > 0 && (
+            {hasLocations && record.locations && (
               <div className="mt-5">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Locations</div>
                 <ul className="mt-2 space-y-3">
@@ -337,14 +348,21 @@ export default function PortalProjectView({
         )}
 
         {isCollaborator ? (
-          answerGroups && answerGroups.length > 0 ? (
-            <QuestionnaireCallout groups={answerGroups} defaultOpen title="Planning details" />
-          ) : (
-            <p className="text-sm text-muted">
-              The client hasn&rsquo;t sent their planning questionnaire yet. Their answers about the shoot
-              appear here once they do.
-            </p>
-          )
+          <section aria-labelledby="planning-heading">
+            <h2 id="planning-heading" className="font-serif text-2xl">
+              Planning details
+            </h2>
+            <div className="mt-4">
+              {answerGroups && answerGroups.length > 0 ? (
+                <QuestionnaireCallout groups={answerGroups} defaultOpen title="The client's answers" />
+              ) : (
+                <p className="text-sm text-muted">
+                  The client hasn&rsquo;t sent their planning questionnaire yet. Their answers about the shoot
+                  appear here once they do.
+                </p>
+              )}
+            </div>
+          </section>
         ) : (
           questionnaireUrl && (
             <QuestionnaireCallout

@@ -10,13 +10,10 @@ import { listProjectMessages } from "@/lib/messages";
 import { getSiteSettings } from "@/lib/content";
 import { heldUntil } from "@/lib/email/send-effects";
 import { studioToday } from "@/lib/field-format";
-import { projectLinks } from "@/lib/project-links";
+import { planningCallFor, projectLinks } from "@/lib/project-links";
 import { clientNextStep } from "@/lib/next-step";
 import { aiEnabled } from "@/lib/ai/ai";
 import type { PaymentMethod } from "@/lib/labels";
-
-// Services whose planning call is the wedding timeline call.
-const TIMELINE_CALL_SERVICES = new Set(["weddings", "wedding-films"]);
 
 export async function clientViewProps(record: ClientRecordSafe, viewerRole: PortalViewerRole) {
   const today = studioToday();
@@ -33,17 +30,15 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
   const paymentLine = record.paymentMethod
     ? settings.paymentInstructions[record.paymentMethod as PaymentMethod]
     : undefined;
-  const timelineCall = TIMELINE_CALL_SERVICES.has(record.serviceType ?? "")
-    ? settings.calls.weddingTimelineCall.url
-    : settings.calls.planningCall.url;
+  const stage = facts.get(record.id) ?? { status: record.status };
   const next =
     viewerRole === "owner"
-      ? clientNextStep(record, {
+      ? clientNextStep({ ...record, statusHistory: stage.statusHistory }, {
           today,
           holdUntil: hold?.until,
           questionnaireUrl: links.questionnaireUrl,
           discoveryCallUrl: settings.calls.discoveryCall.url,
-          timelineCallUrl: timelineCall,
+          planningCall: planningCallFor(record.serviceType, settings.calls),
           reviewUrl: settings.googleProfileUrl,
           paymentLine,
         })
@@ -52,7 +47,7 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
     record,
     viewerRole,
     messages,
-    stage: facts.get(record.id) ?? { status: record.status },
+    stage,
     next,
     holdUntil: hold?.until,
     paymentLine,

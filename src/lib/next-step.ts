@@ -570,6 +570,8 @@ export type ClientStepProject = {
   eventDate?: string;
   questionnaireSnapshot?: string;
   documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
+  // The statuses it has held (listStageFacts lets only these out of the log).
+  statusHistory?: { status?: string }[];
 };
 
 export type ClientStepContext = {
@@ -579,7 +581,9 @@ export type ClientStepContext = {
   // The service's planning questionnaire, prefilled; unset when it has none.
   questionnaireUrl?: string;
   discoveryCallUrl?: string;
-  timelineCallUrl?: string;
+  // The call that plans the shoot (planningCallFor): the timeline call for a
+  // wedding, the planning call otherwise.
+  planningCall?: { kind: "timeline" | "planning"; url: string };
   reviewUrl?: string;
   // How to pay with the method chosen.
   paymentLine?: string;
@@ -589,10 +593,17 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
   const status = p.status as ClientStatus | undefined;
   if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) return undefined;
   const { today } = ctx;
+  const docs = p.documents ?? [];
   // Julian's own entry of a kind, the newest (a client's upload never stands in).
-  const own = (type: string) =>
-    (p.documents ?? []).filter((d) => d.type === type && d.uploadedBy !== "client" && d.url).at(-1);
+  const own = (type: string) => docs.filter((d) => d.type === type && d.uploadedBy !== "client" && d.url).at(-1);
   const link = (label: string, url?: string) => (url ? { label, href: url, external: true } : undefined);
+  // When an invoice is due, as the owner's step words it.
+  const dueLine = (what: string, dueAt?: string) =>
+    dueAt && DAY.test(dueAt)
+      ? dueAt < today
+        ? `${what} was due ${formatHumanDate(dueAt)}.`
+        : `${what} is due ${dueAt === today ? "today" : formatHumanDate(dueAt)}.`
+      : undefined;
   const invoice = openInvoice(p, today);
   const invoiceLink = invoice?.url ? { label: "Pay the invoice", href: invoice.url, external: true } : undefined;
   const shoot = eventDay(p.eventDate);
@@ -603,6 +614,42 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         action: link("View your highlights", own("highlights")?.url),
       }
     : { title: "I'm editing your photos", detail: "Your gallery comes next. I'll email you the moment it's ready." };
+
+  // Reserving the date, read as the owner's step reads it: Julian's invoices
+  // in the order he added them, the first unpaid one the retainer, and the
+  // date reserved once one is paid (a balance invoice left open belongs to
+  // delivery).
+  const invoices = docs.filter((d) => d.type === "invoice" && d.uploadedBy !== "client");
+  const retainerPaid = invoices.some((d) => d.paidAt);
+  const reserving = (): ClientStep => {
+    const contract = own("contract");
+    if (!contract) {
+      return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
+    }
+    if (retainerPaid) {
+      return {
+        title: "Your retainer is in",
+        detail: "Thank you. Your booking confirmation is on its way.",
+        action: link("View your contract", contract.url),
+      };
+    }
+    const retainer = invoices.find((d) => !d.paidAt);
+    return {
+      title: "Sign your contract and pay the retainer",
+      detail: [dueLine("The retainer", retainer?.dueAt), ctx.paymentLine, "Your date is reserved once both are in."]
+        .filter(Boolean)
+        .join(" "),
+      action: link("Sign the contract", contract.url),
+      secondary: link("Pay the retainer", retainer?.url),
+    };
+  };
+  // A project moved past Booked before the booking was done (the client's
+  // questionnaire moves a booked project to Planning): while Julian's
+  // contract and an invoice are on it, none is paid, and it never reached
+  // Booked (the booking welcome moves it there), signing and paying still
+  // come first.
+  const reached = new Set((p.statusHistory ?? []).map((h) => h.status));
+  const unreserved = !!own("contract") && invoices.length > 0 && !retainerPaid && !reached.has("contract-signed");
 
   switch (status) {
     case undefined:
@@ -626,28 +673,22 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         : { title: "Your proposal is on its way", detail: held };
     }
 
-    case "booked": {
-      if (!own("contract")) {
-        return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
-      }
-      const due = invoice?.dueAt && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueAt) ? `The retainer is due ${formatHumanDate(invoice.dueAt)}.` : undefined;
+    case "booked":
+      return reserving();
+
+    case "contract-signed": {
+      // Only a service with a questionnaire gets one.
+      const later = ctx.questionnaireUrl
+        ? "I'll send your planning questionnaire closer to the day."
+        : "I'll be in touch to plan closer to the day.";
       return {
-        title: "Sign your contract and pay the retainer",
-        detail: [due, ctx.paymentLine, "Your date is reserved once both are in."].filter(Boolean).join(" "),
-        action: link("Sign the contract", own("contract")?.url),
-        secondary: invoiceLink ? { ...invoiceLink, label: "Pay the retainer" } : undefined,
+        title: "You're booked",
+        detail: shoot ? `${formatHumanDate(shoot)} is yours. ${later}` : `Your date is yours. ${later}`,
       };
     }
 
-    case "contract-signed":
-      return {
-        title: "You're booked",
-        detail: shoot
-          ? `${formatHumanDate(shoot)} is yours. I'll send your planning questionnaire closer to the day.`
-          : "Your date is yours. I'll send your planning questionnaire closer to the day.",
-      };
-
-    case "planning":
+    case "planning": {
+      if (unreserved) return reserving();
       if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Fill in your planning questionnaire",
@@ -655,15 +696,36 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
           action: { label: "Open the questionnaire", href: ctx.questionnaireUrl },
         };
       }
-      return ctx.timelineCallUrl
-        ? {
-            title: "Book your timeline call",
-            detail: "We'll walk through the day together and set the timeline.",
-            action: link("Pick a time", ctx.timelineCallUrl),
-          }
-        : { title: "Thanks for your answers", detail: "I'll send your timeline soon." };
+      const timeline = own("timeline");
+      if (timeline) {
+        return {
+          title: "Your timeline is ready",
+          detail: "Have a look, and write to me here with anything to change.",
+          action: link("View your timeline", timeline.url),
+        };
+      }
+      const call = ctx.planningCall;
+      if (call?.url) {
+        return call.kind === "timeline"
+          ? {
+              title: "Book your timeline call",
+              detail: "We'll walk through the day together and set the timeline.",
+              action: link("Pick a time", call.url),
+            }
+          : {
+              title: "Book your planning call",
+              detail: "We'll go over your plans together before the shoot.",
+              action: link("Pick a time", call.url),
+            };
+      }
+      return ctx.questionnaireUrl
+        ? { title: "Thanks for your answers", detail: "I'll send your timeline soon." }
+        : { title: "Your timeline is on its way", detail: "I'll send it before the shoot." };
+    }
 
     case "scheduled": {
+      // Until the shoot, a booking left undone comes first.
+      if (unreserved && (!shoot || daysBetween(today, shoot) >= 0)) return reserving();
       if (shoot) {
         const days = daysBetween(today, shoot);
         if (days < 0) return editing;

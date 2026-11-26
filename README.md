@@ -48,7 +48,7 @@ src/
 │   ├── ui/                    # Generic primitives — Button, Panel, CalloutCard, RailCard, SubNav + fields/ form controls
 │   ├── forms/                 # Inquiry + questionnaire forms (questionnaire/ renderer internals), new-project forms
 │   ├── admin/                 # Owner-dashboard pieces; admin/ai/ holds the AI drafting tools
-│   ├── portal/                # Client-portal pieces (edit form, uploads, status timeline)
+│   ├── portal/                # Client-portal pieces (project view, edit form, uploads, questionnaire callout)
 │   └── marketing/             # Public site chrome + content — Nav (nav/ menu internals), Footer, galleries, concierge
 ├── lib/                       # Data/content modules flat; cross-cutting clusters grouped
 │   ├── content.ts             # Runtime content getters: Sanity first, hard-coded fallbacks
@@ -413,7 +413,10 @@ place). Both are fire-and-forget and
 - **Privacy boundary:** the app reaches the table only through
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
 the client projection — `internal_notes`, the budget, status history, and
-inquiry context are never selected, so they can't reach a client. The
+inquiry context are never selected, so they can't reach a client. The stage
+tracker's facts come from `listStageFacts`, which reads the status history
+and the calls on the server and returns only the statuses, the discovery
+call's held date and the kinds of links on the project. The
 questionnaire answers are held out of the project list and added on a single
 project's page: the client's own in full, and for a second photographer only
 the ones about the shoot. A second photographer with read access gets a

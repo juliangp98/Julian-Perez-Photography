@@ -26,11 +26,14 @@ export type SessionClaims = { email: string };
 // A magic link may also carry the portal page to open after signing in.
 export type MagicClaims = SessionClaims & { next?: string };
 
-// A portal page to return to after signing in: a path under /portal/ made of
-// plain path characters (no query, no other host, no going up), or nothing.
+// A portal page to return to after signing in: the projects list or one
+// project's page, by its id (no query, no other host, and none of the
+// portal's routes that aren't pages, like sign-out), or nothing.
 export function portalReturnPath(path: unknown): string | undefined {
-  if (typeof path !== "string" || path.length > 200) return undefined;
-  return /^\/portal\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(path) ? path : undefined;
+  if (typeof path !== "string") return undefined;
+  return /^\/portal\/(dashboard|projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(path)
+    ? path
+    : undefined;
 }
 
 function secretKey(): Uint8Array {

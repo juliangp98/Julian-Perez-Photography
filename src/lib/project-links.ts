@@ -47,6 +47,21 @@ export function openInvoice<D extends { type?: string; uploadedBy?: string; dueA
   return overdue ?? unpaid.find((d) => !isDay(d)) ?? dated[0];
 }
 
+// The call that plans the shoot once the questionnaire is in: the wedding
+// timeline call for a wedding or its film, the planning call for every other
+// service. The client's next step and the questionnaire's thank-you page both
+// offer this one.
+const TIMELINE_CALL_SERVICES = new Set(["weddings", "wedding-films"]);
+
+export function planningCallFor<C extends { label: string; url: string }>(
+  service: string | undefined,
+  calls: { planningCall: C; weddingTimelineCall: C },
+): C & { kind: "timeline" | "planning" } {
+  return TIMELINE_CALL_SERVICES.has(service ?? "")
+    ? { ...calls.weddingTimelineCall, kind: "timeline" }
+    : { ...calls.planningCall, kind: "planning" };
+}
+
 export type ProjectLinks = {
   portalUrl: string;
   // Set when the service has a planning questionnaire. Prefilled with what's
