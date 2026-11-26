@@ -9,9 +9,8 @@ import {
   dayAgo,
   daysBetween,
   eventDay,
-  eventMonthYear,
-  formatEventDate,
   formatHumanDate,
+  settledEventDate,
   shiftDay,
   studioDayOf,
   weekdayOf,
@@ -777,7 +776,11 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
     case "new-inquiry":
     case "responded":
       return lead(
-        ctx.discoveryCallUrl
+        // Julian's proposal link on before the email that carries it (no
+        // call): it's ready.
+        own("proposal")
+          ? { title: "Your proposal is ready", action: link("View your proposal", own("proposal")?.url) }
+          : ctx.discoveryCallUrl
           ? {
               title: "Book a discovery call",
               detail:
@@ -819,9 +822,8 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
           ? `Your planning questionnaire is below whenever you're ready, and I'll remind you ${ahead}.`
           : `I'll be in touch to plan ${ahead}.`;
-      // The date as they gave it, or none claimed when there isn't one (text
-      // with no year, like "TBD", names nothing, as in the email tokens).
-      const named = eventMonthYear(p.eventDate) ? formatEventDate(p.eventDate) : "";
+      // The date when it's settled, or none claimed (a hedge or "TBD").
+      const named = settledEventDate(p.eventDate);
       return {
         title: "You're booked",
         detail: named ? `${named} is yours. ${later}` : `You're all set. ${later}`,

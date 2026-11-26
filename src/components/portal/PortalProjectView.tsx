@@ -17,7 +17,14 @@ import MessageThread from "@/components/messages/MessageThread";
 import PortalMessageBox from "@/components/messages/PortalMessageBox";
 import type { ClientRecordSafe, PortalViewerRole } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
-import { reachedStatus, shownLabel, statusRank, type StageProject } from "@/lib/client-status";
+import {
+  CLIENT_STATUS_TERMINAL,
+  reachedStatus,
+  shownLabel,
+  statusRank,
+  type ClientStatus,
+  type StageProject,
+} from "@/lib/client-status";
 import { formatEventDate, formatHumanDate } from "@/lib/field-format";
 import { DOCUMENT_TYPES, documentTypeLabel, invoiceState, paymentMethodLabel } from "@/lib/labels";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
@@ -77,6 +84,22 @@ function NextStepCard({ step, preview }: { step: ClientStep; preview: boolean })
         )}
       </Panel>
     </section>
+  );
+}
+
+// A project's places, each with its address and notes: the client's plan and
+// the call sheet show the same list.
+function LocationList({ locations }: { locations: NonNullable<ClientRecordSafe["locations"]> }) {
+  return (
+    <ul className="mt-2 space-y-3">
+      {locations.map((l, i) => (
+        <li key={i} className="text-sm">
+          {l.label && <div className="font-medium">{l.label}</div>}
+          {l.address && <div className="whitespace-pre-line text-muted">{l.address}</div>}
+          {l.notes && <div className="text-muted">{l.notes}</div>}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -161,15 +184,7 @@ function CallSheet({ record, dayOfContact }: { record: ClientRecordSafe; dayOfCo
         {record.locations && record.locations.length > 0 && (
           <div>
             <div className="text-xs uppercase tracking-[0.18em] text-muted">Where</div>
-            <ul className="mt-2 space-y-3">
-              {record.locations.map((l, i) => (
-                <li key={i} className="text-sm">
-                  {l.label && <div className="font-medium">{l.label}</div>}
-                  {l.address && <div className="whitespace-pre-line text-muted">{l.address}</div>}
-                  {l.notes && <div className="text-muted">{l.notes}</div>}
-                </li>
-              ))}
-            </ul>
+            <LocationList locations={record.locations} />
           </div>
         )}
         <div>
@@ -215,6 +230,10 @@ export default function PortalProjectView({
   const proposed = statusRank(reachedStatus(stage)) >= statusRank("proposal-sent");
   const plan = proposed ? record.planSummary?.trim() : undefined;
   const hasDates = !!record.secondaryDates?.length;
+  // Prompts to prepare (the questionnaire, setting up a service) stop once the
+  // project closed or the shoot is behind it.
+  const closed = CLIENT_STATUS_TERMINAL.includes(record.status as ClientStatus);
+  const preparing = !closed && statusRank(reachedStatus(stage)) < statusRank("shot");
   const hasLocations = !!record.locations?.length;
   const shown = (record.documents ?? []).filter(
     (d) => !(isCollaborator && d.type === "timeline" && d.uploadedBy !== "client"),
@@ -272,7 +291,7 @@ export default function PortalProjectView({
 
         {isCollaborator && <CallSheet record={record} dayOfContact={dayOfContact} />}
 
-        {!isCollaborator && inquireUrl && (
+        {!isCollaborator && inquireUrl && !closed && (
           <CalloutCard
             eyebrow="Tell me what you're planning"
             title="Set up your service"
@@ -333,15 +352,7 @@ export default function PortalProjectView({
             {hasLocations && record.locations && (
               <div className="mt-5">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted">Locations</div>
-                <ul className="mt-2 space-y-3">
-                  {record.locations.map((l, i) => (
-                    <li key={i} className="text-sm">
-                      {l.label && <div className="font-medium">{l.label}</div>}
-                      {l.address && <div className="whitespace-pre-line text-muted">{l.address}</div>}
-                      {l.notes && <div className="text-muted">{l.notes}</div>}
-                    </li>
-                  ))}
-                </ul>
+                <LocationList locations={record.locations} />
               </div>
             )}
           </section>
@@ -364,7 +375,8 @@ export default function PortalProjectView({
             </div>
           </section>
         ) : (
-          questionnaireUrl && (
+          questionnaireUrl &&
+          (submitted || preparing) && (
             <QuestionnaireCallout
               groups={answerGroups}
               description="Fill it out so I show up prepared. Your details here carry over, and anything you add goes straight back to this project."

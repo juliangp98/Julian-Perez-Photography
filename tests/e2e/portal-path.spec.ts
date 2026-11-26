@@ -11,7 +11,7 @@ import {
 } from "../../src/lib/next-step";
 import { portalReturnPath } from "../../src/lib/auth";
 import { planningCallFor, thankYouCalls } from "../../src/lib/project-links";
-import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
+import { formatHumanDate, settledEventDate, shiftDay, studioToday } from "../../src/lib/field-format";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
   shootStage,
@@ -57,6 +57,11 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "I read every inquiry and reply myself.",
   });
   expect(step({ status: "in-conversation" })?.title).toBe("Your proposal is on its way");
+  // A proposal sent without a call: ready, not a call to book.
+  expect(step({ status: "responded", documents: [own("proposal")] })).toMatchObject({
+    title: "Your proposal is ready",
+    action: { label: "View your proposal" },
+  });
   // The proposal link on before the email that carries it: it's ready.
   expect(step({ status: "in-conversation", documents: [own("proposal")] })).toMatchObject({
     title: "Your proposal is ready",
@@ -160,6 +165,18 @@ test("client next step: one per stage, from booking the call to the review", () 
   );
   // Answers sent before the booking aren't asked for again.
   expect(step({ status: "contract-signed", questionnaireSnapshot: "{}" })?.detail).toBe(
+    "You're all set. I'll be in touch to plan closer to the day.",
+  );
+  // A date that's settled is named; a hedge isn't.
+  expect(settledEventDate("2027-06-12")).toBe("June 12, 2027");
+  expect(settledEventDate("fall 2027")).toBe("Fall 2027");
+  expect(settledEventDate("June 2027")).toBe("June 2027");
+  expect(settledEventDate("Nov 20-21, 2026")).toBe("Nov 20-21, 2026");
+  expect(settledEventDate("2027")).toBe("2027");
+  for (const hedge of ["TBD June 6, 2027", "June or July 2027", "sometime in 2027", "TBD", ""]) {
+    expect(settledEventDate(hedge), hedge).toBe("");
+  }
+  expect(step({ status: "contract-signed", eventDate: "TBD June 6, 2027" }, ctx({ questionnaireUrl: undefined }))?.detail).toBe(
     "You're all set. I'll be in touch to plan closer to the day.",
   );
   // Text with no year names no date.
@@ -403,6 +420,9 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
   const glance = page.getByRole("region", { name: "At a glance" });
   await expect(glance).toContainText("Rehearsal dinner: June 11, 2027");
   await expect(glance).toContainText("Stone Barn");
+  // The questionnaire is there to fill in before the shoot.
+  const questionnaire = page.getByRole("heading", { name: "Your planning questionnaire" });
+  await expect(questionnaire).toBeVisible();
 
   const hold = shiftDay(studioToday(), { days: 9 });
   await patchProject(p.id, {
@@ -450,6 +470,8 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
   await expect(next).toContainText("I'm editing your photos");
   await expect(page.getByText(CLIENT_STATUS_CLIENT_LABEL.shot, { exact: true })).toBeVisible();
   await expect(page.getByText(/^Step \d+ of \d+: Editing$/)).toBeVisible();
+  // Nothing left to prepare: no questionnaire prompt.
+  await expect(questionnaire).toHaveCount(0);
 });
 
 test("sign-in returns to the page the client was sent from, and one project opens straight away", async ({

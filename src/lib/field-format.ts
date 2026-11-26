@@ -254,6 +254,23 @@ export function formatEventDate(d?: string | null, opts: { month?: "long" | "sho
   return formatHumanDate(eventDay(d), opts) || (d ?? "").trim();
 }
 
+// An event date to name as settled ("June 6, 2026 is yours"): one day
+// written out, or text that is only a year, a month or season and a year
+// ("Fall 2027"), or a run of days in one month ("Nov 20-21, 2026"). A hedge
+// ("TBD June 6, 2027", "June or July 2027") or text with no year gives "".
+export function settledEventDate(d?: string | null): string {
+  const day = eventDay(d);
+  if (day) return formatHumanDate(day);
+  const text = tidyEventText(d);
+  const ord = "(?:st|nd|rd|th)?";
+  const named = (word: string) => monthNumber(word) > 0 || /^(spring|summer|fall|autumn|winter)$/i.test(word);
+  const monthYear = text.match(/^([a-z]+\.?),? \d{4}$/i);
+  const run = text.match(new RegExp(`^([a-z]+\\.?) \\d{1,2}${ord} ?[-–] ?\\d{1,2}${ord},? \\d{4}$`, "i"));
+  const settled =
+    /^\d{4}$/.test(text) || (!!monthYear && named(monthYear[1])) || (!!run && monthNumber(run[1]) > 0);
+  return settled ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+}
+
 // The month and year an event date names, for search: a day gives both, as
 // does "June 2027"; text with one four-digit year ("Fall 2027", "Nov 20-21,
 // 2026") gives the year alone. Null when no year can be told.

@@ -385,7 +385,7 @@ client's one next step with a button that does it (`clientNextStep` in
 `src/lib/next-step.ts`), the same stage tracker the admin page shows, links and
 files by kind (the proposal, contract, invoice, highlights and gallery links
 Julian adds, plus anything the client uploads), the project's message thread
-(see "Client messages" below), the plan once proposed, how they're paying, the
+(see "Client messages" below), the plan once the project is at Proposal sent or later, how they're paying, the
 matching planning questionnaire prefilled with their details, limited edits
 and uploads. Signing in returns a client to the page they came from. A second
 photographer sees a call sheet instead, and Julian can open any project as its

@@ -35,7 +35,7 @@ import ProjectOverview from "@/components/admin/ProjectOverview";
 import StatusControl from "@/components/admin/StatusControl";
 import StageTracker from "@/components/ui/StageTracker";
 import CopyField from "@/components/ui/CopyField";
-import { buttonClass } from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
 import MessageThread from "@/components/messages/MessageThread";
@@ -217,9 +217,9 @@ export default async function AdminProjectDetailPage({
                 <ComposeLink href={`${page}?tab=messages#compose`} className={buttonClass("ghost", "sm")}>
                   Write email
                 </ComposeLink>
-                <Link href={`${page}/client`} className={buttonClass("ghost", "sm")}>
+                <Button href={`${page}/client`} variant="ghost" size="sm">
                   View as client
-                </Link>
+                </Button>
               </div>
             </Panel>
           </div>

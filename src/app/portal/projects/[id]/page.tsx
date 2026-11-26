@@ -7,9 +7,10 @@ import { clientViewProps } from "@/lib/portal-view";
 import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
 import PortalProjectView from "@/components/portal/PortalProjectView";
 
-// One project view. Renders ONLY the client-safe projection and is gated to the
+// One project view: the client-safe projection (or a second photographer's
+// narrower one), plus the stage facts listStageFacts lets out, gated to the
 // signed-in person's email (getProjectForViewer), so a client can never open a
-// project id that isn't theirs. A second photographer gets a narrower read.
+// project id that isn't theirs.
 export const metadata: Metadata = {
   title: "Your project",
   robots: { index: false, follow: false },
