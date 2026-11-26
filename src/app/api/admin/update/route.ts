@@ -42,6 +42,7 @@ import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
 import { applySendEffects } from "@/lib/email/apply-send";
+import { RECAP_FOLLOW_UP_NOTE } from "@/lib/email/send-effects";
 import { notedAsSent } from "@/lib/next-step";
 
 const TEMPLATE_IDS = EMAIL_TEMPLATES.map((t) => t.id) as [string, ...string[]];
@@ -224,7 +225,7 @@ export const POST = defineRoute({
               await setFollowUp(
                 id,
                 shiftDay(studioToday(), { days: 1 }),
-                "Send the recap and proposal",
+                RECAP_FOLLOW_UP_NOTE,
               );
               recapFollowUp = true;
             }

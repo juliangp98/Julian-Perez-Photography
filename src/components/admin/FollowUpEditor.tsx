@@ -76,18 +76,20 @@ export default function FollowUpEditor({
           },
         }),
       });
+      // The refresh brings a different day only when this page still showed
+      // the one the change was made against, or the change moved the day.
       if (res.status === 409) {
         setError(CHANGED);
         setState("error");
         setEditing(false);
-        setOwnChange(true);
+        setOwnChange(against === (at ?? null));
         router.refresh();
         return;
       }
       if (!res.ok) throw new Error("save failed");
       setState("ok");
       setEditing(false);
-      setOwnChange(true);
+      setOwnChange(next !== (at ?? null));
       router.refresh();
     } catch {
       setError("Couldn't save the follow-up. Try again.");

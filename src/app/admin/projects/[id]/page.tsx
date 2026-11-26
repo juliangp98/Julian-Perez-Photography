@@ -158,7 +158,8 @@ export default async function AdminProjectDetailPage({
 
   const page = record ? `/admin/projects/${record.id}` : "";
   // Each hand-off opens Compose afresh; the same address opens the same one.
-  // With none ("|", NO_HANDOFF), it shows the email being written.
+  // With none ("|", NO_HANDOFF), it shows the email being written, as does a
+  // hand-off to the template that email was started on (compose-draft.ts).
   const composeKey = `${compose ?? ""}|${doc ?? ""}`;
   const venue = record?.locations?.[0]?.label || record?.locations?.[0]?.address;
   const facts = record

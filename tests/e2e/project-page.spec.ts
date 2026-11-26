@@ -113,6 +113,11 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "responded", calls: { discovery: { notes: "Loves the vineyard." } } }).title).toBe(
     "Save the call summary",
   );
+  // Set to In conversation by hand with notes from a call not yet summarized:
+  // the summary first, then the recap.
+  expect(next({ status: "in-conversation", documents: [own("proposal")], calls: { discovery: { notes: "Vineyard." } } }).title).toBe(
+    "Save the call summary",
+  );
   // A call already held (set back to Responded by hand) goes on to the proposal.
   expect(
     next({ status: "responded", calls: { discovery: { notes: "Loves the vineyard.", heldAt: "2026-11-20T15:00:00Z" } } })
@@ -178,15 +183,12 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "proposal-sent", holdUntil: "2026-11-20", followUpAt: "2026-11-27" }, proposed).title).toBe(
     "The date hold ended",
   );
+  // The page reads the hold's Today row, as Today does: a follow-up sent from
+  // Compose after the hold ended marks it (see the store-backed test below);
+  // one only known from the thread doesn't settle it on either.
   expect(
     next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-22")).title,
-  ).toBe("Waiting on Avery's answer");
-  expect(
-    next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-10")).title,
   ).toBe("The date hold ended");
-  expect(
-    next({ status: "proposal-sent", holdUntil: "2026-11-20" }, sent("proposal", "proposal-follow-up@2026-11-20")).title,
-  ).toBe("Waiting on Avery's answer");
   expect(
     next({ status: "proposal-sent", holdUntil: "2026-11-20", todayDismissed: { "hold:2026-11-20": "handled" } }, proposed)
       .title,

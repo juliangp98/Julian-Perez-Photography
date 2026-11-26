@@ -207,6 +207,14 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
+  // Notes typed on the Call tab and the summary not saved yet.
+  const typed = !!call?.notes?.trim() || Object.values(call?.answers ?? {}).some((a) => a.trim());
+  const saveSummary: NextStep = {
+    title: "Save the call summary",
+    detail: "Your call notes are in. Summarize them, and the recap follows.",
+    action: { label: "Open the call", href: tab("call") },
+  };
+
   // The proposal's link, then the email that carries it: the recap after a
   // held call, or the proposal without one.
   const sendProposal = (): NextStep => {
@@ -248,14 +256,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     case "responded": {
       // A call already held (its summary saved) is past: the proposal comes next.
       if (callHeld) return sendProposal();
-      const typed = !!call?.notes?.trim() || Object.values(call?.answers ?? {}).some((a) => a.trim());
-      if (typed) {
-        return {
-          title: "Save the call summary",
-          detail: "Your call notes are in. Summarize them, and the recap follows.",
-          action: { label: "Open the call", href: tab("call") },
-        };
-      }
+      if (typed) return saveSummary;
       // The inquiry reply carries the call link too.
       if (sent.has("discovery-invite") || sent.has("inquiry-reply")) {
         return {
@@ -271,7 +272,8 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "in-conversation":
-      return sendProposal();
+      // Notes from a call not yet summarized: the recap comes from the summary.
+      return !callHeld && typed ? saveSummary : sendProposal();
 
     case "proposal-sent": {
       // The contract went another way and the retainer is in: they're booked
@@ -291,14 +293,13 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       }
       // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
       if (!sent.has("discovery-recap") && !sent.has("proposal")) return sendProposal();
-      // A hold that ran out, until it's followed up after it ended or marked
-      // handled on Today.
-      const followedUp = (sent.get("proposal-follow-up") ?? "") >= (p.holdUntil ?? "");
+      // A hold that ran out, until its Today row is settled: marked handled
+      // or snoozed there or here, or by a follow-up sent after it ended (the
+      // send marks the row), so the page and Today read the same mark.
       if (
         p.holdUntil &&
         DAY.test(p.holdUntil) &&
         p.holdUntil < today &&
-        !followedUp &&
         !hiddenByMark(p.todayDismissed?.[`hold:${p.holdUntil}`], today)
       ) {
         return {

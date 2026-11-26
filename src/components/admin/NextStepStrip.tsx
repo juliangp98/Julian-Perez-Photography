@@ -1,7 +1,7 @@
 // The one next step on a project (ownerNextStep in src/lib/next-step.ts), with
 // its one button. A step that hands off to Compose opens it through
 // ComposeLink, so the panel comes into view. One that sends a stage email
-// also offers Already sent, and one about a client's message Mark handled,
+// also offers Already sent, and one the Today list shows too Mark handled,
 // for work done outside the site (StepSettled).
 
 import Panel from "@/components/ui/Panel";

@@ -27,6 +27,7 @@ export type SendMoved = {
   followUpAt?: string;
   followUpNote?: string;
   holdUntil?: string;
+  followUpCleared?: boolean;
 };
 export type SendNotMoved = "status" | "hold" | "followUp";
 
@@ -61,7 +62,7 @@ export async function applySendEffects(
     return { moved, notMoved: ["status", "hold", "followUp"] };
   }
 
-  const { closeAs, advanceTo, hold, followUp } = plan;
+  const { closeAs, advanceTo, hold, followUp, clearFollowUp } = plan;
   if (closeAs) {
     await step("status", async () => {
       if (await closeProject(record.id, closeAs, note)) moved.status = closeAs;
@@ -83,6 +84,12 @@ export async function applySendEffects(
       await setFollowUp(record.id, followUp.at, followUp.note);
       moved.followUpAt = followUp.at;
       moved.followUpNote = followUp.note;
+    });
+  }
+  if (clearFollowUp) {
+    await step("followUp", async () => {
+      await setFollowUp(record.id, null);
+      moved.followUpCleared = true;
     });
   }
   // A follow-up on the proposal once its date hold ran out settles the Today

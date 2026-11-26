@@ -39,6 +39,7 @@ function effectsLine(plan?: SendEffectsPlan): string {
   if (plan.followUp) {
     parts.push(`sets a follow-up for ${formatHumanDate(plan.followUp.at)}`);
   }
+  if (plan.clearFollowUp) parts.push("clears the follow-up it settles");
   return parts.length ? `Sending this ${listOf(parts)}.` : "";
 }
 
@@ -47,6 +48,7 @@ type Moved = {
   followUpAt?: string;
   followUpNote?: string;
   holdUntil?: string;
+  followUpCleared?: boolean;
 };
 
 // What the send changed, in a line after "Sent to the client."
@@ -58,6 +60,7 @@ function movedLine(moved?: Moved): string {
   if (moved.followUpAt) {
     parts.push(`Follow-up on ${formatHumanDate(moved.followUpAt)}: ${moved.followUpNote}.`);
   }
+  if (moved.followUpCleared) parts.push("Follow-up cleared.");
   return parts.join(" ");
 }
 

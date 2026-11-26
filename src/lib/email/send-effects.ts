@@ -3,7 +3,7 @@
 // the Compose panel's tokens and the specs all work from the same rules; the
 // route applies the plan once the email has gone.
 
-import type { EmailTemplate } from "./email-pipeline";
+import { EMAIL_TEMPLATES, type EmailTemplate } from "./email-pipeline";
 import {
   CLIENT_STATUS_TERMINAL,
   statusRank,
@@ -16,7 +16,19 @@ export type SendEffectsProject = {
   status?: string;
   eventDate?: string;
   holdUntil?: string;
+  followUpAt?: string;
+  followUpNote?: string;
 };
+
+// The follow-up the call summary's first save sets.
+export const RECAP_FOLLOW_UP_NOTE = "Send the recap and proposal";
+
+// The notes of the follow-ups the pipeline sets itself, so a template that
+// settles them can tell them from one set by hand.
+const PIPELINE_FOLLOW_UPS = new Set([
+  RECAP_FOLLOW_UP_NOTE,
+  ...EMAIL_TEMPLATES.flatMap((t) => (t.followUp ? [t.followUp.note] : [])),
+]);
 
 export type SendEffectsPlan = {
   // Move the project forward to this status.
@@ -25,6 +37,8 @@ export type SendEffectsPlan = {
   closeAs?: ClientStatus;
   // Set the next follow-up.
   followUp?: { at: string; note: string };
+  // Clear the follow-up an earlier stage set.
+  clearFollowUp?: boolean;
   // Start a date hold running to this day.
   hold?: string;
 };
@@ -104,6 +118,15 @@ export function planSendEffects(
         ? shiftDay(today, { days: f.days })
         : shiftDay(project.eventDate ?? "", { months: f.monthsAfterEvent });
     if (at && at >= today) plan.followUp = { at, note: f.note };
+  }
+
+  if (
+    template.settlesFollowUp &&
+    !plan.followUp &&
+    project.followUpAt &&
+    PIPELINE_FOLLOW_UPS.has(project.followUpNote ?? "")
+  ) {
+    plan.clearFollowUp = true;
   }
 
   return plan;

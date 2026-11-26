@@ -4,7 +4,8 @@
 // hand-off it was opened on (the template and link in the address).
 // Switching tabs on the project page unmounts the panel; the Messages tab, or
 // the same hand-off again (by a link or the back button), shows the email as
-// it was left. A hand-off to something else opens afresh.
+// it was left. A hand-off to something else opens afresh, except one to the
+// template an email was started on from the Messages tab, which shows it.
 
 export type ComposeDraftState = {
   templateId: string;

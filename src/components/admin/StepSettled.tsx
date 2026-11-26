@@ -2,8 +2,9 @@
 
 // Beside the project's next step, for work done outside the site: Already
 // sent (a stage email written from Gmail, say), which notes it in the log and
-// moves the project on as sending it would, or Mark handled (a client's
-// message answered another way), which marks the Today row it shares. It
+// moves the project on as sending it would, or Mark handled (a step the Today
+// list shows too: a client's message answered another way, a date hold that
+// ran out), which marks the row they share. It
 // lives as long as the project's page, so its confirmation stays on screen
 // when the next step it brings in has no such button.
 
@@ -22,7 +23,7 @@ export default function StepSettled({
   projectId: string;
   // The template sent another way.
   sent?: string;
-  // The Today row key of the message answered another way.
+  // The Today row key the step shares.
   handled?: string;
 }) {
   const router = useRouter();

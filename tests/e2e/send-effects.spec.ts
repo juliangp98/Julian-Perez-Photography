@@ -23,6 +23,20 @@ test("an inquiry reply moves a new inquiry on and sets a follow-up three days ou
   });
 });
 
+test("the booking welcome settles an earlier stage's follow-up, never one set by hand", () => {
+  expect(
+    plan("booking-welcome", { status: "proposal-sent", followUpAt: "2026-12-01", followUpNote: "Follow up on the proposal" }),
+  ).toEqual({ advanceTo: "contract-signed", clearFollowUp: true });
+  expect(
+    plan("booking-welcome", { status: "booked", followUpAt: "2026-12-01", followUpNote: "Send the recap and proposal" })
+      .clearFollowUp,
+  ).toBe(true);
+  expect(
+    plan("booking-welcome", { status: "booked", followUpAt: "2026-12-01", followUpNote: "Ask about the album" }).clearFollowUp,
+  ).toBeUndefined();
+  expect(plan("booking-welcome", { status: "booked" }).clearFollowUp).toBeUndefined();
+});
+
 test("a status only moves forward, and a closed project stays closed", () => {
   expect(plan("inquiry-reply", { status: "proposal-sent" }).advanceTo).toBeUndefined();
   expect(plan("proposal", { status: "lost" })).toEqual({
