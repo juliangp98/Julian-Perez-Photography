@@ -125,12 +125,12 @@ test("client next step: one per stage, from booking the call to the review", () 
 
   expect(step({ status: "contract-signed", eventDate: "2027-06-12" })).toEqual({
     title: "You're booked",
-    detail: "June 12, 2027 is yours. I'll send your planning questionnaire closer to the day.",
+    detail: "June 12, 2027 is yours. Your planning questionnaire is below whenever you're ready, and I'll remind you closer to the day.",
   });
   // Inside the two months before the shoot the questionnaire is due soon,
   // and the week of it, the step is the shoot itself.
   expect(step({ status: "contract-signed", eventDate: "2026-12-20" })?.detail).toBe(
-    "December 20, 2026 is yours. I'll send your planning questionnaire soon.",
+    "December 20, 2026 is yours. Your planning questionnaire is below whenever you're ready, and I'll remind you soon.",
   );
   expect(step({ status: "contract-signed", eventDate: "2026-11-26" })?.title).toBe("Your shoot is tomorrow");
   expect(step({ status: "planning", eventDate: "2026-11-26", questionnaireSnapshot: "{}" })?.title).toBe(
@@ -234,6 +234,10 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(shootPassed({ status: "planning", eventDate: "June 6-7, 2027" }, TODAY)).toBe(false);
   expect(shownStatus({ status: "planning", shot: true })).toBe("shot");
   expect(stageLine({ status: "planning", shot: true })).toMatch(/: Editing$/);
+  // A date still being reserved reads first for the client; a second
+  // photographer goes by the shoot date alone.
+  expect(shownStatus({ status: "planning", reserving: true, shot: true })).toBe("booked");
+  expect(stageLine(shootStage({ status: "planning", reserving: true, shot: true }))).toMatch(/: Editing$/);
 
   // The shoot, said by how soon it is.
   expect(step({ status: "scheduled", eventDate: "2026-11-25" })?.title).toBe("Your shoot is today");
@@ -389,6 +393,7 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
 test("sign-in returns to the page the client was sent from, and one project opens straight away", async ({
   adminRequest,
   page,
+  fakes,
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
   // Two projects, so a sign-in that lost the page would land on their list.
@@ -408,17 +413,22 @@ test("sign-in returns to the page the client was sent from, and one project open
   await expect(page).toHaveURL(new RegExp(`/portal/projects/${p.id}$`));
 
   // Each request comes from its own address, so a rerun on a server still up
-  // stays under the sign-in limit, and a refused one fails here rather than
-  // reusing the last link.
+  // stays under the sign-in limit. The reply is the same whether or not a
+  // link went out, so each step waits for a new email rather than reusing
+  // the last link.
   let n = 0;
   const signInAs = async (email: string, data: Record<string, string> = {}) => {
     n += 1;
     await page.context().clearCookies();
+    const before = sentTo(await fakes.calls("resend"), email).length;
     const res = await page.request.post("/api/portal/request-link", {
       data: { email, hp_company: "", ...data },
       headers: { "x-forwarded-for": `10.250.${Math.floor(Math.random() * 250)}.${n}` },
     });
-    expect(res.status(), "the sign-in link was sent").toBe(200);
+    expect(res.status()).toBe(200);
+    await expect.poll(async () => sentTo(await fakes.calls("resend"), email).length, { message: "a new sign-in link" }).toBe(
+      before + 1,
+    );
     await page.goto(await magicLinkFor(email));
   };
 

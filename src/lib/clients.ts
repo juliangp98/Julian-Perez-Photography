@@ -518,8 +518,11 @@ export async function listStageFacts(
       statusHistory: (r.statusHistory ?? []).map((h) => ({ status: h.status })),
       calls: { discovery: { heldAt: r.calls?.discovery?.heldAt } },
       documents: (r.documents ?? []).map((d) => ({ type: d.type })),
+      // Both are set as they are; a date still being reserved reads first
+      // (shownStatus), and a second photographer, who isn't told how the
+      // booking stands, goes by the shoot date alone.
       reserving,
-      shot: !reserving && shootPassed(r, today),
+      shot: shootPassed(r, today),
     });
   }
   return facts;

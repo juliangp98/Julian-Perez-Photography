@@ -415,9 +415,10 @@ place). Both are fire-and-forget and
 the client projection — `internal_notes`, the budget, status history, and
 inquiry context are never selected, so they can't reach a client. The stage
 tracker's facts come from `listStageFacts`, which reads the status history,
-the calls and the emails sent on the server and returns only the statuses,
-the discovery call's held date, the kinds of links on the project and
-whether the date is still being reserved. The
+the event date and the calls on the server, with the emails sent that
+`portalStageFacts` reads and passes in, and returns only the statuses, the
+discovery call's held date, the kinds of links on the project, whether the
+date is still being reserved and whether the shoot is past. The
 questionnaire answers are held out of the project list and added on a single
 project's page: the client's own in full, and for a second photographer only
 the ones about the shoot. A second photographer with read access gets a

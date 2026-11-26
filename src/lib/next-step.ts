@@ -776,9 +776,10 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       // Only a service with a questionnaire gets one, and only once: answers
       // sent before the booking count. Inside the planning window it's due.
       const ahead = days === undefined || days > PLANNING_WINDOW_DAYS ? "closer to the day" : "soon";
+      // The questionnaire is on their page already (the callout below).
       const later =
         ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
-          ? `I'll send your planning questionnaire ${ahead}.`
+          ? `Your planning questionnaire is below whenever you're ready, and I'll remind you ${ahead}.`
           : `I'll be in touch to plan ${ahead}.`;
       return {
         title: "You're booked",
