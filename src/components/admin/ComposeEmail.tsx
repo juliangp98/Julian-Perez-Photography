@@ -262,7 +262,7 @@ export default function ComposeEmail({
         aria-label="Email template"
         className="text-sm"
       >
-        <option value="">Choose a template…</option>
+        <option value="">No template: write your own</option>
         {GROUPED_TEMPLATES.map((g) => (
           <optgroup key={g.stage} label={statusTitle(g.stage)}>
             {g.items.map((t) => (
@@ -274,99 +274,98 @@ export default function ComposeEmail({
         ))}
       </Select>
 
-      {templateId && (
-        <>
-          {aiEnabled && (
-            <div className="rounded-lg border border-border bg-white p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-medium">
-                  Personalize this with AI
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={draft}
-                  loading={status === "drafting"}
-                  loadingLabel="Drafting…"
-                >
-                  Draft with AI
-                </Button>
-              </div>
-              <input
-                value={instructions}
-                onChange={(e) => {
-                  setTouched(true);
-                  setInstructions(e.target.value);
-                }}
-                placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
-                aria-label="Extra instructions for the AI draft"
-                className={input}
-              />
-              <p className="text-xs text-muted">
-                Rewrites the template from this project&rsquo;s details in your
-                voice. It never sends. You always review and edit first.
+      {/* With no template, a plain email: a reply in the conversation. */}
+      <>
+        {templateId && aiEnabled && (
+          <div className="rounded-lg border border-border bg-white p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium">
+                Personalize this with AI
               </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={draft}
+                loading={status === "drafting"}
+                loadingLabel="Drafting…"
+              >
+                Draft with AI
+              </Button>
             </div>
-          )}
-          <input
-            value={subject}
-            onChange={(e) => {
-              setTouched(true);
-              setSubject(e.target.value);
-              newVersion();
-            }}
-            placeholder="Subject"
-            aria-label="Subject"
-            className={input}
-          />
-          <textarea
-            value={body}
-            onChange={(e) => {
-              setTouched(true);
-              setBody(e.target.value);
-              newVersion();
-            }}
-            rows={14}
-            aria-label="Email body"
-            className={`${input} font-sans leading-relaxed`}
-          />
-          {status === "drafted" && (
-            <p className="text-xs text-accent">
-              AI draft. Review and edit before sending.
-            </p>
-          )}
-          <p className="text-xs text-muted">
-            Fill in any <code>[bracketed]</code> bits before sending. It goes
-            to the client in your branded layout, you get a copy, and it joins
-            the thread above.
-          </p>
-          {effects && <p className="text-xs text-muted">{effects}</p>}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={send}
-              disabled={!hasEmail || !subject.trim() || !body.trim()}
-              loading={status === "sending"}
-              loadingLabel="Sending…"
-            >
-              Send to client
-            </Button>
-            <CopyButton text={`Subject: ${subject}\n\n${body}`} />
-            {!hasEmail && (
-              <span className="text-xs text-muted">
-                No email on file for this client.
-              </span>
-            )}
-            <FormStatus
-              state={status === "sent" ? "ok" : status}
-              ok={sentNote ? `Sent to the client. ${sentNote}` : "Sent to the client."}
-              error={message || "Something went wrong. Try again."}
+            <input
+              value={instructions}
+              onChange={(e) => {
+                setTouched(true);
+                setInstructions(e.target.value);
+              }}
+              placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
+              aria-label="Extra instructions for the AI draft"
+              className={input}
             />
-            {status === "sent" && notMovedNote && (
-              <FormStatus state="error" error={notMovedNote} className="basis-full" />
-            )}
+            <p className="text-xs text-muted">
+              Rewrites the template from this project&rsquo;s details in your
+              voice. It never sends. You always review and edit first.
+            </p>
           </div>
-        </>
-      )}
+        )}
+        <input
+          value={subject}
+          onChange={(e) => {
+            setTouched(true);
+            setSubject(e.target.value);
+            newVersion();
+          }}
+          placeholder="Subject"
+          aria-label="Subject"
+          className={input}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => {
+            setTouched(true);
+            setBody(e.target.value);
+            newVersion();
+          }}
+          rows={14}
+          aria-label="Email body"
+          className={`${input} font-sans leading-relaxed`}
+        />
+        {status === "drafted" && (
+          <p className="text-xs text-accent">
+            AI draft. Review and edit before sending.
+          </p>
+        )}
+        <p className="text-xs text-muted">
+          Fill in any <code>[bracketed]</code> bits before sending. It goes
+          to the client in your branded layout, you get a copy, and it joins
+          the thread above.
+        </p>
+        {effects && <p className="text-xs text-muted">{effects}</p>}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={send}
+            disabled={!hasEmail || !subject.trim() || !body.trim()}
+            loading={status === "sending"}
+            loadingLabel="Sending…"
+          >
+            Send to client
+          </Button>
+          <CopyButton text={`Subject: ${subject}\n\n${body}`} />
+          {!hasEmail && (
+            <span className="text-xs text-muted">
+              No email on file for this client.
+            </span>
+          )}
+          <FormStatus
+            state={status === "sent" ? "ok" : status}
+            ok={sentNote ? `Sent to the client. ${sentNote}` : "Sent to the client."}
+            error={message || "Something went wrong. Try again."}
+          />
+          {status === "sent" && notMovedNote && (
+            <FormStatus state="error" error={notMovedNote} className="basis-full" />
+          )}
+        </div>
+      </>
     </div>
   );
 }

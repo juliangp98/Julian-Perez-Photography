@@ -20,25 +20,18 @@ export default function NextStepStrip({ projectId, step }: { projectId: string; 
           <p className="mt-1 font-medium">{step.title}</p>
           {step.detail && <p className="mt-1 text-sm text-muted">{step.detail}</p>}
         </div>
-        {action && (
-          <div className="flex flex-wrap items-center gap-4">
-            {(step.once || step.handled) && (
-              <StepSettled
-                key={`${step.once ?? ""}|${step.handled ?? ""}`}
-                projectId={projectId}
-                sent={step.once}
-                handled={step.handled}
-              />
-            )}
-            {action.href.includes("#compose") ? (
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Keyed by the project, so a confirmation outlives the step it settled. */}
+          <StepSettled key={projectId} projectId={projectId} sent={step.once} handled={step.handled} />
+          {action &&
+            (action.href.includes("#compose") ? (
               <ComposeLink href={action.href} className={buttonClass("primary", "md")}>
                 {action.label}
               </ComposeLink>
             ) : (
               <Button href={action.href}>{action.label}</Button>
-            )}
-          </div>
-        )}
+            ))}
+        </div>
       </Panel>
     </section>
   );

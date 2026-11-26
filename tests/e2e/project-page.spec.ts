@@ -146,6 +146,18 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     next({ status: "proposal-sent", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action
       ?.href,
   ).toBe(compose("contract-deposit"));
+  // The retainer paid with a balance still open: they're booked.
+  expect(
+    next({
+      status: "proposal-sent",
+      documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" }), own("invoice", { dueAt: "2027-05-01" })],
+    }).action?.href,
+  ).toBe(compose("booking-welcome"));
+  // The contract added, the invoice still to come.
+  expect(next({ status: "proposal-sent", documents: [own("contract")] }, sent("proposal"))).toMatchObject({
+    title: "Waiting on Avery's answer",
+    action: { label: "Add the invoice", href: tab("links") },
+  });
   // A yes after the hold ran out still gets the contract. A follow-up sent on
   // or after the hold's last day, or the Today row marked handled or snoozed,
   // settles it; the proposal's own follow-up date doesn't.
@@ -343,7 +355,18 @@ test("next step: a closed project, a missing email, then an unanswered client co
   expect(
     next({ status: "lost", ...wrote, statusHistory: [{ status: "lost", changedAt: "2026-11-22T15:00:00Z" }] }).title,
   ).toBe("Answer Avery");
-  // A note added after the close isn't the close.
+  // A note added after the close isn't the close, nor an older note under the
+  // same status (no kind).
+  expect(
+    next({
+      status: "lost",
+      ...wrote,
+      statusHistory: [
+        { status: "lost", changedAt: "2026-11-22T15:00:00Z" },
+        { status: "lost", changedAt: "2026-11-24T15:00:00Z" },
+      ],
+    }).title,
+  ).toBe("Answer Avery");
   expect(
     next({
       status: "lost",
@@ -826,7 +849,9 @@ test("Already sent moves the project on as the email would, and Mark handled set
     event_date: shiftDay(studioToday(), { days: 120 }),
     documents: [{ id: "pr", type: "proposal", label: "Proposal", url: "https://links.example.com/pr", uploadedBy: "julian" }],
   });
-  await page.goto(p.page);
+  // An email started in Compose on that template, then sent from Gmail.
+  await page.goto(`${p.page}?compose=proposal`);
+  await page.getByLabel("Email body").fill("Hi,\n\nStarted here, sent from Gmail.\n\nJulian");
   await expect(nextStep(page)).toContainText("Send the proposal");
   await nextStep(page).getByRole("button", { name: "Already sent" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Noted as sent." })).toBeVisible();
@@ -839,6 +864,15 @@ test("Already sent moves the project on as the email would, and Mark handled set
   };
   expect(moved.status).toBe("proposal-sent");
   expect(moved.status_history.at(-1)).toMatchObject({ status: "proposal-sent", note: "Proposal (no call) noted as sent" });
+  // The follow-up the proposal sets, as sending it would have.
+  expect((await readProject(p.id, "follow_up_at")).follow_up_at).toBe(shiftDay(studioToday(), { days: 6 }));
+  // The email left in Compose went another way: the Messages tab opens afresh.
+  const tabs = page.getByRole("navigation", { name: "Project" });
+  await tabs.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByRole("heading", { name: "Proposal", exact: true })).toBeVisible();
+  await tabs.getByRole("link", { name: "Messages" }).click();
+  await expect(page.getByRole("combobox", { name: "Email template" })).toHaveValue("");
+  await expect(page.getByLabel("Email body")).toHaveValue("");
 
   // A stage email that moves nothing (the status set by hand past it) is noted on its own.
   await patchProject(p.id, { status: "contract-signed" });
@@ -940,4 +974,21 @@ test("an email the client marked as spam still counts as sent", async ({ adminRe
 
   await page.goto(p.page);
   await expect(nextStep(page)).toContainText("Shoot in 3 days");
+});
+
+test("compose: with no template, a plain email is written and sent, and moves nothing", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "plain");
+  await page.goto(`${p.page}?tab=messages`);
+  await expect(page.getByRole("combobox", { name: "Email template" })).toHaveValue("");
+  await page.getByLabel("Subject").fill("About Saturday");
+  await page.getByLabel("Email body").fill("Hi,\n\nYes, the garden works.\n\nJulian");
+  await page.getByRole("button", { name: "Send to client" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sent to the client." })).toBeVisible();
+  const { data } = await testStore()!.from("client_messages").select("template, subject").eq("project_id", p.id);
+  expect(data).toEqual([{ template: null, subject: "About Saturday" }]);
+  expect((await readProject(p.id, "status")).status).toBe("new-inquiry");
 });

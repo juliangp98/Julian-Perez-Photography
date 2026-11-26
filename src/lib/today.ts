@@ -5,7 +5,7 @@
 // new (a later message, a new hold, an invoice gone overdue) shows again.
 // Pure, so the board and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
 import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
 import { draftReplyHref } from "./triage";
 
@@ -203,9 +203,11 @@ export const replyKey = (lastInAt: string) => `reply:${lastInAt}`;
 
 // When a lead was last closed as lost: a message from before then had its
 // answer in the closing.
-export function lostAt(history?: { status?: string; changedAt?: string; kind?: string }[]): string | undefined {
+export function lostAt(
+  history?: { status?: string; changedAt?: string; kind?: string; from?: string }[],
+): string | undefined {
   // A note added since carries the status too, but isn't the close.
-  return [...(history ?? [])].reverse().find((h) => h.status === "lost" && h.kind !== "note")?.changedAt;
+  return statusMoves(history ?? []).filter((h) => h.status === "lost").at(-1)?.changedAt;
 }
 
 function dismissed(row: TodayRow, p: TodayProject, today: string): boolean {

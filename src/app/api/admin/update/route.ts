@@ -23,6 +23,7 @@ import {
   addDocument,
   addNote,
   advanceStatus,
+  getClientFull,
   dismissToday,
   patchDocument,
   removeDocument,
@@ -40,6 +41,7 @@ import {
 import { shiftDay, studioToday } from "@/lib/field-format";
 import { OWNER_DOCUMENT_TYPES, PAYMENT_METHODS } from "@/lib/labels";
 import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
+import { applySendEffects } from "@/lib/email/apply-send";
 import { notedAsSent } from "@/lib/next-step";
 
 const TEMPLATE_IDS = EMAIL_TEMPLATES.map((t) => t.id) as [string, ...string[]];
@@ -181,11 +183,15 @@ export const POST = defineRoute({
     if (fields) await updateClientAdmin(id, fields);
     if (note && !(await addNote(id, note))) return apiError(404, "That project wasn't found.");
     if (sent) {
-      // The move carries the note; with nothing to move, the note goes alone.
+      // Moved as the send would have: the status (its move carrying the
+      // note), the hold and the follow-up. With no move, the note goes alone.
+      const record = await getClientFull(id);
       const template = EMAIL_TEMPLATES.find((t) => t.id === sent);
-      const name = notedAsSent(template?.name ?? sent);
-      const moved = template?.advancesTo ? await advanceStatus(id, template.advancesTo, name) : false;
-      if (!moved && !(await addNote(id, name))) return apiError(404, "That project wasn't found.");
+      if (!record || !template) return apiError(404, "That project wasn't found.");
+      const note = notedAsSent(template.name);
+      const { moved, notMoved } = await applySendEffects(record, template, { note, route: "admin/update" });
+      if (!moved.status) await addNote(id, note);
+      return { ok: true, moved, ...(notMoved.length ? { notMoved } : {}) };
     }
     if (followUp && !(await setFollowUp(id, followUp.at, followUp.note, followUp.expect))) {
       return apiError(409, "That follow-up changed since this page loaded.");

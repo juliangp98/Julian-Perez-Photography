@@ -3,8 +3,9 @@
 // Beside the project's next step, for work done outside the site: Already
 // sent (a stage email written from Gmail, say), which notes it in the log and
 // moves the project on as sending it would, or Mark handled (a client's
-// message answered another way), which marks the Today row it shares. Either
-// confirms itself and stays done until the page shows the next step.
+// message answered another way), which marks the Today row it shares. It
+// lives as long as the project's page, so its confirmation stays on screen
+// when the next step it brings in has no such button.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,7 +26,9 @@ export default function StepSettled({
 }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
-  if (!sent && !handled) return null;
+  // What was settled last, and what this step offers to settle.
+  const [settled, setSettled] = useState<{ key: string; sent: boolean } | null>(null);
+  const key = sent ? `sent:${sent}` : handled ? `handled:${handled}` : "";
 
   async function settle() {
     setState("saving");
@@ -40,6 +43,7 @@ export default function StepSettled({
       if (!res.ok) throw new Error("save failed");
       // An email left unsent on that template has gone another way.
       if (sent) composeDraft.dropTemplate(projectId, sent);
+      setSettled({ key, sent: !!sent });
       setState("ok");
       router.refresh();
     } catch {
@@ -47,18 +51,16 @@ export default function StepSettled({
     }
   }
 
+  const offer = !!key && settled?.key !== key;
+  if (!offer && state !== "ok" && state !== "error") return null;
   return (
     <span className="inline-flex items-center gap-3">
-      <Button
-        variant="text"
-        disabled={state === "ok"}
-        loading={state === "saving"}
-        loadingLabel="Saving…"
-        onClick={settle}
-      >
-        {sent ? "Already sent" : "Mark handled"}
-      </Button>
-      <FormStatus state={state} ok={sent ? "Noted as sent." : "Marked handled."} />
+      {offer && (
+        <Button variant="text" loading={state === "saving"} loadingLabel="Saving…" onClick={settle}>
+          {sent ? "Already sent" : "Mark handled"}
+        </Button>
+      )}
+      <FormStatus state={state} ok={settled?.sent ? "Noted as sent." : "Marked handled."} />
     </span>
   );
 }

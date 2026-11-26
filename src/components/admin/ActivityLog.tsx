@@ -5,32 +5,29 @@
 
 import { formatDateTime } from "@/lib/field-format";
 import { statusTitle } from "@/lib/labels";
+import { statusMoves } from "@/lib/client-status";
 import type { ClientStatusEntry } from "@/lib/clients";
 import AddNote from "@/components/admin/AddNote";
 
 type Line = { key: number; title: string; when: string; note?: string };
 
-// An entry is a move when the status differs from the one before it; an
-// entry without a move is a note (older notes carry no kind).
+// An entry is a move when it changed the status (statusMoves); any other is
+// a note.
 function lines(history: ClientStatusEntry[]): Line[] {
-  let before: string | undefined;
-  const out: Line[] = [];
-  history.forEach((e, i) => {
-    const moved = e.kind !== "note" && !e.from && e.status !== before;
-    if (e.kind !== "note" && !e.from) before = e.status;
-    out.push({
+  const moves = new Set(statusMoves(history));
+  return history
+    .map((e, i) => ({
       key: i,
       title:
         e.from === "internal-notes"
           ? "Earlier notes"
-          : moved
+          : moves.has(e)
             ? statusTitle(e.status) || "Status changed"
             : "Note",
       when: e.from === "internal-notes" ? "" : formatDateTime(e.changedAt),
       note: e.note?.trim() || undefined,
-    });
-  });
-  return out.reverse();
+    }))
+    .reverse();
 }
 
 export default function ActivityLog({

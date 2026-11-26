@@ -23,6 +23,11 @@ test("admin update: a note needs some text, and a project", async ({ adminReques
   ).toBe(404);
 });
 
+test("admin update: an email noted as sent needs a template it knows, and a project", async ({ adminRequest }) => {
+  expect((await adminRequest.post("/api/admin/update", { data: { id: "p1", sent: "made-up" } })).status()).toBe(400);
+  expect((await adminRequest.post("/api/admin/update", { data: { id: "p1", sent: "referral-ask" } })).status()).toBe(404);
+});
+
 test("admin projects: filter params render without error", async ({ adminPage: page }) => {
   // Exercise the server-side filter code path — it must render, not 500.
   await page.goto("/admin/projects?q=test&status=booked&service=weddings");

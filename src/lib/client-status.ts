@@ -218,6 +218,20 @@ function stageIndex(status: string | undefined): number {
   return STAGES.findIndex((s) => s.statuses.includes(status as ClientStatus));
 }
 
+// The entries in a project's activity log that moved it: a status different
+// from the one before. Notes (marked, or older ones under an unchanged
+// status) and the notes kept before the log aren't moves.
+export function statusMoves<E extends { status?: string; kind?: string; from?: string }>(history: E[]): E[] {
+  let before: string | undefined;
+  const moves: E[] = [];
+  for (const e of history) {
+    if (e.kind === "note" || e.from) continue;
+    if (e.status !== before) moves.push(e);
+    before = e.status;
+  }
+  return moves;
+}
+
 // Where a project stands in the pipeline: its status, or for a closed one the
 // last status it held before closing (undefined when it never held one).
 export function lastOpenStatus(p: StageProject): string | undefined {

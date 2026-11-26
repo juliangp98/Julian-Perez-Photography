@@ -41,6 +41,7 @@ export default function AddNote({ projectId }: { projectId: string }) {
         id="activity-note"
         rows={2}
         maxLength={2000}
+        readOnly={state === "saving"}
         value={note}
         onChange={(e) => {
           setNote(e.target.value);

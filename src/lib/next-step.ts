@@ -271,18 +271,19 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       return sendProposal();
 
     case "proposal-sent": {
-      if (has("contract") && unpaid.length) {
-        return {
-          title: "Send the contract and retainer",
-          action: { label: "Write the email", href: compose("contract-deposit") },
-        };
-      }
-      // The contract went another way and the retainer is in: they're booked.
+      // The contract went another way and the retainer is in: they're booked
+      // (a balance invoice left open belongs to delivery).
       if (has("contract") && invoices.some((d) => d.paidAt)) {
         return {
           title: "Send the booking welcome",
           detail: "The retainer is paid.",
           action: { label: "Write the welcome", href: compose("booking-welcome") },
+        };
+      }
+      if (has("contract") && unpaid.length) {
+        return {
+          title: "Send the contract and retainer",
+          action: { label: "Write the email", href: compose("contract-deposit") },
         };
       }
       // Set to Proposal sent by hand, or the email bounced: it hasn't reached them.
@@ -309,11 +310,18 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           action: { label: "Write a follow-up", href: compose("proposal-follow-up") },
         };
       }
-      return {
-        title: `Waiting on ${first}'s answer`,
-        detail: "When they say yes, add the Square contract and invoice.",
-        action: { label: "Add the contract", href: tab("links") },
-      };
+      // The contract added and the invoice still to come: that's what's missing.
+      return has("contract")
+        ? {
+            title: `Waiting on ${first}'s answer`,
+            detail: "The contract is added. Add the invoice to send them both.",
+            action: { label: "Add the invoice", href: tab("links") },
+          }
+        : {
+            title: `Waiting on ${first}'s answer`,
+            detail: "When they say yes, add the Square contract and invoice.",
+            action: { label: "Add the contract", href: tab("links") },
+          };
     }
 
     case "booked":
