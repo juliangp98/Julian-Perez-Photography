@@ -20,8 +20,9 @@ export type NextStep = {
   // that it already went another way (from Gmail, say), which moves the
   // project on as sending it would.
   once?: string;
-  // For a client's message waiting on an answer, the Today row it shares
-  // (src/lib/today.ts): marking it handled settles both.
+  // For a step the Today list shows too (a client's message waiting on an
+  // answer, a date hold that ran out), the row it shares (src/lib/today.ts):
+  // marking it handled settles both.
   handled?: string;
 };
 
@@ -245,6 +246,8 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       };
 
     case "responded": {
+      // A call already held (its summary saved) is past: the proposal comes next.
+      if (callHeld) return sendProposal();
       const typed = !!call?.notes?.trim() || Object.values(call?.answers ?? {}).some((a) => a.trim());
       if (typed) {
         return {
@@ -302,6 +305,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           title: "The date hold ended",
           detail: `It ran until ${formatHumanDate(p.holdUntil)}. Follow up, or let the date go.`,
           action: { label: "Write a follow-up", href: compose("proposal-follow-up") },
+          handled: `hold:${p.holdUntil}`,
         };
       }
       if (p.followUpAt && DAY.test(p.followUpAt) && p.followUpAt <= today) {

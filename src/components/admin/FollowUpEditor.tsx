@@ -38,6 +38,19 @@ export default function FollowUpEditor({
   const [text, setText] = useState(note ?? "");
   const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [error, setError] = useState("");
+  // A follow-up changed by something else (a send, the Today list) clears the
+  // line under this one; one this editor changed keeps its own.
+  const [seenAt, setSeenAt] = useState(at);
+  const [ownChange, setOwnChange] = useState(false);
+  if (at !== seenAt) {
+    setSeenAt(at);
+    if (ownChange) {
+      setOwnChange(false);
+    } else if (!editing) {
+      setState("idle");
+      setError("");
+    }
+  }
 
   function open() {
     setBase(at ?? null);
@@ -67,12 +80,14 @@ export default function FollowUpEditor({
         setError(CHANGED);
         setState("error");
         setEditing(false);
+        setOwnChange(true);
         router.refresh();
         return;
       }
       if (!res.ok) throw new Error("save failed");
       setState("ok");
       setEditing(false);
+      setOwnChange(true);
       router.refresh();
     } catch {
       setError("Couldn't save the follow-up. Try again.");

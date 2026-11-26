@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import FormStatus from "@/components/ui/FormStatus";
 import { composeDraft } from "@/components/admin/compose-draft";
+import { notMovedLine } from "@/lib/email/send-effects";
 
 export default function StepSettled({
   projectId,
@@ -29,9 +30,18 @@ export default function StepSettled({
   // What was settled last, and what this step offers to settle.
   const [settled, setSettled] = useState<{ key: string; sent: boolean } | null>(null);
   const key = sent ? `sent:${sent}` : handled ? `handled:${handled}` : "";
+  // What a noted send couldn't move (the status, the hold, the follow-up).
+  const [notMoved, setNotMoved] = useState("");
+  // A failure belongs to the step it was for: a new step clears it.
+  const [seenKey, setSeenKey] = useState(key);
+  if (key !== seenKey) {
+    setSeenKey(key);
+    if (state === "error") setState("idle");
+  }
 
   async function settle() {
     setState("saving");
+    setNotMoved("");
     try {
       const res = await fetch("/api/admin/update", {
         method: "POST",
@@ -41,6 +51,8 @@ export default function StepSettled({
         ),
       });
       if (!res.ok) throw new Error("save failed");
+      const json = await res.json().catch(() => ({}));
+      setNotMoved(notMovedLine("Noted", json.notMoved));
       // An email left unsent on that template has gone another way.
       if (sent) composeDraft.dropTemplate(projectId, sent);
       setSettled({ key, sent: !!sent });
@@ -61,6 +73,7 @@ export default function StepSettled({
         </Button>
       )}
       <FormStatus state={state} ok={settled?.sent ? "Noted as sent." : "Marked handled."} />
+      {state === "ok" && notMoved && <FormStatus state="error" error={notMoved} />}
     </span>
   );
 }

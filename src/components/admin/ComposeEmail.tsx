@@ -17,7 +17,7 @@ import {
 } from "@/lib/email/email-pipeline";
 import { statusTitle } from "@/lib/labels";
 import { formatHumanDate } from "@/lib/field-format";
-import type { SendEffectsPlan } from "@/lib/email/send-effects";
+import { listOf, notMovedLine, type SendEffectsPlan } from "@/lib/email/send-effects";
 import { inputClass } from "@/components/ui/fields/Field";
 import { composeDraft } from "@/components/admin/compose-draft";
 import Button from "@/components/ui/Button";
@@ -28,12 +28,6 @@ type Status = "idle" | "drafting" | "drafted" | "sending" | "sent" | "error";
 
 const input = `${inputClass} text-sm`;
 
-// "a, b and c"
-function listOf(parts: string[]): string {
-  return parts.length < 2
-    ? (parts[0] ?? "")
-    : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
-}
 
 // What sending this template does to this project, in a line.
 function effectsLine(plan?: SendEffectsPlan): string {
@@ -46,20 +40,6 @@ function effectsLine(plan?: SendEffectsPlan): string {
     parts.push(`sets a follow-up for ${formatHumanDate(plan.followUp.at)}`);
   }
   return parts.length ? `Sending this ${listOf(parts)}.` : "";
-}
-
-// What a send meant to change but couldn't, in a line.
-const NOT_MOVED: Record<string, string> = {
-  status: "the status",
-  hold: "the date hold",
-  followUp: "the follow-up",
-};
-function notMovedLine(notMoved?: string[]): string {
-  if (!notMoved?.length) return "";
-  const what = listOf(notMoved.map((n) => NOT_MOVED[n] ?? n));
-  return `The email went, but ${what} couldn't be updated.${
-    notMoved.includes("status") ? " Set the status at the top of the page." : ""
-  }`;
 }
 
 type Moved = {
@@ -97,7 +77,7 @@ export default function ComposeEmail({
   initialSteer?: string;
   // The hand-off this opening of the panel came from (the template and link
   // in the address, NO_HANDOFF for none). What's typed and not sent
-  // is kept under it while the browser tab is open (compose-draft.ts).
+  // is kept under it while the page stays loaded (compose-draft.ts).
   handoff: string;
   projectId: string;
   context: Record<string, string | undefined>;
@@ -236,7 +216,7 @@ export default function ComposeEmail({
         return;
       }
       setSentNote(movedLine(json.moved));
-      setNotMovedNote(notMovedLine(json.notMoved));
+      setNotMovedNote(notMovedLine("The email went", json.notMoved));
       // What was sent is gone from the kept email; one kept on another
       // template stays for later.
       if (touched || composeDraft.peek(projectId)?.draft.templateId === templateId) {

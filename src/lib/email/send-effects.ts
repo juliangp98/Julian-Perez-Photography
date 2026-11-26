@@ -108,3 +108,25 @@ export function planSendEffects(
 
   return plan;
 }
+
+// "a, b and c"
+export function listOf(parts: string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+}
+
+// What applying a send meant to change but couldn't, in a line after `lead`
+// ("The email went", "Noted"), for Compose and Already sent alike.
+const NOT_MOVED: Record<string, string> = {
+  status: "the status",
+  hold: "the date hold",
+  followUp: "the follow-up",
+};
+export function notMovedLine(lead: string, notMoved?: string[]): string {
+  if (!notMoved?.length) return "";
+  const what = listOf(notMoved.map((n) => NOT_MOVED[n] ?? n));
+  return `${lead}, but ${what} couldn't be updated.${
+    notMoved.includes("status") ? " Set the status at the top of the page." : ""
+  }`;
+}

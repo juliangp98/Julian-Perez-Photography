@@ -1,6 +1,7 @@
 // The email being written in a project's Compose panel and not sent yet, kept
-// for as long as the browser tab is open: one per project, with the hand-off
-// it was opened on (the template and link in the address).
+// while the page stays loaded (moving between the project page's tabs and
+// the site's other pages; a reload starts afresh): one per project, with the
+// hand-off it was opened on (the template and link in the address).
 // Switching tabs on the project page unmounts the panel; the Messages tab, or
 // the same hand-off again (by a link or the back button), shows the email as
 // it was left. A hand-off to something else opens afresh.

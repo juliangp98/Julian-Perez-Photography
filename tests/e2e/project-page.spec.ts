@@ -113,6 +113,11 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "responded", calls: { discovery: { notes: "Loves the vineyard." } } }).title).toBe(
     "Save the call summary",
   );
+  // A call already held (set back to Responded by hand) goes on to the proposal.
+  expect(
+    next({ status: "responded", calls: { discovery: { notes: "Loves the vineyard.", heldAt: "2026-11-20T15:00:00Z" } } })
+      .title,
+  ).toBe("Add the proposal link");
 
   // The proposal: its link first, then the email that fits.
   expect(next({ status: "in-conversation" })).toMatchObject({
@@ -141,6 +146,8 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "proposal-sent", holdUntil: "2026-11-20" }, proposed)).toMatchObject({
     title: "The date hold ended",
     detail: "It ran until November 20, 2026. Follow up, or let the date go.",
+    // Settled from the page through the Today row it shares.
+    handled: "hold:2026-11-20",
   });
   expect(
     next({ status: "proposal-sent", documents: [own("contract"), own("invoice", { dueAt: "2026-12-01" })] }).action
