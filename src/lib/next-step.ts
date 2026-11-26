@@ -345,6 +345,10 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
   };
 
+  // Past the reply with the proposal next: call notes waiting on their summary
+  // first (the recap comes from it), else the proposal's link and email.
+  const afterCall = (): NextStep => (!callHeld && typed ? saveSummary : sendProposal());
+
   // A new inquiry that has had an answer (one written without the inquiry
   // reply, or one outside the site) is past replying to. A snooze on Today
   // only puts it off.
@@ -358,7 +362,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       return (
         booking() ??
         (has("proposal")
-          ? sendProposal()
+          ? afterCall()
           : {
               title: "Reply to the inquiry",
               detail: "Compose opens on the inquiry reply.",
@@ -374,7 +378,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       if (typed) return saveSummary;
       // The proposal link added without a call: its email comes next, as the
       // client's page reads it as ready.
-      if (has("proposal")) return sendProposal();
+      if (has("proposal")) return afterCall();
       // The inquiry reply carries the call link too.
       if (sent.has("discovery-invite") || sent.has("inquiry-reply")) {
         return {
@@ -390,8 +394,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "in-conversation":
-      // Notes from a call not yet summarized: the recap comes from the summary.
-      return booking() ?? (!callHeld && typed ? saveSummary : sendProposal());
+      return booking() ?? afterCall();
 
     case "proposal-sent": {
       const yes = booking();

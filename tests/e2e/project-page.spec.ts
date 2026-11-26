@@ -268,6 +268,18 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   ).toBe(compose("booking-welcome"));
 
   expect(next({ status: "new-inquiry", documents: [own("proposal")] }).action?.href).toBe(compose("proposal"));
+  // Call notes waiting on their summary come first, and a held call's recap
+  // carries the proposal.
+  expect(
+    next({ status: "new-inquiry", documents: [own("proposal")], calls: { discovery: { notes: "Talked through the day." } } }).title,
+  ).toBe("Save the call summary");
+  expect(
+    next({
+      status: "new-inquiry",
+      documents: [own("proposal")],
+      calls: { discovery: { notes: "Talked through the day.", heldAt: "2026-11-20T15:00:00.000Z" } },
+    }).action?.href,
+  ).toBe(compose("discovery-recap"));
   // A lead with Julian's proposal link and no call: the proposal email, unless
   // call notes are waiting on their summary.
   expect(next({ status: "responded", documents: [own("proposal")] }, sent("inquiry-reply"))).toMatchObject({
