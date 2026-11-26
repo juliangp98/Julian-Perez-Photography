@@ -11,6 +11,7 @@ import {
 } from "../../src/lib/next-step";
 import { portalReturnPath } from "../../src/lib/auth";
 import { planningCallFor, thankYouCalls } from "../../src/lib/project-links";
+import { serviceTitle } from "../../src/lib/services-data";
 import { formatHumanDate, settledEventDate, shiftDay, studioToday } from "../../src/lib/field-format";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
@@ -561,7 +562,7 @@ test("sign-in returns to the page the client was sent from, and one project open
   // Two projects, so a sign-in that lost the page would land on their list.
   const p = await newProject(adminRequest, "return");
   const other = await adminRequest.post("/api/admin/create-project", {
-    data: { email: p.email, clientName: "E2E Path", serviceType: "engagements", force: true },
+    data: { email: p.email, clientName: "E2E Path", serviceType: "engagements-couples", force: true },
   });
   expect(other.status()).toBe(200);
 
@@ -788,12 +789,23 @@ test("the owner is emailed when a client starts a project or uploads a file", as
   const p = await newProject(adminRequest, "alerts");
   const client = await portalRequest(p.email);
 
-  const started = await client.post("/api/portal/create-project", { data: { serviceType: "engagements", force: true } });
+  const started = await client.post("/api/portal/create-project", {
+    data: { serviceType: "engagements-couples", force: true },
+  });
   expect(started.status()).toBe(200);
   const { id: newId } = await started.json();
   const startAlert = sentTo(await fakes.calls("resend"), OWNER).at(-1);
   expect(startAlert?.body?.subject).toBe(`New project in the portal: ${p.email}`);
   expect(String(startAlert?.body?.text)).toContain(`/admin/projects/${newId}`);
+  expect(String(startAlert?.body?.text)).toContain(
+    `started a project in the client portal for ${serviceTitle("engagements-couples")}.`,
+  );
+  // With no service picked, it says so.
+  const bare = await client.post("/api/portal/create-project", { data: { force: true } });
+  expect(bare.status()).toBe(200);
+  expect(String(sentTo(await fakes.calls("resend"), OWNER).at(-1)?.body?.text)).toContain(
+    "started a project in the client portal, with no service picked yet.",
+  );
 
   const attached = await client.post("/api/portal/attach-document", {
     data: {
