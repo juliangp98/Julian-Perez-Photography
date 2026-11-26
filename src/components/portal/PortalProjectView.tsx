@@ -1,7 +1,7 @@
 // One project as a client sees it, in the order a phone shows it: the stage,
-// the one next step, the stage tracker, the links and files by kind, the
-// messages, the plan and details, then the questionnaire, the details they can
-// edit and the upload. The portal page draws it for the client (and, narrower,
+// the one next step, the stage tracker, the prompt to set up a service when
+// none is picked, the links and files by kind, the messages, the plan and
+// details, then the questionnaire, the details they can edit and the upload. The portal page draws it for the client (and, narrower,
 // for a second photographer, who gets a call sheet instead of the next step),
 // and the admin draws it read-only for "View as client". Server-rendered.
 

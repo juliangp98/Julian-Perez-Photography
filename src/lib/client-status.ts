@@ -140,6 +140,9 @@ export type StageProject = {
   // booking was done: stillReserving in src/lib/next-step.ts): their tracker
   // and status read Reserving your date.
   reserving?: boolean;
+  // The proposal (or the recap that carries it) went out by email, whether
+  // or not its link is on the project.
+  proposalSent?: boolean;
   // The shoot is past while the status still reads as before it
   // (shootPassed): their status reads Captured and their tracker moves to
   // Editing.

@@ -54,7 +54,7 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
     : undefined;
   const next =
     viewerRole === "owner"
-      ? clientNextStep({ ...record, reserving: stage.reserving }, {
+      ? clientNextStep({ ...record, reserving: stage.reserving, proposalSent: stage.proposalSent }, {
           today,
           holdUntil: hold?.until,
           questionnaireUrl: links.questionnaireUrl,

@@ -484,7 +484,8 @@ export async function getProjectForViewer(
 // What a project's stage tracker reads, for the projects a client is shown:
 // the status, the statuses in its log, whether its call was held, the kinds of
 // its links (stagesFor in client-status.ts), whether the date is still being
-// reserved (stillReserving) and whether the shoot is past (shootPassed). The
+// reserved (stillReserving), whether the proposal went out by email and
+// whether the shoot is past (shootPassed). The
 // reserving test reads the templates sent on the project, from its emails
 // (`sends`, by project id, as messages.ts lists them) and its log. The log,
 // the call notes and the emails are owner-side, so only these facts leave
@@ -523,6 +524,7 @@ export async function listStageFacts(
       // booking stands, goes by the shoot date alone.
       reserving,
       shot: shootPassed(r, today),
+      proposalSent: sent.has("proposal") || sent.has("discovery-recap"),
     });
   }
   return facts;

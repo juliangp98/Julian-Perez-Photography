@@ -651,6 +651,8 @@ export type ClientStepProject = {
   questionnaireSnapshot?: string;
   documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
   planSummary?: string;
+  // The proposal (or the recap that carries it) went out by email.
+  proposalSent?: boolean;
   // The date is being reserved though the status says otherwise (a lead with
   // Julian's contract, or a project moved past Booked before the booking was
   // done: stillReserving, worked out with the emails sent).
@@ -803,7 +805,10 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       return lead(
         own("proposal")
           ? { title: "Your proposal is ready", detail: held, action: link("View your proposal", own("proposal")?.url) }
-          : { title: "Your proposal is on its way", detail: held },
+          : // Sent with its link in the email itself, or not sent yet.
+            p.proposalSent
+            ? { title: "Your proposal is in your email", detail: held }
+            : { title: "Your proposal is on its way", detail: held },
       );
     }
 

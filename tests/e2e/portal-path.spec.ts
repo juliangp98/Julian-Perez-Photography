@@ -74,6 +74,11 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "I'm holding your date until December 2, 2026.",
     action: { label: "View your proposal", href: "https://links.example.com/proposal" },
   });
+  // Sent with its link in the email itself: it's in their email.
+  expect(step({ status: "proposal-sent", proposalSent: true }, ctx({ holdUntil: "2026-12-02" }))).toEqual({
+    title: "Your proposal is in your email",
+    detail: "I'm holding your date until December 2, 2026.",
+  });
   // A proposal the client uploaded isn't Julian's.
   expect(step({ status: "proposal-sent", documents: [own("proposal", { uploadedBy: "client" })] })?.title).toBe(
     "Your proposal is on its way",
@@ -743,10 +748,8 @@ test("the owner is emailed when a client starts a project or uploads a file", as
   expect(String(editAlert?.body?.text)).toContain(`/admin/projects/${p.id}?tab=details`);
 });
 
-test("the questionnaire's thank-you page leads back to the project it was opened for", async ({ page }) => {
+test("the questionnaire's thank-you page leads back to the project the answers went to", async ({ page }) => {
   const project = "0f0e3c1a-1111-4222-8333-444455556666";
-  // The answers aren't the point here, so the send is answered in the browser.
-  await page.route("**/api/questionnaire", (route) => route.fulfill({ json: { ok: true } }));
   const params = new URLSearchParams({
     project,
     fullName: "E2E Path",
@@ -755,12 +758,19 @@ test("the questionnaire's thank-you page leads back to the project it was opened
     bookingStatus: "I'm already booked, let's plan",
     package: "Still deciding",
   });
-  await page.goto(`/questionnaire/maternity?${params.toString()}`);
-  await advanceToLastSection(page);
-  await satisfyVisible(page);
-  await page.getByRole("button", { name: "Submit questionnaire" }).click();
-  await expect(page.getByRole("link", { name: /Back to your project/ })).toHaveAttribute(
-    "href",
-    `/portal/projects/${project}`,
-  );
+  // The answers aren't the point here, so the send is answered in the
+  // browser: once landing on the project the link named, once elsewhere (an
+  // email other than the project's).
+  for (const [attachedToProject, name, href] of [
+    [true, /Back to your project/, `/portal/projects/${project}`],
+    [false, /Open your portal/, "/portal"],
+  ] as const) {
+    await page.unroute("**/api/questionnaire");
+    await page.route("**/api/questionnaire", (route) => route.fulfill({ json: { ok: true, attachedToProject } }));
+    await page.goto(`/questionnaire/maternity?${params.toString()}`);
+    await advanceToLastSection(page);
+    await satisfyVisible(page);
+    await page.getByRole("button", { name: "Submit questionnaire" }).click();
+    await expect(page.getByRole("link", { name })).toHaveAttribute("href", href);
+  }
 });

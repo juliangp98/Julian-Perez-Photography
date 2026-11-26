@@ -416,6 +416,10 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    // Whether the answers went to the project the link named (a different
+    // email lands them elsewhere), so the thank-you knows where to send them
+    // back. Only the answer leaves, never another project's id.
+    attachedToProject: !!body.project && projectId === body.project,
     ...(warnings.length > 0 ? { warnings } : {}),
   });
 }

@@ -381,7 +381,7 @@ can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
 (from the admin project page) or the client (from their menu); bundled projects
 render together in their own accent-bordered group, labelled and tagged so the
 relationship is obvious at a glance. Clicking a project opens its page: the
-client's one next step with a button that does it (`clientNextStep` in
+client's one next step, with a button when there's something to do (`clientNextStep` in
 `src/lib/next-step.ts`), the same stage tracker the admin page shows, links and
 files by kind (the proposal, contract, invoice, highlights and gallery links
 Julian adds, plus anything the client uploads), the project's message thread

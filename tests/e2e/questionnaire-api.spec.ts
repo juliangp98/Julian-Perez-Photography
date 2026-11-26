@@ -102,7 +102,17 @@ test("questionnaire: a prospect keeps their status; a booked project moves on to
   for (const p of [prospect, booked]) {
     const res = await request.post("/api/questionnaire", { data: portraiture(p.email, p.id) });
     expect(res.status()).toBe(200);
+    // The answers went to the project the link named.
+    expect((await res.json()).attachedToProject).toBe(true);
   }
+  // Another email lands them elsewhere, and the reply says only that.
+  const other = await request.post("/api/questionnaire", {
+    data: portraiture(`e2e-q-other-${Date.now()}@example.com`, prospect.id),
+  });
+  expect(other.status()).toBe(200);
+  const otherJson = await other.json();
+  expect(otherJson.attachedToProject).toBe(false);
+  expect(JSON.stringify(otherJson)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
 
   await adminPage.goto(`/admin/projects/${prospect.id}`);
   await expect(adminPage.locator("#project-status")).toHaveValue("proposal-sent");

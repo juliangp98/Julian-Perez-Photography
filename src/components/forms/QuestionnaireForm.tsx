@@ -68,6 +68,8 @@ export default function QuestionnaireForm({
   const [state, setState] = useState<FormState>(() => ({ ...(prefill || {}) }));
   const [sectionIndex, setSectionIndex] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
+  // Whether the answers went to the project the link named.
+  const [attached, setAttached] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -309,6 +311,8 @@ export default function QuestionnaireForm({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
+      const data = (await res.json().catch(() => ({}))) as { attachedToProject?: boolean };
+      setAttached(!!data.attachedToProject);
       setSubmittedAnswers(payload);
       setStatus("success");
       try {
@@ -446,9 +450,10 @@ export default function QuestionnaireForm({
 
   if (status === "success") {
     const [firstCall, ...otherCalls] = thankYouCalls(questionnaire.slug, calls);
-    // The project the form was opened for, when its id is a real one.
+    // The project the form was opened for, when the answers went to it (an
+    // email other than the project's lands them on another).
     const projectPage =
-      projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? `/portal/projects/${projectId}` : undefined;
+      attached && projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? `/portal/projects/${projectId}` : undefined;
     // Cross-prefill into bundle siblings: each sibling button carries every
     // answer that sibling's form also asks for \u2014 the intersection of what was
     // answered and what the target asks, matched by canonical field id. No
