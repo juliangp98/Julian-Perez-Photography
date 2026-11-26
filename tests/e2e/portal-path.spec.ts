@@ -474,6 +474,33 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
   await expect(questionnaire).toHaveCount(0);
 });
 
+test("prompts to prepare stop once the shoot is past", async ({ adminRequest, portalPage }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  // A lead whose date went by: no questionnaire prompt.
+  const p = await newProject(adminRequest, "prompts");
+  const page = await portalPage(p.email);
+  await page.goto(`/portal/projects/${p.id}`);
+  const questionnaire = page.getByRole("heading", { name: "Your planning questionnaire" });
+  await expect(questionnaire).toBeVisible();
+  await patchProject(p.id, { event_date: shiftDay(studioToday(), { days: -1 }) });
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Your next step" })).toBeVisible();
+  await expect(questionnaire).toHaveCount(0);
+
+  // A project with no service is asked to set one up, until it's delivered.
+  const bare = await adminRequest.post("/api/admin/create-project", {
+    data: { email: p.email, clientName: "E2E Path", force: true },
+  });
+  const { id } = await bare.json();
+  await page.goto(`/portal/projects/${id}`);
+  const setUp = page.getByRole("heading", { name: "Set up your service" });
+  await expect(setUp).toBeVisible();
+  await patchProject(id, { status: "delivered" });
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Your next step" })).toBeVisible();
+  await expect(setUp).toHaveCount(0);
+});
+
 test("sign-in returns to the page the client was sent from, and one project opens straight away", async ({
   adminRequest,
   page,

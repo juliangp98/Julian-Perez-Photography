@@ -25,7 +25,7 @@ import {
   type ClientStatus,
   type StageProject,
 } from "@/lib/client-status";
-import { formatEventDate, formatHumanDate } from "@/lib/field-format";
+import { eventDay, formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { DOCUMENT_TYPES, documentTypeLabel, invoiceState, paymentMethodLabel } from "@/lib/labels";
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
@@ -233,7 +233,9 @@ export default function PortalProjectView({
   // Prompts to prepare (the questionnaire, setting up a service) stop once the
   // project closed or the shoot is behind it.
   const closed = CLIENT_STATUS_TERMINAL.includes(record.status as ClientStatus);
-  const preparing = !closed && statusRank(reachedStatus(stage)) < statusRank("shot");
+  const shootDay = eventDay(record.eventDate);
+  const preparing =
+    !closed && statusRank(reachedStatus(stage)) < statusRank("shot") && (!shootDay || shootDay >= studioToday());
   const hasLocations = !!record.locations?.length;
   const shown = (record.documents ?? []).filter(
     (d) => !(isCollaborator && d.type === "timeline" && d.uploadedBy !== "client"),
@@ -291,7 +293,7 @@ export default function PortalProjectView({
 
         {isCollaborator && <CallSheet record={record} dayOfContact={dayOfContact} />}
 
-        {!isCollaborator && inquireUrl && !closed && (
+        {!isCollaborator && inquireUrl && preparing && (
           <CalloutCard
             eyebrow="Tell me what you're planning"
             title="Set up your service"
