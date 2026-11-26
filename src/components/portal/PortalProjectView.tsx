@@ -19,7 +19,7 @@ import type { ClientRecordSafe, PortalViewerRole } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
 import {
   CLIENT_STATUS_CLIENT_LABEL,
-  lastOpenStatus,
+  reachedStatus,
   shownStatus,
   statusRank,
   type ClientStatus,
@@ -55,8 +55,9 @@ type Props = {
 };
 
 // In "View as client", a link within the site (the questionnaire, which
-// saves to the project and emails the client) is left out: only links out to
-// the client's paperwork and galleries stay.
+// saves to the project and emails the client) is left out. Links out of the
+// site stay: the client's paperwork and galleries, the call to book and the
+// review page, none of which does anything until it's filled in there.
 function NextStepCard({ step, preview }: { step: ClientStep; preview: boolean }) {
   const shown = (a?: ClientStep["action"]) => (a && (!preview || a.external) ? a : undefined);
   const action = shown(step.action);
@@ -140,7 +141,8 @@ function LinksByKind({ documents }: { documents: NonNullable<ClientRecordSafe["d
 function CallSheet({ record, dayOfContact }: { record: ClientRecordSafe; dayOfContact: string }) {
   const when = formatEventDate(record.eventDate);
   const people = [record.clientName, record.partnerName].filter(Boolean).join(" and ");
-  const timelines = (record.documents ?? []).filter((d) => d.type === "timeline");
+  // Julian's timeline for the day (a client's draft stays under their files).
+  const timelines = (record.documents ?? []).filter((d) => d.type === "timeline" && d.uploadedBy !== "client");
   return (
     <section aria-labelledby="call-sheet-heading">
       <Panel className="space-y-5">
@@ -215,13 +217,15 @@ export default function PortalProjectView({
   const isCollaborator = viewerRole === "collaborator";
   const clientLabel = CLIENT_STATUS_CLIENT_LABEL[shownStatus(stage) as ClientStatus] ?? "In progress";
   // Before a proposal, the plan isn't settled yet: the page shows the next
-  // step and the messages, not the plan. A closed project goes by the last
-  // stage it reached, as the tracker does.
-  const proposed = statusRank(lastOpenStatus(stage)) >= statusRank("proposal-sent");
+  // step and the messages, not the plan. It goes by how far the project has
+  // come, as the tracker does (a closed one by the last stage it reached).
+  const proposed = statusRank(reachedStatus(stage)) >= statusRank("proposal-sent");
   const plan = proposed ? record.planSummary?.trim() : undefined;
   const hasDates = !!record.secondaryDates?.length;
   const hasLocations = !!record.locations?.length;
-  const shown = (record.documents ?? []).filter((d) => !isCollaborator || d.type !== "timeline");
+  const shown = (record.documents ?? []).filter(
+    (d) => !(isCollaborator && d.type === "timeline" && d.uploadedBy !== "client"),
+  );
   const answerGroups = record.questionnaireSnapshot
     ? buildAnswerGroups(record.serviceType, record.questionnaireSnapshot)
     : null;
@@ -282,7 +286,7 @@ export default function PortalProjectView({
           />
         )}
 
-        {/* A second photographer's timeline is on the call sheet already. */}
+        {/* A second photographer has Julian's timeline on the call sheet already. */}
         {shown.length > 0 && <LinksByKind documents={shown} />}
 
         {!isCollaborator && (

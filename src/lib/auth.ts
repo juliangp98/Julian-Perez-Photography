@@ -31,7 +31,7 @@ export type MagicClaims = SessionClaims & { next?: string };
 // portal's routes that aren't pages, like sign-out), or nothing.
 export function portalReturnPath(path: unknown): string | undefined {
   if (typeof path !== "string") return undefined;
-  return /^\/portal\/(dashboard|projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(path)
+  return /^\/portal\/(dashboard|projects\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.test(path)
     ? path
     : undefined;
 }

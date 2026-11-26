@@ -91,12 +91,18 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "The invoice for the retainer is on its way.",
     action: { label: "Sign the contract", href: "https://links.example.com/contract", external: true },
   });
-  // Julian's contract on a lead means they said yes.
+  // Julian's contract on a lead means they said yes: the date is being
+  // reserved (stillReserving), and the step asks them to sign and pay.
   for (const status of ["new-inquiry", "in-conversation", "proposal-sent"]) {
-    expect(step({ status, documents: [own("contract"), own("invoice")] })?.title, status).toBe(
-      "Sign your contract and pay the retainer",
-    );
+    const documents = [own("contract"), own("invoice")];
+    expect(stillReserving({ status, documents }, false, TODAY), status).toBe(true);
+    expect(stillReserving({ status, documents: [own("invoice")] }, false, TODAY), status).toBe(false);
+    expect(step({ status, documents, reserving: true })?.title, status).toBe("Sign your contract and pay the retainer");
   }
+  // Paid, a lead still reads Reserving your date until the welcome goes out.
+  expect(
+    stillReserving({ status: "in-conversation", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] }, false, TODAY),
+  ).toBe(true);
   // Once one is paid, the date is reserved: no ask to pay, and a balance
   // left open isn't called the retainer.
   const paid = step({
@@ -156,13 +162,14 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(labels("newborn")).toEqual(["Book a planning call"]);
 
   // A booked project the questionnaire moved on before the booking was done
-  // is still reserving its date, up to the shoot, until the welcome goes out
-  // or an invoice is paid (stillReserving); its step asks for the contract
-  // and retainer.
+  // is still reserving its date until the welcome goes out or an invoice is
+  // paid (stillReserving): in Planning, and in Scheduled up to the shoot, as
+  // the owner's step reads it. Its step asks for the contract and retainer.
   const unbooked = [own("contract"), own("invoice", { dueAt: "2026-12-01" })];
   expect(stillReserving({ status: "planning", documents: unbooked }, false, TODAY)).toBe(true);
   expect(stillReserving({ status: "scheduled", eventDate: "2026-12-20", documents: unbooked }, false, TODAY)).toBe(true);
   expect(stillReserving({ status: "scheduled", eventDate: "2026-11-20", documents: unbooked }, false, TODAY)).toBe(false);
+  expect(stillReserving({ status: "planning", eventDate: "2026-11-20", documents: unbooked }, false, TODAY)).toBe(true);
   expect(stillReserving({ status: "planning", documents: unbooked }, true, TODAY)).toBe(false);
   expect(
     stillReserving({ status: "planning", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] }, false, TODAY),
@@ -195,6 +202,12 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(stagesFor(shared).stages.map((s) => s.key)).not.toContain("proposal");
   expect(shared.reserving).toBeUndefined();
 
+  // A shoot already past: what comes after it, whatever the planning left.
+  expect(step({ status: "planning", eventDate: "2026-11-20", questionnaireSnapshot: "{}" })?.title).toBe(
+    "I'm editing your photos",
+  );
+  expect(step({ status: "contract-signed", eventDate: "2026-11-20" })?.title).toBe("I'm editing your photos");
+
   // The shoot, said by how soon it is.
   expect(step({ status: "scheduled", eventDate: "2026-11-25" })?.title).toBe("Your shoot is today");
   expect(step({ status: "scheduled", eventDate: "2026-11-26" })?.title).toBe("Your shoot is tomorrow");
@@ -219,6 +232,10 @@ test("client next step: one per stage, from booking the call to the review", () 
     action: { label: "View your gallery" },
     secondary: { label: "Pay the invoice" },
   });
+  // More than one invoice open says how many.
+  expect(
+    step({ status: "delivered", documents: [own("gallery"), own("invoice"), own("invoice", { dueAt: "2026-12-10" })] })?.detail,
+  ).toBe("There are 2 invoices still open.");
   expect(step({ status: "complete", documents: [own("gallery")] })).toMatchObject({
     title: "Leave a review",
     action: { href: "https://reviews.example.com/julian" },
@@ -244,6 +261,7 @@ test("sign-in returns only to a plain portal page", () => {
     "/portal/logout",
     "/portal/verify",
     "/portal/projects/not-an-id",
+    "/PORTAL/dashboard",
     undefined,
   ]) {
     expect(portalReturnPath(bad), String(bad)).toBeUndefined();
@@ -382,6 +400,7 @@ test("a second photographer's invite opens the project, with a call sheet, not t
     documents: [
       { id: "tl", type: "timeline", label: "Day-of timeline", url: "https://links.example.com/timeline", uploadedBy: "julian" },
       { id: "pr", type: "proposal", label: "Proposal", url: "https://links.example.com/proposal", uploadedBy: "julian" },
+      { id: "dr", type: "timeline", label: "Our draft timeline", url: "https://links.example.com/draft", uploadedBy: "client" },
     ],
   });
   const second = `e2e-path-shooter-${Date.now()}@example.com`;
@@ -402,8 +421,16 @@ test("a second photographer's invite opens the project, with a call sheet, not t
   await expect(page.getByRole("region", { name: "Your next step" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Messages" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Planning details" })).toBeVisible();
-  // Their tracker leaves out the sales steps (the call, the proposal).
+  // The client's draft is their file, not the day's timeline.
+  await expect(sheet).not.toContainText("Our draft timeline");
+  await expect(page.getByRole("link", { name: "Our draft timeline" })).toBeVisible();
+  // Their tracker leaves out the sales steps (the call, the proposal), here
+  // and on their dashboard card.
   await expect(page.getByText(/^Step 5 of 8: Shoot$/)).toBeVisible();
+  await page.goto("/portal/dashboard");
+  await expect(
+    page.locator(`a[href="/portal/projects/${p.id}"]`).getByRole("img", { name: "Step 5 of 8: Shoot" }),
+  ).toBeVisible();
 });
 
 test("a booking the questionnaire moved past stays at Reserving your date until the welcome goes out", async ({
@@ -426,6 +453,12 @@ test("a booking the questionnaire moved past stays at Reserving your date until 
   await expect(next).toContainText("Sign your contract and pay the retainer");
   await expect(page.getByText(/^Step \d+ of \d+: Reserving your date$/)).toBeVisible();
   await expect(page.getByText(CLIENT_STATUS_CLIENT_LABEL.booked, { exact: true })).toBeVisible();
+  // Their dashboard card reads the same.
+  await page.goto("/portal/dashboard");
+  const card = page.locator(`a[href="/portal/projects/${p.id}"]`);
+  await expect(card).toContainText(CLIENT_STATUS_CLIENT_LABEL.booked);
+  await expect(card.getByRole("img", { name: /: Reserving your date$/ })).toBeVisible();
+  await page.goto(`/portal/projects/${p.id}`);
 
   // The retainer came in another way and the welcome went out: booked.
   const welcome = await adminRequest.post("/api/admin/send-email", {

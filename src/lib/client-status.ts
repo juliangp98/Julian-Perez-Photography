@@ -73,7 +73,8 @@ export const CLIENT_STATUS_CLIENT_LABEL: Record<ClientStatus, string> = {
   responded: "In touch",
   "in-conversation": "In conversation",
   "proposal-sent": "Proposal sent",
-  // The agreement and retainer are out but not back yet, then both are in.
+  // The agreement and retainer are out, then the booking welcome confirms
+  // the booking (or the status is set to Contract signed by hand).
   booked: "Reserving your date",
   "contract-signed": "Booked",
   planning: "Planning your day",
@@ -134,9 +135,10 @@ export type StageProject = {
   statusHistory?: { status?: string }[];
   calls?: { discovery?: { heldAt?: string } };
   documents?: { type?: string }[];
-  // The client's date is still being reserved though the status moved past
-  // Booked (stillReserving in src/lib/next-step.ts): their tracker and status
-  // stay at Reserving your date.
+  // The client's date is being reserved though the status says otherwise (a
+  // lead with Julian's contract, or a project moved past Booked before the
+  // booking was done: stillReserving in src/lib/next-step.ts): their tracker
+  // and status read Reserving your date.
   reserving?: boolean;
 };
 
@@ -144,6 +146,13 @@ export type StageProject = {
 // reserved, else the project's own.
 export function shownStatus(p: StageProject): string | undefined {
   return p.reserving ? "booked" : p.status;
+}
+
+// How far a client's project has come, for its tracker and what the page
+// shows: Booked while the date is still being reserved, else where it stands
+// (for a closed one, the last status it held).
+export function reachedStatus(p: StageProject): string | undefined {
+  return p.reserving ? "booked" : lastOpenStatus(p);
 }
 
 // What a second photographer's tracker reads: where the shoot stands, without
@@ -193,7 +202,7 @@ export function stagesFor(p: StageProject): {
 } {
   const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
   const history = p.statusHistory ?? [];
-  const current = Math.max(0, stageIndex(p.reserving ? "booked" : lastOpenStatus(p)));
+  const current = Math.max(0, stageIndex(reachedStatus(p)));
   const held = (status: ClientStatus) => history.some((h) => h.status === status);
   const took: Partial<Record<StageKey, boolean>> = {
     call: held("in-conversation") || !!p.calls?.discovery?.heldAt,

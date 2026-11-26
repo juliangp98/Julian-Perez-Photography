@@ -564,23 +564,41 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 
 type BookingDoc = { type?: string; uploadedBy?: string; paidAt?: string };
 
+// Julian's own entry of a kind is on the project (a client's upload never
+// stands in for it).
+const julians = (docs: BookingDoc[] = [], type: string) =>
+  docs.some((d) => d.type === type && d.uploadedBy !== "client");
+
+// Julian's Square contract on a lead means they said yes, whatever came
+// before (a proposal skipped, a booking made on the call). Both next steps
+// read it so.
+const LEAD_STATUSES: readonly (string | undefined)[] = [
+  undefined,
+  "new-inquiry",
+  "responded",
+  "in-conversation",
+  "proposal-sent",
+];
+
 // Julian's Square contract and an invoice are on the project and the booking
 // welcome hasn't gone out: the booking isn't finished, whatever the status
 // says (the client's questionnaire moves a booked project to Planning).
 function bookingOpen(docs: BookingDoc[] = [], welcomed: boolean): boolean {
-  const own = (type: string) => docs.some((d) => d.type === type && d.uploadedBy !== "client");
-  return own("contract") && own("invoice") && !welcomed;
+  return julians(docs, "contract") && julians(docs, "invoice") && !welcomed;
 }
 
-// For the client, a project past Booked whose booking is still open and none
-// of whose invoices is paid, up to the shoot: their page still asks them to
-// sign and pay, and its stage and tracker stay at Reserving your date. The
-// owner's step goes back to the booking on the same projects.
+// For the client, a project whose date is being reserved though its status
+// says otherwise: a lead with Julian's contract on it, or a project moved
+// past Booked while its booking is open and none of its invoices is paid
+// (in Planning, or in Scheduled up to the shoot, the projects the owner's
+// step sends back to the booking). Their page asks them to sign and pay, and
+// its status and tracker read Reserving your date.
 export function stillReserving(
   p: { status?: string; eventDate?: string; documents?: BookingDoc[] },
   welcomed: boolean,
   today: string,
 ): boolean {
+  if (LEAD_STATUSES.includes(p.status)) return julians(p.documents, "contract") && !welcomed;
   if (!bookingOpen(p.documents, welcomed)) return false;
   if (p.documents?.some((d) => d.type === "invoice" && d.uploadedBy !== "client" && d.paidAt)) return false;
   if (p.status === "planning") return true;
@@ -681,10 +699,11 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       secondary: link("Pay the retainer", invoice?.url),
     };
   };
-  // Julian's contract on a lead means they said yes, whatever came before (a
-  // proposal skipped, a booking made on the call), as the owner's step reads
-  // it.
-  const lead = (step: ClientStep): ClientStep => (own("contract") ? reserving() : step);
+  // A lead with Julian's contract on it is reserving its date
+  // (stillReserving).
+  const lead = (step: ClientStep): ClientStep => (p.reserving ? reserving() : step);
+  // A shoot already past: what comes after it, whatever the planning left.
+  const shot = !!shoot && daysBetween(today, shoot) < 0;
 
   switch (status) {
     case undefined:
@@ -716,6 +735,7 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       return reserving();
 
     case "contract-signed": {
+      if (shot) return editing;
       // Only a service with a questionnaire gets one.
       const later = ctx.questionnaireUrl
         ? "I'll send your planning questionnaire closer to the day."
@@ -728,6 +748,7 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
 
     case "planning": {
       if (p.reserving) return reserving();
+      if (shot) return editing;
       if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Fill in your planning questionnaire",
@@ -792,15 +813,21 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
     case "editing":
       return editing;
 
-    case "delivered":
+    case "delivered": {
+      const open = invoices.filter((d) => !d.paidAt).length;
       return own("gallery")
         ? {
             title: "Your gallery is ready",
-            detail: invoiceLink ? "There's one invoice still open." : "View, download and share your photos.",
+            detail: !invoiceLink
+              ? "View, download and share your photos."
+              : open > 1
+                ? `There are ${open} invoices still open.`
+                : "There's one invoice still open.",
             action: link("View your gallery", own("gallery")?.url),
             secondary: invoiceLink,
           }
         : editing;
+    }
 
     case "complete":
       return {
