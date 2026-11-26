@@ -125,10 +125,18 @@ export function sentTemplates(
 // way (Already sent on the next step).
 export const notedAsSent = (templateName: string) => `${templateName} noted as sent`;
 
+// The template a step's action sends once, if it sends one (a reminder can go
+// again and again).
+function onceTemplate(step: NextStep): string | undefined {
+  const template = step.action?.href.match(/[?&]compose=([a-z-]+)/)?.[1];
+  return template && !REPEATS.has(template) ? template : undefined;
+}
+
 export function ownerNextStep(p: NextStepProject, ctx: NextStepContext): NextStep {
   const step = stepFor(p, ctx);
-  const template = step.action?.href.match(/[?&]compose=([a-z-]+)/)?.[1];
-  return template && !REPEATS.has(template) && !step.handled ? { ...step, once: template } : step;
+  if (step.once || step.handled) return step;
+  const template = onceTemplate(step);
+  return template ? { ...step, once: template } : step;
 }
 
 function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
@@ -204,7 +212,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // nothing has gone to yet, and none was marked handled on Today, gets the
   // inquiry reply.
   if (unanswered) {
-    const lead = (!status || status === "new-inquiry") && !p.lastOutAt && !answeredByHand;
+    const lead = (!status || status === "new-inquiry") && !p.lastOutAt && !answeredByHand && !has("contract");
     return lead ? { ...answer(), action: { label: "Draft a reply", href: draftReplyHref(page) } } : answer();
   }
 
@@ -263,9 +271,14 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   };
   // A project moved past Booked before the booking was done (the client's
   // questionnaire moves a booked project to Planning): while its Square
-  // paperwork is on the project and the welcome hasn't gone, that comes
-  // first.
-  const unreserved = (has("contract") || invoices.length > 0) && !sent.has("booking-welcome");
+  // contract and invoice are on the project and the welcome hasn't gone,
+  // that comes first. A welcome sent another way settles it (Already sent
+  // offers the welcome where the step itself sends nothing once).
+  const unreserved = has("contract") && invoices.length > 0 && !sent.has("booking-welcome");
+  const unreservedStep = (): NextStep => {
+    const step = reserving();
+    return onceTemplate(step) ? step : { ...step, once: "booking-welcome" };
+  };
 
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
@@ -416,7 +429,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "planning":
-      if (unreserved) return reserving();
+      if (unreserved) return unreservedStep();
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Waiting on the questionnaire",
@@ -444,7 +457,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
       }
       const days = daysBetween(today, shoot);
-      if (days >= 0 && unreserved) return reserving();
+      if (days >= 0 && unreserved) return unreservedStep();
       if (days < 0) {
         return {
           title: "Send the thank-you",

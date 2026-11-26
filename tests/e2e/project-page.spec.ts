@@ -178,6 +178,10 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     compose("contract-deposit"),
   );
   expect(next({ status: "new-inquiry", documents: [own("contract")] }).title).toBe("Add the invoice");
+  // A booked lead writing back gets a plain reply, not the inquiry reply.
+  expect(
+    next({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", documents: [own("contract")] }).action?.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
   // A booking made on the call, or before a proposal: the contract leads at every lead stage.
   const held = { discovery: { heldAt: "2026-11-20T15:00:00Z" } };
   expect(next({ status: "in-conversation", calls: held, documents: [own("contract"), own("invoice")] }).action?.href).toBe(
@@ -291,6 +295,14 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(
     next({ status: "scheduled", eventDate: "2026-12-20", documents: paperwork }, sent("contract-deposit")).title,
   ).toBe("Waiting on the signed contract and retainer");
+  // That detour can be settled by noting the welcome as sent another way.
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: paperwork }, sent("contract-deposit")).once).toBe(
+    "booking-welcome",
+  );
+  // With only one of the two papers, planning goes on as usual.
+  expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: [own("invoice")] }).title).toBe(
+    "Add the timeline",
+  );
   // Planning: the questionnaire, then the timeline.
   expect(next({ status: "planning" })).toMatchObject({
     title: "Waiting on the questionnaire",
@@ -1039,4 +1051,38 @@ test("compose: with no template, a plain email is written and sent, and moves no
   const { data } = await testStore()!.from("client_messages").select("template, subject").eq("project_id", p.id);
   expect(data).toEqual([{ template: null, subject: "About Saturday" }]);
   expect((await readProject(p.id, "status")).status).toBe("new-inquiry");
+});
+
+test("status: moving a closed project to another closed status asks before clearing its follow-up", async ({
+  adminRequest,
+  adminPage: page,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "closed");
+  await patchProject(p.id, {
+    status: "lost",
+    follow_up_at: shiftDay(studioToday(), { days: 10 }),
+    follow_up_note: "Check back in March",
+  });
+  await page.goto(p.page);
+
+  await page.locator("#project-status").selectOption("archived");
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByRole("button", { name: "Save status" }).click();
+  await expect(page.getByRole("button", { name: "Save status" })).toBeVisible();
+  expect(await readProject(p.id, "status, follow_up_note")).toEqual({ status: "lost", follow_up_note: "Check back in March" });
+
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Save status" }).click();
+  await expect(page.getByText("None set.")).toBeVisible();
+  expect(await readProject(p.id, "status, follow_up_at")).toEqual({ status: "archived", follow_up_at: null });
+
+  // With nothing to clear, it saves without asking.
+  page.once("dialog", () => {
+    throw new Error("No question was expected.");
+  });
+  await page.locator("#project-status").selectOption("declined");
+  await page.getByRole("button", { name: "Save status" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  expect((await readProject(p.id, "status")).status).toBe("declined");
 });

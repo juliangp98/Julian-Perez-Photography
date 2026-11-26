@@ -29,7 +29,7 @@ export default function StepSettled({
   const router = useRouter();
   const [state, setState] = useState<"idle" | "saving" | "ok" | "error">("idle");
   // What was settled last, and what this step offers to settle.
-  const [settled, setSettled] = useState<{ key: string; sent: boolean } | null>(null);
+  const [settled, setSettled] = useState<{ key: string; text: string } | null>(null);
   const key = sent ? `sent:${sent}` : handled ? `handled:${handled}` : "";
   // What a noted send couldn't move (the status, the hold, the follow-up).
   const [notMoved, setNotMoved] = useState("");
@@ -56,7 +56,10 @@ export default function StepSettled({
       setNotMoved(notMovedLine("Noted", json.notMoved));
       // An email left unsent on that template has gone another way.
       if (sent) composeDraft.dropTemplate(projectId, sent);
-      setSettled({ key, sent: !!sent });
+      setSettled({
+        key,
+        text: sent ? `Noted as sent.${json.moved?.followUpCleared ? " Follow-up cleared." : ""}` : "Marked handled.",
+      });
       setState("ok");
       router.refresh();
     } catch {
@@ -73,7 +76,7 @@ export default function StepSettled({
           {sent ? "Already sent" : "Mark handled"}
         </Button>
       )}
-      <FormStatus state={state} ok={settled?.sent ? "Noted as sent." : "Marked handled."} />
+      <FormStatus state={state} ok={settled?.text ?? "Saved."} />
       {state === "ok" && notMoved && <FormStatus state="error" error={notMoved} />}
     </span>
   );

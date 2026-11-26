@@ -23,12 +23,19 @@ export type SendEffectsProject = {
 // The follow-up the call summary's first save sets.
 export const RECAP_FOLLOW_UP_NOTE = "Send the recap and proposal";
 
-// The notes of the follow-ups the pipeline sets itself, so a template that
-// settles them can tell them from one set by hand.
-const PIPELINE_FOLLOW_UPS = new Set([
-  RECAP_FOLLOW_UP_NOTE,
-  ...EMAIL_TEMPLATES.flatMap((t) => (t.followUp ? [t.followUp.note] : [])),
-]);
+// The notes of the follow-ups the pipeline set before a status: the call
+// summary's, and those of templates for an earlier stage. A template that
+// settles them can tell them from one set by hand, or by a later stage.
+function earlierFollowUps(before: ClientStatus): Set<string> {
+  const rank = statusRank(before);
+  return new Set([
+    RECAP_FOLLOW_UP_NOTE,
+    ...EMAIL_TEMPLATES.flatMap((t) => {
+      const r = statusRank(t.stage);
+      return t.followUp && r >= 0 && r < rank ? [t.followUp.note] : [];
+    }),
+  ]);
+}
 
 export type SendEffectsPlan = {
   // Move the project forward to this status.
@@ -122,9 +129,10 @@ export function planSendEffects(
 
   if (
     template.settlesFollowUp &&
+    template.advancesTo &&
     !plan.followUp &&
     project.followUpAt &&
-    PIPELINE_FOLLOW_UPS.has(project.followUpNote ?? "")
+    earlierFollowUps(template.advancesTo).has(project.followUpNote ?? "")
   ) {
     plan.clearFollowUp = true;
   }

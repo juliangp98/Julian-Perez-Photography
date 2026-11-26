@@ -65,9 +65,9 @@ export type EmailTemplate = {
   followUp?: TemplateFollowUp;
   // and holds the date for the service's hold days, unless a hold is running;
   holdsDate?: boolean;
-  // and clears a follow-up an earlier stage of the pipeline set (one a
-  // template or the call summary set), which it settles; one set by hand
-  // stays.
+  // and clears a follow-up the pipeline set at a stage before the one it
+  // moves to (one a template for an earlier stage or the call summary set),
+  // which it settles; one set by hand, or by a later stage, stays.
   settlesFollowUp?: boolean;
 };
 

@@ -35,6 +35,11 @@ test("the booking welcome settles an earlier stage's follow-up, never one set by
     plan("booking-welcome", { status: "booked", followUpAt: "2026-12-01", followUpNote: "Ask about the album" }).clearFollowUp,
   ).toBeUndefined();
   expect(plan("booking-welcome", { status: "booked" }).clearFollowUp).toBeUndefined();
+  // A later stage's follow-up (the questionnaire's) isn't one it settles.
+  expect(
+    plan("booking-welcome", { status: "planning", followUpAt: "2026-12-01", followUpNote: "Check the questionnaire came back" })
+      .clearFollowUp,
+  ).toBeUndefined();
 });
 
 test("a status only moves forward, and a closed project stays closed", () => {

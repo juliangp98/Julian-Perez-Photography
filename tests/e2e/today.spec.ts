@@ -36,7 +36,19 @@ test("a client who wrote last shows until answered", () => {
   expect(one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z" })[0].action.href).toBe(
     "/admin/projects/p?compose=inquiry-reply#compose",
   );
-  // Answered outside the site (the inquiry marked handled): a plain reply.
+  // Answered outside the site (the inquiry, or an earlier message, marked
+  // handled), or booked by phone (a contract on it): a plain reply.
+  expect(
+    one({
+      status: "new-inquiry",
+      lastInAt: "2026-11-23T15:00:00Z",
+      todayDismissed: { "reply:2026-11-20T15:00:00Z": "handled" },
+    })[0].action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
+  expect(
+    one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", documents: [{ type: "contract", uploadedBy: "julian" }] })[0]
+      .action.href,
+  ).toBe("/admin/projects/p?tab=messages#compose");
   expect(
     one({ status: "new-inquiry", lastInAt: "2026-11-23T15:00:00Z", todayDismissed: { inquiry: "handled" } })[0].action.href,
   ).toBe("/admin/projects/p?tab=messages#compose");
@@ -49,6 +61,8 @@ test("a client who wrote last shows until answered", () => {
 test("a new inquiry nobody answered shows at any age, due from the day it came", () => {
   expect(one({ status: "new-inquiry" })).toMatchObject([{ rule: "inquiry", action: { label: "Draft a reply" } }]);
   expect(one({ status: "new-inquiry", lastOutAt: "2026-11-24T10:00:00Z" })).toEqual([]);
+  // Booked by phone (a contract on it): nothing to reply to.
+  expect(one({ status: "new-inquiry", documents: [{ type: "contract", uploadedBy: "julian" }] })).toEqual([]);
   expect(one({ status: "new-inquiry", createdAt: "2026-11-01T12:00:00Z" })).toMatchObject([
     { rule: "inquiry", reason: "New inquiry 3 weeks ago, not answered yet", due: "2026-11-01" },
   ]);
@@ -70,6 +84,10 @@ test("an expired hold shows for a lead, not once they've booked", () => {
   ]);
   expect(one({ status: "booked", holdUntil: "2026-11-20" })).toEqual([]);
   expect(one({ status: "proposal-sent", holdUntil: "2026-11-25" })).toEqual([]);
+  // A yes (the contract added) before the status moved.
+  expect(
+    one({ status: "proposal-sent", holdUntil: "2026-11-20", documents: [{ type: "contract", uploadedBy: "julian" }] }),
+  ).toEqual([]);
 });
 
 test("an unpaid invoice due within a week shows; a paid or later one doesn't", () => {

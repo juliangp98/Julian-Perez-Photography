@@ -21,7 +21,7 @@ export type TodayProject = {
   followUpNote?: string;
   holdUntil?: string;
   questionnaireSnapshot?: string;
-  documents?: { id?: string; type?: string; label?: string; dueAt?: string; paidAt?: string }[];
+  documents?: { id?: string; type?: string; label?: string; dueAt?: string; paidAt?: string; uploadedBy?: string }[];
   lastInAt?: string;
   lastOutAt?: string;
   todayDismissed?: Record<string, string>;
@@ -82,6 +82,8 @@ function rowsFor(
   const rank = statusRank(p.status);
   const closed = isClosed(p.status);
   const first = p.clientName?.trim().split(/\s+/)[0] || "The client";
+  // Booked by phone, or a yes before the proposal's hold ran out.
+  const booked = hasOwnContract(p.documents);
 
   // A follow-up that's due, on any project (a closed lead's last check-in too).
   if (p.followUpAt && DAY.test(p.followUpAt) && p.followUpAt <= today) {
@@ -113,7 +115,7 @@ function rowsFor(
     const byHand = Object.entries(p.todayDismissed ?? {}).some(
       ([k, v]) => (k === "inquiry" || k.startsWith("reply:")) && v === "handled",
     );
-    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt && !byHand;
+    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt && !byHand && !booked;
     add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
       href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,
@@ -122,7 +124,7 @@ function rowsFor(
   if (closed) return rows;
 
   // A new inquiry nobody has answered, at any age: due from the day it came.
-  if (p.status === "new-inquiry" && !p.lastOutAt && !replied) {
+  if (p.status === "new-inquiry" && !p.lastOutAt && !replied && !booked) {
     const since = dayOf(p.createdAt) || today;
     add("inquiry", "inquiry", `New inquiry ${dayAgo(since, today)}, not answered yet`, since, {
       label: "Draft a reply",
@@ -131,7 +133,7 @@ function rowsFor(
   }
 
   // A date hold that ran out before they booked.
-  if (p.holdUntil && DAY.test(p.holdUntil) && p.holdUntil < today && rank < statusRank("booked")) {
+  if (p.holdUntil && DAY.test(p.holdUntil) && p.holdUntil < today && rank < statusRank("booked") && !booked) {
     add(
       "hold",
       `hold:${p.holdUntil}`,
@@ -201,6 +203,13 @@ function rowsFor(
 export function hiddenByMark(mark: string | undefined, today: string): boolean {
   if (!mark) return false;
   return mark === "handled" || (DAY.test(mark) && mark > today);
+}
+
+// Whether a Square contract of Julian's is on the project: a lead with one
+// said yes, so it's past the inquiry reply and the proposal's follow-ups (the
+// project page's next step reads it the same way).
+export function hasOwnContract(docs?: { type?: string; uploadedBy?: string }[]): boolean {
+  return !!docs?.some((d) => d.type === "contract" && d.uploadedBy !== "client");
 }
 
 // The key of the row for a client's message that hasn't had an answer.
