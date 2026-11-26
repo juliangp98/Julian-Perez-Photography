@@ -353,12 +353,17 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   switch (answered ? "responded" : status) {
     case undefined:
     case "new-inquiry":
+      // The proposal link added before any reply: its email comes next, as
+      // the client's page reads it as ready.
       return (
-        booking() ?? {
-          title: "Reply to the inquiry",
-          detail: "Compose opens on the inquiry reply.",
-          action: { label: "Draft a reply", href: draftReplyHref(page) },
-        }
+        booking() ??
+        (has("proposal")
+          ? sendProposal()
+          : {
+              title: "Reply to the inquiry",
+              detail: "Compose opens on the inquiry reply.",
+              action: { label: "Draft a reply", href: draftReplyHref(page) },
+            })
       );
 
     case "responded": {

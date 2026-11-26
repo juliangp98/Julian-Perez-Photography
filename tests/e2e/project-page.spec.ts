@@ -267,6 +267,7 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     }).action?.href,
   ).toBe(compose("booking-welcome"));
 
+  expect(next({ status: "new-inquiry", documents: [own("proposal")] }).action?.href).toBe(compose("proposal"));
   // A lead with Julian's proposal link and no call: the proposal email, unless
   // call notes are waiting on their summary.
   expect(next({ status: "responded", documents: [own("proposal")] }, sent("inquiry-reply"))).toMatchObject({
