@@ -746,6 +746,18 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       secondary: link("Pay the retainer", invoice?.url),
     };
   };
+  // After delivery, what's still owed: the invoice the button pays, when it's
+  // due, and how to pay.
+  const open = invoices.filter((d) => !d.paidAt).length;
+  const owed = invoiceLink
+    ? [
+        open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
+        dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
+        ctx.paymentLine,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : undefined;
   // A lead with Julian's contract on it is reserving its date
   // (stillReserving).
   const lead = (step: ClientStep): ClientStep => (p.reserving ? reserving() : step);
@@ -884,17 +896,6 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       return editing;
 
     case "delivered": {
-      const open = invoices.filter((d) => !d.paidAt).length;
-      // The invoice the button pays, and when it's due.
-      const owed = invoiceLink
-        ? [
-            open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
-            dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
-            ctx.paymentLine,
-          ]
-            .filter(Boolean)
-            .join(" ")
-        : undefined;
       const gallery = own("gallery");
       // Delivered with no gallery link on the project (sent in an email, or
       // set by hand): it's in their email, and their galleries are a sign-in
@@ -912,12 +913,20 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
     case "complete":
       return {
         title: ctx.reviewUrl ? "Leave a review" : "Thank you",
-        detail: ctx.reviewUrl
-          ? "If you loved your photos, a few words help the next client find me."
-          : "It was a joy working with you.",
+        // An invoice still open (the review asked for first) stays on the card.
+        detail: [
+          ctx.reviewUrl ? "If you loved your photos, a few words help the next client find me." : "It was a joy working with you.",
+          owed,
+        ]
+          .filter(Boolean)
+          .join(" "),
         action: link("Write a review", ctx.reviewUrl),
-        // Back to the photos: Julian's gallery link, else the gallery sign-in.
-        secondary: link("View your gallery", own("gallery")?.url) ?? link("Sign in to your galleries", ctx.galleryLoginUrl),
+        // The invoice to pay, else back to the photos: Julian's gallery link,
+        // else the gallery sign-in.
+        secondary:
+          invoiceLink ??
+          link("View your gallery", own("gallery")?.url) ??
+          link("Sign in to your galleries", ctx.galleryLoginUrl),
       };
 
     default:

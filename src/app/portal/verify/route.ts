@@ -8,7 +8,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse, type NextRequest } from "next/server";
-import { verifyMagicToken } from "@/lib/auth";
+import { expiredMagicReturnPath, verifyMagicToken } from "@/lib/auth";
 import { setSessionCookie } from "@/lib/auth-cookies";
 import { emailHasPortalAccess, listPortalProjects } from "@/lib/clients";
 import * as Sentry from "@sentry/nextjs";
@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
     const claims = await verifyMagicToken(token);
     if (!claims) {
       loginUrl.searchParams.set("error", "invalid-link");
+      // A link that only ran out keeps its page for the fresh one.
+      const from = await expiredMagicReturnPath(token);
+      if (from) loginUrl.searchParams.set("from", from);
       return NextResponse.redirect(loginUrl);
     }
 

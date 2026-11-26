@@ -21,6 +21,8 @@ import {
   stagesFor,
 } from "../../src/lib/client-status";
 import { advanceToLastSection, satisfyVisible } from "./support/questionnaire";
+import { AUTH_SECRET } from "./support/auth-secret";
+import { SignJWT } from "jose";
 
 // The client's path through the portal: one next step per stage
 // (clientNextStep in src/lib/next-step.ts), the project page in phone order
@@ -344,6 +346,15 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "The link is in your email. There's one invoice still open. Pay by Zelle.",
     secondary: { label: "Pay the invoice" },
   });
+  // Complete with the balance still open keeps it on the card.
+  expect(
+    step({ status: "complete", documents: [own("gallery"), own("invoice", { dueAt: "2026-11-10" })] }, ctx({ paymentLine: "Pay by Zelle." })),
+  ).toMatchObject({
+    title: "Leave a review",
+    detail:
+      "If you loved your photos, a few words help the next client find me. There's one invoice still open. It was due November 10, 2026. Pay by Zelle.",
+    secondary: { label: "Pay the invoice", href: "https://links.example.com/invoice" },
+  });
   // Complete keeps the way back to the photos.
   expect(step({ status: "complete" }, ctx({ galleryLoginUrl: "https://gallery.example.com/client" }))?.secondary).toEqual({
     label: "Sign in to your galleries",
@@ -568,6 +579,24 @@ test("sign-in returns to the page the client was sent from, and one project open
   const single = await newProject(adminRequest, "single");
   await signInAs(single.email);
   await expect(page).toHaveURL(new RegExp(`/portal/projects/${single.id}$`));
+
+  // A link that ran out (an invite opened the next day) keeps its page for
+  // the fresh one; a link not signed by the site keeps nothing.
+  const linkFor = (secret: string) =>
+    new SignJWT({ email: p.email, next: `/portal/projects/${p.id}`, purpose: "magic" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+      .sign(new TextEncoder().encode(secret));
+  const landing = async (token: string) => {
+    const res = await page.request.get(`/portal/verify?token=${encodeURIComponent(token)}`, { maxRedirects: 0 });
+    return new URL(res.headers().location ?? "", "http://localhost");
+  };
+  const expired = await landing(await linkFor(AUTH_SECRET));
+  expect(expired.searchParams.get("error")).toBe("invalid-link");
+  expect(expired.searchParams.get("from")).toBe(`/portal/projects/${p.id}`);
+  const forged = await landing(await linkFor("not-the-site-secret-0123456789abcdef"));
+  expect(forged.searchParams.get("from")).toBeNull();
 });
 
 test("a second photographer's invite opens the project, with a call sheet, not the client's next step or thread", async ({

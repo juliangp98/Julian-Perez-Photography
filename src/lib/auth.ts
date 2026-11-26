@@ -10,7 +10,7 @@
 // var — it never reaches the browser, and portal code never imports this
 // client-side.
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, errors, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "jpp_portal_session";
 export const ADMIN_SESSION_COOKIE = "jpp_admin_session";
@@ -73,6 +73,21 @@ async function verify(
     return next ? { email: payload.email, next } : { email: payload.email };
   } catch {
     return null;
+  }
+}
+
+// The portal page an expired sign-in link was opening, so the fresh link
+// asked for keeps it. Only a link whose signature checks out and whose time
+// alone ran out counts (jose checks the signature before the expiry), and the
+// page is held to portalReturnPath.
+export async function expiredMagicReturnPath(token: string): Promise<string | undefined> {
+  try {
+    await jwtVerify(token, secretKey());
+    return undefined;
+  } catch (err) {
+    if (!(err instanceof errors.JWTExpired)) return undefined;
+    const payload = err.payload as Record<string, unknown> | undefined;
+    return payload?.purpose === "magic" ? portalReturnPath(payload.next) : undefined;
   }
 }
 

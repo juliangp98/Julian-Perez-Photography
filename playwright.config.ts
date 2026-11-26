@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 import { WEBHOOK_SECRET } from "./tests/e2e/support/webhook-sign";
+import { AUTH_SECRET } from "./tests/e2e/support/auth-secret";
 
 // The suite only ever talks to stand-ins. Provider calls (Resend, the AI
 // provider, Twilio) go to tests/e2e/support/fake-providers.mjs, and the client
@@ -50,7 +51,7 @@ export default defineConfig({
       reuseExistingServer: !CI,
       timeout: CI ? 300_000 : 120_000,
       env: {
-        AUTH_SECRET: "e2e-test-secret-not-for-production-0123456789abcdef",
+        AUTH_SECRET,
         ADMIN_EMAIL: "admin@example.com",
         INQUIRY_TO: "owner@example.com",
         CRON_SECRET: "e2e-cron-secret",
