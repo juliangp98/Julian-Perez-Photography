@@ -2,7 +2,13 @@ import type { APIRequestContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore, magicLinkFor, type FakeCall } from "./support/fixtures";
 import { patchProject } from "./support/test-store";
-import { clientNextStep, stillReserving, type ClientStepContext, type ClientStepProject } from "../../src/lib/next-step";
+import {
+  clientNextStep,
+  shootPassed,
+  stillReserving,
+  type ClientStepContext,
+  type ClientStepProject,
+} from "../../src/lib/next-step";
 import { portalReturnPath } from "../../src/lib/auth";
 import { planningCallFor, thankYouCalls } from "../../src/lib/project-links";
 import { formatHumanDate, shiftDay, studioToday } from "../../src/lib/field-format";
@@ -121,6 +127,15 @@ test("client next step: one per stage, from booking the call to the review", () 
     title: "You're booked",
     detail: "June 12, 2027 is yours. I'll send your planning questionnaire closer to the day.",
   });
+  // Inside the two months before the shoot the questionnaire is due soon,
+  // and the week of it, the step is the shoot itself.
+  expect(step({ status: "contract-signed", eventDate: "2026-12-20" })?.detail).toBe(
+    "December 20, 2026 is yours. I'll send your planning questionnaire soon.",
+  );
+  expect(step({ status: "contract-signed", eventDate: "2026-11-26" })?.title).toBe("Your shoot is tomorrow");
+  expect(step({ status: "planning", eventDate: "2026-11-26", questionnaireSnapshot: "{}" })?.title).toBe(
+    "Your shoot is tomorrow",
+  );
   // Answers sent before the booking aren't asked for again.
   expect(step({ status: "contract-signed", questionnaireSnapshot: "{}" })?.detail).toBe(
     "Your date is yours. I'll be in touch to plan closer to the day.",
@@ -211,6 +226,14 @@ test("client next step: one per stage, from booking the call to the review", () 
     "I'm editing your photos",
   );
   expect(step({ status: "contract-signed", eventDate: "2026-11-20" })?.title).toBe("I'm editing your photos");
+  // The status and tracker say so too (shootPassed), once nothing is being
+  // reserved.
+  expect(shootPassed({ status: "planning", eventDate: "2026-11-20" }, TODAY)).toBe(true);
+  expect(shootPassed({ status: "scheduled", eventDate: "2026-11-25" }, TODAY)).toBe(false);
+  expect(shootPassed({ status: "editing", eventDate: "2026-11-20" }, TODAY)).toBe(false);
+  expect(shootPassed({ status: "planning", eventDate: "June 6-7, 2027" }, TODAY)).toBe(false);
+  expect(shownStatus({ status: "planning", shot: true })).toBe("shot");
+  expect(stageLine({ status: "planning", shot: true })).toMatch(/: Editing$/);
 
   // The shoot, said by how soon it is.
   expect(step({ status: "scheduled", eventDate: "2026-11-25" })?.title).toBe("Your shoot is today");
@@ -353,6 +376,14 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
   await expect(next).toContainText("Sign your contract");
   await expect(page.getByText(CLIENT_STATUS_CLIENT_LABEL.booked, { exact: true })).toBeVisible();
   await expect(page.getByText("Date held until")).toHaveCount(0);
+
+  // Booked, and the shoot came and went with nothing moving it on: the page
+  // reads as after the shoot, status and tracker included.
+  await patchProject(p.id, { status: "contract-signed", event_date: shiftDay(studioToday(), { days: -3 }) });
+  await page.reload();
+  await expect(next).toContainText("I'm editing your photos");
+  await expect(page.getByText(CLIENT_STATUS_CLIENT_LABEL.shot, { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Step \d+ of \d+: Editing$/)).toBeVisible();
 });
 
 test("sign-in returns to the page the client was sent from, and one project opens straight away", async ({

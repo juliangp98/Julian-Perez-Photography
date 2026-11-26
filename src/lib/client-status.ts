@@ -140,19 +140,21 @@ export type StageProject = {
   // booking was done: stillReserving in src/lib/next-step.ts): their tracker
   // and status read Reserving your date.
   reserving?: boolean;
+  // The shoot is past while the status still reads as before it
+  // (shootPassed): their tracker and status read Captured.
+  shot?: boolean;
 };
 
 // The status a client's page shows: Booked's while the date is still being
-// reserved, else the project's own.
+// reserved, Captured once the shoot is past, else the project's own.
 export function shownStatus(p: StageProject): string | undefined {
-  return p.reserving ? "booked" : p.status;
+  return p.reserving ? "booked" : p.shot ? "shot" : p.status;
 }
 
 // How far a client's project has come, for its tracker and what the page
-// shows: Booked while the date is still being reserved, else where it stands
-// (for a closed one, the last status it held).
+// shows: as shownStatus, and for a closed one the last status it held.
 export function reachedStatus(p: StageProject): string | undefined {
-  return p.reserving ? "booked" : lastOpenStatus(p);
+  return p.reserving ? "booked" : p.shot ? "shot" : lastOpenStatus(p);
 }
 
 // What a second photographer's tracker reads: where the shoot stands, without
@@ -161,6 +163,7 @@ export function reachedStatus(p: StageProject): string | undefined {
 export function shootStage(p: StageProject): StageProject {
   return {
     status: p.status,
+    shot: p.shot,
     statusHistory: (p.statusHistory ?? []).filter((h) => h.status !== "in-conversation" && h.status !== "proposal-sent"),
   };
 }

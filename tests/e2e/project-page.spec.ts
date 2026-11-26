@@ -275,6 +275,14 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "contract-signed", eventDate: "2027-01-10" }, welcomed).action?.href).toBe(
     compose("planning-kickoff"),
   );
+  // The kickoff says it sends the questionnaire only when the answers aren't
+  // in yet, and only for a service that has one.
+  expect(next({ status: "contract-signed" }, welcomed)).toMatchObject({
+    title: "Start planning",
+    detail: "The kickoff email sends the questionnaire.",
+  });
+  expect(next({ status: "contract-signed", questionnaireSnapshot: "{}" }, welcomed).detail).toBeUndefined();
+  expect(next({ status: "contract-signed" }, { ...welcomed, questionnaire: false }).detail).toBeUndefined();
   expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, welcomed)).toEqual({
     title: "Booked",
     detail: "Planning starts about two months before the shoot, around April 13, 2027. Nothing to send yet.",

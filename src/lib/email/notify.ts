@@ -39,7 +39,8 @@ export async function notifyOwnerOfPortal(opts: {
     to,
     subject: opts.subject,
     html,
-    text: `${opts.lines.join("\n\n")}\n\n${opts.cta.label}: ${opts.cta.href}`,
+    // The button's arrow stays in the HTML.
+    text: `${opts.lines.join("\n\n")}\n\n${opts.cta.label.replace(/\s*→$/, "")}: ${opts.cta.href}`,
   });
 }
 

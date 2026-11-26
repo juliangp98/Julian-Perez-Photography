@@ -608,6 +608,19 @@ export function stillReserving(
   return !shoot || daysBetween(today, shoot) >= 0;
 }
 
+// The statuses a project can still hold after its shoot when no week-of or
+// thank-you email moved it on.
+const BEFORE_SHOOT = ["contract-signed", "planning", "scheduled"];
+
+// For the client, a project whose shoot is past while its status still reads
+// as before it: their page shows what comes after (the editing step), and its
+// status and tracker read Captured. A date still being reserved comes first.
+export function shootPassed(p: { status?: string; eventDate?: string }, today: string): boolean {
+  if (!BEFORE_SHOOT.includes(p.status ?? "")) return false;
+  const shoot = eventDay(p.eventDate);
+  return !!shoot && daysBetween(today, shoot) < 0;
+}
+
 export type ClientStep = {
   title: string;
   detail?: string;
@@ -704,7 +717,28 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
   // (stillReserving).
   const lead = (step: ClientStep): ClientStep => (p.reserving ? reserving() : step);
   // A shoot already past: what comes after it, whatever the planning left.
-  const shot = !!shoot && daysBetween(today, shoot) < 0;
+  const shot = shootPassed(p, today);
+  // The shoot, said by how soon it is, with the plan when there is one.
+  const days = shoot ? daysBetween(today, shoot) : undefined;
+  const shootStep = (): ClientStep => {
+    const when =
+      days === undefined
+        ? undefined
+        : days === 0
+          ? "today"
+          : days === 1
+            ? "tomorrow"
+            : days < 7
+              ? `on ${weekdayOf(shoot)}`
+              : `on ${formatHumanDate(shoot)}`;
+    return {
+      title: when ? `Your shoot is ${when}` : "Your shoot is on the calendar",
+      detail: [p.planSummary?.trim() ? "Your plan is below." : undefined, "Write to me here with anything that changes."]
+        .filter(Boolean)
+        .join(" "),
+      action: link("View your timeline", own("timeline")?.url),
+    };
+  };
 
   switch (status) {
     case undefined:
@@ -737,11 +771,15 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
 
     case "contract-signed": {
       if (shot) return editing;
+      // The week of the shoot: the shoot itself.
+      if (days !== undefined && days < 7) return shootStep();
       // Only a service with a questionnaire gets one, and only once: answers
-      // sent before the booking count.
-      const later = ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
-        ? "I'll send your planning questionnaire closer to the day."
-        : "I'll be in touch to plan closer to the day.";
+      // sent before the booking count. Inside the planning window it's due.
+      const ahead = days === undefined || days > PLANNING_WINDOW_DAYS ? "closer to the day" : "soon";
+      const later =
+        ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
+          ? `I'll send your planning questionnaire ${ahead}.`
+          : `I'll be in touch to plan ${ahead}.`;
       return {
         title: "You're booked",
         detail: shoot ? `${formatHumanDate(shoot)} is yours. ${later}` : `Your date is yours. ${later}`,
@@ -751,6 +789,8 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
     case "planning": {
       if (p.reserving) return reserving();
       if (shot) return editing;
+      // The eve of the shoot, or the day: the shoot itself.
+      if (days !== undefined && days <= 1) return shootStep();
       if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Fill in your planning questionnaire",
@@ -785,32 +825,10 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         : { title: "Your timeline is on its way", detail: "I'll send it before the shoot." };
     }
 
-    case "scheduled": {
+    case "scheduled":
       // Until the shoot, a booking left undone comes first.
       if (p.reserving) return reserving();
-      // The plan shows on their page once there is one.
-      const write = "Write to me here with anything that changes.";
-      const plan = p.planSummary?.trim() ? "Your plan is below." : undefined;
-      const timeline = link("View your timeline", own("timeline")?.url);
-      if (shoot) {
-        const days = daysBetween(today, shoot);
-        if (days < 0) return editing;
-        const when =
-          days === 0
-            ? "today"
-            : days === 1
-              ? "tomorrow"
-              : days < 7
-                ? `on ${weekdayOf(shoot)}`
-                : `on ${formatHumanDate(shoot)}`;
-        return {
-          title: `Your shoot is ${when}`,
-          detail: [plan, write].filter(Boolean).join(" "),
-          action: timeline,
-        };
-      }
-      return { title: "Your shoot is on the calendar", detail: [plan, write].filter(Boolean).join(" "), action: timeline };
-    }
+      return shot ? editing : shootStep();
 
     case "shot":
     case "editing":
