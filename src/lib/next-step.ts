@@ -424,7 +424,8 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       }
       return {
         title: "Start planning",
-        detail: ctx.questionnaire ? "The kickoff email sends the questionnaire." : undefined,
+        detail:
+          ctx.questionnaire && !p.questionnaireSnapshot?.trim() ? "The kickoff email sends the questionnaire." : undefined,
         action: { label: "Write the kickoff", href: compose("planning-kickoff") },
       };
     }
@@ -736,8 +737,9 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
 
     case "contract-signed": {
       if (shot) return editing;
-      // Only a service with a questionnaire gets one.
-      const later = ctx.questionnaireUrl
+      // Only a service with a questionnaire gets one, and only once: answers
+      // sent before the booking count.
+      const later = ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
         ? "I'll send your planning questionnaire closer to the day."
         : "I'll be in touch to plan closer to the day.";
       return {
@@ -789,6 +791,7 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
       // The plan shows on their page once there is one.
       const write = "Write to me here with anything that changes.";
       const plan = p.planSummary?.trim() ? "Your plan is below." : undefined;
+      const timeline = link("View your timeline", own("timeline")?.url);
       if (shoot) {
         const days = daysBetween(today, shoot);
         if (days < 0) return editing;
@@ -803,10 +806,10 @@ export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): Cl
         return {
           title: `Your shoot is ${when}`,
           detail: [plan, write].filter(Boolean).join(" "),
-          action: link("View your timeline", own("timeline")?.url),
+          action: timeline,
         };
       }
-      return { title: "Your shoot is on the calendar", detail: [plan, write].filter(Boolean).join(" ") };
+      return { title: "Your shoot is on the calendar", detail: [plan, write].filter(Boolean).join(" "), action: timeline };
     }
 
     case "shot":

@@ -121,6 +121,10 @@ test("client next step: one per stage, from booking the call to the review", () 
     title: "You're booked",
     detail: "June 12, 2027 is yours. I'll send your planning questionnaire closer to the day.",
   });
+  // Answers sent before the booking aren't asked for again.
+  expect(step({ status: "contract-signed", questionnaireSnapshot: "{}" })?.detail).toBe(
+    "Your date is yours. I'll be in touch to plan closer to the day.",
+  );
   // A service with no questionnaire isn't promised one.
   expect(step({ status: "contract-signed" }, ctx({ questionnaireUrl: undefined }))?.detail).toBe(
     "Your date is yours. I'll be in touch to plan closer to the day.",
@@ -217,6 +221,11 @@ test("client next step: one per stage, from booking the call to the review", () 
     detail: "Write to me here with anything that changes.",
     action: { label: "View your timeline" },
   });
+  // A date the site can't read as one day still gets the timeline.
+  expect(step({ status: "scheduled", eventDate: "June 6-7, 2027", documents: [own("timeline")] })).toMatchObject({
+    title: "Your shoot is on the calendar",
+    action: { label: "View your timeline" },
+  });
   // The plan is pointed to only when there is one.
   expect(step({ status: "scheduled", eventDate: "2026-12-20", planSummary: "Ceremony at four." })?.detail).toBe(
     "Your plan is below. Write to me here with anything that changes.",
@@ -245,7 +254,7 @@ test("client next step: one per stage, from booking the call to the review", () 
   expect(step({ status: "lost" })).toBeUndefined();
 });
 
-test("sign-in returns only to a plain portal page", () => {
+test("sign-in returns only to the projects list or a project page", () => {
   expect(portalReturnPath("/portal/projects/0f0e3c1a-1111-4222-8333-444455556666")).toBe(
     "/portal/projects/0f0e3c1a-1111-4222-8333-444455556666",
   );
@@ -268,15 +277,18 @@ test("sign-in returns only to a plain portal page", () => {
   }
 });
 
-// A fresh wedding project for one test, with the address its client signs in with.
+// A fresh wedding project for one test, with the address its client signs in
+// with. The wedding is months out, so its steps read as before the shoot
+// whenever the suite runs.
 async function newProject(adminRequest: APIRequestContext, tag: string) {
   const email = `e2e-path-${tag}-${Date.now()}@example.com`;
+  const eventDate = shiftDay(studioToday(), { months: 7 });
   const res = await adminRequest.post("/api/admin/create-project", {
-    data: { email, clientName: "E2E Path", serviceType: "weddings", eventDate: "2027-06-12", force: true },
+    data: { email, clientName: "E2E Path", serviceType: "weddings", eventDate, force: true },
   });
   const { id } = await res.json();
   expect(id, "the project was created").toBeTruthy();
-  return { id: id as string, email };
+  return { id: id as string, email, eventDate };
 }
 const sentTo = (calls: FakeCall[], to: string) =>
   calls.filter((c) => c.path === "/emails" && [c.body?.to].flat().includes(to));
@@ -321,12 +333,26 @@ test("the project page: the next step, the tracker, links by kind, and the plan 
   );
   await expect(page.getByRole("heading", { name: "Your plan", exact: true })).toBeVisible();
   await expect(page.getByText("Getting ready at the inn, then the garden ceremony.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Your plan" })).toContainText("Date held until");
   // Links grouped by kind, each under its own heading.
   await expect(page.getByRole("heading", { name: "Proposal", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Timeline", exact: true })).toBeVisible();
 
   const scan = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).disableRules(["color-contrast"]).analyze();
   expect(scan.violations).toEqual([]);
+
+  // They said yes: with Julian's contract on, the date is being reserved, and
+  // the hold has done its job.
+  await patchProject(p.id, {
+    documents: [
+      { id: "pr", type: "proposal", label: "Your proposal", url: "https://links.example.com/proposal", uploadedBy: "julian" },
+      { id: "c", type: "contract", label: "Contract", url: "https://links.example.com/contract", uploadedBy: "julian" },
+    ],
+  });
+  await page.reload();
+  await expect(next).toContainText("Sign your contract");
+  await expect(page.getByText(CLIENT_STATUS_CLIENT_LABEL.booked, { exact: true })).toBeVisible();
+  await expect(page.getByText("Date held until")).toHaveCount(0);
 });
 
 test("sign-in returns to the page the client was sent from, and one project opens straight away", async ({
@@ -334,7 +360,12 @@ test("sign-in returns to the page the client was sent from, and one project open
   page,
 }) => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  // Two projects, so a sign-in that lost the page would land on their list.
   const p = await newProject(adminRequest, "return");
+  const other = await adminRequest.post("/api/admin/create-project", {
+    data: { email: p.email, clientName: "E2E Path", serviceType: "engagements", force: true },
+  });
+  expect(other.status()).toBe(200);
 
   // Sent to sign in from the project page; the link brings them back to it.
   await page.goto(`/portal/projects/${p.id}`);
@@ -349,39 +380,37 @@ test("sign-in returns to the page the client was sent from, and one project open
   // stays under the sign-in limit, and a refused one fails here rather than
   // reusing the last link.
   let n = 0;
-  const requestLink = async (data: Record<string, string>) => {
+  const signInAs = async (email: string, data: Record<string, string> = {}) => {
     n += 1;
+    await page.context().clearCookies();
     const res = await page.request.post("/api/portal/request-link", {
-      data: { email: p.email, hp_company: "", ...data },
+      data: { email, hp_company: "", ...data },
       headers: { "x-forwarded-for": `10.250.${Math.floor(Math.random() * 250)}.${n}` },
     });
     expect(res.status(), "the sign-in link was sent").toBe(200);
+    await page.goto(await magicLinkFor(email));
   };
 
-  // A link asked for with no page: the person's one project opens.
-  await page.context().clearCookies();
-  await requestLink({});
-  await page.goto(await magicLinkFor(p.email));
+  // A link asked for with a project page opens it.
+  await signInAs(p.email, { next: `/portal/projects/${p.id}` });
   await expect(page).toHaveURL(new RegExp(`/portal/projects/${p.id}$`));
 
-  // With two projects, their list.
-  await adminRequest.post("/api/admin/create-project", {
-    data: { email: p.email, clientName: "E2E Path", serviceType: "engagements", force: true },
-  });
-  await page.context().clearCookies();
-  await requestLink({});
-  await page.goto(await magicLinkFor(p.email));
+  // With no page asked for, their list.
+  await signInAs(p.email);
   await expect(page).toHaveURL(/\/portal\/dashboard$/);
   // Each project is a card with its status and its stage.
   const card = page.locator(`a[href="/portal/projects/${p.id}"]`);
   await expect(card).toContainText(CLIENT_STATUS_CLIENT_LABEL["new-inquiry"]);
   await expect(card.getByRole("img", { name: "Step 1 of 10: Inquiry" })).toBeVisible();
 
-  // A page that isn't a plain portal path is ignored.
-  await page.context().clearCookies();
-  await requestLink({ next: "https://evil.example/portal/x" });
-  await page.goto(await magicLinkFor(p.email));
+  // A page that isn't one of the portal's is ignored.
+  await signInAs(p.email, { next: "https://evil.example/portal/x" });
   await expect(page).toHaveURL(/\/portal\/dashboard$/);
+
+  // Someone with one project lands on it.
+  const single = await newProject(adminRequest, "single");
+  await signInAs(single.email);
+  await expect(page).toHaveURL(new RegExp(`/portal/projects/${single.id}$`));
 });
 
 test("a second photographer's invite opens the project, with a call sheet, not the client's next step or thread", async ({
@@ -404,6 +433,13 @@ test("a second photographer's invite opens the project, with a call sheet, not t
     ],
   });
   const second = `e2e-path-shooter-${Date.now()}@example.com`;
+  // Shared on another project too, so an invite that lost its page would land
+  // on their list.
+  const earlier = await newProject(adminRequest, "sheet-other");
+  const shareEarlier = await adminRequest.post("/api/admin/collaborators", {
+    data: { action: "add", projectId: earlier.id, email: second, sendInvite: false },
+  });
+  expect(shareEarlier.status()).toBe(200);
   const grant = await adminRequest.post("/api/admin/collaborators", {
     data: { action: "add", projectId: p.id, email: second, sendInvite: true },
   });
@@ -413,7 +449,7 @@ test("a second photographer's invite opens the project, with a call sheet, not t
   await page.goto(await magicLinkFor(second));
   await expect(page).toHaveURL(new RegExp(`/portal/projects/${p.id}$`));
   const sheet = page.getByRole("region", { name: "Call sheet" });
-  await expect(sheet).toContainText("June 12, 2027");
+  await expect(sheet).toContainText(formatHumanDate(p.eventDate));
   await expect(sheet).toContainText("E2E Path and Sam, 1 guest");
   await expect(sheet).toContainText("Stone Barn");
   await expect(sheet).toContainText("Day-of contact");

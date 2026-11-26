@@ -46,11 +46,12 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
   // In-app links (no origin): the prefilled questionnaire, or the inquiry for
   // a project with no service yet.
   const links = projectLinks(record, "");
-  const hold = heldUntil(record, undefined, today);
+  const stage = facts.get(record.id) ?? (viewerRole === "owner" ? { status: record.status } : shootStage(record));
+  // A hold stops showing once the date is being reserved.
+  const hold = stage.reserving ? undefined : heldUntil(record, undefined, today);
   const paymentLine = record.paymentMethod
     ? settings.paymentInstructions[record.paymentMethod as PaymentMethod]
     : undefined;
-  const stage = facts.get(record.id) ?? (viewerRole === "owner" ? { status: record.status } : shootStage(record));
   const next =
     viewerRole === "owner"
       ? clientNextStep({ ...record, reserving: stage.reserving }, {

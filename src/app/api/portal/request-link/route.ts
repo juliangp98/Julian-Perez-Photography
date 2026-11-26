@@ -2,7 +2,8 @@
 // response is identical whatever the input, record, store, or send outcome, so
 // it never reveals whether an email has a project; a link goes only to one that does.
 // `next` is the portal page the visitor was on, which the link opens after
-// signing in (only a plain /portal/ path is kept).
+// signing in (only the projects list or one project's page is kept,
+// portalReturnPath).
 
 export const runtime = "nodejs";
 
