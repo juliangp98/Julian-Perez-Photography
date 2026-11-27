@@ -4,6 +4,7 @@ import PortalLoginForm from "@/components/portal/PortalLoginForm";
 import CalloutCard from "@/components/ui/CalloutCard";
 import SubNav, { CLIENT_TABS } from "@/components/ui/SubNav";
 import { getSession } from "@/lib/auth-cookies";
+import { portalReturnPath } from "@/lib/auth";
 
 // Portal login (public). Authenticated portal pages live under /portal/* and
 // are gated by the proxy. noindex — this is a private surface.
@@ -18,12 +19,14 @@ export default async function PortalLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  // A signed-in visitor lands on their dashboard rather than the sign-in form,
-  // so the "Client portal" tab resolves correctly from both states.
+  // `from` is the portal page the visitor was sent here from; the sign-in
+  // link returns them to it.
+  const { error, from } = await searchParams;
+  // A signed-in visitor goes on to that page (an expired link's, say), else
+  // their dashboard rather than the sign-in form, so the "Client portal" tab
+  // resolves correctly from both states. The page itself checks access.
   const session = await getSession();
-  if (session) redirect("/portal/dashboard");
-
-  const { error } = await searchParams;
+  if (session) redirect(portalReturnPath(from) ?? "/portal/dashboard");
   const errorMsg =
     error === "invalid-link"
       ? "That sign-in link is invalid or has expired. Request a fresh one below."
@@ -47,7 +50,7 @@ export default async function PortalLoginPage({
             </p>
           )}
           <div className="mt-8">
-            <PortalLoginForm />
+            <PortalLoginForm next={portalReturnPath(from)} />
           </div>
         </div>
         <aside className="mt-10 lg:mt-0 lg:sticky lg:top-24">

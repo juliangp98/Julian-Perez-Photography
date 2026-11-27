@@ -5,6 +5,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db, isClientsStoreConfigured, isRecordId } from "@/lib/clients";
+import type { SentEmail } from "@/lib/next-step";
 
 const TABLE = "client_messages";
 
@@ -85,6 +86,46 @@ export function isConversation(m: Pick<ClientMessage, "direction" | "kind" | "st
   return m.direction === "in"
     ? m.status === "received"
     : WRITTEN_KINDS.includes(m.kind) && WENT_OUT.includes(m.status);
+}
+
+// An email as the next-step rules count it (sentTemplates): one that went
+// out, or one the client marked as spam, which arrived.
+export function sentEmail(
+  m: Pick<ClientMessage, "direction" | "kind" | "status" | "template" | "subject" | "sentAt">,
+): SentEmail {
+  return {
+    direction: m.direction,
+    template: m.template,
+    subject: m.subject,
+    sentAt: m.sentAt,
+    wentOut: isConversation(m) || (m.direction === "out" && m.status === "complained"),
+  };
+}
+
+// The outgoing emails of these projects, by project id, as the rules count
+// them. Only what the rules read is selected.
+export async function listSentEmails(projectIds: string[]): Promise<Map<string, SentEmail[]>> {
+  const byProject = new Map<string, SentEmail[]>();
+  const wanted = projectIds.filter(isRecordId);
+  if (!isClientsStoreConfigured() || !wanted.length) return byProject;
+  const base = "projectId:project_id, direction, kind, status, subject, sentAt:sent_at";
+  const read = () =>
+    db()
+      .from(TABLE)
+      .select(templateColumn ? `${base}, template` : base)
+      .in("project_id", wanted)
+      .eq("direction", "out")
+      .order("sent_at", { ascending: true });
+  let { data, error } = await read();
+  if (templateMissing(error)) ({ data, error } = await read());
+  if (error) throw error;
+  type Row = Pick<ClientMessage, "projectId" | "direction" | "kind" | "status" | "subject" | "sentAt" | "template">;
+  for (const m of (data as unknown as Row[] | null) ?? []) {
+    const list = byProject.get(m.projectId) ?? [];
+    list.push(sentEmail(m));
+    byProject.set(m.projectId, list);
+  }
+  return byProject;
 }
 
 export type NewMessage = {

@@ -1,13 +1,17 @@
 // POST /api/portal/attach-document: links a just-uploaded Blob file to one of
 // the signed-in client's own projects. Only Vercel Blob URLs are accepted, so a
-// client can only attach a real upload, and only to a project they own.
+// client can only attach a real upload, and only to a project they own. Julian
+// is emailed about the file (fire-and-forget).
 
 export const runtime = "nodejs";
 
 import { z } from "zod";
-import { apiError, defineRoute } from "@/lib/api-route";
+import * as Sentry from "@sentry/nextjs";
+import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { addDocument, getProjectForEmail } from "@/lib/clients";
-import { CLIENT_DOCUMENT_TYPES } from "@/lib/labels";
+import { CLIENT_DOCUMENT_TYPES, documentTypeLabel } from "@/lib/labels";
+import { notifyOwnerOfPortal } from "@/lib/email/notify";
+import { projectDisplayName } from "@/lib/project-name";
 
 // The kinds a client can label an upload with (a timeline, a moodboard, or a
 // general file). Proposals, contracts, invoices and galleries are Julian's to
@@ -27,7 +31,7 @@ export const POST = defineRoute({
   rateLimit: { max: 20, windowMs: 10 * 60 * 1000 },
   invalid: "Invalid document.",
   failure: { status: 500, error: "Couldn't save the document." },
-  run: async ({ projectId, url, label, type }, { session }) => {
+  run: async ({ projectId, url, label, type }, { req, session }) => {
     // Only the file the client just uploaded through the token endpoint;
     // blocks arbitrary external links being injected as documents.
     let host: string;
@@ -49,6 +53,21 @@ export const POST = defineRoute({
       url,
       uploadedBy: "client",
     });
+    try {
+      await notifyOwnerOfPortal({
+        subject: `New file on ${projectDisplayName(owned)}: ${label}`,
+        heading: "A client uploaded a file",
+        lines: [
+          `${session.email} added "${label}" (${documentTypeLabel(type ?? "other")}) to ${projectDisplayName(owned)} in the client portal.`,
+        ],
+        cta: { label: "Open its links and files →", href: `${originOf(req)}/admin/projects/${projectId}?tab=links` },
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { route: "portal/attach-document", stage: "notify" },
+        level: "warning",
+      });
+    }
     return { ok: true };
   },
 });

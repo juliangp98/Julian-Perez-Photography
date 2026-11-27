@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
-import { contactLine, formatEventDate, formatStamp, formatHumanDate, studioToday } from "@/lib/field-format";
+import {
+  contactLine,
+  formatEventDate,
+  formatOtherDates,
+  formatStamp,
+  guestCountLabel,
+  studioToday,
+} from "@/lib/field-format";
 import { DOCUMENT_TYPES, paymentMethodLabel, sourceLabel } from "@/lib/labels";
 import { formatReferral } from "@/lib/referral";
 import { headers } from "next/headers";
@@ -35,11 +42,11 @@ import ProjectOverview from "@/components/admin/ProjectOverview";
 import StatusControl from "@/components/admin/StatusControl";
 import StageTracker from "@/components/ui/StageTracker";
 import CopyField from "@/components/ui/CopyField";
-import { buttonClass } from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import { RailCard, Detail } from "@/components/ui/RailCard";
 import Panel from "@/components/ui/Panel";
 import MessageThread from "@/components/messages/MessageThread";
-import { isConversation, listProjectMessages, ensureReplyToken } from "@/lib/messages";
+import { isConversation, listProjectMessages, ensureReplyToken, sentEmail } from "@/lib/messages";
 import { triageSteer } from "@/lib/triage";
 import { isCurrent } from "@/lib/ai/project-context";
 import { logAddress } from "@/lib/email/inbound";
@@ -121,14 +128,7 @@ export default async function AdminProjectDetailPage({
   const conversation = messages.filter(isConversation);
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
-  // An email the client marked as spam arrived, so it counts as sent.
-  const sent = sentTemplates(
-    messages.map((m) => ({
-      ...m,
-      wentOut: isConversation(m) || (m.direction === "out" && m.status === "complained"),
-    })),
-    record?.statusHistory,
-  );
+  const sent = sentTemplates(messages.map(sentEmail), record?.statusHistory);
   const hasQuestionnaire = !!record?.serviceType && !!getQuestionnaire(record.serviceType);
   const next = record
     ? ownerNextStep(
@@ -167,9 +167,7 @@ export default async function AdminProjectDetailPage({
         service?.title ?? serviceTitle(record.serviceType),
         formatEventDate(record.eventDate),
         venue,
-        record.guestCount != null
-          ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}`
-          : undefined,
+        guestCountLabel(record.guestCount),
         record.paymentMethod ? `Pays by ${paymentMethodLabel(record.paymentMethod)}` : undefined,
         contactLine(lastInAt, lastOutAt, today) ?? undefined,
       ].filter(Boolean)
@@ -220,9 +218,14 @@ export default async function AdminProjectDetailPage({
                 note={record.followUpNote}
                 today={today}
               />
-              <ComposeLink href={`${page}?tab=messages#compose`} className={buttonClass("ghost", "sm")}>
-                Write email
-              </ComposeLink>
+              <div className="flex flex-wrap gap-3">
+                <ComposeLink href={`${page}?tab=messages#compose`} className={buttonClass("ghost", "sm")}>
+                  Write email
+                </ComposeLink>
+                <Button href={`${page}/client`} variant="ghost" size="sm">
+                  View as client
+                </Button>
+              </div>
             </Panel>
           </div>
 
@@ -392,11 +395,7 @@ export default async function AdminProjectDetailPage({
                     {record.secondaryDates && record.secondaryDates.length > 0 && (
                       <Detail
                         label="Other dates"
-                        value={record.secondaryDates
-                          .map((d) =>
-                            [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": "),
-                          )
-                          .join("\n")}
+                        value={formatOtherDates(record.secondaryDates)}
                         className="py-2"
                         preLine
                       />

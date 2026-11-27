@@ -48,7 +48,7 @@ src/
 │   ├── ui/                    # Generic primitives — Button, Panel, CalloutCard, RailCard, SubNav + fields/ form controls
 │   ├── forms/                 # Inquiry + questionnaire forms (questionnaire/ renderer internals), new-project forms
 │   ├── admin/                 # Owner-dashboard pieces; admin/ai/ holds the AI drafting tools
-│   ├── portal/                # Client-portal pieces (edit form, uploads, status timeline)
+│   ├── portal/                # Client-portal pieces (project view, edit form, uploads, questionnaire callout)
 │   └── marketing/             # Public site chrome + content — Nav (nav/ menu internals), Footer, galleries, concierge
 ├── lib/                       # Data/content modules flat; cross-cutting clusters grouped
 │   ├── content.ts             # Runtime content getters: Sanity first, hard-coded fallbacks
@@ -380,13 +380,18 @@ and grouped under Julian's photographic categories. Two or more related projects
 can be linked into a **bundle** (e.g. "Wedding + Engagement") by either Julian
 (from the admin project page) or the client (from their menu); bundled projects
 render together in their own accent-bordered group, labelled and tagged so the
-relationship is obvious at a glance. Clicking a project opens its detail view —
-status, dates, locations, plan, links and files (the proposal, contract,
-invoice, highlights and gallery links Julian adds, plus anything the client
-uploads), how they're paying, and the project's message thread (see "Client
-messages" below). There the client can make limited edits, upload
-files, write to the owner, and open the matching planning questionnaire
-prefilled with their details.
+relationship is obvious at a glance. Clicking a project opens its page: the
+client's one next step, with a button when there's something to do (`clientNextStep` in
+`src/lib/next-step.ts`), the same stage tracker the admin page shows, links and
+files by kind (the proposal, contract, invoice, highlights and gallery links
+Julian adds, plus anything the client uploads), the project's message thread
+(see "Client messages" below), the plan once the project is at Proposal sent or later, how they're paying, the
+matching planning questionnaire prefilled with their details, limited edits
+and uploads. Signing in returns a client to the page they came from; with no
+page asked for, it opens their one project, or the menu when they have
+several. A second
+photographer sees a call sheet instead, and Julian can open any project as its
+client sees it ("View as client").
 
 The admin area is gated by a magic link to `ADMIN_EMAIL` (same mechanism as the
 client portal, owner-only). Sign in at `/admin` with that email.
@@ -410,7 +415,13 @@ place). Both are fire-and-forget and
 - **Privacy boundary:** the app reaches the table only through
 `src/lib/clients.ts` (server-only, service-role key). The portal reads via
 the client projection — `internal_notes`, the budget, status history, and
-inquiry context are never selected, so they can't reach a client. The
+inquiry context are never selected, so they can't reach a client. The stage
+tracker's facts come from `listStageFacts`, which reads the status history,
+the event date and the calls on the server, with the emails sent that
+`portalStageFacts` reads and passes in, and returns only the statuses, the
+discovery call's held date, the kinds of links on the project, whether the
+date is still being reserved, whether the proposal went out by email and
+whether the shoot is past. The
 questionnaire answers are held out of the project list and added on a single
 project's page: the client's own in full, and for a second photographer only
 the ones about the shoot. A second photographer with read access gets a

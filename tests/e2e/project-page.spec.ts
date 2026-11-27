@@ -6,6 +6,7 @@ import { stagesFor } from "../../src/lib/client-status";
 import {
   ownerNextStep,
   sentTemplates,
+  stillReserving,
   type NextStepContext,
   type NextStepProject,
 } from "../../src/lib/next-step";
@@ -267,6 +268,37 @@ test("next step: one per stage, from the inquiry to the referral", () => {
     }).action?.href,
   ).toBe(compose("booking-welcome"));
 
+  expect(next({ status: "new-inquiry", documents: [own("proposal")] }).action?.href).toBe(compose("proposal"));
+  // Call notes waiting on their summary come first, and a held call's recap
+  // carries the proposal.
+  expect(
+    next({ status: "new-inquiry", documents: [own("proposal")], calls: { discovery: { notes: "Talked through the day." } } }).title,
+  ).toBe("Save the call summary");
+  expect(
+    next({
+      status: "new-inquiry",
+      documents: [own("proposal")],
+      calls: { discovery: { notes: "Talked through the day.", heldAt: "2026-11-20T15:00:00.000Z" } },
+    }).action?.href,
+  ).toBe(compose("discovery-recap"));
+  // A booking confirmed by the welcome and set back to a lead isn't asked for
+  // again, by either side.
+  const welcomedLead = { status: "proposal-sent", documents: [own("contract"), own("invoice", { paidAt: "2026-11-20" })] };
+  expect(next(welcomedLead, sent("booking-welcome", "proposal")).action?.href).not.toBe(compose("booking-welcome"));
+  expect(stillReserving(welcomedLead, true, TODAY)).toBe(false);
+  // A lead with Julian's proposal link and no call: the proposal email, unless
+  // call notes are waiting on their summary.
+  expect(next({ status: "responded", documents: [own("proposal")] }, sent("inquiry-reply"))).toMatchObject({
+    title: "Send the proposal",
+    action: { href: compose("proposal") },
+  });
+  expect(
+    next(
+      { status: "responded", documents: [own("proposal")], calls: { discovery: { notes: "Wants golden hour." } } },
+      sent("inquiry-reply"),
+    ).title,
+  ).toBe("Save the call summary");
+
   // Set to Contract signed by hand: the welcome first. Then planning starts
   // within two months of the shoot.
   expect(next({ status: "contract-signed" }).action?.href).toBe(compose("booking-welcome"));
@@ -275,6 +307,25 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "contract-signed", eventDate: "2027-01-10" }, welcomed).action?.href).toBe(
     compose("planning-kickoff"),
   );
+  // The kickoff says it sends the questionnaire only when the answers aren't
+  // in yet, and only for a service that has one.
+  expect(next({ status: "contract-signed" }, welcomed)).toMatchObject({
+    title: "Start planning",
+    detail: "The kickoff email sends the questionnaire.",
+  });
+  expect(next({ status: "contract-signed", questionnaireSnapshot: "{}" }, welcomed).detail).toBeUndefined();
+  // The shoot came and went with no planning email moving it on: the
+  // thank-you, as the client's page reads it as past.
+  for (const status of ["contract-signed", "planning"]) {
+    expect(next({ status, eventDate: "2026-11-20", questionnaireSnapshot: "{}" }, welcomed), status).toMatchObject({
+      title: "Send the thank-you",
+      detail: "The shoot was November 20, 2026.",
+      action: { href: compose("post-shoot-thank-you") },
+    });
+  }
+  // The welcome still comes first.
+  expect(next({ status: "contract-signed", eventDate: "2026-11-20" }).action?.href).toBe(compose("booking-welcome"));
+  expect(next({ status: "contract-signed" }, { ...welcomed, questionnaire: false }).detail).toBeUndefined();
   expect(next({ status: "contract-signed", eventDate: "2027-06-12" }, welcomed)).toEqual({
     title: "Booked",
     detail: "Planning starts about two months before the shoot, around April 13, 2027. Nothing to send yet.",
@@ -304,10 +355,28 @@ test("next step: one per stage, from the inquiry to the referral", () => {
       sent("contract-deposit"),
     ).once,
   ).toBe("booking-welcome");
-  // With only one of the two papers, planning goes on as usual.
+  // With only one of the two papers on a project never booked, planning goes
+  // on as usual; once it held Booked, the missing one is asked for. Contract
+  // signed set by hand confirms the booking.
   expect(next({ status: "planning", questionnaireSnapshot: "{}", documents: [own("invoice")] }).title).toBe(
     "Add the timeline",
   );
+  expect(
+    next({
+      status: "planning",
+      questionnaireSnapshot: "{}",
+      documents: [own("contract")],
+      statusHistory: [{ status: "booked" }, { status: "planning" }],
+    }).title,
+  ).toBe("Add the Square contract and invoice");
+  expect(
+    next({
+      status: "planning",
+      questionnaireSnapshot: "{}",
+      documents: paperwork,
+      statusHistory: [{ status: "booked" }, { status: "contract-signed" }, { status: "planning" }],
+    }).title,
+  ).toBe("Add the timeline");
   // Planning: the questionnaire, then the timeline.
   expect(next({ status: "planning" })).toMatchObject({
     title: "Waiting on the questionnaire",
@@ -342,6 +411,14 @@ test("next step: one per stage, from the inquiry to the referral", () => {
   expect(next({ status: "scheduled", eventDate: "2026-12-15" }).title).toBe("Shoot in 20 days");
   expect(next({ status: "scheduled", eventDate: "2026-11-22" }).action?.href).toBe(compose("post-shoot-thank-you"));
   expect(next({ status: "scheduled", eventDate: "Fall 2026" }).title).toBe("Set the shoot date");
+  // A booking left undone comes before the date, as the client's page asks
+  // them to sign and pay.
+  expect(
+    next(
+      { status: "scheduled", eventDate: "June 6-7, 2027", documents: [own("contract"), own("invoice")] },
+      sent("contract-deposit"),
+    ).title,
+  ).toBe("Waiting on the signed contract and retainer");
   expect(next({ status: "shot" }).action?.href).toBe(compose("post-shoot-thank-you"));
 
   // Editing: highlights, the sneak peek, then the gallery (whose email comes

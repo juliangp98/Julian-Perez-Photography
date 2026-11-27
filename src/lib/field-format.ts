@@ -254,6 +254,34 @@ export function formatEventDate(d?: string | null, opts: { month?: "long" | "sho
   return formatHumanDate(eventDay(d), opts) || (d ?? "").trim();
 }
 
+// A guest count as a phrase ("1 guest", "120 guests"), or "" with none.
+export function guestCountLabel(n?: number | null): string {
+  return n == null ? "" : `${n} ${n === 1 ? "guest" : "guests"}`;
+}
+
+// A project's other dates (a rehearsal dinner, an engagement session), one a
+// line: "Rehearsal dinner: June 11, 2027".
+export function formatOtherDates(dates: { label?: string; date?: string }[] = []): string {
+  return dates.map((d) => [d.label, formatHumanDate(d.date) || d.date].filter(Boolean).join(": ")).join("\n");
+}
+
+// An event date to name as settled ("June 6, 2026 is yours"): one day
+// written out, or text that is only a year, a month or season and a year
+// ("Fall 2027"), or a run of days in one month ("Nov 20-21, 2026"). A hedge
+// ("TBD June 6, 2027", "June or July 2027") or text with no year gives "".
+export function settledEventDate(d?: string | null): string {
+  const day = eventDay(d);
+  if (day) return formatHumanDate(day);
+  const text = tidyEventText(d);
+  const ord = "(?:st|nd|rd|th)?";
+  const named = (word: string) => monthNumber(word) > 0 || /^(spring|summer|fall|autumn|winter)$/i.test(word);
+  const monthYear = text.match(/^([a-z]+\.?),? \d{4}$/i);
+  const run = text.match(new RegExp(`^([a-z]+\\.?) \\d{1,2}${ord} ?[-–] ?\\d{1,2}${ord},? \\d{4}$`, "i"));
+  const settled =
+    /^\d{4}$/.test(text) || (!!monthYear && named(monthYear[1])) || (!!run && monthNumber(run[1]) > 0);
+  return settled ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+}
+
 // The month and year an event date names, for search: a day gives both, as
 // does "June 2027"; text with one four-digit year ("Fall 2027", "Nov 20-21,
 // 2026") gives the year alone. Null when no year can be told.
@@ -279,6 +307,14 @@ export function shiftDay(iso: string, by: { days?: number; months?: number }): s
     return isoFromDate(new Date(y, mo + by.months, Math.min(d, last) + (by.days ?? 0)));
   }
   return isoFromDate(new Date(y, mo, d + (by.days ?? 0)));
+}
+
+// The weekday a calendar day falls on, written out ("Saturday"); "" for a
+// value that isn't a day.
+export function weekdayOf(iso: string): string {
+  const m = (iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-US", { weekday: "long" });
 }
 
 // Human-readable date for UI + emails: "June 7, 2026" (or "Jun 7, 2026" with

@@ -10,7 +10,7 @@ import { listClients, normalizeEmail, type ClientRecordFull } from "@/lib/client
 import type { ClientMessage } from "@/lib/messages";
 import { getAnyService } from "@/lib/content";
 import { discoveryGuide } from "@/lib/discovery-guides";
-import { formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
+import { formatEventDate, formatHumanDate, guestCountLabel, studioToday } from "@/lib/field-format";
 import { formatReferral } from "@/lib/referral";
 import { projectDisplayName } from "@/lib/project-name";
 import { CLIENT_STATUS_TERMINAL, statusRank, type ClientStatus } from "@/lib/client-status";
@@ -73,9 +73,7 @@ export default async function CallTab({
   const facts = [
     formatEventDate(record.eventDate) || "No date yet",
     venue,
-    record.guestCount != null
-      ? `${record.guestCount} ${record.guestCount === 1 ? "guest" : "guests"}`
-      : undefined,
+    guestCountLabel(record.guestCount),
     record.budget ? `Budget ${record.budget}` : undefined,
     record.referral ? `Found you: ${formatReferral(record.referral, undefined)}` : undefined,
   ].filter(Boolean);

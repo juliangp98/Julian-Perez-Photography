@@ -12,6 +12,7 @@ import {
   prefillableFieldIds,
 } from "@/lib/questionnaire-bundles";
 import { serviceNoun } from "@/lib/project-name";
+import { thankYouCalls } from "@/lib/project-links";
 import { referralDetailPrompt } from "@/lib/referral";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
@@ -67,6 +68,8 @@ export default function QuestionnaireForm({
   const [state, setState] = useState<FormState>(() => ({ ...(prefill || {}) }));
   const [sectionIndex, setSectionIndex] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
+  // Whether the answers went to the project the link named.
+  const [attached, setAttached] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -308,6 +311,8 @@ export default function QuestionnaireForm({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
+      const data = (await res.json().catch(() => ({}))) as { attachedToProject?: boolean };
+      setAttached(!!data.attachedToProject);
       setSubmittedAnswers(payload);
       setStatus("success");
       try {
@@ -444,7 +449,11 @@ export default function QuestionnaireForm({
   }, [pdfPlan, questionnaire.slug, submittedAnswers]);
 
   if (status === "success") {
-    const isWedding = questionnaire.slug === "weddings";
+    const [firstCall, ...otherCalls] = thankYouCalls(questionnaire.slug, calls);
+    // The project the form was opened for, when the answers went to it (an
+    // email other than the project's lands them on another).
+    const projectPage =
+      attached && projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? `/portal/projects/${projectId}` : undefined;
     // Cross-prefill into bundle siblings: each sibling button carries every
     // answer that sibling's form also asks for \u2014 the intersection of what was
     // answered and what the target asks, matched by canonical field id. No
@@ -507,17 +516,19 @@ export default function QuestionnaireForm({
           <p className="mt-1 text-xs text-muted">
             Everything you just shared is saved to your project. Sign in to your
             client portal anytime to check your status, add more detail, and
-            find your documents &mdash; same email, no password.
+            find your documents. Same email, no password.
           </p>
-          <Button href="/portal" className="mt-3">
-            Open your portal &rarr;
+          {/* Opened from the project's own link: straight back to it (signing
+              in first returns there too). */}
+          <Button href={projectPage ?? "/portal"} className="mt-3">
+            {projectPage ? "Back to your project" : "Open your portal"} &rarr;
           </Button>
         </Panel>
         {siblingLinks.length > 0 && (
           <Panel className="mt-6">
             <p className="text-sm font-medium">Booking more than one session?</p>
             <p className="mt-1 mb-3 text-xs text-muted">
-              Continue into a matching questionnaire &mdash; the details you just
+              Continue into a matching questionnaire. The details you just
               shared arrive prefilled, so you won&rsquo;t retype them.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -538,17 +549,16 @@ export default function QuestionnaireForm({
               details. Pick the one that fits.
             </p>
           </div>
-          <Button href={calls.planningCall.url} external>
-            {calls.planningCall.label} &rarr;
+          <Button href={firstCall.url} external>
+            {firstCall.label} &rarr;
           </Button>
-          {isWedding && (
+          {otherCalls.length > 0 && (
             <div className="flex gap-3 flex-wrap">
-              <Button href={calls.weddingTimelineCall.url} external variant="secondary">
-                {calls.weddingTimelineCall.label} &rarr;
-              </Button>
-              <Button href={calls.venueWalkthrough.url} external variant="secondary">
-                {calls.venueWalkthrough.label} &rarr;
-              </Button>
+              {otherCalls.map((c) => (
+                <Button key={c.label} href={c.url} external variant="secondary">
+                  {c.label} &rarr;
+                </Button>
+              ))}
             </div>
           )}
         </Panel>

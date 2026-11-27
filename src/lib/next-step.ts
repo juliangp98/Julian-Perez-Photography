@@ -3,9 +3,18 @@
 // with one button. A step that waits on the client says so, and its button is
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, type ClientStatus } from "./client-status";
+import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
-import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
+import {
+  dayAgo,
+  daysBetween,
+  eventDay,
+  formatHumanDate,
+  settledEventDate,
+  shiftDay,
+  studioDayOf,
+  weekdayOf,
+} from "./field-format";
 import { openInvoice } from "./project-links";
 import { hiddenByMark, lostAt, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
@@ -82,6 +91,10 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
   ),
 }));
 
+// An outgoing email as the rules read it: whether it went out, and the
+// template it started from or its subject (sentEmail in messages.ts).
+export type SentEmail = { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean };
+
 // The templates already sent on a project, from its outgoing emails, with
 // the studio day each last went out. An email records the template it started
 // from, and counts once it went out (a bounced or failed one doesn't). An
@@ -92,7 +105,7 @@ const SUBJECT_PATTERNS = EMAIL_TEMPLATES.map((t) => ({
 // owner noted as sent another way ("<template name> noted as sent") always
 // counts.
 export function sentTemplates(
-  messages: { direction: string; template?: string; subject?: string; sentAt?: string; wentOut: boolean }[],
+  messages: SentEmail[],
   history: { note?: string }[] = [],
 ): Map<string, string> {
   const sent = new Map<string, string>();
@@ -222,6 +235,13 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   const callHeld = !!call?.heldAt;
   const shoot = eventDay(p.eventDate);
 
+  // After the shoot: the thank-you, which moves it to Editing.
+  const thankYou = (): NextStep => ({
+    title: "Send the thank-you",
+    detail: `The shoot was ${formatHumanDate(shoot)}.`,
+    action: { label: "Write the thank-you", href: compose("post-shoot-thank-you") },
+  });
+
   // Notes typed on the Call tab and the summary not saved yet.
   const typed = !!call?.notes?.trim() || Object.values(call?.answers ?? {}).some((a) => a.trim());
   const saveSummary: NextStep = {
@@ -275,7 +295,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // that comes first. Its steps offer Already sent only for the email they
   // send: once the retainer is marked paid, the welcome step offers it for
   // a welcome that went another way.
-  const unreserved = has("contract") && invoices.length > 0 && !sent.has("booking-welcome");
+  const unreserved = bookingOpen(p, sent.has("booking-welcome"));
 
   // A Square contract on a lead means they said yes, whatever came before (a
   // proposal skipped, a booking made on the call): with the retainer paid,
@@ -283,7 +303,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // with an invoice to pay, the email that sends them both; without one, the
   // invoice.
   const booking = (): NextStep | undefined => {
-    if (!has("contract")) return undefined;
+    // A booking already confirmed (the welcome went out) and set back to a
+    // lead isn't asked for again, as the client's page reads it.
+    if (!has("contract") || confirmed(p, sent.has("booking-welcome"))) return undefined;
     if (invoices.some((d) => d.paidAt)) {
       return {
         title: "Send the booking welcome",
@@ -325,6 +347,10 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
   };
 
+  // Past the reply with the proposal next: call notes waiting on their summary
+  // first (the recap comes from it), else the proposal's link and email.
+  const afterCall = (): NextStep => (!callHeld && typed ? saveSummary : sendProposal());
+
   // A new inquiry that has had an answer (one written without the inquiry
   // reply, or one outside the site) is past replying to. A snooze on Today
   // only puts it off.
@@ -333,12 +359,17 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   switch (answered ? "responded" : status) {
     case undefined:
     case "new-inquiry":
+      // The proposal link added before any reply: its email comes next, as
+      // the client's page reads it as ready.
       return (
-        booking() ?? {
-          title: "Reply to the inquiry",
-          detail: "Compose opens on the inquiry reply.",
-          action: { label: "Draft a reply", href: draftReplyHref(page) },
-        }
+        booking() ??
+        (has("proposal")
+          ? afterCall()
+          : {
+              title: "Reply to the inquiry",
+              detail: "Compose opens on the inquiry reply.",
+              action: { label: "Draft a reply", href: draftReplyHref(page) },
+            })
       );
 
     case "responded": {
@@ -347,6 +378,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       // A call already held (its summary saved) is past: the proposal comes next.
       if (callHeld) return sendProposal();
       if (typed) return saveSummary;
+      // The proposal link added without a call: its email comes next, as the
+      // client's page reads it as ready.
+      if (has("proposal")) return afterCall();
       // The inquiry reply carries the call link too.
       if (sent.has("discovery-invite") || sent.has("inquiry-reply")) {
         return {
@@ -362,8 +396,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     }
 
     case "in-conversation":
-      // Notes from a call not yet summarized: the recap comes from the summary.
-      return booking() ?? (!callHeld && typed ? saveSummary : sendProposal());
+      return booking() ?? afterCall();
 
     case "proposal-sent": {
       const yes = booking();
@@ -411,6 +444,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
           action: { label: "Write the welcome", href: compose("booking-welcome") },
         };
       }
+      // The shoot came and went with no planning email moving it on (the
+      // client's page reads it as past, shootPassed).
+      if (shootPassed(p, today)) return thankYou();
       if (shoot && daysBetween(today, shoot) > PLANNING_WINDOW_DAYS) {
         const start = formatHumanDate(shiftDay(shoot, { days: -PLANNING_WINDOW_DAYS }));
         return {
@@ -420,13 +456,15 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       }
       return {
         title: "Start planning",
-        detail: ctx.questionnaire ? "The kickoff email sends the questionnaire." : undefined,
+        detail:
+          ctx.questionnaire && !p.questionnaireSnapshot?.trim() ? "The kickoff email sends the questionnaire." : undefined,
         action: { label: "Write the kickoff", href: compose("planning-kickoff") },
       };
     }
 
     case "planning":
       if (unreserved) return reserving();
+      if (shootPassed(p, today)) return thankYou();
       if (ctx.questionnaire && !p.questionnaireSnapshot?.trim()) {
         return {
           title: "Waiting on the questionnaire",
@@ -447,6 +485,9 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
       };
 
     case "scheduled": {
+      // Until the shoot (or with no day set), a booking left undone comes
+      // first, as the client's page reads it (stillReserving).
+      if (unreserved && (!shoot || daysBetween(today, shoot) >= 0)) return reserving();
       if (!shoot) {
         return {
           title: "Set the shoot date",
@@ -454,14 +495,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
         };
       }
       const days = daysBetween(today, shoot);
-      if (days >= 0 && unreserved) return reserving();
-      if (days < 0) {
-        return {
-          title: "Send the thank-you",
-          detail: `The shoot was ${formatHumanDate(shoot)}.`,
-          action: { label: "Write the thank-you", href: compose("post-shoot-thank-you") },
-        };
-      }
+      if (days < 0) return thankYou();
       if (days <= 7 && !sent.has("week-of")) {
         return {
           title: "Send the week-of email",
@@ -547,5 +581,395 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
 
     default:
       return { title: "Open the project", action: { label: "Open details", href: tab("details") } };
+  }
+}
+
+// ── The client's next step ──
+//
+// The one thing a client does next (or is waiting on), shown at the top of
+// their portal page with one button and sometimes a second: the same stages
+// as the owner's steps, said to the client. Links come from the caller, so
+// this stays pure: the questionnaire (prefilled), the call bookings, the
+// review page and the how-to-pay line.
+
+type BookingDoc = { type?: string; uploadedBy?: string; paidAt?: string };
+
+// Julian's own entry of a kind is on the project (a client's upload never
+// stands in for it).
+const julians = (docs: BookingDoc[] = [], type: string) =>
+  docs.some((d) => d.type === type && d.uploadedBy !== "client");
+
+// Julian's Square contract on a lead means they said yes, whatever came
+// before (a proposal skipped, a booking made on the call). Both next steps
+// read it so.
+const LEAD_STATUSES: readonly (string | undefined)[] = [
+  undefined,
+  "new-inquiry",
+  "responded",
+  "in-conversation",
+  "proposal-sent",
+];
+
+type BookingProject = {
+  status?: string;
+  documents?: BookingDoc[];
+  statusHistory?: { status?: string; kind?: string; from?: string }[];
+};
+
+// Where the booking last stood: the latest status at or below Contract signed
+// among the project's moves and its current status, so a status set back by
+// hand counts from then on.
+function bookingPosition(p: BookingProject): string | undefined {
+  const cutoff = statusRank("contract-signed");
+  return [...statusMoves(p.statusHistory ?? []), { status: p.status }]
+    .filter((m) => statusRank(m.status) >= 0 && statusRank(m.status) <= cutoff)
+    .at(-1)?.status;
+}
+
+// The booking is confirmed once the welcome went out, or while it last stood
+// at Contract signed (set by hand, that says so).
+const confirmed = (p: BookingProject, welcomed: boolean) => welcomed || bookingPosition(p) === "contract-signed";
+
+// The booking isn't finished: Julian's Square contract and its invoice are on
+// the project and the booking isn't confirmed, whatever the status says (the
+// client's questionnaire moves a booked project to Planning). While it last
+// stood at Booked, either piece alone counts, so the other is still asked
+// for; a lone invoice on a project never booked is something else.
+function bookingOpen(p: BookingProject, welcomed: boolean): boolean {
+  const docs = p.documents ?? [];
+  if (confirmed(p, welcomed)) return false;
+  const contract = julians(docs, "contract");
+  const invoice = julians(docs, "invoice");
+  const heldBooked = bookingPosition(p) === "booked";
+  return (contract && invoice) || (heldBooked && (contract || invoice));
+}
+
+// For the client, a project whose date is being reserved though its status
+// says otherwise: a lead with Julian's contract on it, or a project moved
+// past Booked while its booking is open and none of its invoices is paid
+// (in Planning, or in Scheduled up to the shoot, the projects the owner's
+// step sends back to the booking). Their page asks them to sign and pay, and
+// its status and tracker read Reserving your date.
+export function stillReserving(
+  p: BookingProject & { eventDate?: string },
+  welcomed: boolean,
+  today: string,
+): boolean {
+  if (LEAD_STATUSES.includes(p.status)) return julians(p.documents, "contract") && !confirmed(p, welcomed);
+  if (!bookingOpen(p, welcomed)) return false;
+  if (p.documents?.some((d) => d.type === "invoice" && d.uploadedBy !== "client" && d.paidAt)) return false;
+  if (p.status === "planning") return true;
+  if (p.status !== "scheduled") return false;
+  const shoot = eventDay(p.eventDate);
+  return !shoot || daysBetween(today, shoot) >= 0;
+}
+
+// The statuses a project can still hold after its shoot when no week-of or
+// thank-you email moved it on.
+const BEFORE_SHOOT = ["contract-signed", "planning", "scheduled"];
+
+// A project whose shoot is past while its status still reads as before it:
+// the client's page shows what comes after (the editing step), its status
+// reads Captured and its tracker moves to Editing, and the owner's step is the
+// thank-you. For the client, a date still being reserved comes first.
+export function shootPassed(p: { status?: string; eventDate?: string }, today: string): boolean {
+  if (!BEFORE_SHOOT.includes(p.status ?? "")) return false;
+  const shoot = eventDay(p.eventDate);
+  return !!shoot && daysBetween(today, shoot) < 0;
+}
+
+export type ClientStep = {
+  title: string;
+  detail?: string;
+  action?: { label: string; href: string; external?: boolean };
+  secondary?: { label: string; href: string; external?: boolean };
+};
+
+export type ClientStepProject = {
+  status?: string;
+  eventDate?: string;
+  questionnaireSnapshot?: string;
+  documents?: { type?: string; url?: string; uploadedBy?: string; dueAt?: string; paidAt?: string }[];
+  planSummary?: string;
+  // The proposal (or the recap that carries it) went out by email.
+  proposalSent?: boolean;
+  // The date is being reserved though the status says otherwise (a lead with
+  // Julian's contract, or a project moved past Booked before the booking was
+  // done: stillReserving, worked out with the emails sent).
+  reserving?: boolean;
+};
+
+export type ClientStepContext = {
+  today: string;
+  // The date hold running, if any.
+  holdUntil?: string;
+  // The service's planning questionnaire, prefilled; unset when it has none.
+  questionnaireUrl?: string;
+  discoveryCallUrl?: string;
+  // The call that plans the shoot (planningCallFor): the timeline call for a
+  // wedding, the planning call otherwise.
+  planningCall?: { kind: "timeline" | "planning"; url: string };
+  reviewUrl?: string;
+  // Where a client signs in to their galleries (Pic-Time).
+  galleryLoginUrl?: string;
+  // How to pay with the method chosen.
+  paymentLine?: string;
+};
+
+export function clientNextStep(p: ClientStepProject, ctx: ClientStepContext): ClientStep | undefined {
+  const status = p.status as ClientStatus | undefined;
+  if (CLIENT_STATUS_TERMINAL.includes(status as ClientStatus)) return undefined;
+  const { today } = ctx;
+  const docs = p.documents ?? [];
+  // Julian's own entry of a kind, the newest (a client's upload never stands in).
+  const own = (type: string) => docs.filter((d) => d.type === type && d.uploadedBy !== "client" && d.url).at(-1);
+  const link = (label: string, url?: string) => (url ? { label, href: url, external: true } : undefined);
+  // When an invoice is due, as the owner's step words it.
+  const dueLine = (what: string, dueAt?: string) =>
+    dueAt && DAY.test(dueAt)
+      ? dueAt < today
+        ? `${what} was due ${formatHumanDate(dueAt)}.`
+        : `${what} is due ${dueAt === today ? "today" : formatHumanDate(dueAt)}.`
+      : undefined;
+  const invoice = openInvoice(p, today);
+  const invoiceLink = invoice?.url ? { label: "Pay the invoice", href: invoice.url, external: true } : undefined;
+  const shoot = eventDay(p.eventDate);
+  const editing: ClientStep = own("highlights")
+    ? {
+        title: "Your highlights are ready",
+        detail: "A first look while I finish your gallery.",
+        action: link("View your highlights", own("highlights")?.url),
+      }
+    : { title: "I'm editing your photos", detail: "Your gallery comes next. I'll email you the moment it's ready." };
+
+  // Reserving the date, read as the owner's step reads it: the date is
+  // reserved once one of Julian's invoices is paid (a balance invoice left
+  // open belongs to delivery), and until then the retainer is the invoice
+  // the contract email names (openInvoice).
+  const invoices = docs.filter((d) => d.type === "invoice" && d.uploadedBy !== "client");
+  const reserving = (): ClientStep => {
+    const contract = own("contract");
+    if (!contract) {
+      // The invoice can come before the contract.
+      if (invoices.some((d) => d.paidAt)) {
+        return { title: "Your retainer is in", detail: "Thank you. Your contract is on its way." };
+      }
+      if (invoices.length) {
+        return {
+          title: "Your contract is on its way",
+          detail: [dueLine("The retainer", invoice?.dueAt), ctx.paymentLine].filter(Boolean).join(" ") || undefined,
+          secondary: link("Pay the retainer", invoice?.url),
+        };
+      }
+      return { title: "Your contract is on its way", detail: "It comes with the invoice for the retainer." };
+    }
+    if (invoices.some((d) => d.paidAt)) {
+      return {
+        title: "Your retainer is in",
+        detail: "Thank you. Your booking confirmation is on its way.",
+        action: link("View your contract", contract.url),
+      };
+    }
+    if (!invoices.length) {
+      return {
+        title: "Sign your contract",
+        detail: "The invoice for the retainer is on its way.",
+        action: link("Sign the contract", contract.url),
+      };
+    }
+    return {
+      title: "Sign your contract and pay the retainer",
+      detail: [dueLine("The retainer", invoice?.dueAt), ctx.paymentLine, "Your date is reserved once both are in."]
+        .filter(Boolean)
+        .join(" "),
+      action: link("Sign the contract", contract.url),
+      secondary: link("Pay the retainer", invoice?.url),
+    };
+  };
+  // After delivery, what's still owed: the invoice the button pays, when it's
+  // due, and how to pay.
+  const open = invoices.filter((d) => !d.paidAt).length;
+  const owed = invoiceLink
+    ? [
+        open > 1 ? `There are ${open} invoices still open.` : "There's one invoice still open.",
+        dueLine(open > 1 ? "The next one" : "It", invoice?.dueAt),
+        ctx.paymentLine,
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : undefined;
+  // A lead with Julian's contract on it is reserving its date
+  // (stillReserving).
+  const lead = (step: ClientStep): ClientStep => (p.reserving ? reserving() : step);
+  // A shoot already past: what comes after it, whatever the planning left.
+  const shot = shootPassed(p, today);
+  // The shoot, said by how soon it is, with the plan when there is one.
+  const days = shoot ? daysBetween(today, shoot) : undefined;
+  const shootStep = (): ClientStep => {
+    const when =
+      days === undefined
+        ? undefined
+        : days === 0
+          ? "today"
+          : days === 1
+            ? "tomorrow"
+            : days < 7
+              ? `on ${weekdayOf(shoot)}`
+              : `on ${formatHumanDate(shoot)}`;
+    return {
+      title: when ? `Your shoot is ${when}` : "Your shoot is on the calendar",
+      detail: [p.planSummary?.trim() ? "Your plan is below." : undefined, "Write to me here with anything that changes."]
+        .filter(Boolean)
+        .join(" "),
+      action: link("View your timeline", own("timeline")?.url),
+    };
+  };
+
+  switch (status) {
+    case undefined:
+    case "new-inquiry":
+    case "responded":
+      return lead(
+        // Julian's proposal link on before the email that carries it (no
+        // call): it's ready.
+        own("proposal")
+          ? { title: "Your proposal is ready", action: link("View your proposal", own("proposal")?.url) }
+          : ctx.discoveryCallUrl
+          ? {
+              title: "Book a discovery call",
+              detail:
+                "A short call so I can hear what you're planning and answer your questions. Already booked? I'll see you then.",
+              action: link("Pick a time", ctx.discoveryCallUrl),
+            }
+          : { title: "I'll be in touch soon", detail: "I read every inquiry and reply myself." },
+      );
+
+    case "in-conversation":
+      // Julian's proposal link on before the email that carries it: it's ready.
+      return lead(
+        own("proposal")
+          ? { title: "Your proposal is ready", action: link("View your proposal", own("proposal")?.url) }
+          : { title: "Your proposal is on its way", detail: "I'm putting it together from our conversation." },
+      );
+
+    case "proposal-sent": {
+      const held = ctx.holdUntil ? `I'm holding your date until ${formatHumanDate(ctx.holdUntil)}.` : undefined;
+      return lead(
+        own("proposal")
+          ? { title: "Your proposal is ready", detail: held, action: link("View your proposal", own("proposal")?.url) }
+          : // Sent with its link in the email itself, or not sent yet.
+            p.proposalSent
+            ? { title: "Your proposal is in your email", detail: held }
+            : { title: "Your proposal is on its way", detail: held },
+      );
+    }
+
+    case "booked":
+      return reserving();
+
+    case "contract-signed": {
+      if (shot) return editing;
+      // The week of the shoot: the shoot itself.
+      if (days !== undefined && days < 7) return shootStep();
+      // Only a service with a questionnaire gets one, and only once: answers
+      // sent before the booking count. Inside the planning window it's due.
+      const ahead = days === undefined || days > PLANNING_WINDOW_DAYS ? "closer to the day" : "soon";
+      // The questionnaire is on their page already (the callout below).
+      const later =
+        ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()
+          ? `Your planning questionnaire is below whenever you're ready, and I'll remind you ${ahead}.`
+          : `I'll be in touch to plan ${ahead}.`;
+      // The date when it's settled, or none claimed (a hedge or "TBD").
+      const named = settledEventDate(p.eventDate);
+      return {
+        title: "You're booked",
+        detail: named ? `${named} is yours. ${later}` : `You're all set. ${later}`,
+      };
+    }
+
+    case "planning": {
+      if (p.reserving) return reserving();
+      if (shot) return editing;
+      // The eve of the shoot, or the day: the shoot itself.
+      if (days !== undefined && days <= 1) return shootStep();
+      if (ctx.questionnaireUrl && !p.questionnaireSnapshot?.trim()) {
+        return {
+          title: "Fill in your planning questionnaire",
+          detail: "What you already told me is filled in. It goes straight back to this project.",
+          action: { label: "Open the questionnaire", href: ctx.questionnaireUrl },
+        };
+      }
+      const timeline = own("timeline");
+      if (timeline) {
+        return {
+          title: "Your timeline is ready",
+          detail: "Have a look, and write to me here with anything to change.",
+          action: link("View your timeline", timeline.url),
+        };
+      }
+      const call = ctx.planningCall;
+      if (call?.url) {
+        return call.kind === "timeline"
+          ? {
+              title: "Book your timeline call",
+              detail: "We'll walk through the day together and set the timeline. Already booked? I'll see you then.",
+              action: link("Pick a time", call.url),
+            }
+          : {
+              title: "Book your planning call",
+              detail: "We'll go over your plans together before the shoot. Already booked? I'll see you then.",
+              action: link("Pick a time", call.url),
+            };
+      }
+      return ctx.questionnaireUrl
+        ? { title: "Thanks for your answers", detail: "I'll send your timeline soon." }
+        : { title: "Your timeline is on its way", detail: "I'll send it before the shoot." };
+    }
+
+    case "scheduled":
+      // Until the shoot, a booking left undone comes first.
+      if (p.reserving) return reserving();
+      return shot ? editing : shootStep();
+
+    case "shot":
+    case "editing":
+      return editing;
+
+    case "delivered": {
+      const gallery = own("gallery");
+      // Delivered with no gallery link on the project (sent in an email, or
+      // set by hand): it's in their email, and their galleries are a sign-in
+      // away.
+      return {
+        title: "Your gallery is ready",
+        detail: gallery
+          ? (owed ?? "View, download and share your photos.")
+          : ["The link is in your email.", owed].filter(Boolean).join(" "),
+        action: gallery ? link("View your gallery", gallery.url) : link("Sign in to your galleries", ctx.galleryLoginUrl),
+        secondary: invoiceLink,
+      };
+    }
+
+    case "complete":
+      return {
+        title: ctx.reviewUrl ? "Leave a review" : "Thank you",
+        // An invoice still open (the review asked for first) stays on the card.
+        detail: [
+          ctx.reviewUrl ? "If you loved your photos, a few words help the next client find me." : "It was a joy working with you.",
+          owed,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        action: link("Write a review", ctx.reviewUrl),
+        // The invoice to pay, else back to the photos: Julian's gallery link,
+        // else the gallery sign-in.
+        secondary:
+          invoiceLink ??
+          link("View your gallery", own("gallery")?.url) ??
+          link("Sign in to your galleries", ctx.galleryLoginUrl),
+      };
+
+    default:
+      return undefined;
   }
 }

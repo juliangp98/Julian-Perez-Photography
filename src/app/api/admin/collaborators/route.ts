@@ -53,7 +53,8 @@ export const POST = defineRoute({
         const projectName = record
           ? projectDisplayName(record)
           : "your shared project";
-        const token = await signMagicToken({ email });
+        // The link opens the shared project itself.
+        const token = await signMagicToken({ email, next: `/portal/projects/${projectId}` });
         const inviteLink = `${originOf(req)}/portal/verify?token=${encodeURIComponent(token)}`;
         await sendCollaboratorInviteEmail({ to: email, projectName, inviteLink });
       } catch (err) {

@@ -10,7 +10,7 @@
 // var — it never reaches the browser, and portal code never imports this
 // client-side.
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, errors, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "jpp_portal_session";
 export const ADMIN_SESSION_COOKIE = "jpp_admin_session";
@@ -23,6 +23,18 @@ const SESSION_TTL = "30d";
 // projects; the portal lists + authorizes them by this email (project ids come
 // from the DB scoped to the email, never from the token).
 export type SessionClaims = { email: string };
+// A magic link may also carry the portal page to open after signing in.
+export type MagicClaims = SessionClaims & { next?: string };
+
+// A portal page to return to after signing in: the projects list or one
+// project's page, by its id (no query, no other host, and none of the
+// portal's routes that aren't pages, like sign-out), or nothing.
+export function portalReturnPath(path: unknown): string | undefined {
+  if (typeof path !== "string") return undefined;
+  return /^\/portal\/(dashboard|projects\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.test(path)
+    ? path
+    : undefined;
+}
 
 function secretKey(): Uint8Array {
   const s = process.env.AUTH_SECRET;
@@ -38,7 +50,7 @@ export function isAuthConfigured(): boolean {
 }
 
 async function sign(
-  claims: SessionClaims,
+  claims: MagicClaims,
   purpose: "magic" | "session",
   ttl: string,
 ): Promise<string> {
@@ -52,21 +64,38 @@ async function sign(
 async function verify(
   token: string,
   purpose: "magic" | "session",
-): Promise<SessionClaims | null> {
+): Promise<MagicClaims | null> {
   try {
     const { payload } = await jwtVerify(token, secretKey());
     if (payload.purpose !== purpose) return null;
     if (typeof payload.email !== "string") return null;
-    return { email: payload.email };
+    const next = purpose === "magic" ? portalReturnPath(payload.next) : undefined;
+    return next ? { email: payload.email, next } : { email: payload.email };
   } catch {
     return null;
   }
 }
 
-export const signMagicToken = (c: SessionClaims) => sign(c, "magic", MAGIC_TTL);
+// The portal page an expired sign-in link was opening, so the fresh link
+// asked for keeps it. Only a link whose signature checks out and whose time
+// alone ran out counts (jose checks the signature before the expiry), and the
+// page is held to portalReturnPath.
+export async function expiredMagicReturnPath(token: string): Promise<string | undefined> {
+  try {
+    await jwtVerify(token, secretKey());
+    return undefined;
+  } catch (err) {
+    if (!(err instanceof errors.JWTExpired)) return undefined;
+    const payload = err.payload as Record<string, unknown> | undefined;
+    return payload?.purpose === "magic" ? portalReturnPath(payload.next) : undefined;
+  }
+}
+
+export const signMagicToken = (c: MagicClaims) =>
+  sign(c.next ? { email: c.email, next: c.next } : { email: c.email }, "magic", MAGIC_TTL);
 export const verifyMagicToken = (t: string) => verify(t, "magic");
 export const signSessionToken = (c: SessionClaims) =>
-  sign(c, "session", SESSION_TTL);
+  sign({ email: c.email }, "session", SESSION_TTL);
 export const verifySessionToken = (t: string) => verify(t, "session");
 
 // ── Admin auth ──

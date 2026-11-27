@@ -12,7 +12,9 @@
 //
 // Privacy boundary: the safe projection (`safeSelect()`) is what the portal
 // lists — it omits `internal_notes`, `budget`, `status_history`, inquiry
-// context, and meta timestamps, so those never reach a client. The
+// context, and meta timestamps, so those never reach a client. The statuses
+// in the log (no notes or timestamps) reach portal pages only through
+// listStageFacts, with the other stage facts it lists. The
 // questionnaire snapshot is held out of the list and layered onto the
 // single-project reads: the client's own answers in full, and for a second
 // photographer only the answers about the shoot. Portal reads are additionally
@@ -27,11 +29,14 @@ import {
   CLIENT_STATUS_TERMINAL,
   statusRank,
   type ClientStatus,
+  type StageProject,
 } from "@/lib/client-status";
 import { documentType } from "@/lib/labels";
 import { shootAnswers } from "@/lib/questionnaire-digest";
 import type { AiResults, SavedAiKind, SavedAiResult } from "@/lib/ai-results";
 import type { CallKind, CallNotes, ProjectCalls } from "@/lib/calls";
+import { studioToday } from "@/lib/field-format";
+import { sentTemplates, shootPassed, stillReserving, type SentEmail } from "@/lib/next-step";
 
 const TABLE = "client_records";
 
@@ -476,6 +481,55 @@ export async function getProjectForViewer(
     },
     viewerRole: "collaborator",
   };
+}
+
+// What a project's stage tracker reads, for the projects a client is shown:
+// the status, the statuses in its log, whether its call was held, the kinds of
+// its links (stagesFor in client-status.ts), whether the date is still being
+// reserved (stillReserving), whether the proposal went out by email and
+// whether the shoot is past (shootPassed). The
+// reserving test reads the templates sent on the project, from its emails
+// (`sends`, by project id, as messages.ts lists them) and its log. The log,
+// the call notes and the emails are owner-side, so only these facts leave
+// this function.
+export async function listStageFacts(
+  ids: string[],
+  sends: ReadonlyMap<string, SentEmail[]> = new Map(),
+): Promise<Map<string, StageProject>> {
+  const facts = new Map<string, StageProject>();
+  const wanted = ids.filter(isRecordId);
+  if (!isClientsStoreConfigured() || !wanted.length) return facts;
+  const { data, error } = await readWithOptionalColumns(
+    () => "id, status, eventDate:event_date, statusHistory:status_history, documents" + cols(callsGroup),
+    (sel) => db().from(TABLE).select(sel).in("id", wanted),
+  );
+  if (error) throw error;
+  type Row = {
+    id: string;
+    status?: string;
+    eventDate?: string;
+    statusHistory?: { status?: string; note?: string }[];
+    documents?: { type?: string; uploadedBy?: string; paidAt?: string }[];
+    calls?: ProjectCalls;
+  };
+  const today = studioToday();
+  for (const r of (data as Row[] | null) ?? []) {
+    const sent = sentTemplates(sends.get(r.id) ?? [], r.statusHistory ?? []);
+    const reserving = stillReserving(r, sent.has("booking-welcome"), today);
+    facts.set(r.id, {
+      status: r.status,
+      statusHistory: (r.statusHistory ?? []).map((h) => ({ status: h.status })),
+      calls: { discovery: { heldAt: r.calls?.discovery?.heldAt } },
+      documents: (r.documents ?? []).map((d) => ({ type: d.type })),
+      // Both are set as they are; a date still being reserved reads first
+      // (shownStatus), and a second photographer, who isn't told how the
+      // booking stands, goes by the shoot date alone.
+      reserving,
+      shot: shootPassed(r, today),
+      proposalSent: sent.has("proposal") || sent.has("discovery-recap"),
+    });
+  }
+  return facts;
 }
 
 // ── Writes ──

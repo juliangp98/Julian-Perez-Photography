@@ -111,7 +111,21 @@ test("send-email: the contract and retainer tell the client their date is being 
   const client = await portalPage(p.email);
   await client.goto(`/portal/projects/${p.id}`);
   await expect(client.getByText("Reserving your date", { exact: true })).toBeVisible();
-  await expect(client.getByText(/^Sign the agreement and pay the retainer/)).toBeVisible();
+  const next = client.getByRole("region", { name: "Your next step" });
+  // Before the Square links are on the project, the client is told they're coming.
+  await expect(next).toContainText("Your contract is on its way");
+  await patchProject(p.id, {
+    documents: [
+      { id: "c", type: "contract", label: "Contract", url: "https://links.example.com/contract", uploadedBy: "julian" },
+      { id: "i", type: "invoice", label: "Retainer", url: "https://links.example.com/retainer", uploadedBy: "julian" },
+    ],
+  });
+  await client.reload();
+  await expect(next).toContainText("Sign your contract and pay the retainer");
+  await expect(next.getByRole("link", { name: "Pay the retainer" })).toHaveAttribute(
+    "href",
+    "https://links.example.com/retainer",
+  );
   // The hold has done its job once the date is being reserved.
   await expect(client.getByText("Date held until")).toHaveCount(0);
 });

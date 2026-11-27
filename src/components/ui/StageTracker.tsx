@@ -1,20 +1,16 @@
-import { stagesFor, type StageProject } from "@/lib/client-status";
+import { stageLine, stagesFor, type StageProject } from "@/lib/client-status";
 
 // Where a project is on its path, as a row of steps: the ones done filled in,
 // the current one marked, the rest still to come. A step the project passed
-// over isn't shown. Server-safe; the admin project page's header draws it.
+// over isn't shown. Server-safe; the admin project page's header and the
+// client's portal page draw it.
 // Below the large breakpoint only the step line is visible and the step names
 // are read out to screen readers.
 export default function StageTracker({ project }: { project: StageProject }) {
-  const { stages, step, closed } = stagesFor(project);
-  const current = stages[step - 1];
+  const { stages, closed } = stagesFor(project);
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.2em] text-muted">
-        {closed
-          ? `Closed at ${current.label}`
-          : `Step ${step} of ${stages.length}: ${current.label}`}
-      </p>
+      <p className="text-xs uppercase tracking-[0.2em] text-muted">{stageLine(project)}</p>
       <ol aria-label="Stages" className="mt-2 flex gap-1">
         {stages.map((s) => (
           <li

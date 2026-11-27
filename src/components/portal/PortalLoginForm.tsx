@@ -13,9 +13,12 @@ type Status = "idle" | "sending" | "sent" | "error";
 export default function PortalLoginForm({
   endpoint = "/api/portal/request-link",
   sentMessage = "Check your email. If that address matches a record, a secure sign-in link is on its way. It expires in 20 minutes.",
+  next,
 }: {
   endpoint?: string;
   sentMessage?: string;
+  // The page to open after signing in (the portal's link carries it).
+  next?: string;
 } = {}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -29,7 +32,7 @@ export default function PortalLoginForm({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, hp_company: "" }),
+        body: JSON.stringify({ email, hp_company: "", ...(next ? { next } : {}) }),
       });
       const data = (await res.json().catch(() => null)) as
         | { devLink?: string }

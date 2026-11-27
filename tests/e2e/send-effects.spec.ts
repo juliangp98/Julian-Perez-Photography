@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { EMAIL_TEMPLATES, EMAIL_TOKENS, type EmailTemplate } from "../../src/lib/email/email-pipeline";
 import { planSendEffects, heldUntil, holdUntilFor } from "../../src/lib/email/send-effects";
-import { CLIENT_STATUS_OPTIONS, clientStatusHint } from "../../src/lib/client-status";
+import { CLIENT_STATUS_OPTIONS } from "../../src/lib/client-status";
 
 // What sending a pipeline email does to its project, as planned from the
 // template (src/lib/email/send-effects.ts), and the templates themselves. The
@@ -85,11 +85,6 @@ test("an email names only a hold that's running or that sending it starts", () =
   expect(at("inquiry-reply", { status: "new-inquiry" })).toBeUndefined();
   // Once the date is being reserved, no hold is named at all.
   expect(at("payment-reminder", { status: "booked", holdUntil: "2026-12-10" })).toBeUndefined();
-});
-
-test("while the agreement and retainer are out, the client is told what reserves the date", () => {
-  expect(clientStatusHint("booked")).toMatch(/^Sign the agreement and pay the retainer/);
-  expect(clientStatusHint("contract-signed")).toMatch(/^You're booked/);
 });
 
 test("a 'no' email closes the project and sets nothing else", () => {

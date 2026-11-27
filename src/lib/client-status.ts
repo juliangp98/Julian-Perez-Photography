@@ -73,9 +73,10 @@ export const CLIENT_STATUS_CLIENT_LABEL: Record<ClientStatus, string> = {
   responded: "In touch",
   "in-conversation": "In conversation",
   "proposal-sent": "Proposal sent",
-  // The agreement and retainer are out but not back yet.
+  // The agreement and retainer are out, then the booking welcome confirms
+  // the booking (or the status is set to Contract signed by hand).
   booked: "Reserving your date",
-  "contract-signed": "Contract signed",
+  "contract-signed": "Booked",
   planning: "Planning your day",
   scheduled: "On the calendar",
   shot: "Captured",
@@ -94,87 +95,10 @@ export function statusRank(status: string | undefined): number {
   return CLIENT_STATUS_FLOW.indexOf(status as ClientStatus);
 }
 
-// Client-facing milestone view of the pipeline. The twelve internal statuses
-// collapse into six milestones a couple can follow at a glance; each carries a
-// warm "here's what's happening / next" hint for the portal timeline.
-export const CLIENT_MILESTONES: { key: string; label: string; hint: string }[] = [
-  {
-    key: "inquiry",
-    label: "Inquiry",
-    hint: "Thanks for reaching out! I'll be in touch about next steps and a proposal.",
-  },
-  {
-    key: "booked",
-    label: "Booked",
-    hint: "You're booked. Next we'll start planning your day.",
-  },
-  {
-    key: "planning",
-    label: "Planning",
-    hint: "We're planning the details together and will lock in your timeline before the day.",
-  },
-  {
-    key: "shoot",
-    label: "Shoot day",
-    hint: "Your day is photographed. Your photos head into editing next.",
-  },
-  {
-    key: "editing",
-    label: "Editing",
-    hint: "I'm editing your photos now. Your gallery comes next.",
-  },
-  {
-    key: "delivered",
-    label: "Delivered",
-    hint: "Your gallery is ready to view and download.",
-  },
-];
-
-// Maps each internal status onto a client milestone index. Terminal states
-// (archived/lost) return -1 so the portal hides the timeline for them.
-const STATUS_MILESTONE: Record<ClientStatus, number> = {
-  "new-inquiry": 0,
-  responded: 0,
-  "in-conversation": 0,
-  "proposal-sent": 0,
-  booked: 0,
-  "contract-signed": 1,
-  planning: 2,
-  scheduled: 2,
-  shot: 3,
-  editing: 4,
-  delivered: 5,
-  complete: 5,
-  archived: -1,
-  lost: -1,
-  declined: -1,
-};
-
-// A status whose "what's next" differs from its milestone's.
-const STATUS_HINT: Partial<Record<ClientStatus, string>> = {
-  booked:
-    "Sign the agreement and pay the retainer, and your date is reserved. The links are in my email and on this page.",
-};
-
-// The "what's next" line for a status: its own, or its milestone's.
-export function clientStatusHint(status: string | undefined): string {
-  const own = STATUS_HINT[status as ClientStatus];
-  if (own) return own;
-  const i = clientMilestoneIndex(status);
-  return i >= 0 ? CLIENT_MILESTONES[i].hint : "";
-}
-
-export function clientMilestoneIndex(status: string | undefined): number {
-  if (!status) return 0;
-  const i = STATUS_MILESTONE[status as ClientStatus];
-  return i === undefined ? 0 : i;
-}
-
 // ── Stages ──
 //
-// The path every project follows, as the admin project page tracks it: each
-// stage covers the statuses listed. (The client portal still shows the six
-// milestones above.) The call and the proposal are passed over when a
+// The path every project follows, one list for both sides (the admin project
+// page and the client's portal page): each stage covers the statuses listed. The call and the proposal are passed over when a
 // project moved on without them (a small session booked straight away), so a
 // tracker never shows a step nobody took.
 export type StageKey =
@@ -211,7 +135,51 @@ export type StageProject = {
   statusHistory?: { status?: string }[];
   calls?: { discovery?: { heldAt?: string } };
   documents?: { type?: string }[];
+  // The client's date is being reserved though the status says otherwise (a
+  // lead with Julian's contract, or a project moved past Booked before the
+  // booking was done: stillReserving in src/lib/next-step.ts): their tracker
+  // and status read Reserving your date.
+  reserving?: boolean;
+  // The proposal (or the recap that carries it) went out by email, whether
+  // or not its link is on the project.
+  proposalSent?: boolean;
+  // The shoot is past while the status still reads as before it
+  // (shootPassed): their status reads Captured and their tracker moves to
+  // Editing.
+  shot?: boolean;
 };
+
+// The status a client's page shows: Booked's while the date is still being
+// reserved, Captured once the shoot is past, else the project's own.
+export function shownStatus(p: StageProject): string | undefined {
+  return p.reserving ? "booked" : p.shot ? "shot" : p.status;
+}
+
+// The label a project's portal page and dashboard card show: its shown
+// status, or for a second photographer's project with no stage to show them,
+// Closed once it closed and In progress before.
+export function shownLabel(p: StageProject, recordStatus?: string): string {
+  const closed = CLIENT_STATUS_TERMINAL.includes(recordStatus as ClientStatus) ? recordStatus : undefined;
+  return CLIENT_STATUS_CLIENT_LABEL[(shownStatus(p) ?? closed) as ClientStatus] ?? "In progress";
+}
+
+// How far a client's project has come, for its tracker and what the page
+// shows: as shownStatus, and for a closed one the last status it held.
+export function reachedStatus(p: StageProject): string | undefined {
+  return p.reserving ? "booked" : p.shot ? "shot" : lastOpenStatus(p);
+}
+
+// What a second photographer's tracker reads: where the shoot stands from
+// the booking on, without the sales steps (a call, a proposal) or how the
+// booking itself stands. Before the booking (or closed before it) there's
+// no stage to show them: no status, so no tracker and a neutral badge.
+export function shootStage(p: StageProject): StageProject {
+  const fromBooking = (status?: string) => statusRank(status) >= statusRank("contract-signed");
+  const statusHistory = (p.statusHistory ?? []).filter((h) => fromBooking(h.status));
+  const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
+  const status = fromBooking(p.status) || (closed && statusHistory.length > 0) ? p.status : undefined;
+  return { status, shot: p.shot, statusHistory };
+}
 
 // The stage a status belongs to, or -1 for a closed or unknown one.
 function stageIndex(status: string | undefined): number {
@@ -250,7 +218,7 @@ export function stagesFor(p: StageProject): {
 } {
   const closed = CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus);
   const history = p.statusHistory ?? [];
-  const current = Math.max(0, stageIndex(lastOpenStatus(p)));
+  const current = Math.max(0, stageIndex(reachedStatus(p)));
   const held = (status: ClientStatus) => history.some((h) => h.status === status);
   const took: Partial<Record<StageKey, boolean>> = {
     call: held("in-conversation") || !!p.calls?.discovery?.heldAt,
@@ -261,4 +229,12 @@ export function stagesFor(p: StageProject): {
     return [{ key: s.key, label: s.label, state: i < current ? "done" : i === current ? "current" : "upcoming" }];
   });
   return { stages, step: stages.findIndex((s) => s.state === "current") + 1, closed };
+}
+
+// The tracker in a line: "Step 3 of 9: Reserving your date", or where a
+// closed project stopped.
+export function stageLine(p: StageProject): string {
+  const { stages, step, closed } = stagesFor(p);
+  const current = stages[step - 1];
+  return closed ? `Closed at ${current.label}` : `Step ${step} of ${stages.length}: ${current.label}`;
 }
