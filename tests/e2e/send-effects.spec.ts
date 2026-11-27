@@ -180,8 +180,12 @@ test("a template's line follows the same rules as a send's plan", () => {
   expect(templateEffectsLine({ closesAs: "lost", followUp: { days: 3, note: "x" }, holdsDate: true })).toBe(
     "Sending this closes the project as Lost and clears its follow-up and date hold.",
   );
-  // Clearing an earlier follow-up only comes with a move forward.
+  // Clearing an earlier follow-up only comes with a move forward, and not
+  // with a follow-up of its own, which replaces the old one.
   expect(templateEffectsLine({ settlesFollowUp: true })).toBe("Sending this leaves the project as it is.");
+  expect(
+    templateEffectsLine({ advancesTo: "planning", settlesFollowUp: true, followUp: { days: 3, note: "Check" } }),
+  ).toBe("Sending this moves the project forward to Planning and sets a follow-up 3 days later (“Check”).");
   expect(templateEffectsLine({ followUp: { monthsAfterEvent: 1, note: "Hello" } })).toBe(
     "Sending this sets a follow-up for 1 month after the event, if that's still ahead (“Hello”).",
   );

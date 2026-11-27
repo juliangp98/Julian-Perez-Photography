@@ -75,6 +75,7 @@ test("draft-copy: a journal post is drafted from its topic and type, with the wr
   expect(sent).toContain("Documentary weddings");
   expect(sent).toContain("Post type: Personal essay");
   expect(sent).toContain("No em dashes");
+  expect(sent).toContain("Never use these words or phrases");
 });
 
 test("draft-copy: a reply that isn't the draft asked for says so", async ({ adminRequest: request }) => {

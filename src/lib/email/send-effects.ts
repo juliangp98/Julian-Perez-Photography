@@ -168,7 +168,7 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 // What sending a template does to any project, in a line, by the same rules
 // planSendEffects applies to one (the Content page lists every template with
 // it): a close and nothing else, else a forward move, a date hold, a
-// follow-up, and clearing a follow-up an earlier stage set.
+// follow-up, or clearing a follow-up an earlier stage set when it sets none.
 export function templateEffectsLine(
   t: Pick<EmailTemplate, "advancesTo" | "closesAs" | "followUp" | "holdsDate" | "settlesFollowUp">,
 ): string {
@@ -186,7 +186,8 @@ export function templateEffectsLine(
         : `sets a follow-up for ${plural(f.monthsAfterEvent, "month")} after the event, if that's still ahead (“${f.note}”)`,
     );
   }
-  if (t.settlesFollowUp && t.advancesTo) {
+  // A send that sets a follow-up replaces the old one instead.
+  if (t.settlesFollowUp && t.advancesTo && !f) {
     parts.push("clears a follow-up an earlier stage set (not one you set yourself)");
   }
   return parts.length ? `Sending this ${listOf(parts)}.` : "Sending this leaves the project as it is.";

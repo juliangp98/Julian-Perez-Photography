@@ -23,7 +23,7 @@ export default function GuideSectionFold({
       open={OPEN_SECTIONS.has(section.id) || undefined}
       className="group rounded-lg border border-border bg-white p-4"
     >
-      <summary className="cursor-pointer list-none">
+      <summary className="cursor-pointer">
         <span className="font-serif text-lg">{section.title}</span>
         {section.minutes && <span className="ml-2 text-xs text-muted">{section.minutes}</span>}
       </summary>

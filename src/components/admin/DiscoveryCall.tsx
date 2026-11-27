@@ -231,7 +231,7 @@ export default function DiscoveryCall({
 
         {earlier.length > 0 && (
           <details open className="rounded-lg border border-border bg-white p-4">
-            <summary className="cursor-pointer list-none">
+            <summary className="cursor-pointer">
               <span className="font-serif text-lg">Answered under another guide</span>
             </summary>
             <p className="mt-2 text-sm text-muted">

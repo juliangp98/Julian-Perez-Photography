@@ -255,7 +255,7 @@ While the agreement and retainer are out (`booked`), the client's portal reads "
 **The Links page** (`/admin/links`) has three parts, built in `src/lib/admin-links.ts`.
 - **Links you share,** each with a Copy action: the Square booking calls, the Google review link, the Pic-Time client login, a sample gallery per service shown on the site, and the how-to-pay line per payment method. A value Studio doesn't have, or one that isn't an http(s) address, is named as not set rather than linked (`webAddress()`).
 - **Tools you use:** Square, Pic-Time and Gmail.
-- **Site services:** the dashboards behind the site, each badged Configured or Not set from the setting names it lists (`siteServices()`; never the values). It opens on its own when production still needs a setting, with that list first (`#setup`), and the Projects board then shows a one-line pointer to it.
+- **Site services:** the dashboards behind the site; each one with settings to check is badged Configured or Not set from their names (`siteServices()`; never the values), and the rest carry no badge. It opens on its own when production still needs a setting, with that list first (`#setup`), and the Projects board then shows a one-line pointer to it.
 
 ## Discovery calls
 

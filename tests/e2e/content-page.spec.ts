@@ -82,7 +82,14 @@ test("call guides: one per kind of shoot, read as the Call tab draws them", asyn
     .questions!.find((q) => q.id === "film")!.ask;
   await expect(page.getByText(filmAsk, { exact: true })).toHaveCount(0);
   await page.goto("/admin/content?service=engagements-couples");
-  expect(await sectionTitles(page)).toEqual(discoveryGuide("engagements-couples").sections.map((s) => s.title));
+  const engagements = discoveryGuide("engagements-couples");
+  expect(await sectionTitles(page)).toEqual(engagements.sections.map((s) => s.title));
+  // Its own opener, drawn among the section's talking points (folded text
+  // counts).
+  const open = engagements.sections.find((s) => s.id === "open")!;
+  const openFold = page.locator("details").filter({ has: page.getByText(open.title, { exact: true }) });
+  await expect(openFold).toContainText(open.say!.at(-1)!);
+  await expect(openFold).not.toContainText("ongratulations");
 
   // A hidden service still has its guide, marked as hidden on the site.
   await page.goto("/admin/content?service=modeling");
@@ -211,7 +218,10 @@ test("website copy: a draft or an error never stays on screen under a new choice
   await page.getByLabel("What to draft").selectOption("service:weddings");
   const answered = page.waitForResponse("**/api/admin/draft-copy");
   release();
-  await answered;
+  // Let the late reply be read and any render it causes land before checking.
+  await (await answered).finished();
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.waitForTimeout(300);
   await expect(page.getByText("A late post", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Copy Title" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Polish copy" })).toBeEnabled();

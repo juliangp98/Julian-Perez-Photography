@@ -369,7 +369,7 @@ free, **private Supabase Postgres** table (`client_records`) — not Sanity,
 because client PII needs a private store and Sanity's private datasets are a
 paid feature. Julian manages records in the **owner dashboard at `/admin`** (a
 board of projects with a Today list of what needs doing, a page per project
-that follows its stage, a Content page with the call guides, email templates and collections, and a Links page with the links you share, the tools you use and the site's services) — the Supabase Table Editor stays available as a fallback
+that follows its stage, a Content page with the call guides, email templates and collections, and a Links page with the links Julian shares with clients, the tools he works in and the services the site runs on) — the Supabase Table Editor stays available as a fallback
 for complex JSONB edits.
 
 **One row is one project; the email is the person.** A single client can hold
