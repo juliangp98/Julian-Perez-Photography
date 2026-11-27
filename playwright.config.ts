@@ -76,6 +76,9 @@ export default defineConfig({
         // Empty so content (site settings, services) comes from the built-in
         // fallback in every run, whatever a local .env.local holds.
         NEXT_PUBLIC_SANITY_PROJECT_ID: "",
+        // Empty so the owner's portal alerts stay on (the default), whatever a
+        // local .env.local holds.
+        NOTIFY_CLIENT_EDITS: "",
       },
     },
   ],
