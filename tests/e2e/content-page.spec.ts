@@ -154,6 +154,9 @@ test("website copy: one drafter for journal posts and page copy, beside the alt-
   // The meta-description drafter is gone.
   await expect(page.getByText(/meta description/i)).toHaveCount(0);
 
+  // Pages the site doesn't show aren't offered.
+  await expect(page.getByLabel("What to draft").locator("option", { hasText: "Modeling" })).toHaveCount(0);
+
   // A journal post from a topic.
   await page.getByLabel("What to draft").selectOption("journal");
   await expect(page.getByLabel("What to do")).toHaveCount(0);
@@ -176,6 +179,42 @@ test("website copy: one drafter for journal posts and page copy, beside the alt-
   await expect(page.getByText("Your day, as it was", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy Tagline" })).toBeVisible();
   await scan(page);
+});
+
+test("website copy: a draft or an error never stays on screen under a new choice", async ({
+  adminPage: page,
+  fakes,
+}) => {
+  await page.goto("/admin/content?tab=copy");
+  // An error clears when the choice changes. Unscripted, the fake provider's
+  // plain reply isn't a draft.
+  await page.getByLabel("What to draft").selectOption("journal");
+  await page.getByLabel("Topic or brief").fill("A topic");
+  await page.getByRole("button", { name: "Draft post" }).click();
+  await expect(page.getByText("Couldn't read the draft. Try again.")).toBeVisible();
+  await page.getByLabel("What to draft").selectOption("service:weddings");
+  await expect(page.getByText("Couldn't read the draft. Try again.")).toHaveCount(0);
+
+  // A reply to a request made before the change is dropped.
+  await page.getByLabel("What to draft").selectOption("journal");
+  await fakes.script({
+    replies: [JSON.stringify({ title: "A late post", excerpt: "", body: "One.", tags: [] })],
+  });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/api/admin/draft-copy", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Draft post" }).click();
+  await expect(page.getByRole("button", { name: "Drafting…" })).toBeVisible();
+  await page.getByLabel("What to draft").selectOption("service:weddings");
+  const answered = page.waitForResponse("**/api/admin/draft-copy");
+  release();
+  await answered;
+  await expect(page.getByText("A late post", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Copy Title" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Polish copy" })).toBeEnabled();
 });
 
 test("an unknown tab opens the call guides", async ({ adminPage: page }) => {

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore, productionBuild } from "./support/fixtures";
 import { AUTH_SECRET } from "./support/auth-secret";
+import { WEBHOOK_SECRET } from "./support/webhook-sign";
 import { SETTINGS } from "../../src/lib/config";
 import { PAYMENT_METHODS, paymentMethodLabel } from "../../src/lib/labels";
 import { services } from "../../src/lib/services-data";
@@ -125,6 +126,8 @@ test("the setup list sits on the Links page, and the board points to it, in prod
     await expect(fold).toHaveAttribute("open", "");
     const setup = page.locator("#setup");
     await expect(setup).toBeVisible();
+    // It comes first in the fold, ahead of the dashboards.
+    await expect(fold.locator("summary + div > :first-child")).toHaveAttribute("id", "setup");
     await expect(setup).toContainText("Setup isn’t finished");
     await expect(setup).toContainText("NEXT_PUBLIC_SANITY_PROJECT_ID");
 
@@ -196,11 +199,18 @@ test("links to share copy in one click, and each site service shows whether it's
   }
   // The tools aren't repeated among the site services.
   await expect(fold.getByRole("link", { name: "Square dashboard" })).toHaveCount(0);
-  // Only setting names are shown, never what they hold.
+  // Only setting names are shown, never what they hold ("fake_e2e" covers the
+  // fake AI, email and SMS keys).
   const html = await page.content();
-  for (const secret of ["gsk_fake_e2e", "re_fake_e2e", "e2e-cron-secret", AUTH_SECRET]) {
-    expect(html).not.toContain(secret);
-  }
+  const held = [
+    "fake_e2e",
+    "e2e-cron-secret",
+    AUTH_SECRET,
+    WEBHOOK_SECRET,
+    "+15555550100",
+    process.env.TEST_SUPABASE_SERVICE_ROLE_KEY,
+  ].filter((v): v is string => !!v);
+  for (const secret of held) expect(html).not.toContain(secret);
 
   await page.evaluate(() => document.querySelectorAll("details").forEach((d) => (d.open = true)));
   const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).disableRules(["color-contrast"]).analyze();
