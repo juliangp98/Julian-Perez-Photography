@@ -6,6 +6,7 @@
 import Badge, { type BadgeTone } from "@/components/ui/Badge";
 import Panel from "@/components/ui/Panel";
 import DiscoveryCall from "@/components/admin/DiscoveryCall";
+import ServiceCollections from "@/components/admin/ServiceCollections";
 import { listClients, normalizeEmail, type ClientRecordFull } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
 import { getAnyService } from "@/lib/content";
@@ -113,32 +114,9 @@ export default async function CallTab({
             <summary className="cursor-pointer text-sm underline underline-offset-4">
               {service.title} collections
             </summary>
-            <ul className="mt-2 space-y-1 text-sm">
-              {service.packages.map((p) => (
-                <li key={p.name}>
-                  <span className="font-medium">{p.name}</span>: {p.price}
-                  {p.duration ? `, ${p.duration}` : ""}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-sm text-muted">
-              {[
-                service.retainerPercent != null ? `Retainer ${service.retainerPercent}%` : undefined,
-                service.holdDays ? `date held ${service.holdDays} days` : undefined,
-              ]
-                .filter(Boolean)
-                .join(", ") || "Retainer and hold days aren't set for this service in Studio yet."}
-            </p>
-            {service.sampleGalleryUrl && (
-              <a
-                href={service.sampleGalleryUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-block text-sm underline underline-offset-4 hover:text-accent"
-              >
-                Sample gallery
-              </a>
-            )}
+            <div className="mt-3">
+              <ServiceCollections service={service} />
+            </div>
           </details>
         )}
       </Panel>

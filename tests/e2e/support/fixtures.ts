@@ -14,6 +14,9 @@ import {
 //   fake-providers.mjs); it resets before every test.
 
 export const ADMIN_EMAIL = "admin@example.com";
+// playwright.config.ts runs a production build exactly when CI is set; some
+// pages show production-only notices (the setup list).
+export const productionBuild = !!process.env.CI;
 export const FAKE_PROVIDERS_URL = `http://localhost:${process.env.FAKE_PROVIDERS_PORT ?? 4010}`;
 // Store-backed specs need the separate test Supabase project (.env.test).
 export const hasTestStore = !!(

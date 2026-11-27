@@ -6,11 +6,9 @@ import * as Sentry from "@sentry/nextjs";
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
-    if (process.env.NODE_ENV === "production") {
-      const { missingInProduction } = await import("./lib/config");
-      for (const s of missingInProduction()) {
-        console.warn(`[config] ${s.name} is not set. ${s.without}`);
-      }
+    const { unfinishedSetup } = await import("./lib/config");
+    for (const s of unfinishedSetup()) {
+      console.warn(`[config] ${s.name} is not set. ${s.without}`);
     }
   }
   if (process.env.NEXT_RUNTIME === "edge") {

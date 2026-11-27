@@ -38,11 +38,9 @@ import { formatHumanDate, STUDIO_TIME_ZONE } from "@/lib/field-format";
 import { useAiAction } from "./ai/useAiAction";
 import { composeDraft } from "@/components/admin/compose-draft";
 import { useCallDraft, type CallSaveState } from "./call-draft";
+import GuideSectionFold from "./GuideSectionFold";
 
 type Place = { label?: string; address?: string; notes?: string };
-
-// The family sections open by default; the shared framework starts folded.
-const OPEN_SECTIONS = new Set(["people", "event", "priorities", "film"]);
 
 const SAVE_ERRORS: Partial<Record<CallSaveState, string>> = {
   error: "Not saved yet. Trying again.",
@@ -140,29 +138,9 @@ export default function DiscoveryCall({
   const earlier = Object.keys(answers).filter((key) => !shown.has(key) && (answers[key]?.trim() || listed[key]));
 
   const renderSection = (section: GuideSection) => (
-    <details
-      key={section.id}
-      open={OPEN_SECTIONS.has(section.id) || undefined}
-      className="group rounded-lg border border-border bg-white p-4"
-    >
-      <summary className="cursor-pointer list-none">
-        <span className="font-serif text-lg">{section.title}</span>
-        {section.minutes && <span className="ml-2 text-xs text-muted">{section.minutes}</span>}
-      </summary>
-      <div className="mt-3 space-y-3">
-        {fitted?.openers[section.id] && (
-          <p className="text-sm text-accent">{fitted.openers[section.id]}</p>
-        )}
-        {section.say && section.say.length > 0 && (
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
-            {section.say.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
-        )}
-        {section.questions?.map((q) => answerBox(answerKey(section, q), q.ask))}
-      </div>
-    </details>
+    <GuideSectionFold key={section.id} section={section} lead={fitted?.openers[section.id]}>
+      {section.questions?.map((q) => answerBox(answerKey(section, q), q.ask))}
+    </GuideSectionFold>
   );
 
   const saveStatus =

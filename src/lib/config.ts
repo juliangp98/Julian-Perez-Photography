@@ -1,8 +1,9 @@
 // Every environment setting the site reads, in one list: what it's for, what
 // goes without it, and whether a production deploy needs it. The boot log, the
-// admin Setup card, .env.example and docs/configuration.md all come from here
-// (npm run env:docs regenerates the last two; a spec checks they're current).
-// Plain data with no imports, so the docs script can load it directly.
+// admin Links page (its Setup list and service badges), .env.example and
+// docs/configuration.md all come from here (npm run env:docs regenerates the
+// last two; a spec checks they're current). Plain data with no imports, so the
+// docs script can load it directly.
 
 export type Setting = {
   name: string;
@@ -56,7 +57,26 @@ export const SETTINGS: Setting[] = [
   { area: "Tests", name: "TWILIO_BASE_URL", purpose: "Points Twilio at the e2e fake provider. Never set in production.", without: "" },
 ];
 
+type Env = Record<string, string | undefined>;
+
+// Whether a setting has a value: blank counts as unset.
+export function isSet(name: string, env: Env = process.env): boolean {
+  return !!env[name]?.trim();
+}
+
+// The names in a list that aren't set, in the list's order.
+export function unsetSettings(names: readonly string[], env: Env = process.env): string[] {
+  return names.filter((name) => !isSet(name, env));
+}
+
 // Settings a production deploy needs but doesn't have.
-export function missingInProduction(env: Record<string, string | undefined> = process.env) {
-  return SETTINGS.filter((s) => s.neededInProd && !env[s.name]);
+export function missingInProduction(env: Env = process.env): Setting[] {
+  return SETTINGS.filter((s) => s.neededInProd && !isSet(s.name, env));
+}
+
+// What setup still needs, on a production server: the boot log, the admin
+// Links page's Setup list and the Projects board's pointer to it all read
+// this. Nothing outside production, where a missing setting is expected.
+export function unfinishedSetup(env: Env = process.env): Setting[] {
+  return env.NODE_ENV === "production" ? missingInProduction(env) : [];
 }

@@ -1845,6 +1845,21 @@ export const services: ServiceCategory[] = [
   },
 ];
 
+// A service's booking terms set in Studio, as rows: the retainer, the date
+// hold and the gallery turnaround. A hold or turnaround of 0 counts as none
+// set, as everywhere they're read; a retainer of 0 is a real 0%.
+const NOT_SET = "Not set in Studio";
+export function bookingTerms(
+  s: Pick<ServiceCategory, "retainerPercent" | "holdDays" | "turnaroundDays">,
+): { label: string; value: string }[] {
+  const days = (n?: number | null) => (n ? `${n} ${n === 1 ? "day" : "days"}` : NOT_SET);
+  return [
+    { label: "Retainer", value: s.retainerPercent != null ? `${s.retainerPercent}%` : NOT_SET },
+    { label: "Date hold", value: days(s.holdDays) },
+    { label: "Gallery turnaround", value: days(s.turnaroundDays) },
+  ];
+}
+
 // Slug → catalog display title (e.g. "wedding-films" → "Wedding Films").
 // Falls back to title-casing an unknown slug.
 export function serviceTitle(slug?: string): string | undefined {

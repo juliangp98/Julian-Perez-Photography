@@ -57,7 +57,7 @@ suspected of being exposed, and as part of a quarterly audit.
       production (server scope; the latter three carry no `NEXT_PUBLIC_` prefix).
       Also confirm `ADMIN_EMAIL`, `CRON_SECRET`, `RESEND_WEBHOOK_SECRET` and
       `RESEND_INBOUND_DOMAIN`. `src/lib/config.ts` lists every setting; the
-      admin Projects page shows a Setup card for any that are missing.
+      admin Links page lists any that are missing under Site services.
 - [ ] Settings → **Deployment Protection** — enable Vercel Authentication
       on Preview deployments so preview URLs aren't publicly crawlable.
       Previews share env vars with production, which makes them leak-prone

@@ -41,6 +41,13 @@ test("keepalive: without a store there's nothing to keep alive", async ({ reques
   expect(json).toMatchObject({ ok: true, skipped: "store-unconfigured" });
 });
 
+// A request that reaches the AI provider: a journal post draft. Its reply is
+// queued after the cron runs, since the cron's own test calls take queued
+// replies (only a call that succeeds uses one).
+const JOURNAL_DRAFT = JSON.stringify({ title: "A test post", excerpt: "A teaser.", body: "One.\n\nTwo.", tags: ["test"] });
+const draftPost = (adminRequest: APIRequestContext) =>
+  adminRequest.post("/api/admin/draft-copy", { data: { kind: "journal", topic: "A test topic" } });
+
 test.describe("the daily run against the test store", () => {
   test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
 
@@ -79,10 +86,10 @@ test.describe("the daily run against the test store", () => {
   }) => {
     await runCron(request); // main openai/gpt-oss-120b, fallback qwen/qwen3-32b
     const probes = (await fakes.calls("ai")).length; // the cron's test calls
-    await fakes.script({ retired: ["openai/gpt-oss-120b"] });
-    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    await fakes.script({ retired: ["openai/gpt-oss-120b"], replies: [JOURNAL_DRAFT] });
+    const res = await draftPost(adminRequest);
     expect(res.status()).toBe(200);
-    expect((await res.json()).drafted).toBe(true);
+    expect((await res.json()).post?.title).toBe("A test post");
 
     const tried = (await fakes.calls("ai"))
       .slice(probes)
@@ -98,10 +105,10 @@ test.describe("the daily run against the test store", () => {
   }) => {
     await runCron(request); // main openai/gpt-oss-120b, fallback qwen/qwen3-32b
     const probes = (await fakes.calls("ai")).length;
-    await fakes.script({ rateLimited: ["openai/gpt-oss-120b"] });
-    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    await fakes.script({ rateLimited: ["openai/gpt-oss-120b"], replies: [JOURNAL_DRAFT] });
+    const res = await draftPost(adminRequest);
     expect(res.status()).toBe(200);
-    expect((await res.json()).drafted).toBe(true);
+    expect((await res.json()).post?.title).toBe("A test post");
 
     // Three tries on the main model (the call and two retries), then the fallback.
     const tried = (await fakes.calls("ai"))
@@ -120,7 +127,7 @@ test.describe("the daily run against the test store", () => {
   }) => {
     await runCron(request);
     await fakes.script({ rateLimited: ["openai/gpt-oss-120b", "qwen/qwen3-32b"] });
-    const res = await adminRequest.post("/api/admin/draft-meta", { data: { page: "home" } });
+    const res = await draftPost(adminRequest);
     expect(res.status()).toBe(502);
   });
 });

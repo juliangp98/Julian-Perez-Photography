@@ -2,7 +2,7 @@
 
 Every setting the site reads. Generated from `src/lib/config.ts` by `npm run env:docs`; edit that file, not this one. Set them in `.env.local` for local work (start from `.env.example`) and in Vercel → Settings → Environment Variables for deploys. None of them may carry a `NEXT_PUBLIC_` prefix unless it already has one.
 
-The site checks itself: missing settings that production needs are logged once when the server starts and listed on the admin Projects page.
+The site checks itself: missing settings that production needs are logged once when the server starts and listed under Site services on the admin Links page.
 
 ## Email
 

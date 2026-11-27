@@ -23,7 +23,7 @@ export default function CopyField({
         >
           {label}
         </a>
-        <CopyButton text={value} />
+        <CopyButton text={value} what={label} />
       </div>
     );
   }
@@ -31,7 +31,7 @@ export default function CopyField({
     <div>
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs uppercase tracking-[0.18em] text-muted">{label}</div>
-        <CopyButton text={value} />
+        <CopyButton text={value} what={label} />
       </div>
       <p className="mt-1.5 whitespace-pre-line break-words rounded border border-border bg-white p-3 text-sm leading-relaxed">
         {value}

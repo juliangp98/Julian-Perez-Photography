@@ -24,7 +24,7 @@ import { QUESTIONNAIRES } from "@/lib/questionnaires";
 import { todayRows } from "@/lib/today";
 import { heldUntil } from "@/lib/email/send-effects";
 import Panel from "@/components/ui/Panel";
-import { missingInProduction } from "@/lib/config";
+import { unfinishedSetup } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Projects · Admin",
@@ -151,20 +151,14 @@ export default async function AdminProjectsPage({
           : `${all.length} project${all.length === 1 ? "" : "s"}`}
       </p>
 
-      {process.env.NODE_ENV === "production" && missingInProduction().length > 0 && (
-        <Panel tone="danger" className="mt-6">
-          <h2 className="font-serif text-xl text-danger">Setup isn&rsquo;t finished</h2>
-          <ul className="mt-3 space-y-1.5 text-sm">
-            {missingInProduction().map((s) => (
-              <li key={s.name}>
-                <code>{s.name}</code> <span className="text-muted">{s.without}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-muted">
-            Set these in Vercel, then redeploy. docs/configuration.md lists them all.
-          </p>
-        </Panel>
+      {/* What's missing is listed on the Links page; the board points to it. */}
+      {unfinishedSetup().length > 0 && (
+        <p className="mt-6 text-sm text-danger">
+          Setup isn&rsquo;t finished.{" "}
+          <Link href="/admin/links#setup" className="underline underline-offset-4">
+            See what&rsquo;s missing
+          </Link>
+        </p>
       )}
 
       <div className="mt-8">

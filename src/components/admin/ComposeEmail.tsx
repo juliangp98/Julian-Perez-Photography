@@ -17,7 +17,7 @@ import {
 } from "@/lib/email/email-pipeline";
 import { statusTitle } from "@/lib/labels";
 import { formatHumanDate } from "@/lib/field-format";
-import { listOf, notMovedLine, type SendEffectsPlan } from "@/lib/email/send-effects";
+import { notMovedLine, planEffectsLine, type SendEffectsPlan } from "@/lib/email/send-effects";
 import { inputClass } from "@/components/ui/fields/Field";
 import { composeDraft } from "@/components/admin/compose-draft";
 import Button from "@/components/ui/Button";
@@ -28,20 +28,6 @@ type Status = "idle" | "drafting" | "drafted" | "sending" | "sent" | "error";
 
 const input = `${inputClass} text-sm`;
 
-
-// What sending this template does to this project, in a line.
-function effectsLine(plan?: SendEffectsPlan): string {
-  if (!plan) return "";
-  const parts: string[] = [];
-  if (plan.closeAs) parts.push(`closes the project as ${statusTitle(plan.closeAs)}`);
-  if (plan.advanceTo) parts.push(`moves the project to ${statusTitle(plan.advanceTo)}`);
-  if (plan.hold) parts.push(`holds the date until ${formatHumanDate(plan.hold)}`);
-  if (plan.followUp) {
-    parts.push(`sets a follow-up for ${formatHumanDate(plan.followUp.at)}`);
-  }
-  if (plan.clearFollowUp) parts.push("clears the follow-up it settles");
-  return parts.length ? `Sending this ${listOf(parts)}.` : "";
-}
 
 type Moved = {
   status?: string;
@@ -235,7 +221,7 @@ export default function ComposeEmail({
     }
   }
 
-  const effects = templateId ? effectsLine(sendPlans[templateId]) : "";
+  const effects = templateId ? planEffectsLine(sendPlans[templateId]) : "";
 
   return (
     <div className="space-y-4">

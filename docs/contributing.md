@@ -18,7 +18,7 @@ Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writin
 
 ## One feature, one job
 
-Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`); the assessment and the project's next step hand off to it rather than writing their own. Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
+Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`); the assessment and the project's next step hand off to it rather than writing their own. Website copy (a journal post, or a service or portfolio page's copy) is drafted only on the Content page's Website copy tab (`/api/admin/draft-copy`). Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
 
 ## Writing
 
@@ -26,7 +26,7 @@ Visible text is plain and specific: short sentences, one idea each, in Julian's 
 
 ## Settings
 
-Every setting the code reads is listed in `src/lib/config.ts` with what goes without it. Add a new one there, then run `npm run env:docs` to regenerate `.env.example` and `docs/configuration.md`. `tests/e2e/config.spec.ts` fails when a setting is missing from the list or the generated files are stale.
+Every setting the code reads is listed in `src/lib/config.ts` with what goes without it. Add a new one there, then run `npm run env:docs` to regenerate `.env.example` and `docs/configuration.md`. `tests/e2e/config.spec.ts` fails when a setting is missing from the list or the generated files are stale. The admin Links page names settings from this list for its badges and its Setup list, and `tests/e2e/links-page.spec.ts` fails on a name the list doesn't have.
 
 ## Email on the domain
 

@@ -8,6 +8,10 @@ const AVOID = copyRules.banned
   .filter((b) => !("promptless" in b && b.promptless))
   .map((b) => b.phrase);
 
+// The site's writing rules, for any draft: the banned phrases, and no em dashes.
+export const AVOID_LINE = `Never use these words or phrases: ${AVOID.join(", ")}.`;
+export const NO_EM_DASHES = "No em dashes: use a comma, a colon or a full stop.";
+
 export type VoiceContext = {
   photographerName?: string;
   businessName?: string;
@@ -37,8 +41,8 @@ export function buildVoiceSystemPrompt(ctx: VoiceContext = {}): string {
     "- Documentary-first and candid in sensibility: relaxed, observant, focused on real moments over staged formality.",
     "- Professional and clear. Confident without being stiff, salesy, or over-effusive.",
     "- Concise and specific: short sentences, one idea each. Most of these emails are a few short paragraphs.",
-    `- Never use these words or phrases: ${AVOID.join(", ")}.`,
-    "- No em dashes: use a comma, a colon or a full stop. At most one exclamation mark in the whole email.",
+    `- ${AVOID_LINE}`,
+    `- ${NO_EM_DASHES} At most one exclamation mark in the whole email.`,
     "",
     "Hard rules (these matter most):",
     `- Write in the first person as ${photographerName}, and sign off as ${photographerName}.`,

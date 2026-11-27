@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // honeypot-protected, grounded only in public catalog content. Malformed,
 // empty, wrong-last-role, and honeypot cases are deterministic (no provider
 // call); the well-formed case depends on whether a key is configured in the
-// runner, so it asserts a past-validation status the way draft-journal does.
+// runner, so it asserts a past-validation status rather than a fixed reply.
 
 test("concierge: rejects a non-array messages body", async ({ request }) => {
   const res = await request.post("/api/concierge", {
