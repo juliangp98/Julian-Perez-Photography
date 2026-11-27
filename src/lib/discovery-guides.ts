@@ -627,9 +627,19 @@ const SERVICE_DROPS: Partial<Record<ServiceSlug, string[]>> = {
   "wedding-films": ["priorities.film"],
 };
 
+// Every family with the services that follow it, in SERVICE_FAMILY's order.
+// The general guide, for a project with no service yet, isn't among them.
+export function guideFamilies(): { family: GuideFamily; services: ServiceSlug[] }[] {
+  const byFamily = new Map<FamilyId, ServiceSlug[]>();
+  for (const [slug, id] of Object.entries(SERVICE_FAMILY) as [ServiceSlug, FamilyId][]) {
+    byFamily.set(id, [...(byFamily.get(id) ?? []), slug]);
+  }
+  return [...byFamily].map(([id, services]) => ({ family: FAMILIES[id], services }));
+}
+
 // A service slug the catalog knows: the stored service is free text (an
 // inquiry can carry any), so a lookup never reads an inherited key.
-const knownService = (serviceType?: string): ServiceSlug | undefined =>
+export const knownService = (serviceType?: string): ServiceSlug | undefined =>
   serviceType && Object.hasOwn(SERVICE_FAMILY, serviceType) ? (serviceType as ServiceSlug) : undefined;
 
 export function guideFamily(serviceType?: string): GuideFamily {

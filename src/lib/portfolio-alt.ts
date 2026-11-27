@@ -1,7 +1,8 @@
 // Persistent per-image alt-text overrides for portfolio galleries. The
 // auto-generated manifest (`portfolio-manifest.ts`) supplies a baseline alt;
-// these overrides — set from the admin Content tools and stored in Supabase —
-// win at render and survive photo re-imports. Server-only (service-role key).
+// these overrides, set on the admin Content page's Website copy tab and stored
+// in Supabase, win at render and survive photo re-imports. Server-only
+// (service-role key).
 //
 // It reuses the same Supabase project as the client store but is a deliberately
 // separate, self-contained module so the public portfolio path doesn't depend on

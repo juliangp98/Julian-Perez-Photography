@@ -270,6 +270,7 @@ export default async function AdminProjectDetailPage({
                     <CopyField
                       label="To file an older email here, forward it from Gmail to"
                       value={filingAddress}
+                      what="filing address"
                     />
                   </div>
                 )}
@@ -341,13 +342,10 @@ export default async function AdminProjectDetailPage({
                     It attaches to this project, so there is no duplicate.
                   </p>
                   <CopyField
-                    label={
-                      record.serviceType
-                        ? "Open the questionnaire link →"
-                        : "Open the inquiry link →"
-                    }
+                    label={record.serviceType ? "Open the questionnaire link" : "Open the inquiry link"}
                     value={completionUrl}
                     href={completionUrl}
+                    what={record.serviceType ? "questionnaire link" : "inquiry link"}
                   />
                 </RailCard>
               )}

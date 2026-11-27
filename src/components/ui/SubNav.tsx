@@ -112,7 +112,7 @@ export const CLIENT_TABS: SubNavItem[] = [
 export const ADMIN_TABS: SubNavItem[] = [
   { label: "Projects", href: "/admin/projects" },
   { label: "Content", href: "/admin/content" },
-  { label: "External links", href: "/admin/links" },
+  { label: "Links", href: "/admin/links" },
 ];
 
 // The booking funnel: a prospect moves left to right — ask a question, plan the

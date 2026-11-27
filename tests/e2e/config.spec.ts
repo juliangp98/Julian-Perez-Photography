@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { test, expect } from "@playwright/test";
-import { SETTINGS } from "../../src/lib/config";
+import { SETTINGS, isSet, missingInProduction, unfinishedSetup, unsetSettings } from "../../src/lib/config";
 import { execFileSync } from "node:child_process";
 
 // The settings list in src/lib/config.ts covers everything the code reads,
@@ -35,4 +35,18 @@ test(".env.example and docs/configuration.md are generated from it (npm run env:
     ["--disable-warning=MODULE_TYPELESS_PACKAGE_JSON", "scripts/env-docs.mjs", "--check"],
     { cwd: ROOT, stdio: "pipe" },
   );
+});
+
+test("a setting counts as set only with a value, and setup reads unfinished only in production", () => {
+  expect(isSet("X", { X: "a" })).toBe(true);
+  for (const value of ["", "  ", undefined]) expect(isSet("X", { X: value }), String(value)).toBe(false);
+  expect(unsetSettings(["B", "A", "C"], { A: "1", C: " " })).toEqual(["B", "C"]);
+
+  const needed = SETTINGS.filter((s) => s.neededInProd).map((s) => s.name);
+  const all = Object.fromEntries(needed.map((n) => [n, "set"]));
+  // A blank value is as missing as no value.
+  expect(missingInProduction({ ...all, [needed[0]]: "  " }).map((s) => s.name)).toEqual([needed[0]]);
+  expect(unfinishedSetup({ NODE_ENV: "development" })).toEqual([]);
+  expect(unfinishedSetup({ NODE_ENV: "production" }).map((s) => s.name)).toEqual(needed);
+  expect(unfinishedSetup({ NODE_ENV: "production", ...all })).toEqual([]);
 });

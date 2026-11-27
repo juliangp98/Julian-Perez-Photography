@@ -54,6 +54,8 @@ test("retired pieces stay gone", () => {
   expect(offenders(/\bAiButton\b|\bsubmitButtonClass\b/)).toEqual([]);
   expect(offenders(/\b(text|border|bg)-red-(300|400|500|700|800)\b/, ["src/components/ui/Badge.tsx"])).toEqual([]);
   expect(offenders(/✨/)).toEqual([]);
+  // The website copy drafter took over journal drafting; the meta drafter went.
+  expect(offenders(/\bJournalDrafter\b|\bMetaDrafter\b|\bCopyPolisher\b|seo-pages|api\/admin\/draft-(journal|meta)\b/)).toEqual([]);
 });
 
 // A loading.tsx anywhere above a page makes router.refresh() (on Next 16.2)

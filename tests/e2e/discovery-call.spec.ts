@@ -6,8 +6,10 @@ import { services } from "../../src/lib/services-data";
 import {
   SERVICE_FAMILY,
   discoveryGuide,
+  guideFamilies,
   guideFamily,
   guideQuestions,
+  knownService,
   tailoredKey,
 } from "../../src/lib/discovery-guides";
 import { shiftDay, studioToday } from "../../src/lib/field-format";
@@ -546,4 +548,16 @@ test("the owner's inquiry email links to the call guide", async ({ request, fake
   const link = String(owner?.body?.text).match(/Prep for the call: (\S+)/)?.[1] ?? "";
   expect(new URL(link).pathname).toMatch(/^\/admin\/projects\/[0-9a-f-]{36}$/);
   expect(new URL(link).searchParams.get("tab")).toBe("call");
+});
+
+test("the guide families list every service once, in order, without the general guide", () => {
+  const families = guideFamilies();
+  expect(families.flatMap((f) => f.services)).toEqual(Object.keys(SERVICE_FAMILY));
+  expect(families[0].family.id).toBe("couples");
+  expect(families.map((f) => f.family.id)).not.toContain("general");
+  for (const { family, services } of families) {
+    for (const s of services) expect(guideFamily(s).id, s).toBe(family.id);
+  }
+  // A slug the catalog doesn't know, or an inherited key, isn't a service.
+  for (const v of ["", "nope", "constructor", "__proto__", undefined]) expect(knownService(v), String(v)).toBeUndefined();
 });

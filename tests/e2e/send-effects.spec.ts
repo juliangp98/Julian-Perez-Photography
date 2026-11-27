@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { EMAIL_TEMPLATES, EMAIL_TOKENS, type EmailTemplate } from "../../src/lib/email/email-pipeline";
-import { planSendEffects, heldUntil, holdUntilFor } from "../../src/lib/email/send-effects";
+import {
+  planSendEffects,
+  heldUntil,
+  holdUntilFor,
+  planEffectsLine,
+  templateEffectsLine,
+} from "../../src/lib/email/send-effects";
 import { CLIENT_STATUS_OPTIONS } from "../../src/lib/client-status";
 
 // What sending a pipeline email does to its project, as planned from the
@@ -131,4 +137,68 @@ test("the proposal emails carry the real links rather than placeholders for them
   expect(template("contract-deposit").body).toContain("{{invoiceUrl}}");
   expect(template("discovery-invite").body).toContain("{{discoveryCallUrl}}");
   expect(template("review-request").body).toContain("{{reviewUrl}}");
+});
+
+test("every template says, without a project, what sending it does", () => {
+  // The Content page lists these beside each template.
+  const expected: [string, string][] = [
+    ["inquiry-reply","Sending this moves the project forward to Responded and sets a follow-up 3 days later (“Follow up on the inquiry reply”)."],
+    ["not-available","Sending this closes the project as Archived and clears its follow-up and date hold."],
+    ["discovery-invite","Sending this moves the project forward to Responded and sets a follow-up 3 days later (“Follow up on the call invite”)."],
+    ["discovery-recap","Sending this moves the project forward to Proposal sent, holds the date for the service's hold days and sets a follow-up 6 days later (“Follow up on the proposal”)."],
+    ["proposal","Sending this moves the project forward to Proposal sent, holds the date for the service's hold days and sets a follow-up 6 days later (“Follow up on the proposal”)."],
+    ["proposal-follow-up","Sending this sets a follow-up 7 days later (“Last check-in on the proposal”)."],
+    ["contract-deposit","Sending this moves the project forward to Booked and sets a follow-up 3 days later (“Check the agreement and retainer came in”)."],
+    ["payment-reminder","Sending this leaves the project as it is."],
+    ["booking-welcome","Sending this moves the project forward to Contract signed and clears a follow-up an earlier stage set (not one you set yourself)."],
+    ["planning-kickoff","Sending this moves the project forward to Planning and sets a follow-up 7 days later (“Check the questionnaire came back”)."],
+    ["questionnaire-reminder","Sending this sets a follow-up 5 days later (“Check the questionnaire came back”)."],
+    ["timeline-details","Sending this moves the project forward to Scheduled."],
+    ["week-of","Sending this moves the project forward to Scheduled."],
+    ["post-shoot-thank-you","Sending this moves the project forward to Editing."],
+    ["sneak-peek","Sending this moves the project forward to Editing."],
+    ["gallery-delivery","Sending this moves the project forward to Delivered."],
+    ["prints-albums","Sending this leaves the project as it is."],
+    ["review-request","Sending this moves the project forward to Complete and sets a follow-up for 11 months after the event, if that's still ahead (“Anniversary email”)."],
+    ["referral-ask","Sending this leaves the project as it is."],
+    ["anniversary","Sending this leaves the project as it is."],
+    ["re-engagement","Sending this sets a follow-up 7 days later (“Last check-in, then close the lead”)."],
+    ["booked-elsewhere","Sending this closes the project as Declined / booked elsewhere and clears its follow-up and date hold."],
+  ];
+  expect(EMAIL_TEMPLATES.map((t) => [t.id, templateEffectsLine(t)])).toEqual(expected);
+  for (const [id, line] of expected) {
+    expect(line.endsWith("."), id).toBe(true);
+    expect(line, id).not.toContain("\u2014");
+  }
+});
+
+test("a template's line follows the same rules as a send's plan", () => {
+  // One day, and a close that ignores everything else it carries.
+  expect(templateEffectsLine({ followUp: { days: 1, note: "Check in" } })).toBe(
+    "Sending this sets a follow-up 1 day later (“Check in”).",
+  );
+  expect(templateEffectsLine({ closesAs: "lost", followUp: { days: 3, note: "x" }, holdsDate: true })).toBe(
+    "Sending this closes the project as Lost and clears its follow-up and date hold.",
+  );
+  // Clearing an earlier follow-up only comes with a move forward, and not
+  // with a follow-up of its own, which replaces the old one.
+  expect(templateEffectsLine({ settlesFollowUp: true })).toBe("Sending this leaves the project as it is.");
+  expect(
+    templateEffectsLine({ advancesTo: "planning", settlesFollowUp: true, followUp: { days: 3, note: "Check" } }),
+  ).toBe("Sending this moves the project forward to Planning and sets a follow-up 3 days later (“Check”).");
+  expect(templateEffectsLine({ followUp: { monthsAfterEvent: 1, note: "Hello" } })).toBe(
+    "Sending this sets a follow-up for 1 month after the event, if that's still ahead (“Hello”).",
+  );
+});
+
+test("a send's plan reads as Compose says it before sending", () => {
+  expect(planEffectsLine()).toBe("");
+  expect(planEffectsLine({})).toBe("");
+  expect(planEffectsLine({ advanceTo: "responded", followUp: { at: "2026-12-01", note: "x" } })).toBe(
+    "Sending this moves the project to Responded and sets a follow-up for December 1, 2026.",
+  );
+  expect(planEffectsLine({ closeAs: "archived" })).toBe("Sending this closes the project as Archived.");
+  expect(planEffectsLine({ hold: "2026-12-05", clearFollowUp: true })).toBe(
+    "Sending this holds the date until December 5, 2026 and clears the follow-up it settles.",
+  );
 });

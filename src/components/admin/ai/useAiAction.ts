@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // The request plumbing every AI panel shares: POST a body, keep the result,
 // and say plainly when it fails. `pick` reads the result from the route's JSON
@@ -8,6 +8,8 @@ import { useState } from "react";
 // `initial` is a result the page already has (one saved on the project), and
 // `keepOnEmpty` keeps the shown result when a run comes back with nothing;
 // otherwise an empty answer clears it, so nothing stale stays on screen.
+// `reset` clears the result, status and error (a panel whose subject changed),
+// and a reply to a request made before it is dropped.
 export function useAiAction<T>(
   url: string,
   pick: (json: Record<string, unknown>) => T | null | undefined,
@@ -16,8 +18,11 @@ export function useAiAction<T>(
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<T | null>(initial);
   const [error, setError] = useState("");
+  // Which request is current: a reply to an older one is dropped.
+  const latest = useRef(0);
 
   async function run(body: unknown): Promise<T | null> {
+    const request = ++latest.current;
     setStatus("loading");
     setError("");
     try {
@@ -27,6 +32,7 @@ export function useAiAction<T>(
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
+      if (request !== latest.current) return null;
       if (!res.ok) {
         setError(json.error || "That didn't work. Try again.");
         setStatus("error");
@@ -37,11 +43,19 @@ export function useAiAction<T>(
       setStatus(value ? "done" : "idle");
       return value;
     } catch {
+      if (request !== latest.current) return null;
       setError("Couldn't reach the site. Check your connection and try again.");
       setStatus("error");
       return null;
     }
   }
 
-  return { run, status, result, setResult, error };
+  function reset() {
+    latest.current++;
+    setResult(null);
+    setStatus("idle");
+    setError("");
+  }
+
+  return { run, status, result, setResult, error, reset };
 }

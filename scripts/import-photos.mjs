@@ -45,8 +45,8 @@
 // placeholder. Pass --alt (with GROQ_API_KEY in .env.local) to generate
 // descriptive alt text with AI vision instead. Either way, any existing
 // non-placeholder alt is PRESERVED across re-imports — so AI or hand-written
-// alt is never wiped (only placeholders get replaced). The admin Content tools
-// also let you generate + persist per-image alt overrides (stored in Supabase,
+// alt is never wiped (only placeholders get replaced). The admin Content page's
+// Website copy tab also generates and saves per-image alt overrides (stored in Supabase,
 // overlaid at render), which survive imports independently.
 
 import {
