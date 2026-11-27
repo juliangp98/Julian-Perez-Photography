@@ -61,7 +61,7 @@ export default async function AdminContentPage({
       <h1 className="mt-8 font-serif text-4xl">Content</h1>
       <p className="mt-2 text-muted">
         What you say to clients: the call guides, the emails and the collections. The guides and emails live in the
-        site&rsquo;s code, so they read here exactly as they do on a project.
+        site&rsquo;s code, so they&rsquo;re read-only here.
       </p>
 
       <div className="mt-8">
@@ -128,8 +128,8 @@ function Emails() {
             {g.items.map((t) => (
               <Panel key={t.id}>
                 <details>
-                  <summary className="cursor-pointer list-none">
-                    <span className="block font-medium">{t.name}</span>
+                  <summary className="cursor-pointer">
+                    <span className="font-medium">{t.name}</span>
                     <span className="mt-1 block text-xs text-muted">{templateEffectsLine(t)}</span>
                   </summary>
                   <div className="mt-4 space-y-3">
@@ -160,7 +160,7 @@ async function Collections() {
         return (
           <Panel key={s.slug}>
             <details>
-              <summary className="cursor-pointer list-none">
+              <summary className="cursor-pointer">
                 <span className="font-medium">{s.title}</span>
                 {s.hidden && (
                   <Badge tone="muted" className="ml-2">

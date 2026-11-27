@@ -246,7 +246,7 @@ While the agreement and retainer are out (`booked`), the client's portal reads "
 
 ## Content and links
 
-**The Content page** (`/admin/content`) holds what Julian says to clients, read-only, in four tabs (`?tab=`).
+**The Content page** (`/admin/content`) holds what Julian says to clients in four tabs (`?tab=`): the first three read-only, then the website copy tools.
 - **Call guides:** the discovery-call guide for any service, picked from a list grouped by family (`guideFamilies()`); a hidden service is marked so, and an unknown one shows the general guide. Each section is drawn by `GuideSectionFold`, which the Call tab uses too.
 - **Emails:** every template by stage, each with what sending it does and its subject and body as Compose starts them, tokens unfilled. Nothing on the tab sends or copies.
 - **Collections:** each service's packages, inclusions, add-ons and pricing note, its booking terms set in Studio (`bookingTerms()`: a hold or turnaround of 0 reads as not set) and its sample gallery, with hidden services last. `ServiceCollections` draws the same on a project's Call tab.

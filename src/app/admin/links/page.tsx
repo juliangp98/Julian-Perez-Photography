@@ -102,7 +102,7 @@ export default async function AdminLinksPage() {
 
         {/* Open when production still needs a setting, so the list is in view. */}
         <details open={setup.length > 0 || undefined}>
-          <summary className="cursor-pointer list-none">
+          <summary className="cursor-pointer">
             <h2 className="inline font-serif text-2xl">Site services</h2>
             <span className="ml-3 text-sm text-muted">The dashboards behind the site, and whether each is set up.</span>
           </summary>
