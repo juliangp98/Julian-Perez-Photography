@@ -64,7 +64,7 @@ export const GENERAL_FAQS: FaqItem[] = [
     scope: "general",
     question: "How and when will I get my photos?",
     answer:
-      "Your final images arrive in a private online gallery with a print release, so you can download, share, and print them however you like. Most galleries are ready within a few weeks, and many sessions include a quick sneak peek sooner.",
+      "Your final images arrive in a private online gallery with a print release, so you can download, share, and print them however you like. When it's ready depends on the service, and many sessions include a quick sneak peek sooner.",
   },
   {
     id: "general-prints",

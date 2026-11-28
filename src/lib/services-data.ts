@@ -1857,13 +1857,38 @@ export function sampleGalleryFor(
   const studio = service?.sampleGalleryUrl?.trim();
   if (studio) return studio;
   if (!service) return undefined;
-  const page = portfolios.find(
-    (p) =>
-      !p.hidden &&
-      (p.serviceSlug ?? p.slug) === service.slug &&
-      (p.images.length > 0 || (p.videos?.length ?? 0) > 0),
-  );
-  return page ? `${SITE_URL}/portfolio/${page.slug}` : undefined;
+  const page = portfolios.find((p) => showsWork(p) && (p.serviceSlug ?? p.slug) === service.slug);
+  return page ? portfolioUrl(page.slug) : undefined;
+}
+
+// A portfolio page worth sending someone to: shown on the site, with photos
+// or films on it.
+export function showsWork(p: Pick<PortfolioCategory, "hidden" | "images" | "videos">): boolean {
+  return !p.hidden && (p.images.length > 0 || (p.videos?.length ?? 0) > 0);
+}
+
+export const portfolioUrl = (slug: string) => `${SITE_URL}/portfolio/${slug}`;
+
+// The portfolio pages a draft may link for a client who asked to see work:
+// the service's sample gallery first, then up to `more` other pages with work
+// on them, as "Title: address" lines.
+export function portfolioLines(
+  portfolios: Pick<PortfolioCategory, "slug" | "title" | "hidden" | "images" | "videos">[],
+  sampleGalleryUrl: string | undefined,
+  more: number,
+): string[] {
+  const pages = portfolios
+    .filter((p) => showsWork(p) && portfolioUrl(p.slug) !== sampleGalleryUrl)
+    .slice(0, more)
+    .map((p) => `${p.title}: ${portfolioUrl(p.slug)}`);
+  return sampleGalleryUrl ? [`A sample gallery for this service: ${sampleGalleryUrl}`, ...pages] : pages;
+}
+
+// The service's gallery turnaround as a line for a prompt, when Studio sets
+// one (0 counts as none set, as everywhere it's read).
+export function turnaroundLine(service: Pick<ServiceCategory, "turnaroundDays"> | undefined): string | undefined {
+  const days = service?.turnaroundDays;
+  return days && days > 0 ? `Gallery turnaround: ${days} days after the shoot.` : undefined;
 }
 
 // A service's booking terms set in Studio, as rows: the retainer, the date

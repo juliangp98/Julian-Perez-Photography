@@ -14,15 +14,15 @@ Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writin
 - Form controls: the `fields/` components; every dropdown is `Select` or `SelectField`.
 - Colors come from the theme tokens (`text-muted`, `border-border`, `text-accent`, `text-danger`, ...), never hex values or `[var(--...)]` classes.
 
-`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, retired pieces, the site's address written outside `site-settings-data.ts` and the upload allowlist, and any route `loading.tsx` (on this Next version a loading boundary makes `router.refresh()` drop updates after an action).
+`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, retired pieces, the site's address written outside `site-settings-data.ts` and the upload allowlist, an em dash in what the AI is told (`src/lib/ai/` and the routes under `src/app/api/admin/`, `assist/` and `concierge/`), and any route `loading.tsx` (on this Next version a loading boundary makes `router.refresh()` drop updates after an action).
 
 ## One feature, one job
 
-Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`); the assessment and the project's next step hand off to it rather than writing their own. Website copy (a journal post, or a service or portfolio page's copy) is drafted only on the Content page's Website copy tab (`/api/admin/draft-copy`). Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
+Each feature does one thing, and nothing else does that thing. Client email is drafted only by the compose panel's "Draft with AI" (`/api/admin/draft-email`), from a template or, with none, as a reply in the conversation; the assessment and the project's next step hand off to it rather than writing their own. Website copy (a journal post, or a service or portfolio page's copy) is drafted only on the Content page's Website copy tab (`/api/admin/draft-copy`). Every email goes through `sendEmail()` in `src/lib/email/send.ts`. JSON API routes are declared with `defineRoute()` in `src/lib/api-route.ts`.
 
 ## Writing
 
-Visible text is plain and specific: short sentences, one idea each, in Julian's first person where he's speaking. No em dashes (use a comma, a colon or a full stop), none of the phrases in `src/lib/copy-rules.json`, and at most one exclamation mark in an email. FAQ answers start with the fact. `npm run lint` runs `scripts/check-copy.mjs`, which enforces this on string literals and JSX text (comments and AI prompts are skipped). Keep facts exact when rewriting: prices, durations, names, `{{tokens}}` and `[placeholders]`.
+Visible text is plain and specific: short sentences, one idea each, in Julian's first person where he's speaking. No em dashes (use a comma, a colon or a full stop), none of the phrases in `src/lib/copy-rules.json`, and at most one exclamation mark in an email. FAQ answers start with the fact. `npm run lint` runs `scripts/check-copy.mjs`, which enforces this on string literals and JSX text (comments and AI prompts are skipped; `style-system.spec.ts` keeps em dashes out of the prompts, and they carry the writing rules to the model as `AVOID_LINE` and `NO_EM_DASHES`). Keep facts exact when rewriting: prices, durations, names, `{{tokens}}` and `[placeholders]`.
 
 ## Settings
 

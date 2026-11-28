@@ -3,7 +3,8 @@
 // anything that identifies another client. Pure, so it can be tested alone.
 
 const MAX_SAMPLES = 3;
-const MAX_CHARS = 900;
+// Three of these fit the draft's prompt budget (src/app/api/admin/draft-email/route.ts).
+const MAX_CHARS = 400;
 const MIN_CHARS = 120;
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -4,8 +4,9 @@ import { test, expect } from "@playwright/test";
 
 // Keeps the UI kit the only source of its pieces, and other things written
 // once. A file scan, no browser: one dropdown control, colors only from the
-// theme tokens, the retired patterns stay gone, and the site's address and
-// its reply-time promise live in one place.
+// theme tokens, the retired patterns stay gone, the site's address and its
+// reply-time promise live in one place, and what the AI is told carries no em
+// dashes.
 
 const ROOT = join(__dirname, "..", "..");
 const walk = (dir: string): string[] =>
@@ -76,6 +77,15 @@ test("retired pieces stay gone", () => {
   expect(offenders(/✨/)).toEqual([]);
   // The website copy drafter took over journal drafting; the meta drafter went.
   expect(offenders(/\bJournalDrafter\b|\bMetaDrafter\b|\bCopyPolisher\b|seo-pages|api\/admin\/draft-(journal|meta)\b/)).toEqual([]);
+});
+
+// A prompt written with em dashes teaches the model to use them, and the
+// site's writing rules forbid them, so none appears in what a model is told:
+// the AI library and the routes that prompt a model.
+test("no em dashes in what the AI is told", () => {
+  const prompts = files.filter((f) => /^src\/(lib\/ai\/|app\/api\/(admin|assist|concierge)\/)/.test(f.path));
+  expect(prompts.map((f) => f.path)).toContain("src/lib/ai/ai-voice.ts");
+  expect(prompts.filter((f) => f.code.includes("\u2014")).map((f) => f.path)).toEqual([]);
 });
 
 // A loading.tsx anywhere above a page makes router.refresh() (on Next 16.2)

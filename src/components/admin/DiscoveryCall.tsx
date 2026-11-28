@@ -31,6 +31,7 @@ import {
   EMPTY_SUMMARY,
   SUMMARY_PART_MAX,
   SUMMARY_PARTS,
+  SUMMARY_USE_NOTE,
   type CallNotes,
   type CallSummary,
 } from "@/lib/calls";
@@ -457,7 +458,7 @@ function CallSummaryPanel({
           <label htmlFor={`summary-${part.key}`} className={labelClass}>
             {part.label}{" "}
             <span className="font-normal text-muted">
-              {part.clientSafe ? "(can shape the recap email)" : "(yours only)"}
+              {SUMMARY_USE_NOTE[part.use]}
             </span>
           </label>
           <textarea

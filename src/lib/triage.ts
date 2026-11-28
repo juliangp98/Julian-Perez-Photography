@@ -2,6 +2,8 @@
 // (src/lib/ai/assess-inquiry.ts), the owner's inquiry email, and the admin
 // triage panel. No server imports, so client components can use it.
 
+import { STEER_MAX } from "@/lib/email/email-pipeline";
+
 export type TriageFit = "good" | "maybe" | "poor";
 export type TriageUrgency = "high" | "medium" | "low";
 
@@ -42,7 +44,9 @@ export function draftReplyHref(projectPath = ""): string {
   return `${projectPath}?compose=inquiry-reply#compose`;
 }
 
-// The steer an assessment gives the AI draft of the reply.
+// The steer an assessment gives the AI draft of the reply: its summary only.
+// The key details can carry the budget or how they found Julian, and the
+// draft reads the inquiry itself.
 export function triageSteer(triage: InquiryTriage): string {
-  return [triage.summary, ...triage.keyDetails].join(" ").slice(0, 600);
+  return triage.summary.trim().slice(0, STEER_MAX);
 }

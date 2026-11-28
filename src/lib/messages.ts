@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { db, isClientsStoreConfigured, isRecordId } from "@/lib/clients";
 import type { SentEmail } from "@/lib/next-step";
 import { CLIENT_VISIBLE, fromClient, visibleToClient } from "@/lib/message-visibility";
+import { missingColumn } from "@/lib/missing-column";
 
 const TABLE = "client_messages";
 
@@ -53,26 +54,38 @@ export type ClientMessage = {
   sentAt: string;
   // The pipeline template it was sent from, when there was one.
   template?: string;
+  // Whether Julian's email started as an AI draft.
+  aiDrafted?: boolean;
 };
 
 const SELECT_BASE =
   "id, projectId:project_id, direction, channel, kind, fromAddr:from_addr, toAddr:to_addr, subject, bodyText:body_text, resendId:resend_id, messageId:message_id, inReplyTo:in_reply_to, status, statusDetail:status_detail, attachments, sentAt:sent_at";
 
-// The template column came after the table. If a deploy lands before it's
-// added, the first read or write that names it fails (SQLSTATE 42703); that's
-// noted once and the rest of the process reads and writes without it, as the
-// project reads do for their later columns (src/lib/clients.ts).
-let templateColumn = true;
-const select = () => (templateColumn ? `${SELECT_BASE}, template` : SELECT_BASE);
-// A read names a missing column to Postgres (42703); a write is refused by
-// the API layer first (PGRST204).
-// A request built before another noticed the missing column retries too.
-function templateMissing(error: { code?: string; message?: string } | null): boolean {
-  const missing =
-    (error?.code === "42703" || error?.code === "PGRST204") && /template/.test(error?.message ?? "");
-  if (!missing) return false;
-  templateColumn = false;
-  return true;
+// Columns that came after the table: the template an email was sent from,
+// and whether it started as an AI draft. If a deploy lands before one is
+// added, the first read or write that names it fails (missingColumn); that's
+// noted once, and the rest of the process reads and writes without that
+// column, as the project reads do for their later columns
+// (src/lib/clients.ts). Each column is noted on its own, so one missing never
+// takes the other with it.
+const laterColumns = {
+  template: { present: true, match: /\btemplate\b/ },
+  aiDrafted: { present: true, match: /\bai_drafted\b/ },
+};
+const has = (column: keyof typeof laterColumns) => laterColumns[column].present;
+const select = () =>
+  SELECT_BASE + (has("template") ? ", template" : "") + (has("aiDrafted") ? ", aiDrafted:ai_drafted" : "");
+// Notes any later column the error names as missing, and says whether to try
+// again without it. A request built before another noticed retries too.
+function laterColumnMissing(error: { code?: string; message?: string } | null): boolean {
+  let retry = false;
+  for (const column of Object.values(laterColumns)) {
+    if (missingColumn(error, column.match)) {
+      column.present = false;
+      retry = true;
+    }
+  }
+  return retry;
 }
 
 // Whether a message is part of the conversation with the client: the
@@ -117,12 +130,12 @@ export async function listSentEmails(projectIds: string[]): Promise<Map<string, 
   const read = () =>
     db()
       .from(TABLE)
-      .select(templateColumn ? `${base}, template` : base)
+      .select(has("template") ? `${base}, template` : base)
       .in("project_id", wanted)
       .eq("direction", "out")
       .order("sent_at", { ascending: true });
   let { data, error } = await read();
-  if (templateMissing(error)) ({ data, error } = await read());
+  if (laterColumnMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   type Row = Pick<ClientMessage, "projectId" | "direction" | "kind" | "status" | "subject" | "sentAt" | "template">;
   for (const m of (data as unknown as Row[] | null) ?? []) {
@@ -151,6 +164,7 @@ export type NewMessage = {
   attachments?: MessageAttachment[];
   sentAt?: string;
   template?: string;
+  aiDrafted?: boolean;
 };
 
 // Records a message and returns whether it was new. A repeat of the same Resend
@@ -159,7 +173,7 @@ export type NewMessage = {
 export async function recordMessage(m: NewMessage): Promise<boolean> {
   if (!isClientsStoreConfigured()) return false;
   let { error } = await insertMessage(m);
-  if (templateMissing(error)) ({ error } = await insertMessage(m));
+  if (laterColumnMissing(error)) ({ error } = await insertMessage(m));
   if (error?.code === "23505") return false;
   if (error) throw error;
   return true;
@@ -183,7 +197,8 @@ function insertMessage(m: NewMessage) {
     status_detail: m.statusDetail,
     attachments: m.attachments ?? [],
     ...(m.sentAt ? { sent_at: m.sentAt } : {}),
-    ...(m.template && templateColumn ? { template: m.template } : {}),
+    ...(m.template && has("template") ? { template: m.template } : {}),
+    ...(m.aiDrafted && has("aiDrafted") ? { ai_drafted: true } : {}),
   });
 }
 
@@ -201,7 +216,7 @@ export async function listProjectMessages(
     return q.order("sent_at", { ascending: true });
   };
   let { data, error } = await read();
-  if (templateMissing(error)) ({ data, error } = await read());
+  if (laterColumnMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   const messages = (data as unknown as ClientMessage[] | null) ?? [];
   const view = opts.clientView;
@@ -212,7 +227,7 @@ export async function getMessage(id: string): Promise<ClientMessage | null> {
   if (!isClientsStoreConfigured()) return null;
   const read = () => db().from(TABLE).select(select()).eq("id", id).maybeSingle();
   let { data, error } = await read();
-  if (templateMissing(error)) ({ data, error } = await read());
+  if (laterColumnMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   return (data as unknown as ClientMessage | null) ?? null;
 }
@@ -346,23 +361,28 @@ export async function findProjectByReplyToken(token: string): Promise<ThreadProj
 }
 
 // The owner's own recent writing to clients (composed here, answered from
-// Gmail, or filed from Gmail), newest first. The email drafter learns his voice
-// from it; src/lib/ai/voice-samples.ts redacts it first.
+// Gmail, or filed from Gmail), newest first, leaving out what began as an AI
+// draft so the drafter never learns from itself. The email drafter learns his
+// voice from it; src/lib/ai/voice-samples.ts redacts it first.
 export async function listOwnerWriting(
   excludeProjectId: string,
   limit = 12,
 ): Promise<{ bodyText: string; names: string[] }[]> {
   if (!isClientsStoreConfigured()) return [];
-  const { data, error } = await db()
-    .from(TABLE)
-    .select("bodyText:body_text, client:client_records(client_name, partner_name)")
-    .eq("direction", "out")
-    .in("kind", ["compose", "relay", "imported"])
-    .in("status", ["sent", "delivered", "delayed"])
-    .neq("project_id", excludeProjectId)
-    .not("body_text", "is", null)
-    .order("sent_at", { ascending: false })
-    .limit(limit);
+  const read = () => {
+    let q = db()
+      .from(TABLE)
+      .select("bodyText:body_text, client:client_records(client_name, partner_name)")
+      .eq("direction", "out")
+      .in("kind", ["compose", "relay", "imported"])
+      .in("status", ["sent", "delivered", "delayed"])
+      .neq("project_id", excludeProjectId)
+      .not("body_text", "is", null);
+    if (has("aiDrafted")) q = q.eq("ai_drafted", false);
+    return q.order("sent_at", { ascending: false }).limit(limit);
+  };
+  let { data, error } = await read();
+  if (laterColumnMissing(error)) ({ data, error } = await read());
   if (error) throw error;
   type Row = { bodyText: string; client: { client_name?: string; partner_name?: string } | null };
   return ((data as unknown as Row[] | null) ?? []).map((r) => ({

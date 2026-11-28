@@ -1,6 +1,6 @@
 // Builds the plain-text knowledge base the public concierge is grounded in.
 //
-// Composed entirely from PUBLIC catalog content — site settings, the visible
+// Composed entirely from PUBLIC catalog content: site settings, the visible
 // service catalog (condensed), the shared FAQ set, and a short about-page bio.
 // It deliberately never touches the client/CRM store, so no private data can
 // reach the model. React-cached so a burst of chat turns shares one build.
@@ -10,7 +10,7 @@
 // system prompt + transcript + reserved completion; an unbounded KB (every
 // service description + every FAQ answer in full) overran that. Core facts
 // (booking, contact, condensed services) are always included; FAQs fill the
-// remaining budget and the tail is dropped — the concierge already defers
+// remaining budget and the tail is dropped. The concierge already defers
 // ("not certain → /inquire") for anything not in context, so that's safe. Set
 // AI_MODEL to a higher-tier model / provider (or upgrade Groq) to raise the
 // ceiling and carry a fuller KB.
@@ -19,6 +19,7 @@ import { cache } from "react";
 import { getSiteSettings, getVisibleServices, getAboutPage } from "@/lib/content";
 import { getAllFaqs } from "@/lib/faq";
 import { UMBRELLAS } from "@/lib/types";
+import { turnaroundLine } from "@/lib/services-data";
 
 const umbrellaTitle = Object.fromEntries(
   UMBRELLAS.map((u) => [u.id, u.title]),
@@ -36,9 +37,9 @@ export const buildConciergeContext = cache(async (): Promise<string> => {
     getAllFaqs(),
   ]);
 
-  // Core facts — always included.
+  // Core facts, always included.
   const lines: string[] = [];
-  lines.push(`STUDIO: ${settings.siteName} — ${settings.tagline}`);
+  lines.push(`STUDIO: ${settings.siteName}: ${settings.tagline}`);
   lines.push(`COVERAGE AREA: ${settings.coverageArea}.`);
   lines.push(`CURRENT BOOKING STATUS: ${settings.bookingStatus}.`);
   lines.push(
@@ -47,10 +48,10 @@ export const buildConciergeContext = cache(async (): Promise<string> => {
   lines.push(`CONTACT EMAIL: ${settings.contactEmail}.`);
   lines.push(`PAYMENT: ${settings.paymentPreferences}`);
   lines.push(
-    "PHOTO DELIVERY: final images arrive in a private online gallery (Pic-Time) with a print release; most galleries within a few weeks, with a sneak peek sooner on many sessions.",
+    "PHOTO DELIVERY: final images arrive in a private online gallery (Pic-Time) with a print release. Delivery time depends on the service (a service's gallery turnaround is listed with it when set), with a sneak peek sooner on many sessions.",
   );
   if (about?.bio?.length) {
-    // A brief intro, not the full bio — the concierge books sessions; it
+    // A brief intro, not the full bio: the concierge books sessions; it
     // rarely needs the whole life story, and it's the cheapest thing to trim.
     const bio = about.bio.join(" ");
     lines.push(
@@ -71,11 +72,13 @@ export const buildConciergeContext = cache(async (): Promise<string> => {
       .map((a) => `${a.name} ${a.price}`)
       .join("; ");
     // Condensed: tagline + packages carry the bookable facts. The long
-    // marketing `description` is dropped to fit the token budget — the
+    // marketing `description` is dropped to fit the token budget; the
     // service's own page has it, and the concierge points there.
     let line = `- ${s.title} [${umbrellaTitle[s.umbrella] ?? s.umbrella}] (/services/${s.slug}): ${s.tagline} Packages: ${packages}.`;
     if (addOns) line += ` Add-ons: ${addOns}.`;
     if (s.pricingNote) line += ` ${s.pricingNote}`;
+    const turnaround = turnaroundLine(s);
+    if (turnaround) line += ` ${turnaround}`;
     lines.push(line);
   }
 

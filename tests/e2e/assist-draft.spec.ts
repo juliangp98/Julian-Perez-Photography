@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Guard-path coverage for /api/assist/draft — the public client-side writing
 // assistant. Written key-agnostic like the concierge spec: the provider may or
@@ -89,4 +89,16 @@ test("assist-draft: rejects oversized context (too many detail rows)", async ({
     },
   });
   expect(res.status()).toBe(400);
+});
+
+test("assist-draft: the prompt carries the site's writing rules", async ({ request, fakes }) => {
+  const res = await request.post("/api/assist/draft", {
+    headers: { "x-forwarded-for": "10.99.25.9" },
+    data: { kind: "inquiry", question: "Tell me about your day", notes: "small garden wedding" },
+  });
+  expect(res.status()).toBe(200);
+  const asked = (await fakes.calls("ai")).filter((c) => c.path === "/chat/completions").at(-1);
+  const system = String(((asked?.body?.messages ?? []) as { role: string; content: string }[])[0]?.content);
+  expect(system).toContain("Never use these words or phrases");
+  expect(system).toContain("No em dashes");
 });

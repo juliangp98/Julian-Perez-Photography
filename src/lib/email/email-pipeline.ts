@@ -49,6 +49,10 @@ export type EmailToken = (typeof EMAIL_TOKENS)[number];
 // before the shoot, and how to pay while an invoice is open.
 export const OPTIONAL_TOKENS: readonly EmailToken[] = ["questionnaireNudge", "paymentInstructions"];
 
+// The most a steer for Draft with AI may say: the draft's prompt is sized
+// for it (src/app/api/admin/draft-email/route.ts).
+export const STEER_MAX = 600;
+
 // A follow-up a template sets when it's sent: so many days out, or so many
 // months after the event date. `note` says what the follow-up is for.
 export type TemplateFollowUp =

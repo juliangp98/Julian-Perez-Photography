@@ -23,7 +23,7 @@ import {
   weekdayOf,
 } from "./field-format";
 import { openInvoice } from "./project-links";
-import { hiddenByMark, lostAt, replyKey } from "./today";
+import { answeredByHand, hiddenByMark, inquiryWaiting, lostAt, replyKey } from "./today";
 import { draftReplyHref } from "./triage";
 
 export type NextStep = {
@@ -222,17 +222,14 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
     };
   }
 
-  // A lead answered outside the site: its inquiry, or a message of theirs,
-  // marked handled on Today.
-  const answeredByHand =
-    p.todayDismissed?.inquiry === "handled" ||
-    Object.entries(p.todayDismissed ?? {}).some(([k, v]) => k.startsWith("reply:") && v === "handled");
+  // A lead answered outside the site (answeredByHand in today.ts).
+  const byHand = answeredByHand(p.todayDismissed);
 
   // An unanswered client comes before the stage's step. A new inquiry
   // nothing has gone to yet, and none was marked handled on Today, gets the
   // inquiry reply.
   if (unanswered) {
-    const lead = (!status || status === "new-inquiry") && !p.lastOutAt && !answeredByHand && !has("contract");
+    const lead = inquiryWaiting(p);
     return lead ? { ...answer(), action: { label: "Draft a reply", href: draftReplyHref(page) } } : answer();
   }
 
@@ -361,7 +358,7 @@ function stepFor(p: NextStepProject, ctx: NextStepContext): NextStep {
   // A new inquiry that has had an answer (one written without the inquiry
   // reply, or one outside the site) is past replying to. A snooze on Today
   // only puts it off.
-  const answered = (!status || status === "new-inquiry") && (!!p.lastOutAt || answeredByHand);
+  const answered = (!status || status === "new-inquiry") && (!!p.lastOutAt || byHand);
 
   switch (answered ? "responded" : status) {
     case undefined:
