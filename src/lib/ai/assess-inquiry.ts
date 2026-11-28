@@ -7,17 +7,18 @@
 import "server-only";
 import { z } from "zod";
 import { generateText, extractJsonObject } from "@/lib/ai/ai";
+import { answerProblem, proseText, type AnswerProblem } from "@/lib/ai/answer-shapes";
 import { daysUntil } from "@/lib/field-format";
 import { serviceNoun } from "@/lib/project-name";
 import type { InquiryTriage } from "@/lib/triage";
 
 // Tolerant of model drift: invalid enum values fall back rather than fail.
 const triageSchema = z.object({
-  summary: z.string().max(1000),
+  summary: proseText(1000).refine(Boolean),
   fit: z.enum(["good", "maybe", "poor"]).catch("maybe"),
-  fitReason: z.string().max(500).default(""),
+  fitReason: proseText(500),
   urgency: z.enum(["high", "medium", "low"]).catch("medium"),
-  urgencyReason: z.string().max(500).default(""),
+  urgencyReason: proseText(500),
   keyDetails: z.array(z.string().max(300)).max(12).default([]),
 }) satisfies z.ZodType<InquiryTriage>;
 
@@ -38,7 +39,7 @@ export type TriageFacts = {
 // provider failure, since a retry usually fixes it.
 export class TriageParseError extends Error {
   name = "TriageParseError";
-  constructor() {
+  constructor(readonly problem?: AnswerProblem) {
     super("Triage JSON failed validation");
   }
 }
@@ -96,12 +97,14 @@ export async function assessInquiry(facts: TriageFacts): Promise<InquiryTriage |
       "Produce the triage JSON now.",
     ].join("\n"),
     maxTokens: 1024,
+    roomToReason: true,
     temperature: 0.4,
   });
   if (!raw) return null;
 
-  const valid = triageSchema.safeParse(extractJsonObject(raw));
-  if (!valid.success) throw new TriageParseError();
+  const json = extractJsonObject(raw);
+  const valid = triageSchema.safeParse(json);
+  if (!valid.success) throw new TriageParseError(answerProblem(json, valid.error));
   return valid.data;
 }
 

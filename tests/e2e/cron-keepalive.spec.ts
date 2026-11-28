@@ -120,6 +120,47 @@ test.describe("the daily run against the test store", () => {
     expect((await fakes.calls("ai")).slice(probes).filter((c) => c.path === "/models")).toEqual([]);
   });
 
+  test("an answer the main model runs out of room for is answered by the fallback", async ({
+    adminRequest,
+    request,
+    fakes,
+  }) => {
+    await runCron(request); // main openai/gpt-oss-120b, fallback qwen/qwen3-32b
+    const probes = (await fakes.calls("ai")).length;
+    await fakes.script({ cutOff: ["openai/gpt-oss-120b"], replies: [JOURNAL_DRAFT] });
+    const res = await draftPost(adminRequest);
+    expect(res.status()).toBe(200);
+    expect((await res.json()).post?.title).toBe("A test post");
+
+    // Tried once (not retried), then the fallback. A draft that didn't ask
+    // for room to reason keeps its own limit on both.
+    const tried = (await fakes.calls("ai")).slice(probes).filter((c) => c.path === "/chat/completions");
+    expect(tried.map((c) => [c.body?.model, c.body?.max_tokens])).toEqual([
+      ["openai/gpt-oss-120b", 2000],
+      ["qwen/qwen3-32b", 2000],
+    ]);
+    // Having no room isn't a reason to re-choose: the catalogue wasn't asked again.
+    expect((await fakes.calls("ai")).slice(probes).filter((c) => c.path === "/models")).toEqual([]);
+  });
+
+  test("a request too large for the main model's per-minute limit goes to the fallback", async ({
+    adminRequest,
+    request,
+    fakes,
+  }) => {
+    await runCron(request);
+    const probes = (await fakes.calls("ai")).length;
+    await fakes.script({ tooLarge: ["openai/gpt-oss-120b"], replies: [JOURNAL_DRAFT] });
+    const res = await draftPost(adminRequest);
+    expect(res.status()).toBe(200);
+    expect((await res.json()).post?.title).toBe("A test post");
+    const tried = (await fakes.calls("ai"))
+      .slice(probes)
+      .filter((c) => c.path === "/chat/completions")
+      .map((c) => c.body?.model);
+    expect(tried).toEqual(["openai/gpt-oss-120b", "qwen/qwen3-32b"]);
+  });
+
   test("when every model is rate-limited the request says so rather than re-choosing", async ({
     adminRequest,
     request,

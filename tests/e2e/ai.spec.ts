@@ -1,6 +1,8 @@
 import type { APIRequestContext } from "@playwright/test";
 import { test, expect, hasTestStore } from "./support/fixtures";
 import { patchProject } from "./support/test-store";
+import { answerProblem, lineText, proseText } from "../../src/lib/ai/answer-shapes";
+import { z } from "zod";
 
 // The AI tools on a project, behind one route (/api/admin/ai) chosen by
 // `kind`: the inquiry assessment and the shoot brief are saved on the project,
@@ -27,6 +29,37 @@ test("ai: an unknown project is accepted and nothing is generated", async ({ adm
     expect(res.status(), kind).toBe(200);
     expect(await res.json(), kind).toEqual({ ok: true, generated: false });
   }
+});
+
+// A model's answer is read leniently: a part asked for as text that comes
+// back as a list or null still reads, an over-long one is cut to its limit,
+// and an answer that can't be used says why by field name only.
+test("ai: answers are read leniently, and a bad one is described without its text", () => {
+  const prose = proseText(20);
+  expect(prose.parse("  A garden wedding. ")).toBe("A garden wedding.");
+  expect(prose.parse(["One.", " Two. ", "", 3])).toBe("One. Two.");
+  expect(prose.parse(null)).toBe("");
+  expect(prose.parse(undefined)).toBe("");
+  expect(prose.parse("x".repeat(30))).toBe("x".repeat(20));
+
+  const lines = lineText(200);
+  expect(lines.parse("- Send the proposal\n- Book the walk")).toBe("- Send the proposal\n- Book the walk");
+  expect(lines.parse(["Send the proposal", "- Book the walk"])).toBe("- Send the proposal\n- Book the walk");
+  expect(lines.parse(null)).toBe("");
+
+  // A part left out reads as empty; a required one left out fails.
+  expect(z.object({ part: lineText(50) }).parse({})).toEqual({ part: "" });
+  expect(z.object({ part: proseText(50).refine(Boolean) }).safeParse({}).success).toBe(false);
+
+  const schema = z.object({ summary: proseText(100).refine(Boolean), keyDetails: z.array(z.string()) });
+  const bad = { summary: "", keyDetails: "not a list", private: "Their budget is $4,000" };
+  const result = schema.safeParse(bad);
+  expect(result.success).toBe(false);
+  const problem = answerProblem(bad, result.error);
+  expect(problem).toEqual({ reason: "shape", fields: ["summary", "keyDetails"] });
+  expect(JSON.stringify(problem)).not.toContain("$4,000");
+  // No JSON object at all: most often a reply cut off at its length limit.
+  expect(answerProblem(null)).toEqual({ reason: "unreadable", fields: [] });
 });
 
 const assessment = JSON.stringify({
