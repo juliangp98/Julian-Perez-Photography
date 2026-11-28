@@ -18,7 +18,7 @@ import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { apiError, defineRoute } from "@/lib/api-route";
 import { getClientFull, saveAiResult } from "@/lib/clients";
-import { aiEnabled, aiModel } from "@/lib/ai/ai";
+import { AnswerCutOff, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { TriageParseError } from "@/lib/ai/assess-inquiry";
 import {
   AiParseError,
@@ -90,10 +90,15 @@ export const POST = defineRoute({
         return summary ? { ok: true, generated: true, summary } : none;
       }
     } catch (err) {
-      if (!(err instanceof TriageParseError || err instanceof AiParseError)) throw err;
-      // The model returned something unusable: a soft failure worth a retry.
+      const unusable = err instanceof TriageParseError || err instanceof AiParseError;
+      if (!unusable && !(err instanceof AnswerCutOff)) throw err;
+      // The model returned something unusable, or ran out of room before it
+      // wrote anything: a soft failure worth a retry. The report says why (no
+      // JSON, most often a reply cut off at its limit; the wrong shape; or cut
+      // off before it began) and which fields, never the text.
       Sentry.captureException(err, {
-        tags: { route: "admin/ai", stage: "parse", kind, model: aiModel() },
+        tags: { route: "admin/ai", stage: "parse", kind, model: aiModel(), reason: unusable ? err.problem?.reason : "cut-off" },
+        extra: { fields: unusable ? err.problem?.fields : [] },
         level: "warning",
       });
       return apiError(502, "Couldn't read the AI's answer. Try again.");

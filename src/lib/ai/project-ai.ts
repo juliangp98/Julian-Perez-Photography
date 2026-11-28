@@ -8,6 +8,7 @@
 import "server-only";
 import { z } from "zod";
 import { generateText, extractJsonObject } from "@/lib/ai/ai";
+import { answerProblem, lineText, proseText, type AnswerProblem } from "@/lib/ai/answer-shapes";
 import { assessInquiry } from "@/lib/ai/assess-inquiry";
 import {
   factLines,
@@ -28,10 +29,14 @@ import { discoveryGuide, guideQuestions, tailoredKey } from "@/lib/discovery-gui
 import type { CallNotes } from "@/lib/calls";
 
 // The model answered, but not with something usable. Callers report it apart
-// from a provider failure, since a retry usually fixes it.
+// from a provider failure, since a retry usually fixes it, with what was wrong
+// (`problem`, field names only).
 export class AiParseError extends Error {
   name = "AiParseError";
-  constructor(what: string) {
+  constructor(
+    what: string,
+    readonly problem?: AnswerProblem,
+  ) {
     super(`${what}: the model's answer failed validation`);
   }
 }
@@ -56,7 +61,7 @@ export function assessProjectInquiry(record: ClientRecordFull): Promise<InquiryT
 // ── The shoot brief ──
 
 const briefSchema = z.object({
-  headline: z.string().max(600).default(""),
+  headline: proseText(600),
   sections: z
     .array(
       z.object({
@@ -102,11 +107,14 @@ export async function buildShootBrief(record: ClientRecordFull): Promise<ShootBr
       "Produce the prep brief JSON now.",
     ].join("\n"),
     maxTokens: 1800,
+    roomToReason: true,
     temperature: 0.4,
   });
   if (!raw) return null;
-  const valid = briefSchema.safeParse(extractJsonObject(raw));
-  if (!valid.success || valid.data.sections.length === 0) throw new AiParseError("Shoot brief");
+  const json = extractJsonObject(raw);
+  const valid = briefSchema.safeParse(json);
+  if (!valid.success) throw new AiParseError("Shoot brief", answerProblem(json, valid.error));
+  if (valid.data.sections.length === 0) throw new AiParseError("Shoot brief", { reason: "shape", fields: ["sections"] });
   return valid.data;
 }
 
@@ -168,10 +176,10 @@ function threadLines(messages: ClientMessage[]): string {
 }
 
 const tailoringSchema = z.object({
-  glance: z.string().max(1200),
-  angle: z.string().max(1200),
+  glance: proseText(1200).refine(Boolean),
+  angle: proseText(1200).refine(Boolean),
   questions: z.array(z.string().max(300)).min(3).max(8),
-  internal: z.string().max(1200).default(""),
+  internal: proseText(1200),
   openers: z.record(z.string(), z.string().max(400)).default({}),
 }) satisfies z.ZodType<CallGuideTailoring>;
 
@@ -234,11 +242,13 @@ export async function buildCallGuide(
       "Produce the tailoring JSON now.",
     ].join("\n"),
     maxTokens: 1400,
+    roomToReason: true,
     temperature: 0.5,
   });
   if (!raw) return null;
-  const valid = tailoringSchema.safeParse(extractJsonObject(raw));
-  if (!valid.success) throw new AiParseError("Call guide");
+  const json = extractJsonObject(raw);
+  const valid = tailoringSchema.safeParse(json);
+  if (!valid.success) throw new AiParseError("Call guide", answerProblem(json, valid.error));
   // Openers only for sections the guide has.
   const ids = new Set(guide.sections.map((sec) => sec.id));
   const openers = Object.fromEntries(
@@ -257,12 +267,14 @@ export async function buildCallGuide(
   return { ...valid.data, questions, openers };
 }
 
+// Each part may come back as a list of lines, or null when the notes say
+// nothing about it; a suggestion that isn't an object is no suggestion.
 const summarySchema = z.object({
-  background: z.string().max(4000).default(""),
-  event: z.string().max(4000).default(""),
-  priorities: z.string().max(4000).default(""),
-  logistics: z.string().max(4000).default(""),
-  actions: z.string().max(4000).default(""),
+  background: lineText(4000),
+  event: lineText(4000),
+  priorities: lineText(4000),
+  logistics: lineText(4000),
+  actions: lineText(4000),
   updates: z
     .object({
       guestCount: z.number().int().min(0).max(100000).nullish().catch(null),
@@ -270,7 +282,7 @@ const summarySchema = z.object({
       venue: z.string().max(300).nullish().catch(null),
       package: z.string().max(200).nullish().catch(null),
     })
-    .default({}),
+    .catch({}),
 });
 
 const SUMMARY_SYSTEM_PROMPT = [
@@ -337,12 +349,15 @@ export async function summarizeCall(
       "",
       "Produce the summary JSON now.",
     ].join("\n"),
-    maxTokens: 1400,
+    // Room for five parts from a long call.
+    maxTokens: 2000,
+    roomToReason: true,
     temperature: 0.3,
   });
   if (!raw) return null;
-  const valid = summarySchema.safeParse(extractJsonObject(raw));
-  if (!valid.success) throw new AiParseError("Call summary");
+  const json = extractJsonObject(raw);
+  const valid = summarySchema.safeParse(json);
+  if (!valid.success) throw new AiParseError("Call summary", answerProblem(json, valid.error));
   const { updates: u, ...summary } = valid.data;
   const packageNames = new Set(service?.packages.map((p) => p.name) ?? []);
   const venue = record.locations?.[0]?.label || record.locations?.[0]?.address;

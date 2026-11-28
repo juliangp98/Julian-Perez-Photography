@@ -26,7 +26,10 @@ function fresh() {
     idempotency: new Map(),
     // emailFailures: how many upcoming sends answer 503 (to exercise retries).
     // rateLimited: models that answer 429, as a busy model on Groq does.
-    script: { replies: [], models: null, retired: [], rateLimited: [], emailFailures: 0 },
+    // tooLarge: models that answer 413, a request over their tokens per minute.
+    // cutOff: models whose answer runs out of room before it begins (no text,
+    // finish_reason "length"), as a model that spends its limit reasoning does.
+    script: { replies: [], models: null, retired: [], rateLimited: [], tooLarge: [], cutOff: [], emailFailures: 0 },
   };
 }
 let state = fresh();
@@ -68,6 +71,17 @@ const routes = [
     }
     if (state.script.rateLimited.includes(body?.model)) {
       return [429, { error: { message: `Rate limit reached for model \`${body.model}\`.`, type: "tokens", code: "rate_limit_exceeded" } }];
+    }
+    if (state.script.tooLarge.includes(body?.model)) {
+      return [413, { error: { message: `Request too large for model \`${body.model}\` on tokens per minute (TPM).`, type: "tokens", code: "rate_limit_exceeded" } }];
+    }
+    if (state.script.cutOff.includes(body?.model)) {
+      return [200, {
+        id: `fake-chat-${RUN}-${++seq}`,
+        object: "chat.completion",
+        model: body?.model,
+        choices: [{ index: 0, message: { role: "assistant", content: "" }, finish_reason: "length" }],
+      }];
     }
     const content = state.script.replies.length ? state.script.replies.shift() : DEFAULT_REPLY;
     return [200, {

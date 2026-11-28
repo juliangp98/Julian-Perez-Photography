@@ -7,7 +7,9 @@
 // their static versions. Which model answers is decided in ./models.ts; a
 // retired model falls through to the fallback, then to a fresh pick, and a
 // model that's still rate-limiting after the retries hands the call to the
-// fallback (another family, with its own limits on Groq's free tier).
+// fallback (another family, with its own limits on Groq's free tier). So does
+// a request too large for a model's per-minute limit, and an answer that ran
+// out of room before any of it was written.
 
 import { TransientError, withRetry } from "@/lib/retry";
 import { currentModels, knownModels, refreshModels } from "./models";
@@ -34,6 +36,17 @@ function silenceReasoningWithNone(model: string): boolean {
   return /qwen3|deepseek/i.test(model);
 }
 
+// gpt-oss reasons before it answers, apart from the answer, and that reasoning
+// counts against max_tokens. A call that asks for `roomToReason` (a long JSON
+// answer) gets this much on top of its own limit on such a model, which is
+// asked to keep its reasoning short. Every other request asks for its own
+// limit only, since Groq counts the requested limit, not what's used, against
+// the free tier's tokens per minute.
+function reasonsApart(model: string): boolean {
+  return /gpt-oss/i.test(model);
+}
+const REASONING_ROOM = 1500;
+
 function stripReasoning(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
@@ -47,6 +60,9 @@ export type GenerateTextOptions = {
   messages?: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  // Room for reasoning on top of maxTokens, on a model that reasons apart
+  // from its answer.
+  roomToReason?: boolean;
 };
 
 export type DescribeImageOptions = {
@@ -70,12 +86,27 @@ class RateLimited extends TransientError {
   name = "RateLimited";
 }
 
+// A 413: the prompt and the requested limit together exceed what the model
+// takes per minute. Not retried; the call moves to the next model.
+export class TooLarge extends Error {
+  name = "TooLarge";
+}
+
+// The answer ran out of room before any of it was written: the model spent
+// its limit reasoning. Not retried on the same model; the next one is tried,
+// and when none has room the caller hears it rather than getting no answer.
+export class AnswerCutOff extends Error {
+  name = "AnswerCutOff";
+}
+
 async function callModel(
   model: string,
   messages: Message[],
   maxTokens: number,
   temperature: number,
+  roomToReason = false,
 ): Promise<string | null> {
+  const room = roomToReason && reasonsApart(model);
   const baseUrl = (process.env.AI_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, "");
   return withRetry(async () => {
     const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -87,9 +118,10 @@ async function callModel(
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: maxTokens,
+        max_tokens: room ? maxTokens + REASONING_ROOM : maxTokens,
         temperature,
         ...(silenceReasoningWithNone(model) ? { reasoning_effort: "none" } : {}),
+        ...(room ? { reasoning_effort: "low" } : {}),
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -99,26 +131,34 @@ async function callModel(
         throw new ModelGone(`${model}: ${detail}`);
       }
       const message = `AI provider ${res.status}: ${detail}`;
+      if (res.status === 413) throw new TooLarge(`${model}: ${message}`);
       if (res.status === 429) throw new RateLimited(`${model}: ${message}`);
       if (res.status >= 500) throw new TransientError(message);
       throw new Error(message);
     }
     const json = (await res.json().catch(() => null)) as {
-      choices?: { message?: { content?: unknown } }[];
+      choices?: { message?: { content?: unknown }; finish_reason?: string }[];
     } | null;
-    const content = json?.choices?.[0]?.message?.content;
-    return typeof content === "string" ? stripReasoning(content) : null;
+    const choice = json?.choices?.[0];
+    const content = choice?.message?.content;
+    const text = typeof content === "string" ? stripReasoning(content) : null;
+    if (!text && choice?.finish_reason === "length") {
+      throw new AnswerCutOff(`${model}: the answer ran out of room before it began`);
+    }
+    return text;
   });
 }
 
-// Tries the chosen models in order: on to the next when one is gone or still
-// rate-limited. When any is gone and none answered, picks fresh ones once;
-// when every one is only rate-limited, that error stands.
+// Tries the chosen models in order: on to the next when one is gone, still
+// rate-limited, too small for the request (413) or out of room before its
+// answer began. When any is gone and none answered, picks fresh ones once;
+// otherwise the error that stopped them stands, a rate limit first.
 async function complete(
   role: "text" | "vision",
   messages: Message[],
   maxTokens: number,
   temperature: number,
+  roomToReason = false,
 ): Promise<string | null> {
   if (!aiEnabled()) return null;
   const pick = async (fresh: boolean) => {
@@ -128,18 +168,22 @@ async function complete(
   for (const fresh of [false, true]) {
     let gone: unknown;
     let limited: unknown;
+    let skipped: unknown;
     for (const model of await pick(fresh)) {
       try {
-        return await callModel(model, messages, maxTokens, temperature);
+        return await callModel(model, messages, maxTokens, temperature, roomToReason);
       } catch (err) {
         if (err instanceof RateLimited) limited = err;
         else if (err instanceof ModelGone) gone = err;
+        else if (err instanceof TooLarge || err instanceof AnswerCutOff) skipped = err;
         else throw err;
       }
     }
-    // A model that's only busy isn't a reason to re-choose the models; a
-    // retired one is, even when the other is busy.
+    // A model that's only busy, or had no room for this request, isn't a
+    // reason to re-choose the models; a retired one is, even when the other
+    // is busy.
     if (limited && (fresh || !gone)) throw limited;
+    if (skipped && (fresh || !gone)) throw skipped;
     if (fresh) throw gone ?? new Error("No AI model is available");
   }
   return null;
@@ -188,6 +232,7 @@ export function generateText(opts: GenerateTextOptions): Promise<string | null> 
     [{ role: "system", content: opts.system }, ...transcript],
     opts.maxTokens ?? 1024,
     opts.temperature ?? 0.7,
+    opts.roomToReason,
   );
 }
 

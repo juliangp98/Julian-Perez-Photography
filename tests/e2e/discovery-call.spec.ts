@@ -463,6 +463,63 @@ test("Summarize says when the AI's answer couldn't be used", async ({ adminReque
   await expect(page.getByText("Nothing to summarize yet.")).toHaveCount(0);
 });
 
+test("a summary sent as lists, with parts left empty, still reads, and a long call has room", async ({
+  adminRequest,
+  adminPage: page,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "listed");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Loves golden hour" } } });
+  await callTab(page, p.id);
+  await fakes.script({
+    replies: [
+      JSON.stringify({
+        background: "Met at a friend's wedding.",
+        event: null,
+        priorities: ["Candid coverage", "An album"],
+        actions: ["Send the proposal", "- Book the venue walkthrough"],
+        updates: null,
+      }),
+    ],
+  });
+  await page.getByRole("button", { name: "Summarize the call" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Drafted from your notes" })).toBeVisible();
+  await expect(page.getByLabel(/^Background/)).toHaveValue("Met at a friend's wedding.");
+  await expect(page.getByLabel(/^Photography priorities/)).toHaveValue("- Candid coverage\n- An album");
+  await expect(page.getByLabel(/^My action items/)).toHaveValue("- Send the proposal\n- Book the venue walkthrough");
+  await expect(page.getByLabel(/^Budget and logistics/)).toHaveValue("");
+  // Room for five parts, and on a model that reasons apart from its answer,
+  // room for that too, with its reasoning kept short.
+  const asked = (await fakes.calls("ai")).filter((c) => c.path === "/chat/completions").at(-1);
+  const reasons = /gpt-oss/.test(String(asked?.body?.model));
+  expect(asked?.body?.max_tokens).toBe(reasons ? 3500 : 2000);
+  if (reasons) expect(asked?.body?.reasoning_effort).toBe("low");
+});
+
+test("a summary no model had room to begin says so, rather than that there's nothing to summarize", async ({
+  adminRequest,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "no-room");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Loves golden hour" } } });
+  await fakes.script({ cutOff: ["openai/gpt-oss-120b", "qwen/qwen3-32b", "llama-3.1-8b-instant", "qwen/qwen3.6-27b"] });
+  const res = await adminRequest.post("/api/admin/ai", { data: { projectId: p.id, kind: "call-summary" } });
+  expect(res.status()).toBe(502);
+  expect((await res.json()).error).toBe("Couldn't read the AI's answer. Try again.");
+});
+
+test("a summary cut off partway says so", async ({ adminRequest, fakes }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const p = await newProject(adminRequest, "cut-off");
+  await adminRequest.post("/api/admin/update", { data: { id: p.id, call: { notes: "Loves golden hour" } } });
+  await fakes.script({ replies: ['{"background": "Met at a friend\'s wedding.", "event": "Garden wed'] });
+  const res = await adminRequest.post("/api/admin/ai", { data: { projectId: p.id, kind: "call-summary" } });
+  expect(res.status()).toBe(502);
+  expect((await res.json()).error).toBe("Couldn't read the AI's answer. Try again.");
+});
+
 test("Summarize with nothing typed says so, without asking the AI", async ({
   adminRequest,
   adminPage: page,

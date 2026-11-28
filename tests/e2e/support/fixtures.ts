@@ -38,6 +38,8 @@ type Fakes = {
     models?: unknown[];
     retired?: string[];
     rateLimited?: string[];
+    tooLarge?: string[];
+    cutOff?: string[];
     emailFailures?: number;
   }): Promise<void>;
   inbound(email: Record<string, unknown>): Promise<void>;
