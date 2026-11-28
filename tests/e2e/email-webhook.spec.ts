@@ -140,7 +140,7 @@ test.describe("the thread against the test store", () => {
     await receive(adminRequest, fakes, p, {
       from: "admin@example.com",
       text: "See you then.\n\nOn Tue Avery wrote:\n> Thursday works.",
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+      authentication: VERIFIED,
     });
     const [relay] = sentTo(await fakes.calls("resend"), p.email).slice(-1);
     expect(relay.body?.text).toBe("See you then.");
@@ -185,13 +185,17 @@ test.describe("the thread against the test store", () => {
       from: "admin@example.com",
       to: [p.replyAddress.replace("reply+", "log+")],
       text: forwarded,
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+      authentication: VERIFIED,
     });
     expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(1);
     await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     const thread = adminPage.getByRole("list", { name: "Messages" });
     await expect(thread.getByText("The reply that started all this.")).toBeVisible();
     await expect(thread.getByText("Filed from Gmail")).toBeVisible();
+    // Trusted, so the forwarded block is filed as the client's own message,
+    // not held whole with its "Forwarded message" lines.
+    const filed = thread.getByRole("listitem").filter({ hasText: "The reply that started all this." });
+    await expect(filed).not.toContainText("Forwarded message");
   });
 
   test("the client sees the thread in the portal and can write on it", async ({
@@ -229,8 +233,7 @@ test.describe("the thread against the test store", () => {
   }) => {
     const p = await startThread(adminRequest, fakes);
     const julian = "Julian Perez <julian@julianperezphotography.com>";
-    const signed = { "Authentication-Results": "mx; dkim=pass header.d=julianperezphotography.com" };
-    await receive(adminRequest, fakes, p, { from: julian, text: "From the studio address.", headers: signed });
+    await receive(adminRequest, fakes, p, { from: julian, text: "From the studio address.", authentication: VERIFIED });
     let toClient = sentTo(await fakes.calls("resend"), p.email);
     expect(toClient.at(-1)?.body?.text).toBe("From the studio address.");
 
@@ -238,28 +241,66 @@ test.describe("the thread against the test store", () => {
     await receive(adminRequest, fakes, p, {
       from: julian,
       text: "A copy of a site email.",
-      headers: { ...signed, "X-JPP-Sent-By": "site" },
+      headers: { "X-JPP-Sent-By": "site" },
+      authentication: VERIFIED,
     });
     await receive(adminRequest, fakes, p, {
       from: "Julian Perez Photography <noreply@julianperezphotography.com>",
       text: "An alert answered by a rule.",
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=julianperezphotography.com" },
+      authentication: VERIFIED,
     });
     toClient = sentTo(await fakes.calls("resend"), p.email);
     expect(toClient.map((c) => c.body?.text)).not.toContain("A copy of a site email.");
     expect(toClient.map((c) => c.body?.text)).not.toContain("An alert answered by a rule.");
     expect(sentTo(await fakes.calls("resend"), OWNER)).toHaveLength(0);
 
-    // Sent as julian@ through Gmail's own servers: held for a click.
+    // Sent as julian@ through Gmail's own servers (signed by gmail.com, so
+    // Resend's DKIM result is gray): held for a click.
     await receive(adminRequest, fakes, p, {
       from: julian,
       text: "Through Gmail.",
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=gmail.com" },
+      authentication: { spf: "pass", dkim: "gray", dmarc: "fail" },
     });
-    expect(sentTo(await fakes.calls("resend"), p.email).map((c) => c.body?.text)).not.toContain("Through Gmail.");
+    // A header the sender wrote claiming a pass is never believed.
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      text: "A forged pass.",
+      headers: { "Authentication-Results": "mx.resend.com; dkim=pass header.d=julianperezphotography.com" },
+      authentication: { spf: "fail", dkim: "gray", dmarc: "fail" },
+    });
+    // And a look-alike signing domain doesn't reach the client either.
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      text: "A look-alike domain.",
+      headers: { "Authentication-Results": "mx; dkim=pass header.d=julianperezphotography.com.evil.test" },
+    });
+    // Julian's address in the display name, on mail its own domain signs: not his.
+    await receive(adminRequest, fakes, p, {
+      from: '"<julian@julianperezphotography.com>" <x@evil.test>',
+      text: "A borrowed name.",
+      authentication: VERIFIED,
+    });
+    // Julian's address, but a second one in the line: held for him, not sent.
+    await receive(adminRequest, fakes, p, {
+      from: '"x@evil.test" <julian@julianperezphotography.com>',
+      text: "Two addresses in one line.",
+      authentication: VERIFIED,
+    });
+    const sent = sentTo(await fakes.calls("resend"), p.email).map((c) => c.body?.text);
+    for (const held of [
+      "Through Gmail.",
+      "A forged pass.",
+      "A look-alike domain.",
+      "A borrowed name.",
+      "Two addresses in one line.",
+    ]) {
+      expect(sent).not.toContain(held);
+    }
     await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
     const held = adminPage.getByRole("listitem").filter({ hasText: "Through Gmail." });
     await expect(held.getByRole("button", { name: /send it to the client/i })).toBeVisible();
+    const twoAddresses = adminPage.getByRole("listitem").filter({ hasText: "Two addresses in one line." });
+    await expect(twoAddresses.getByRole("button", { name: /send it to the client/i })).toBeVisible();
 
     // Forwarded from julian@ to the filing address: filed, nothing sent.
     const sends = sentTo(await fakes.calls("resend"), p.email).length;
@@ -267,12 +308,33 @@ test.describe("the thread against the test store", () => {
       from: julian,
       to: [p.replyAddress.replace("reply+", "log+")],
       text: "Filed from the studio address.",
-      headers: signed,
+      authentication: VERIFIED,
     });
     expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(sends);
     await adminPage.reload();
     const filed = adminPage.getByRole("listitem").filter({ hasText: "Filed from the studio address." });
     await expect(filed).toContainText("Filed from Gmail");
+
+    // A forward to the filing address that fails the check is held whole:
+    // its blocks aren't read as anyone's messages.
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      to: [p.replyAddress.replace("reply+", "log+")],
+      text: [
+        "---------- Forwarded message ---------",
+        `From: Avery <${p.email}>`,
+        "Date: Mon, Nov 17, 2026 at 3:04 PM",
+        "Subject: Re: Our wedding",
+        "",
+        "An unproven forward.",
+      ].join("\n"),
+      authentication: { spf: "pass", dkim: "gray", dmarc: "fail" },
+    });
+    expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(sends);
+    await adminPage.reload();
+    const whole = adminPage.getByRole("listitem").filter({ hasText: "An unproven forward." });
+    await expect(whole).toHaveCount(1);
+    await expect(whole).toContainText("Forwarded message");
   });
 
   test("a second photographer's reply is the owner's alone, named by its sender", async ({
@@ -367,7 +429,7 @@ test.describe("the thread against the test store", () => {
       from: "admin@example.com",
       to: [p.replyAddress.replace("reply+", "log+")],
       text: forwarded,
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+      authentication: VERIFIED,
     });
 
     await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
@@ -397,7 +459,7 @@ test.describe("the thread against the test store", () => {
     await receive(adminRequest, fakes, p, {
       from: "admin@example.com",
       text: "The lot is behind the barn: https://maps.example.com/barn.",
-      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+      authentication: VERIFIED,
       subject: "Re: New message on E2E Thread",
     });
     const [relay] = sentTo(await fakes.calls("resend"), p.email).slice(-1);
@@ -417,6 +479,16 @@ test.describe("the thread against the test store", () => {
 // ── helpers ──
 
 type Thread = { id: string; email: string; resendId: string; replyAddress: string };
+type Incoming = {
+  from: string;
+  text: string;
+  to?: string[];
+  headers?: Record<string, string>;
+  authentication?: { spf?: string; dkim?: string; dmarc?: string };
+  subject?: string;
+};
+// Resend's verdict on mail really sent from its From domain.
+const VERIFIED = { spf: "pass", dkim: "pass", dmarc: "pass" };
 
 async function startThread(
   request: APIRequestContext,
@@ -445,7 +517,7 @@ let inboundSeq = 0;
 async function seedInbound(
   fakes: { inbound: (e: Record<string, unknown>) => Promise<void> },
   p: Thread,
-  m: { from: string; text: string; to?: string[]; headers?: Record<string, string>; subject?: string },
+  m: Incoming,
 ) {
   const email = {
     id: `in-${Date.now()}-${++inboundSeq}`,
@@ -455,6 +527,8 @@ async function seedInbound(
     text: m.text,
     html: null,
     headers: m.headers ?? {},
+    // Resend's own check of the sender, made on arrival; null when it has none.
+    authentication: m.authentication ?? null,
     message_id: `<reply-${inboundSeq}@mail.example.com>`,
     attachments: [],
     created_at: new Date().toISOString(),
@@ -467,7 +541,7 @@ async function receive(
   request: APIRequestContext,
   fakes: { inbound: (e: Record<string, unknown>) => Promise<void> },
   p: Thread,
-  m: { from: string; text: string; to?: string[]; headers?: Record<string, string>; subject?: string },
+  m: Incoming,
 ) {
   await post(request, receivedEvent(await seedInbound(fakes, p, m)));
 }

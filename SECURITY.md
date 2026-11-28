@@ -166,11 +166,15 @@ suspected of being exposed, and as part of a quarterly audit.
       that project's thread. What they send is filed and forwarded to the
       owner, flagged when the sender isn't the client or a collaborator.
       Those messages stay out of the client's portal view.
-- [ ] The owner's reply reaches a client only when the receiving server
-      reports a passing DKIM signature from the sender's own domain. A
-      message that claims the owner's address without one is held on the
-      thread as unverified, and goes out only when the owner clicks send in
-      the admin. Mail sent to a `log+<token>@` address by anyone else is
+- [ ] The owner's reply reaches a client only when Resend's own check of
+      the received mail passes: its `authentication` result (DKIM signed by
+      the From domain, or DMARC passed), computed on arrival rather than read
+      from the message's headers, which the sender writes
+      (https://resend.com/docs/api-reference/emails/retrieve-received-email).
+      A message that claims the owner's address without that pass, or arrives
+      with no result at all (a Sentry warning, stage `owner-auth`), is held on
+      the thread as unverified, and goes out only when the owner clicks send
+      in the admin. Mail sent to a `log+<token>@` address by anyone else is
       filed as unverified and never sent. Mail carrying the site's own marker
       header (`X-JPP-Sent-By`) is filed and never sent on, so a loop through a
       forwarding rule stops there. Review held messages on the thread.
