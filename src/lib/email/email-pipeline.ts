@@ -1,9 +1,11 @@
-// Pipeline email templates — starting drafts Julian picks, fills, edits, and
-// sends from a project. Pure + dependency-free (importable client-side by the
-// compose UI). `{{token}}` placeholders are auto-filled from the project; tokens
-// without a value (and free-form `[bracket]` prompts) are left visible so Julian
-// notices what to complete before sending. Links are tokens, never "attached":
-// an email from the site carries no attachments.
+// Pipeline email templates: starting drafts Julian picks, fills, edits and
+// sends from a project. Pure and dependency-free (importable client-side by
+// the compose UI). `{{token}}` placeholders are filled from the project; a
+// token without a value (and a free-form `[bracket]` prompt) is left visible,
+// and Compose won't send while anything in brackets remains. A line holding
+// only an optional token (OPTIONAL_TOKENS) is left out when it has no value.
+// Links are tokens, never "attached": an email from the site carries no
+// attachments.
 
 import type { ClientStatus } from "@/lib/client-status";
 
@@ -37,8 +39,15 @@ export const EMAIL_TOKENS = [
   "holdUntil",
   "paymentMethod",
   "paymentInstructions",
+  "questionnaireNudge",
+  "planningCallUrl",
 ] as const;
 export type EmailToken = (typeof EMAIL_TOKENS)[number];
+
+// Tokens a template puts on a line of their own, which is left out when the
+// project has no value for them: the questionnaire line while it isn't back
+// before the shoot, and how to pay while an invoice is open.
+export const OPTIONAL_TOKENS: readonly EmailToken[] = ["questionnaireNudge", "paymentInstructions"];
 
 // A follow-up a template sets when it's sent: so many days out, or so many
 // months after the event date. `note` says what the follow-up is for.
@@ -82,11 +91,13 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
     subject: "Your {{serviceNoun}} inquiry",
     body: `Hi {{firstName}},
 
-Thanks for getting in touch about your {{serviceNoun}}, and congratulations.
+Thanks for getting in touch about your {{serviceNoun}}.
 
 [A line or two answering something specific they shared.]
 
 The easiest next step is a short call, 15 to 20 minutes, so I can hear what you have in mind and answer your questions. You can pick a time here: {{discoveryCallUrl}}
+
+{{questionnaireNudge}}
 
 Talk soon,
 Julian`,
@@ -123,6 +134,8 @@ Pick any time that works here: {{discoveryCallUrl}}
 
 If none of those fit, reply with a couple of times that suit you and I'll make one work.
 
+{{questionnaireNudge}}
+
 Julian`,
     advancesTo: "responded",
     followUp: { days: 3, note: "Follow up on the call invite" },
@@ -142,11 +155,13 @@ Based on our conversation, I'd recommend {{packageName}} ({{packagePrice}}):
 {{packageInclusions}}
 
 Here's the full proposal: {{proposalUrl}}
-And a full gallery, so you can see how I'd tell your story: {{sampleGalleryUrl}}
+And a gallery of my work, so you can see how I'd tell your story: {{sampleGalleryUrl}}
 
 To book, I ask for a signed agreement and a {{retainerPercent}}% retainer. Your date is open, and I'm holding it for you until {{holdUntil}}, no pressure, while you decide.
 
-Take your time, and reply with any questions. I'm always glad to hop on another quick call.
+Take your time, and reply with any questions. I'm always glad to hop on another quick call: {{discoveryCallUrl}}
+
+{{questionnaireNudge}}
 
 Looking forward to hopefully being part of your day,
 Julian`,
@@ -166,11 +181,13 @@ As promised, here's my proposal for {{projectName}} on {{eventDate}}: {{proposal
 For what you described, I'd recommend {{packageName}} ({{packagePrice}}):
 {{packageInclusions}}
 
-Here's a full gallery, so you can picture the day: {{sampleGalleryUrl}}
+Here's a gallery of my work, so you can picture the day: {{sampleGalleryUrl}}
 
 To book, I ask for a signed agreement and a {{retainerPercent}}% retainer. Your date is open, and I'm holding it for you until {{holdUntil}} while you decide.
 
 Reply with any questions, or pick a time for a quick call: {{discoveryCallUrl}}
+
+{{questionnaireNudge}}
 
 Julian`,
     advancesTo: "proposal-sent",
@@ -186,7 +203,9 @@ Julian`,
 
 I wanted to check that my proposal for {{projectName}} reached you, and see whether any questions have come up. Here it is again: {{proposalUrl}}
 
-Choosing a photographer takes time, so there's no rush. Your date is held for you until {{holdUntil}}. If it would help to talk through collections, coverage or the timeline, I'm happy to get on a call.
+Choosing a photographer takes time, so there's no rush. Your date is held for you until {{holdUntil}}. If it would help to talk through collections, coverage or the timeline, I'm happy to get on a call: {{discoveryCallUrl}}
+
+{{questionnaireNudge}}
 
 Julian`,
     followUp: { days: 7, note: "Last check-in on the proposal" },
@@ -205,6 +224,8 @@ I'm glad you'd like to go ahead. Two things reserve your date:
 {{paymentInstructions}}
 
 Once both are in, the date is yours and we can start planning. Everything is in your client portal as we go: {{portalUrl}}
+
+{{questionnaireNudge}}
 
 Let me know if anything comes up.
 
@@ -226,6 +247,8 @@ You can pay here whenever it suits you: {{invoiceUrl}}
 
 If you have questions about the invoice, just reply.
 
+{{questionnaireNudge}}
+
 Thank you,
 Julian`,
   },
@@ -238,9 +261,9 @@ Julian`,
 
 It's official: I'm photographing {{projectName}}. Thank you for choosing me, and for sending back the agreement and retainer.
 
-What happens next:
-- Your client portal has everything in one place: your status, dates, links and files, and a way to write to me: {{portalUrl}}
-- Closer to the date, I'll send a planning questionnaire so I arrive prepared.
+Your client portal has everything in one place: your status, dates, links and files, and a way to write to me: {{portalUrl}}
+
+{{questionnaireNudge}}
 
 Reply any time with questions.
 
@@ -261,6 +284,8 @@ When you have a few minutes, please fill out the planning questionnaire. It's al
 
 It covers your timeline, the shots you care about most, the key people, and any details you want me to catch. Your portal is here too: {{portalUrl}}
 
+Once it's in, pick a time for a call to plan the day: {{planningCallUrl}}
+
 Julian`,
     advancesTo: "planning",
     followUp: { days: 7, note: "Check the questionnaire came back" },
@@ -275,6 +300,8 @@ Julian`,
 When you have a few minutes, finishing the planning questionnaire helps me arrive prepared for your {{serviceNoun}}. It's already filled in with what I have: {{questionnaireUrl}}
 
 It covers your timeline, the shots you care about most, the key people, and any details you want me to catch. Your portal is here too: {{portalUrl}}
+
+Once it's in, pick a time for a call to plan the day: {{planningCallUrl}}
 
 Reply with any questions.
 
@@ -294,7 +321,9 @@ Tell me if anything looks off. A few things I still need to confirm:
 - [detail]
 - [detail]
 
-Once it's settled, share it with your other vendors so everyone works from the same plan.
+Once it's settled, share it with your other vendors so everyone works from the same plan. If it's easier to go through it together, pick a time here: {{planningCallUrl}}
+
+{{questionnaireNudge}}
 
 Julian`,
     advancesTo: "scheduled",
@@ -313,6 +342,8 @@ Your day is almost here. A few final notes:
 - Weather backup: [plan]
 
 If anything has changed, reply and let me know. Otherwise, enjoy the day and leave the photos to me.
+
+{{questionnaireNudge}}
 
 See you soon,
 Julian`,
@@ -357,7 +388,7 @@ Your {{projectName}} gallery is ready. View, download and share your photos here
 
 [A favorite moment or two from the day.]
 
-If you'd like prints or an album, reply and I'll help. And if you have a minute to leave a review, it makes a real difference to a small business like mine.
+If you'd like prints or an album, reply and I'll help. And if you have a minute to leave a review, it makes a real difference to a small business like mine: {{reviewUrl}}
 
 Thank you,
 Julian`,
@@ -434,7 +465,7 @@ I wanted to check in about your {{serviceNoun}}. If you're still looking for a p
 
 [Optional: a line picking up where we left off.]
 
-If now's a good time, reply here or book a call: {{bookingUrl}}
+If now's a good time, reply here or book a call: {{discoveryCallUrl}}
 
 Julian`,
     followUp: { days: 7, note: "Last check-in, then close the lead" },
@@ -450,22 +481,40 @@ Thank you for considering me for your {{serviceNoun}}. I understand you've chose
 
 If anything changes, or you'd like photos later on (engagement, family, an anniversary), you're welcome to come back any time. And if you ever need a recommendation, I'm glad to point you to someone good.
 
-Congratulations again,
+All the best,
 Julian`,
     closesAs: "declined",
   },
 ];
 
-// Substitute `{{token}}` with a value from the context. Tokens without a
-// non-empty value are left as a visible `[token]` so Julian fills them in.
+// Substitute `{{token}}` with a value from the context. A line holding only
+// an optional token with no value is left out, with the blank line around it;
+// any other token without a value is left as a visible `[token]` so Julian
+// fills it in.
 export function fillTemplate(
   text: string,
   ctx: Record<string, string | undefined>,
 ): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+  const optional = new Set<string>(OPTIONAL_TOKENS);
+  const kept = text
+    .split("\n")
+    .filter((line) => {
+      const only = line.trim().match(/^\{\{(\w+)\}\}$/)?.[1];
+      return !(only && optional.has(only) && !ctx[only]?.trim());
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+  return kept.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
     const v = ctx[key];
     return v && v.trim() ? v : `[${key}]`;
   });
+}
+
+// What's still in brackets in an email: an unfilled token, a template's prompt
+// ("[2 or 3 of their priorities]"), a placeholder the AI left, or a link
+// written as "[text](url)". Compose won't send while any remain.
+export function unfilledParts(text: string): string[] {
+  return [...new Set(text.match(/\[[^\[\]\n]{1,200}\]/g) ?? [])];
 }
 
 // Consecutive same-stage templates grouped together, so the compose picker

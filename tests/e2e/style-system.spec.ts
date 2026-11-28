@@ -4,8 +4,8 @@ import { test, expect } from "@playwright/test";
 
 // Keeps the UI kit the only source of its pieces, and other things written
 // once. A file scan, no browser: one dropdown control, colors only from the
-// theme tokens, the retired patterns stay gone, and the site's address lives
-// in one place.
+// theme tokens, the retired patterns stay gone, and the site's address and
+// its reply-time promise live in one place.
 
 const ROOT = join(__dirname, "..", "..");
 const walk = (dir: string): string[] =>
@@ -36,6 +36,14 @@ test("the site's address is written once, as SITE_URL", () => {
       "src/app/api/questionnaire-upload/route.ts",
     ]),
   ).toEqual([]);
+});
+
+test("a reply time is promised in one place, as REPLY_WITHIN", () => {
+  expect(
+    offenders(/(reply|get back to you|reach out|follow up|be in touch)[^.]{0,40}within \d+ ?h/i, ["src/lib/site-settings-data.ts"]),
+  ).toEqual([]);
+  // Sign-in links expire; nothing records a use, so none claims to work once.
+  expect(offenders(/only be used once/i)).toEqual([]);
 });
 
 test("one dropdown: <select> only inside ui/fields/Select", () => {

@@ -167,8 +167,8 @@ function collectionLines(service: ServiceCategory | undefined): string {
 }
 
 // The newest messages on the thread, oldest first, without contact details.
-function threadLines(messages: ClientMessage[]): string {
-  const recent = messages.filter((m) => isConversation(m) && m.bodyText?.trim()).slice(-6);
+function threadLines(messages: ClientMessage[], clientEmail?: string): string {
+  const recent = messages.filter((m) => isConversation(m, clientEmail) && m.bodyText?.trim()).slice(-6);
   if (!recent.length) return "(No messages yet.)";
   return recent
     .map((m) => `${m.direction === "in" ? "Client" : "Julian"}: ${withoutContacts(m.bodyText ?? "").slice(0, 600)}`)
@@ -227,7 +227,7 @@ export async function buildCallGuide(
       '"""',
       "",
       "The latest messages:",
-      threadLines(messages),
+      threadLines(messages, record.email),
       "",
       answers ? `Their questionnaire answers:\n${withoutContacts(answers).slice(0, 4000)}` : "(No questionnaire yet.)",
       "",

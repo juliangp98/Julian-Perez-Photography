@@ -446,3 +446,44 @@ test("Today's actions: a follow-up changed since the page loaded is left alone, 
   expect((await clear("2030-01-10")).status()).toBe(200);
   expect(await readProject(id, "follow_up_at")).toEqual({ follow_up_at: null });
 });
+
+// Only the client's own writing counts as them writing: mail Julian files from
+// a venue, or a second photographer's reply, leaves Today and the project
+// page as they were.
+test("a vendor's or a second photographer's mail isn't the client writing", async ({ adminRequest, adminPage: page }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const today = studioToday();
+  const stamp = Date.now();
+  const id = await newProject(adminRequest, `vendor-${stamp}`);
+  await patchProject(id, { status: "proposal-sent" });
+  await addMessage(id, { direction: "out", sentAt: `${shiftDay(today, { days: -3 })}T17:00:00Z` });
+  await addMessage(id, { direction: "in", fromAddr: "Riverside Venue <events@venue.test>", kind: "imported" });
+  await addMessage(id, { direction: "in", fromAddr: "Second <second@shooters.test>" });
+
+  await page.goto("/admin/projects");
+  const list = page.getByRole("region", { name: "Today" });
+  const row = list.getByRole("listitem").filter({ hasText: `E2E Today vendor-${stamp}` });
+  await expect(row).toHaveCount(0);
+  await page.goto(`/admin/projects/${id}`);
+  await expect(page.getByText(/Client wrote/)).toHaveCount(0);
+
+  // The client writing does count.
+  await addMessage(id, { direction: "in" });
+  await page.goto("/admin/projects");
+  await expect(list.getByRole("listitem").filter({ hasText: `E2E Today vendor-${stamp}` })).toContainText(
+    "wrote today, not answered yet",
+  );
+
+  // Julian's own mail filed from Gmail, even to the venue, counts as him
+  // writing, the same way on the board and on the project page.
+  await addMessage(id, {
+    direction: "out",
+    kind: "imported",
+    toAddr: "Riverside Venue <events@venue.test>",
+    sentAt: new Date(Date.now() + 1000).toISOString(),
+  });
+  await page.goto("/admin/projects");
+  await expect(list.getByRole("listitem").filter({ hasText: `E2E Today vendor-${stamp}` })).toHaveCount(0);
+  await page.goto(`/admin/projects/${id}`);
+  await expect(page.getByText(/Client wrote today, you today/)).toBeVisible();
+});

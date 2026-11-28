@@ -70,6 +70,10 @@ test("the owner email links to Compose on the filed project, with no client deta
   expect([...url.searchParams.keys()]).toEqual(["compose"]);
   expect(url.searchParams.get("compose")).toBe("inquiry-reply");
   expect(url.hash).toBe("#compose");
+  // It opens the project too, and the owner's text links to it.
+  expect(text).toContain(`Open the project: ${url.origin}${url.pathname}\n`);
+  const sms = (await fakes.calls("twilio")).filter((c) => c.body?.To === OWNER_PHONE).at(-1);
+  expect(String(sms?.body?.Body)).toContain(`${url.origin}${url.pathname}`);
 
   // The project page shows the saved assessment, and opening the link steers
   // the reply from it, without another call to the AI.

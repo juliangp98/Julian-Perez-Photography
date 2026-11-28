@@ -30,7 +30,7 @@ Every setting the code reads is listed in `src/lib/config.ts` with what goes wit
 
 ## Email on the domain
 
-Addresses on the site's domains are Cloudflare Email Routing rules forwarding to the owner's inbox, not paid mailboxes. Resend sends from its own subdomain records and receives client replies on the `in.` subdomain, so the root MX stays with Email Routing. Web records stay DNS only (grey cloud) when the site is on Vercel.
+Addresses on the site's domains are Cloudflare Email Routing rules forwarding to the owner's inbox, not paid mailboxes. Client mail comes from julian@ and the site's alerts from noreply@, both through Resend, which sends from its own subdomain records and receives client replies on the `in.` subdomain, so the root MX stays with Email Routing. Web records stay DNS only (grey cloud) when the site is on Vercel.
 
 ## Tests and errors
 

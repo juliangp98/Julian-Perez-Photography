@@ -13,6 +13,7 @@ import {
   EMAIL_TEMPLATES,
   GROUPED_TEMPLATES,
   fillTemplate,
+  unfilledParts,
   type EmailTemplate,
 } from "@/lib/email/email-pipeline";
 import { statusTitle } from "@/lib/labels";
@@ -148,6 +149,7 @@ export default function ComposeEmail({
   async function draft() {
     if (!templateId || status === "drafting") return;
     setStatus("drafting");
+    setMessage("");
     try {
       const res = await fetch("/api/admin/draft-email", {
         method: "POST",
@@ -177,6 +179,14 @@ export default function ComposeEmail({
 
   async function send() {
     if (!subject.trim() || !body.trim() || status === "sending") return;
+    // Anything still in brackets (an unfilled token, a template's prompt, a
+    // placeholder the AI left) is filled in before it goes.
+    const unfilled = unfilledParts(`${subject}\n${body}`);
+    if (unfilled.length) {
+      setMessage(`Fill these in first: ${unfilled.join(", ")}.`);
+      setStatus("error");
+      return;
+    }
     setStatus("sending");
     setMessage("");
     setSentNote("");
@@ -305,9 +315,9 @@ export default function ComposeEmail({
           </p>
         )}
         <p className="text-xs text-muted">
-          Fill in any <code>[bracketed]</code> bits before sending. It goes
-          to the client in your branded layout, you get a copy, and it joins
-          the thread above.
+          Anything in <code>[brackets]</code> has to be filled in before it
+          sends. It goes to the client in your branded layout, you get a copy,
+          and it joins the thread above.
         </p>
         {effects && <p className="text-xs text-muted">{effects}</p>}
         <div className="flex flex-wrap items-center gap-3">

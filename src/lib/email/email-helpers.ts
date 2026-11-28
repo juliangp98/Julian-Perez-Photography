@@ -3,6 +3,7 @@
 // non-JSX callers don't pay the renderer import cost.
 
 import { formatHumanDate } from "@/lib/field-format";
+import { addressOf } from "./inbound";
 
 /**
  * Renders the ` — Aug 15, 2026` trailing clause for an email subject
@@ -21,26 +22,29 @@ export function formatSubjectDate(value: unknown): string {
   return formatted ? ` (${formatted})` : "";
 }
 
-/**
- * The verified `from` for all Resend transactional mail. Defaults to the
- * studio's own domain — not the shared `resend.dev` sandbox sender, which
- * hurts deliverability — and is overridable with `RESEND_FROM` (set this in
- * the environment once the domain is verified in Resend). Replies are routed
- * to Julian's inbox via each sender's `replyTo`, so no domain mailbox is
- * required to receive them.
- */
+// The sender of mail to clients: Julian, at the studio address, so a client
+// can simply reply. A reply on a project's thread goes to its reply address
+// (the Reply-To sendEmail sets) and lands on the thread; any other reply
+// reaches julian@, which Cloudflare forwards to his inbox. Overridable with
+// RESEND_FROM, an address on the domain verified in Resend.
 export function resendFrom(): string {
-  const from =
-    process.env.RESEND_FROM ||
-    "Julian Perez Photography <noreply@julianperezphotography.com>";
+  const from = process.env.RESEND_FROM || "Julian Perez <julian@julianperezphotography.com>";
   // The `onboarding@resend.dev` sandbox sender silently delivers ONLY to your
   // own Resend account email — every other recipient is rejected with a 403,
   // which the send routes swallow (anti-enumeration). Warn loudly so a stray
   // RESEND_FROM override never breaks client mail unnoticed again.
   if (from.includes("onboarding@resend.dev")) {
     console.warn(
-      "[email] RESEND_FROM is the resend.dev sandbox sender. It only delivers to your own Resend account email. Set RESEND_FROM to an address on your verified domain (e.g. noreply@julianperezphotography.com).",
+      "[email] RESEND_FROM is the resend.dev sandbox sender. It only delivers to your own Resend account email. Set RESEND_FROM to an address on your verified domain (e.g. julian@julianperezphotography.com).",
     );
   }
   return from;
+}
+
+// The sender of the site's own alerts to Julian (new inquiries, the morning
+// email, portal notices): noreply@ on the same domain, so they stand apart
+// from client mail in his inbox rather than reading as sent by him.
+export function alertsFrom(): string {
+  const domain = addressOf(resendFrom()).split("@")[1] || "julianperezphotography.com";
+  return `Julian Perez Photography <noreply@${domain}>`;
 }

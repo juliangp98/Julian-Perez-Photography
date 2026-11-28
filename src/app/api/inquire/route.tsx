@@ -21,9 +21,13 @@ import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
 import { saveAiResult, upsertClientFromInquiry } from "@/lib/clients";
+import { recordMessage } from "@/lib/messages";
 import { aiBasis } from "@/lib/ai/project-context";
 import { assessInquiry, shouldAlertOwner } from "@/lib/ai/assess-inquiry";
 import { draftReplyHref, triageVerdict, type InquiryTriage } from "@/lib/triage";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
+import { serviceNoun } from "@/lib/project-name";
+import { formatEventDate } from "@/lib/field-format";
 
 // How long a submission waits for the AI assessment. Past it the owner email
 // goes out without one (the project page's "Assess this inquiry" still works).
@@ -105,6 +109,7 @@ export const POST = defineRoute({
     // A store failure (or an unconfigured store) never fails the submission.
     let projectId: string | null = null;
     let messageStored = false;
+    let repeat = false;
     try {
       const filed = await upsertClientFromInquiry({
         name: data.name,
@@ -120,11 +125,35 @@ export const POST = defineRoute({
       });
       projectId = filed?.id ?? null;
       messageStored = !!filed?.messageStored;
+      // A second inquiry on a project that already holds a first one.
+      repeat = !!filed?.existed && !filed.messageStored && !!data.message.trim();
     } catch (err) {
       Sentry.captureException(err, {
         tags: { route: "inquire", stage: "client-record" },
         level: "warning",
       });
+    }
+
+    // A repeat inquiry goes on the project's thread, as the client writing,
+    // so it shows on the Today list and the drafts read it; the project keeps
+    // its first inquiry. Never fails the submission.
+    if (projectId && repeat) {
+      try {
+        await recordMessage({
+          projectId,
+          direction: "in",
+          kind: "inquiry",
+          fromAddr: data.email,
+          subject: `New inquiry: ${serviceName}`,
+          bodyText: data.message,
+          status: "received",
+          // The same repeat sent again (a retry after an error, a double
+          // click) is the same message, kept once.
+          idempotencyKey: `inquiry-${projectId}-${aiBasis(data.message)}`,
+        });
+      } catch (err) {
+        Sentry.captureException(err, { tags: { route: "inquire", stage: "thread-record" }, level: "warning" });
+      }
     }
 
     const triage = await triagePromise;
@@ -162,7 +191,7 @@ export const POST = defineRoute({
       `Email:     ${data.email}`,
       `Phone:     ${data.phone || empty}`,
       `Service:   ${serviceName}`,
-      `Date:      ${data.eventDate || empty}`,
+      `Date:      ${formatEventDate(data.eventDate) || data.eventDate || empty}`,
       `Location:  ${data.location || empty}`,
       `Budget:    ${data.budget || empty}`,
       `Referral:  ${referral || empty}`,
@@ -177,7 +206,7 @@ export const POST = defineRoute({
             [triage.fitReason, triage.urgencyReason].filter(Boolean).join(" "),
           ]
         : []),
-      ...(draftReplyUrl ? [``, `Draft a reply: ${draftReplyUrl}`] : []),
+      ...(projectUrl ? [``, `Open the project: ${projectUrl}`, `Draft a reply: ${draftReplyUrl}`] : []),
       ...(callPrepUrl ? [`Prep for the call: ${callPrepUrl}`] : []),
     ].join("\n");
 
@@ -196,12 +225,13 @@ export const POST = defineRoute({
           triage={triage}
           draftReplyUrl={draftReplyUrl}
           callPrepUrl={callPrepUrl}
+          projectUrl={projectUrl}
         />
       </BrandedEmailLayout>,
     );
 
     try {
-      await sendEmail({ to: toAddress, replyTo: data.email, subject, html, text });
+      await sendEmail({ to: toAddress, replyTo: data.email, subject, html, text, sender: "site" });
     } catch (err: unknown) {
       Sentry.captureException(err, {
         tags: { route: "inquire", stage: "owner-email" },
@@ -223,7 +253,7 @@ export const POST = defineRoute({
       try {
         await sendSms(
           ownerPhone,
-          ownerAlertText({ name: data.name, serviceName, eventDate: data.eventDate, referralLabel, triage, message: data.message }),
+          ownerAlertText({ name: data.name, serviceName, eventDate: data.eventDate, referralLabel, triage, message: data.message, projectUrl }),
         );
       } catch (err) {
         Sentry.captureException(err, {
@@ -246,7 +276,7 @@ export const POST = defineRoute({
         ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
         subject: "Thanks for your inquiry | Julian Perez Photography",
         html: confirmHtml,
-        text: `Thank you, ${data.name.split(" ")[0]}. Your inquiry is in my inbox. I'll review it and get back to you within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
+        text: `Thank you, ${data.name.split(" ")[0]}. Your inquiry is in my inbox. I'll review it and get back to you ${REPLY_WITHIN}.\n\nJulian Perez Photography\njulianperezphotography.com`,
       });
     } catch (err) {
       Sentry.captureException(err, {
@@ -263,7 +293,7 @@ export const POST = defineRoute({
         const firstName = data.name.split(" ")[0];
         await sendSms(
           data.phone,
-          `Thanks, ${firstName}! Your inquiry for ${serviceName} is in Julian's inbox. He'll reply within 48h. (Julian Perez Photography)`,
+          `Thanks, ${firstName}. Your ${serviceNoun(data.service)?.toLowerCase() ?? "photography"} inquiry is in my inbox, and I'll reply ${REPLY_WITHIN}. Julian, Julian Perez Photography`,
         );
       } catch (err) {
         Sentry.captureException(err, {
@@ -296,13 +326,14 @@ function ownerAlertText(m: {
   referralLabel: string;
   triage: InquiryTriage | null;
   message: string;
+  projectUrl?: string;
 }): string {
   const date = formatSubjectDate(m.eventDate).replace(/^ \((.*)\)$/, "$1");
   const head = [`New inquiry: ${m.name}`, m.serviceName, date, m.referralLabel && `via ${m.referralLabel}`]
     .filter(Boolean)
     .join(" · ");
   const verdict = m.triage ? ` (${triageVerdict(m.triage)})` : "";
-  const tail = " Details in your inbox.";
+  const tail = m.projectUrl ? ` ${m.projectUrl}` : " Details in your inbox.";
   const room = Math.max(0, 320 - head.length - verdict.length - tail.length - 2);
   const gist = (m.triage?.summary || m.message).replace(/\s+/g, " ").trim();
   const body = gist.length > room ? `${gist.slice(0, Math.max(0, room - 1)).trimEnd()}…` : gist;

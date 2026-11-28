@@ -82,7 +82,7 @@ create table if not exists client_messages (
   project_id uuid not null references client_records (id) on delete cascade,
   direction text not null check (direction in ('in', 'out')),
   channel text not null default 'email' check (channel in ('email', 'portal')),
-  -- compose | update | confirmation | relay | reply | portal | imported
+  -- compose | update | confirmation | relay | reply | portal | imported | inquiry
   kind text not null,
   from_addr text,
   to_addr text,
@@ -150,22 +150,33 @@ create index if not exists client_records_follow_up_idx
 
 -- When each side last wrote, per project: the client's newest message in
 -- (received, so not an out-of-office notice or mail held from an unknown
--- sender), and the owner's newest one out that actually went (composed here,
--- answered from Gmail, filed from Gmail, or a reply posted in the portal).
--- Automatic emails don't count as the owner writing. security_invoker keeps
--- the view under the table's row-level security, so it opens nothing the
--- table doesn't.
+-- sender, and the client's own: a portal post, a repeat inquiry, or mail from
+-- the address on the project, never a vendor's or a second photographer's
+-- that Julian filed), and the owner's newest one out that actually went
+-- (composed here, answered from Gmail, filed from Gmail, or a reply posted in
+-- the portal). Automatic emails don't count as the owner writing. Matches
+-- isConversation in src/lib/messages.ts. security_invoker keeps the view under
+-- the tables' row-level security, so it opens nothing the tables don't.
 create or replace view client_last_contact with (security_invoker = true) as
 select
-  project_id,
-  max(sent_at) filter (where direction = 'in' and status = 'received') as last_in_at,
-  max(sent_at) filter (
-    where direction = 'out'
-      and kind in ('compose', 'relay', 'imported', 'portal')
-      and status in ('sent', 'delivered', 'delayed')
+  m.project_id,
+  max(m.sent_at) filter (
+    where m.direction = 'in'
+      and m.status = 'received'
+      and (
+        m.channel = 'portal'
+        or m.kind = 'inquiry'
+        or lower(trim(coalesce(substring(m.from_addr from '<([^>]+)>'), m.from_addr))) = lower(trim(r.email))
+      )
+  ) as last_in_at,
+  max(m.sent_at) filter (
+    where m.direction = 'out'
+      and m.kind in ('compose', 'relay', 'imported', 'portal')
+      and m.status in ('sent', 'delivered', 'delayed')
   ) as last_out_at
-from client_messages
-group by project_id;
+from client_messages m
+join client_records r on r.id = m.project_id
+group by m.project_id;
 revoke all on client_last_contact from public, anon, authenticated;
 
 -- Links and files on a project (the documents array) change through these

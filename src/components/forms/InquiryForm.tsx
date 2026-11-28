@@ -18,6 +18,7 @@ import LocationField from "@/components/ui/fields/LocationField";
 import { formatPhone, isValidEmail } from "@/lib/field-format";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
 
 type CallLink = { label: string; url: string };
 type Status = "idle" | "submitting" | "success" | "error";
@@ -182,7 +183,7 @@ export default function InquiryForm({
       <div className="p-10 border border-accent rounded-lg bg-white">
         <h2 className="font-serif text-3xl">Thank you.</h2>
         <p className="mt-3 text-muted">
-          Your inquiry is in my inbox. I&rsquo;ll reply within 48 hours, often
+          Your inquiry is in my inbox. I&rsquo;ll reply {REPLY_WITHIN}, often
           sooner.
         </p>
         <p className="mt-5 text-sm text-muted">

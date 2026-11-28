@@ -3,12 +3,14 @@ import InquiryForm from "@/components/forms/InquiryForm";
 import GoogleReviews from "@/components/marketing/GoogleReviews";
 import { getSiteSettings } from "@/lib/content";
 import { aiEnabled } from "@/lib/ai/ai";
+import { knownDetails } from "@/lib/form-key";
 import CalloutCard from "@/components/ui/CalloutCard";
 import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
 
 export const metadata: Metadata = {
   title: "Inquire",
-  description: "Tell me about your event and I'll get back to you within 48 hours.",
+  description: `Tell me about your event and I'll get back to you ${REPLY_WITHIN}.`,
 };
 
 export default async function InquirePage({
@@ -17,12 +19,16 @@ export default async function InquirePage({
   searchParams: Promise<{
     service?: string;
     project?: string;
+    key?: string;
     fullName?: string;
     email?: string;
     phone?: string;
   }>;
 }) {
   const [sp, settings] = await Promise.all([searchParams, getSiteSettings()]);
+  // A project's link (?project=&key=) opens with what it knows about the
+  // client, read here; an older link's own fields still prefill.
+  const known = await knownDetails(sp.project, sp.key, "inquire");
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
       <SubNav items={FUNNEL_TABS} />
@@ -30,7 +36,7 @@ export default async function InquirePage({
       <p className="mt-4 text-muted max-w-xl">
         This form is for general inquiries: questions about availability,
         pricing, custom packages, or anything you want to chat through before
-        booking. I&rsquo;ll reply within 48 hours. Prefer email? Reach me
+        booking. I&rsquo;ll reply {REPLY_WITHIN}. Prefer email? Reach me
         directly at{" "}
         <a
           href={`mailto:${settings.contactEmail}`}
@@ -61,9 +67,9 @@ export default async function InquirePage({
             defaultService={sp.service}
             discoveryCall={settings.calls.discoveryCall}
             projectId={sp.project}
-            defaultName={sp.fullName}
-            defaultEmail={sp.email}
-            defaultPhone={sp.phone}
+            defaultName={sp.fullName ?? known.fullName}
+            defaultEmail={sp.email ?? known.email}
+            defaultPhone={sp.phone ?? known.phone}
             aiEnabled={aiEnabled()}
           />
         </div>

@@ -338,7 +338,7 @@ The site runs on Vercel. The domain's DNS is on Cloudflare.
 
 ### Email and DNS
 
-The studio address, `julian@julianperezphotography.com` (`CONTACT_EMAIL` in `src/lib/site-settings-data.ts`), is not a mailbox. Cloudflare Email Routing forwards it to the owner's Gmail, so the root domain's MX records belong to Email Routing. Resend sends from the records on the `send.` subdomain plus `resend._domainkey`, and the inbound relay uses its own `in.` subdomain. The three never share records, so each can change without touching the others. [`docs/configuration.md`](docs/configuration.md) → "Email relay setup" has the relay steps.
+The studio address, `julian@julianperezphotography.com` (`CONTACT_EMAIL` in `src/lib/site-settings-data.ts`), is the sender of client mail but is not a mailbox. Cloudflare Email Routing forwards it to the owner's Gmail, so the root domain's MX records belong to Email Routing. Resend sends from the records on the `send.` subdomain plus `resend._domainkey`, and the inbound relay uses its own `in.` subdomain. The three never share records, so each can change without touching the others. [`docs/configuration.md`](docs/configuration.md) → "Email relay setup" has the relay steps.
 
 ### The daily cron
 
@@ -393,7 +393,7 @@ client's one next step, with a button when there's something to do (`clientNextS
 files by kind (the proposal, contract, invoice, highlights and gallery links
 Julian adds, plus anything the client uploads), the project's message thread
 (see "Client messages" below), the plan once the project is at Proposal sent or later, how they're paying, the
-matching planning questionnaire prefilled with their details, limited edits
+matching planning questionnaire, opening with their details filled in (read on the server through the link's key, never carried in the address), limited edits
 and uploads. Signing in returns a client to the page they came from; with no
 page asked for, it opens their one project, or the menu when they have
 several. A second
@@ -446,7 +446,7 @@ session email)** — a project the URL names but the signed-in person doesn't ow
 returns not-found — so listing and linking projects can never reach across
 people (no IDOR). Bundle writes apply the same gate: any project id not owned by
 the requester is dropped, and a bundle can never span two clients. Tokens +
-cookies are signed with `AUTH_SECRET` via `jose`.
+cookies are signed with `AUTH_SECRET` via `jose`. The key on a project's form links (the questionnaire, and the inquiry form for a project with no service) is an HMAC of the project id with the same secret (`src/lib/form-key.ts`).
 
 ### One-time setup
 
@@ -478,12 +478,12 @@ and the portal stay off and the rest of the site is unaffected.
 
 ## Client messages
 
-Every email the site sends a client, and every reply, lives on the project's thread: the **Messages** tab of `/admin/projects/[id]`, and the same thread (minus anything held for review) in the client's portal. Every send goes through `sendEmail()` in `src/lib/email/send.ts`. Inbound mail and delivery events arrive at `/api/email/webhook` and are handled in `src/lib/email/relay.ts`; `src/lib/messages.ts` reads and writes the threads (`client_messages`).
+Every email the site sends a client, and every reply, lives on the project's thread: the **Messages** tab of `/admin/projects/[id]`, and in the client's portal what passed between them and Julian (`src/lib/message-visibility.ts`): their own portal posts, inquiries and mail from their address, and what Julian sent them. Anything held for review, and mail Julian files from anyone else (a venue, a second photographer), stays his alone and doesn't count as the client writing. Web addresses in a message are links. Every send goes through `sendEmail()` in `src/lib/email/send.ts`. Inbound mail and delivery events arrive at `/api/email/webhook` and are handled in `src/lib/email/relay.ts`; `src/lib/messages.ts` reads and writes the threads (`client_messages`).
 
-- **Sending.** A send on a project uses the reply address `reply+<token>@<RESEND_INBOUND_DOMAIN>`, so replies come back to the site. Emails composed in the admin also BCC the owner. Each send records Resend's id. Delivery, bounce and spam-complaint events update the message, and a bounce emails the owner. A daily check settles any message whose event never arrived.
-- **Replies.** A client's reply is filed on the thread and forwarded to the studio address, `julian@julianperezphotography.com`, which Cloudflare Email Routing delivers to the owner's Gmail. The forward carries the reply address as Reply-To, so answering from Gmail goes back through the site and reaches the client from the studio address, on the thread. The owner's reply is relayed only when its DKIM signature checks out; otherwise it waits on the thread for a one-click send. Mail from an address not on the project is held for review and never reaches the client. Out-of-office replies are filed and go nowhere.
+- **Sending.** Mail to clients comes from `Julian Perez <julian@julianperezphotography.com>`, and the site's alerts to the owner from noreply@ on the same domain (`resendFrom` and `alertsFrom` in `src/lib/email/email-helpers.ts`). A send on a project uses the reply address `reply+<token>@<RESEND_INBOUND_DOMAIN>`, so replies come back to the site. Emails composed in the admin also BCC the owner. Each send records Resend's id, and the Message-ID Resend reports for it, so the next email names it in `In-Reply-To`. Every send carries the site's marker header (`X-JPP-Sent-By`), and none goes to the site's own reply addresses. Delivery, bounce and spam-complaint events update the message, and a bounce emails the owner. A daily check settles any message whose event never arrived.
+- **Replies.** A client's reply is filed on the thread and forwarded to the studio address, `julian@julianperezphotography.com`, which Cloudflare Email Routing delivers to the owner's Gmail. The forward carries the reply address as Reply-To, so answering from Gmail goes back through the site and reaches the client from the studio address, on the thread. The owner's reply is relayed only when its DKIM signature checks out; otherwise it waits on the thread for a one-click send. Mail from an address not on the project is held for review and never reaches the client. Out-of-office replies, and mail the site sent itself (its marker header), are filed and go nowhere. An answer to one of the site's alerts goes to the client under the thread's own subject.
 - **Portal.** Clients read the thread and write on it from their project page. Collaborators don't see it.
-- **History.** `npm run messages:backfill` (dry run, then `-- --apply`) files past sends from Resend's log, as far back as Resend keeps them. For mail that only exists in Gmail, forward it to the filing address shown under the project's thread (`log+<token>@...`). It is filed with its original sender and date, and nothing is sent.
+- **History.** `npm run messages:backfill` (dry run, then `-- --apply`) files past sends from Resend's log, as far back as Resend keeps them. For mail that only exists in Gmail, forward it to the filing address shown under the project's thread (`log+<token>@...`). It is filed with its original sender, recipients and date, and nothing is sent.
 
 Setup is in [`docs/configuration.md`](docs/configuration.md) → "Email relay setup". Run `supabase/schema.sql` first: it creates `client_messages`. Until `RESEND_INBOUND_DOMAIN` is set, sends are still recorded on the thread and replies go straight to the owner's inbox.
 

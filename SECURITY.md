@@ -25,9 +25,15 @@ suspected of being exposed, and as part of a quarterly audit.
       Security. Never expose it client-side. Rotate at Supabase → Settings →
       API if it leaks. The `client_records` table has RLS enabled so nothing
       but the service role can read it.
-- [ ] `AUTH_SECRET` (portal and admin magic links and sessions) is at least
-      32 hex chars and server env only. Rotating it ends every active session.
-      That is harmless: people request a fresh sign-in link. Rotate if exposed.
+- [ ] `AUTH_SECRET` (portal and admin magic links and sessions, and the key on
+      project form links) is at least 32 hex chars and server env only.
+      Rotating it ends every active session, and form links already sent stop
+      opening with the client's details (they still work and still attach to
+      the project). That is harmless: people request a fresh sign-in link.
+      Rotate if exposed.
+- [ ] A project's form links carry only the project id and its key, never
+      the client's email or phone. The form reads their details on the
+      server when the key matches.
 - [ ] `RESEND_WEBHOOK_SECRET` verifies Resend's signed events at
       `/api/email/webhook`. Without it the route refuses every event. Rotate
       it in the Resend webhook settings and the Vercel env var together; a
@@ -50,7 +56,8 @@ suspected of being exposed, and as part of a quarterly audit.
 ## Vercel
 
 - [ ] Project Settings → **Environment Variables** — production and preview
-      scoped separately. Confirm `RESEND_API_KEY`, `RESEND_FROM`, the three
+      scoped separately. Confirm `RESEND_API_KEY`, `RESEND_FROM` (client mail
+      comes from it: julian@, or unset for that default), the three
       `TWILIO_*`, `GOOGLE_PLACES_API_KEY`, `GOOGLE_PLACE_ID`,
       `SANITY_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `SUPABASE_URL`,
       `SUPABASE_SERVICE_ROLE_KEY`, and `AUTH_SECRET` are all present in
@@ -151,7 +158,9 @@ suspected of being exposed, and as part of a quarterly audit.
       each project's thread, including client replies. RLS is on and no
       policy grants access, so only the service role can read it. Confirm RLS
       stays on, as for `client_records`. The client portal shows only sent,
-      delivered, delayed and received messages; held ones stay admin-only.
+      delivered, delayed and received messages, and of those only what passed
+      between the client and Julian (`src/lib/message-visibility.ts`): mail
+      Julian files from others, and held messages, stay admin-only.
 - [ ] Each project's reply address carries a secret token
       (`client_records.reply_token`). Anyone who has the address can post to
       that project's thread. What they send is filed and forwarded to the
@@ -162,7 +171,9 @@ suspected of being exposed, and as part of a quarterly audit.
       message that claims the owner's address without one is held on the
       thread as unverified, and goes out only when the owner clicks send in
       the admin. Mail sent to a `log+<token>@` address by anyone else is
-      filed as unverified and never sent. Review held messages on the thread.
+      filed as unverified and never sent. Mail carrying the site's own marker
+      header (`X-JPP-Sent-By`) is filed and never sent on, so a loop through a
+      forwarding rule stops there. Review held messages on the thread.
 - [ ] Portal reads/writes always resolve the record id from the verified
       session cookie, never from a URL or request body (no IDOR). Confirm any
       new portal route follows this.

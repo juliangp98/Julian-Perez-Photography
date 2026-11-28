@@ -2,8 +2,9 @@
 // Next, or Sanity client) so `scripts/seed-sanity.ts` can load it under tsx;
 // app code imports `services` through `@/lib/content`.
 
-import type { ServiceCategory } from "./types";
+import type { PortfolioCategory, ServiceCategory } from "./types";
 import { titleCaseSlug } from "./labels";
+import { SITE_URL } from "./site-settings-data";
 
 export const services: ServiceCategory[] = [
   // ==========================================================================
@@ -1844,6 +1845,26 @@ export const services: ServiceCategory[] = [
     ],
   },
 ];
+
+// The gallery a proposal links: the service's sample gallery set in Studio,
+// else the site's own portfolio page for the service, when that page shows
+// photos or films (a page of placeholders would be worse than the prompt to
+// fill one in). A hidden portfolio is never linked.
+export function sampleGalleryFor(
+  service: Pick<ServiceCategory, "slug" | "sampleGalleryUrl"> | undefined,
+  portfolios: Pick<PortfolioCategory, "slug" | "serviceSlug" | "hidden" | "images" | "videos">[],
+): string | undefined {
+  const studio = service?.sampleGalleryUrl?.trim();
+  if (studio) return studio;
+  if (!service) return undefined;
+  const page = portfolios.find(
+    (p) =>
+      !p.hidden &&
+      (p.serviceSlug ?? p.slug) === service.slug &&
+      (p.images.length > 0 || (p.videos?.length ?? 0) > 0),
+  );
+  return page ? `${SITE_URL}/portfolio/${page.slug}` : undefined;
+}
 
 // A service's booking terms set in Studio, as rows: the retainer, the date
 // hold and the gallery turnaround. A hold or turnaround of 0 counts as none

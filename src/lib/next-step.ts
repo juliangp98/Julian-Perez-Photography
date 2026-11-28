@@ -3,7 +3,14 @@
 // with one button. A step that waits on the client says so, and its button is
 // the thing to do meanwhile (or none). Pure, so the page and the specs share it.
 
-import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
+import {
+  CLIENT_STATUS_TERMINAL,
+  reachedStatus,
+  statusMoves,
+  statusRank,
+  type ClientStatus,
+  type StageProject,
+} from "./client-status";
 import { EMAIL_TEMPLATES } from "./email/email-pipeline";
 import {
   dayAgo,
@@ -676,6 +683,27 @@ export function shootPassed(p: { status?: string; eventDate?: string }, today: s
   if (!BEFORE_SHOOT.includes(p.status ?? "")) return false;
   const shoot = eventDay(p.eventDate);
   return !!shoot && daysBetween(today, shoot) < 0;
+}
+
+// Whether a project is still getting ready for its shoot: not closed, not yet
+// past the shoot in how far it has come, and with no shoot day or one not yet
+// past. Prompts to prepare (the questionnaire, setting up a service) stop
+// once it isn't. The portal and the emails read the same rule.
+export function preparingForShoot(p: StageProject & { eventDate?: string }, today: string): boolean {
+  if (CLIENT_STATUS_TERMINAL.includes(p.status as ClientStatus)) return false;
+  if (statusRank(reachedStatus(p)) >= statusRank("shot")) return false;
+  const shoot = eventDay(p.eventDate);
+  return !shoot || shoot >= today;
+}
+
+// Whether the client still has a planning questionnaire to send: their
+// service has one, none is back, and the project is preparing for its shoot.
+// Every client email before the shoot asks for it while this holds.
+export function questionnaireOutstanding(
+  p: StageProject & { eventDate?: string; questionnaireSnapshot?: string },
+  opts: { today: string; hasQuestionnaire: boolean },
+): boolean {
+  return opts.hasQuestionnaire && !p.questionnaireSnapshot?.trim() && preparingForShoot(p, opts.today);
 }
 
 export type ClientStep = {

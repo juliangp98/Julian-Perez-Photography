@@ -17,6 +17,7 @@ import { referralDetailPrompt } from "@/lib/referral";
 import type { SiteSettings } from "@/lib/types";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
 
 // Three of the four Square call URLs (post-questionnaire wrap-up needs
 // everything except the top-of-funnel discovery call). Taken from
@@ -465,7 +466,8 @@ export default function QuestionnaireForm({
           const fields = prefillableFieldIds(sib);
           const params = new URLSearchParams();
           for (const [id, value] of Object.entries(answers)) {
-            if (!fields.has(id)) continue;
+            // Contact details never ride in an address, where logs keep them.
+            if (!fields.has(id) || /email|phone/i.test(id)) continue;
             if (typeof value === "string" && value) {
               params.set(id, value);
             } else if (Array.isArray(value)) {
@@ -485,7 +487,7 @@ export default function QuestionnaireForm({
         <h2 className="font-serif text-3xl">Thank you.</h2>
         <p className="mt-3 text-muted">
           Your answers are in my inbox. I&rsquo;ll review and reach out with next
-          steps within 48 hours.
+          steps {REPLY_WITHIN}.
         </p>
         {pdfPlan && submittedAnswers && (
           <Panel className="mt-6">

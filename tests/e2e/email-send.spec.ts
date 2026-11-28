@@ -39,6 +39,16 @@ test("inquiry: emails the owner and the client, each with a text part", async ({
   const [client] = sentTo(calls, "avery@example.com");
   expect(client.body?.text).toBeTruthy();
   expect(client.body?.reply_to).toBeTruthy();
+
+  // The client hears from Julian; the owner's alert comes from the site, with
+  // the date written out. Both carry the site's marker.
+  expect(client.body?.from).toBe("Julian Perez <julian@julianperezphotography.com>");
+  expect(owner.body?.from).toBe("Julian Perez Photography <noreply@julianperezphotography.com>");
+  expect(String(owner.body?.text)).toContain("Date:      August 15, 2027");
+  for (const c of [owner, client]) {
+    expect((c.body?.headers as Record<string, string>)["X-JPP-Sent-By"]).toBe("site");
+  }
+  expect(String(client.body?.text)).toContain("within 48 hours");
 });
 
 test("inquiry: a project id from a completion link is accepted", async ({ request }) => {
@@ -91,6 +101,10 @@ test("inquiry: texts the client a confirmation at a normalized number", async ({
   const [sms] = (await fakes.calls("twilio")).filter((c) => c.body?.To === "+17035551234");
   expect(sms, "no text to the client's normalized number").toBeTruthy();
   expect(String(sms.body?.Body).length).toBeLessThanOrEqual(320);
+  // In Julian's own voice.
+  expect(sms.body?.Body).toBe(
+    "Thanks, Avery. Your wedding inquiry is in my inbox, and I'll reply within 48 hours. Julian, Julian Perez Photography",
+  );
 });
 
 test("inquiry: a refused text doesn't fail the submission", async ({ request, fakes }) => {

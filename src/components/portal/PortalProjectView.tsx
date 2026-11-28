@@ -17,16 +17,8 @@ import MessageThread from "@/components/messages/MessageThread";
 import PortalMessageBox from "@/components/messages/PortalMessageBox";
 import type { ClientRecordSafe, PortalViewerRole } from "@/lib/clients";
 import type { ClientMessage } from "@/lib/messages";
+import { reachedStatus, shownLabel, statusRank, type StageProject } from "@/lib/client-status";
 import {
-  CLIENT_STATUS_TERMINAL,
-  reachedStatus,
-  shownLabel,
-  statusRank,
-  type ClientStatus,
-  type StageProject,
-} from "@/lib/client-status";
-import {
-  eventDay,
   formatEventDate,
   formatHumanDate,
   formatOtherDates,
@@ -37,7 +29,7 @@ import { DOCUMENT_TYPES, documentTypeLabel, invoiceState, paymentMethodLabel } f
 import { buildAnswerGroups } from "@/lib/questionnaire-digest";
 import { projectDisplayName, autoProjectName } from "@/lib/project-name";
 import { serviceTitle } from "@/lib/services-data";
-import type { ClientStep } from "@/lib/next-step";
+import { preparingForShoot, type ClientStep } from "@/lib/next-step";
 
 type Props = {
   record: ClientRecordSafe;
@@ -236,10 +228,7 @@ export default function PortalProjectView({
   const hasDates = !!record.secondaryDates?.length;
   // Prompts to prepare (the questionnaire, setting up a service) stop once the
   // project closed or the shoot is behind it.
-  const closed = CLIENT_STATUS_TERMINAL.includes(record.status as ClientStatus);
-  const shootDay = eventDay(record.eventDate);
-  const preparing =
-    !closed && statusRank(reachedStatus(stage)) < statusRank("shot") && (!shootDay || shootDay >= studioToday());
+  const preparing = preparingForShoot({ ...stage, status: record.status, eventDate: record.eventDate }, studioToday());
   const hasLocations = !!record.locations?.length;
   const shown = (record.documents ?? []).filter(
     (d) => !(isCollaborator && d.type === "timeline" && d.uploadedBy !== "client"),

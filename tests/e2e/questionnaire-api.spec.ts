@@ -1,5 +1,5 @@
 import { test, expect, hasTestStore } from "./support/fixtures";
-import { patchProject } from "./support/test-store";
+import { patchProject, readProject } from "./support/test-store";
 
 // Coverage for /api/questionnaire. The honeypot, a missing or unknown service,
 // and missing required fields all return before the route captures a client
@@ -121,4 +121,40 @@ test("questionnaire: a prospect keeps their status; a booked project moves on to
   await expect(adminPage.locator("#project-status")).toHaveValue("proposal-sent");
   await adminPage.goto(`/admin/projects/${booked.id}`);
   await expect(adminPage.locator("#project-status")).toHaveValue("planning");
+});
+
+// The answers are saved before the owner's alert goes, so the alert links to
+// the project, and they stay saved if the alert can't go out.
+test("questionnaire: the alert links to the project the answers were saved on, and a failed alert loses nothing", async ({
+  request,
+  adminRequest,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const email = `e2e-q-alert-${Date.now()}@example.com`;
+  const res = await adminRequest.post("/api/admin/create-project", {
+    data: { email, clientName: "E2E Questionnaire", serviceType: "portraiture", force: true },
+  });
+  const id = (await res.json()).id as string;
+
+  expect((await request.post("/api/questionnaire", { data: portraiture(email, id) })).status()).toBe(200);
+  const alert = (await fakes.calls("resend")).find(
+    (c) => c.path === "/emails" && [c.body?.to].flat().includes("owner@example.com"),
+  );
+  expect(String(alert?.body?.text)).toContain(`Open the project: `);
+  expect(String(alert?.body?.text)).toContain(`/admin/projects/${id}`);
+  expect(String(alert?.body?.html)).toContain(`/admin/projects/${id}`);
+  expect(String(alert?.body?.text)).not.toContain("named another project");
+  // The client's text is in Julian's voice.
+  const sms = (await fakes.calls("twilio")).find((c) => c.body?.To === "+17035550177");
+  expect(sms?.body?.Body).toBe(
+    "Thanks, E2E. Your portrait session questionnaire is in my inbox. I'll read it and reply within 48 hours. Julian",
+  );
+
+  // Every try of the alert fails: the visitor hears so, and the answers are kept.
+  await patchProject(id, { questionnaire_snapshot: null });
+  await fakes.script({ emailFailures: 3 });
+  const failed = await request.post("/api/questionnaire", { data: portraiture(email, id) });
+  expect(failed.status()).toBe(500);
+  expect((await readProject(id, "questionnaire_snapshot")).questionnaire_snapshot).toBeTruthy();
 });

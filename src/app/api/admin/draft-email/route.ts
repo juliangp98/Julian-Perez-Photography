@@ -59,9 +59,11 @@ export const POST = defineRoute({
     if (!record) return { ok: true, drafted: false };
 
     // The same tokens the compose panel fills, so links in the draft are real.
-    // One exception on the way to the model: the questionnaire link is prefilled
-    // with the client's email and phone, so the prompt carries the same form's
-    // address without them, and the real link is put back into the draft.
+    // One exception on the way to the model: the questionnaire link carries a
+    // key that opens the form with the client's details filled in, so the
+    // prompt carries the same form's address without it (in every token that
+    // holds the link, the questionnaire line included), and the real link is
+    // put back into the draft.
     const origin = originOf(req);
     const filled = await emailTokens(record, origin);
     const realQuestionnaireUrl = filled.questionnaireUrl;
@@ -73,9 +75,10 @@ export const POST = defineRoute({
       today: studioToday(),
       holdDays: service?.holdDays,
     });
+    const keyless = (v?: string) =>
+      v && realQuestionnaireUrl && bareQuestionnaireUrl ? v.replaceAll(realQuestionnaireUrl, bareQuestionnaireUrl) : v;
     const ctx: Record<string, string | undefined> = {
-      ...filled,
-      questionnaireUrl: bareQuestionnaireUrl,
+      ...Object.fromEntries(Object.entries(filled).map(([k, v]) => [k, keyless(v)])),
       holdUntil: formatHumanDate(hold) || undefined,
     };
     const withRealLinks = (text: string) =>

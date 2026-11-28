@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, hasTestStore } from "./support/fixtures";
+import { patchProject, testStore } from "./support/test-store";
 
 // Submits the public inquiry form and asserts the success screen. The emails
 // it sends go to the fake Resend (see playwright.config.ts).
@@ -88,4 +89,131 @@ test("inquiry form: phone / budget / date auto-format and a bad email flags", as
   await expect(
     page.getByText("Please enter a valid email address."),
   ).toBeVisible();
+});
+
+// A second inquiry from someone already on the books: on an open project it
+// goes on the thread as the client writing (the project keeps its first
+// message); after their project was archived or completed it starts a new
+// one; a lost lead's project still takes it.
+test.describe("a repeat inquiry", () => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+
+  // Each from its own address, so a rerun on a server still up stays under
+  // the inquiry limit.
+  let sent = 0;
+  const inquire = (request: import("@playwright/test").APIRequestContext, email: string, message: string) =>
+    request.post("/api/inquire", {
+      data: { name: "E2E Repeat", email, service: "newborn", message },
+      headers: { "x-forwarded-for": `10.253.${Math.floor(Math.random() * 250)}.${++sent}` },
+    });
+  const projects = async (email: string) => {
+    const { data } = await testStore()!
+      .from("client_records")
+      .select("id, status, inquiry_message")
+      .eq("email", email)
+      .order("created_at", { ascending: true });
+    return (data ?? []) as { id: string; status: string; inquiry_message: string }[];
+  };
+  const inquiries = async (projectId: string) => {
+    const { data } = await testStore()!
+      .from("client_messages")
+      .select("direction, kind, status, body_text, subject, from_addr")
+      .eq("project_id", projectId)
+      .eq("kind", "inquiry");
+    return data ?? [];
+  };
+
+  test("lands on the open project's thread as the client writing", async ({ request }) => {
+    const email = `e2e-repeat-${Date.now()}@example.com`;
+    expect((await inquire(request, email, "First message.")).status()).toBe(200);
+    expect((await inquire(request, email, "Second message, with a question.")).status()).toBe(200);
+    const [p, ...rest] = await projects(email);
+    expect(rest).toEqual([]);
+    expect(p.inquiry_message).toBe("First message.");
+    expect(await inquiries(p.id)).toEqual([
+      {
+        direction: "in",
+        kind: "inquiry",
+        status: "received",
+        body_text: "Second message, with a question.",
+        subject: "New inquiry: Newborn & First Year",
+        from_addr: email,
+      },
+    ]);
+    // It counts as the client writing last.
+    const { data: contact } = await testStore()!
+      .from("client_last_contact")
+      .select("last_in_at")
+      .eq("project_id", p.id)
+      .single();
+    expect(contact?.last_in_at).toBeTruthy();
+    // The first message again stores nothing new, and the repeat sent again
+    // (a retry, a double click) is kept once.
+    expect((await inquire(request, email, "First message.")).status()).toBe(200);
+    expect((await inquire(request, email, "Second message, with a question.")).status()).toBe(200);
+    expect(await inquiries(p.id)).toHaveLength(1);
+  });
+
+  test("after an archived project it starts a new one, and a lost lead's project takes it", async ({ request }) => {
+    const email = `e2e-repeat-closed-${Date.now()}@example.com`;
+    await inquire(request, email, "The first time.");
+    const [first] = await projects(email);
+    await patchProject(first.id, { status: "archived" });
+
+    await inquire(request, email, "Back again.");
+    const after = await projects(email);
+    expect(after).toHaveLength(2);
+    expect(after[1]).toMatchObject({ status: "new-inquiry", inquiry_message: "Back again." });
+    expect(await inquiries(first.id)).toEqual([]);
+
+    await patchProject(after[1].id, { status: "lost" });
+    await inquire(request, email, "Still interested.");
+    expect(await projects(email)).toHaveLength(2);
+    expect((await inquiries(after[1].id)).map((m) => m.body_text)).toEqual(["Still interested."]);
+  });
+});
+
+// A questionnaire sent without a project link lands on the open project for
+// that email and service, never on a completed one.
+test("a questionnaire without a project link goes to the open project, not last year's", async ({ request }) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const email = `e2e-repeat-q-${Date.now()}@example.com`;
+  const ip = () => ({ "x-forwarded-for": `10.254.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
+  await request.post("/api/inquire", {
+    data: { name: "E2E Again", email, service: "portraiture", message: "Last year." },
+    headers: ip(),
+  });
+  const { data: first } = await testStore()!.from("client_records").select("id").eq("email", email).single();
+  await patchProject(first!.id, { status: "complete", questionnaire_snapshot: '{"old":"answers"}' });
+  await request.post("/api/inquire", {
+    data: { name: "E2E Again", email, service: "portraiture", message: "This year." },
+    headers: ip(),
+  });
+  const res = await request.post("/api/questionnaire", {
+    headers: ip(),
+    data: {
+      service: "portraiture",
+      hp_company: "",
+      answers: {
+        fullName: "E2E Again",
+        email,
+        phone: "(703) 555-0177",
+        bookingStatus: "I'm strongly considering and want an accurate quote",
+        package: "Still deciding",
+        eventDate: "2027-05-02",
+        vibe: "Soft / outdoor / golden hour",
+        wardrobeHelp: "No",
+        locationPreference: "Outdoor only",
+      },
+    },
+  });
+  expect(res.status()).toBe(200);
+  const { data: rows } = await testStore()!
+    .from("client_records")
+    .select("id, questionnaire_snapshot")
+    .eq("email", email)
+    .order("created_at", { ascending: true });
+  expect(rows).toHaveLength(2);
+  expect(rows![0].questionnaire_snapshot).toBe('{"old":"answers"}');
+  expect(String(rows![1].questionnaire_snapshot)).toContain("Soft / outdoor / golden hour");
 });

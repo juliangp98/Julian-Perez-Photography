@@ -76,7 +76,7 @@ export default function PortalMessageBox({
         </Button>
         <FormStatus
           state={state === "sent" ? "ok" : state}
-          ok="Sent. Julian gets it by email too."
+          ok="Sent. I'll see it in my email too."
           error={error}
         />
       </div>

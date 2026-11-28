@@ -30,6 +30,7 @@ import { heldUntil, planSendEffects, type SendEffectsPlan } from "@/lib/email/se
 import { getAnyService } from "@/lib/content";
 import { serviceTitle } from "@/lib/services-data";
 import { projectLink, projectLinks } from "@/lib/project-links";
+import { formKey } from "@/lib/form-key";
 import { ownerNextStep, sentTemplates } from "@/lib/next-step";
 import DeleteProjectButton from "@/components/admin/DeleteProjectButton";
 import AdminCollaborators from "@/components/admin/AdminCollaborators";
@@ -125,7 +126,7 @@ export default async function AdminProjectDetailPage({
   // The conversation as the board counts it: when each side last wrote, and
   // the templates that have gone out (one whose email bounced or failed
   // doesn't count).
-  const conversation = messages.filter(isConversation);
+  const conversation = messages.filter((m) => isConversation(m, record?.email));
   const lastInAt = conversation.filter((m) => m.direction === "in").at(-1)?.sentAt;
   const lastOutAt = conversation.filter((m) => m.direction === "out").at(-1)?.sentAt;
   const sent = sentTemplates(messages.map(sentEmail), record?.statusHistory);
@@ -146,7 +147,7 @@ export default async function AdminProjectDetailPage({
   // project, prefilled with what's known. Service known → its questionnaire;
   // undecided → the inquiry (which sets the service on submit). A service with
   // no questionnaire has neither.
-  const links = record ? projectLinks(record, origin) : null;
+  const links = record ? projectLinks(record, origin, { formKey: formKey(record.id) }) : null;
   const completionUrl = links?.questionnaireUrl ?? links?.inquireUrl;
   // The link a Compose template would carry for each kind that has a template:
   // the entries that offer "Tell the client".
@@ -264,6 +265,7 @@ export default async function AdminProjectDetailPage({
                   messages={messages}
                   viewer="owner"
                   clientLabel={record.clientName || record.email || "Client"}
+                  clientEmail={record.email}
                 />
                 {filingAddress && (
                   <div className="mt-4">

@@ -218,8 +218,199 @@ test.describe("the thread against the test store", () => {
     // Writing from the page itself: confirmed, and on the thread without a reload.
     await page.getByPlaceholder("Write to Julian…").fill("Can we start at four?");
     await page.getByRole("button", { name: "Send", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Sent. Julian gets it by email too." })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Sent. I'll see it in my email too." })).toBeVisible();
     await expect(thread.getByText("Can we start at four?")).toBeVisible();
+  });
+
+  test("mail from julian@ is the owner's: relayed when verified, held when not, filed from log+, and the site's own is dropped", async ({
+    adminRequest,
+    adminPage,
+    fakes,
+  }) => {
+    const p = await startThread(adminRequest, fakes);
+    const julian = "Julian Perez <julian@julianperezphotography.com>";
+    const signed = { "Authentication-Results": "mx; dkim=pass header.d=julianperezphotography.com" };
+    await receive(adminRequest, fakes, p, { from: julian, text: "From the studio address.", headers: signed });
+    let toClient = sentTo(await fakes.calls("resend"), p.email);
+    expect(toClient.at(-1)?.body?.text).toBe("From the studio address.");
+
+    // The site's own mail looping back: the marker header, or the alerts sender.
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      text: "A copy of a site email.",
+      headers: { ...signed, "X-JPP-Sent-By": "site" },
+    });
+    await receive(adminRequest, fakes, p, {
+      from: "Julian Perez Photography <noreply@julianperezphotography.com>",
+      text: "An alert answered by a rule.",
+      headers: { "Authentication-Results": "mx; dkim=pass header.d=julianperezphotography.com" },
+    });
+    toClient = sentTo(await fakes.calls("resend"), p.email);
+    expect(toClient.map((c) => c.body?.text)).not.toContain("A copy of a site email.");
+    expect(toClient.map((c) => c.body?.text)).not.toContain("An alert answered by a rule.");
+    expect(sentTo(await fakes.calls("resend"), OWNER)).toHaveLength(0);
+
+    // Sent as julian@ through Gmail's own servers: held for a click.
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      text: "Through Gmail.",
+      headers: { "Authentication-Results": "mx; dkim=pass header.d=gmail.com" },
+    });
+    expect(sentTo(await fakes.calls("resend"), p.email).map((c) => c.body?.text)).not.toContain("Through Gmail.");
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
+    const held = adminPage.getByRole("listitem").filter({ hasText: "Through Gmail." });
+    await expect(held.getByRole("button", { name: /send it to the client/i })).toBeVisible();
+
+    // Forwarded from julian@ to the filing address: filed, nothing sent.
+    const sends = sentTo(await fakes.calls("resend"), p.email).length;
+    await receive(adminRequest, fakes, p, {
+      from: julian,
+      to: [p.replyAddress.replace("reply+", "log+")],
+      text: "Filed from the studio address.",
+      headers: signed,
+    });
+    expect(sentTo(await fakes.calls("resend"), p.email)).toHaveLength(sends);
+    await adminPage.reload();
+    const filed = adminPage.getByRole("listitem").filter({ hasText: "Filed from the studio address." });
+    await expect(filed).toContainText("Filed from Gmail");
+  });
+
+  test("a second photographer's reply is the owner's alone, named by its sender", async ({
+    adminRequest,
+    adminPage,
+    portalRequest,
+    page,
+    fakes,
+  }) => {
+    const p = await startThread(adminRequest, fakes);
+    const second = `e2e-second-${Date.now()}@example.com`;
+    const added = await adminRequest.post("/api/admin/collaborators", {
+      data: { action: "add", projectId: p.id, email: second, sendInvite: false },
+    });
+    expect(added.status()).toBe(200);
+    await receive(adminRequest, fakes, p, { from: `Second Shooter <${second}>`, text: "Shot list looks good." });
+    // Forwarded to the owner as a known sender, not held.
+    const [forward] = sentTo(await fakes.calls("resend"), OWNER).slice(-1);
+    expect(forward.body?.subject).not.toMatch(/^\[Held for review\]/);
+
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
+    const row = adminPage.getByRole("listitem").filter({ hasText: "Shot list looks good." });
+    await expect(row).toContainText("Second Shooter");
+    await expect(row).toContainText("Not shown to the client");
+
+    const client = await portalRequest(p.email);
+    await page.context().addCookies(await client.storageState().then((s) => s.cookies));
+    await page.goto(`/portal/projects/${p.id}`);
+    await expect(page.getByRole("list", { name: "Messages" }).getByText("Opening note")).toBeVisible();
+    await expect(page.getByText("Shot list looks good.")).toHaveCount(0);
+  });
+
+  test("every send carries the site's marker, and comes from Julian", async ({ adminRequest, fakes }) => {
+    const p = await startThread(adminRequest, fakes);
+    const [send] = sentTo(await fakes.calls("resend"), p.email);
+    expect(send.body?.from).toBe("Julian Perez <julian@julianperezphotography.com>");
+    expect((send.body?.headers as Record<string, string>)["X-JPP-Sent-By"]).toBe("site");
+  });
+
+  test("a send's Message-ID is recorded from its events, and the next send replies to it", async ({
+    adminRequest,
+    fakes,
+  }) => {
+    const p = await startThread(adminRequest, fakes);
+    await post(adminRequest, { ...deliveryEvent("email.sent", p.resendId), data: { ...deliveryEvent("email.sent", p.resendId).data, message_id: "<first@resend.example>" } });
+    // A later event can't replace it.
+    await post(adminRequest, { ...deliveryEvent("email.delivered", p.resendId), data: { ...deliveryEvent("email.delivered", p.resendId).data, message_id: "<other@resend.example>" } });
+    const again = await adminRequest.post("/api/admin/send-email", {
+      data: { projectId: p.id, subject: "Second note", body: "One more thing." },
+    });
+    expect(again.status()).toBe(200);
+    const [second] = sentTo(await fakes.calls("resend"), p.email).slice(-1);
+    const headers = second.body?.headers as Record<string, string>;
+    expect(headers["In-Reply-To"]).toBe("<first@resend.example>");
+    expect(headers.References).toBe("<first@resend.example>");
+  });
+
+  test("mail filed from a vendor stays the owner's, named by its sender, and Julian's filed mail shows only when it was to the client", async ({
+    adminRequest,
+    adminPage,
+    portalRequest,
+    page,
+    fakes,
+  }) => {
+    const p = await startThread(adminRequest, fakes);
+    const forwarded = [
+      "---------- Forwarded message ---------",
+      "From: Riverside Venue <events@venue.test>",
+      "Date: Mon, Nov 17, 2026 at 3:04 PM",
+      "Subject: Load-in times",
+      `To: <admin@example.com>`,
+      "",
+      "Vendors load in at noon.",
+      "",
+      "---------- Forwarded message ---------",
+      "From: Julian <admin@example.com>",
+      "Date: Mon, Nov 17, 2026 at 4:00 PM",
+      "Subject: Re: Load-in times",
+      "To: <events@venue.test>",
+      "",
+      "Noon works for me.",
+      "",
+      "---------- Forwarded message ---------",
+      "From: Julian <admin@example.com>",
+      "Date: Mon, Nov 17, 2026 at 5:00 PM",
+      "Subject: Your timeline",
+      `To: Avery <${p.email}>`,
+      "",
+      "Your timeline is set.",
+    ].join("\n");
+    await receive(adminRequest, fakes, p, {
+      from: "admin@example.com",
+      to: [p.replyAddress.replace("reply+", "log+")],
+      text: forwarded,
+      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+    });
+
+    await adminPage.goto(`/admin/projects/${p.id}?tab=messages`);
+    const admin = adminPage.getByRole("list", { name: "Messages" });
+    const vendor = admin.getByRole("listitem").filter({ hasText: "Vendors load in at noon." });
+    await expect(vendor).toContainText("Riverside Venue");
+    await expect(vendor).toContainText("Not shown to the client");
+
+    const client = await portalRequest(p.email);
+    await page.context().addCookies(await client.storageState().then((s) => s.cookies));
+    await page.goto(`/portal/projects/${p.id}`);
+    const thread = page.getByRole("list", { name: "Messages" });
+    await expect(thread.getByText("Your timeline is set.")).toBeVisible();
+    await expect(thread.getByText("Vendors load in at noon.")).toHaveCount(0);
+    await expect(thread.getByText("Noon works for me.")).toHaveCount(0);
+  });
+
+  test("an answer to a portal alert reaches the client under the thread's subject, and its link is a link", async ({
+    adminRequest,
+    portalRequest,
+    page,
+    fakes,
+  }) => {
+    const p = await startThread(adminRequest, fakes);
+    const client = await portalRequest(p.email);
+    await client.post("/api/portal/messages", { data: { projectId: p.id, body: "Where do we park?" } });
+    await receive(adminRequest, fakes, p, {
+      from: "admin@example.com",
+      text: "The lot is behind the barn: https://maps.example.com/barn.",
+      headers: { "Authentication-Results": "mx; dkim=pass header.d=example.com" },
+      subject: "Re: New message on E2E Thread",
+    });
+    const [relay] = sentTo(await fakes.calls("resend"), p.email).slice(-1);
+    expect(relay.body?.subject).toBe("Re: Opening note");
+    // The branded email links the address without the full stop.
+    expect(String(relay.body?.html)).toContain('href="https://maps.example.com/barn"');
+
+    await page.context().addCookies(await client.storageState().then((s) => s.cookies));
+    await page.goto(`/portal/projects/${p.id}`);
+    await expect(page.getByRole("link", { name: "https://maps.example.com/barn", exact: true })).toHaveAttribute(
+      "href",
+      "https://maps.example.com/barn",
+    );
   });
 });
 
@@ -254,13 +445,13 @@ let inboundSeq = 0;
 async function seedInbound(
   fakes: { inbound: (e: Record<string, unknown>) => Promise<void> },
   p: Thread,
-  m: { from: string; text: string; to?: string[]; headers?: Record<string, string> },
+  m: { from: string; text: string; to?: string[]; headers?: Record<string, string>; subject?: string },
 ) {
   const email = {
     id: `in-${Date.now()}-${++inboundSeq}`,
     from: m.from,
     to: m.to ?? [p.replyAddress],
-    subject: "Re: Opening note",
+    subject: m.subject ?? "Re: Opening note",
     text: m.text,
     html: null,
     headers: m.headers ?? {},
@@ -276,7 +467,7 @@ async function receive(
   request: APIRequestContext,
   fakes: { inbound: (e: Record<string, unknown>) => Promise<void> },
   p: Thread,
-  m: { from: string; text: string; to?: string[]; headers?: Record<string, string> },
+  m: { from: string; text: string; to?: string[]; headers?: Record<string, string>; subject?: string },
 ) {
   await post(request, receivedEvent(await seedInbound(fakes, p, m)));
 }

@@ -12,6 +12,7 @@ import { getSiteSettings } from "@/lib/content";
 import { heldUntil } from "@/lib/email/send-effects";
 import { studioToday } from "@/lib/field-format";
 import { planningCallFor, projectLinks } from "@/lib/project-links";
+import { formKey } from "@/lib/form-key";
 import { clientNextStep } from "@/lib/next-step";
 import { aiEnabled } from "@/lib/ai/ai";
 import type { PaymentMethod } from "@/lib/labels";
@@ -42,12 +43,12 @@ export async function clientViewProps(record: ClientRecordSafe, viewerRole: Port
   const [settings, messages, facts] = await Promise.all([
     getSiteSettings(),
     // A second photographer doesn't see the client's thread.
-    viewerRole === "owner" ? listProjectMessages(record.id, { clientView: true }) : Promise.resolve([]),
+    viewerRole === "owner" ? listProjectMessages(record.id, { clientView: { email: record.email } }) : Promise.resolve([]),
     portalStageFacts([{ id: record.id, viewerRole, status: record.status }]),
   ]);
   // In-app links (no origin): the prefilled questionnaire, or the inquiry for
   // a project with no service yet.
-  const links = projectLinks(record, "");
+  const links = projectLinks(record, "", { formKey: formKey(record.id) });
   const stage = facts.get(record.id) ?? { status: record.status };
   // A hold stops showing once the date is being reserved.
   const hold = stage.reserving ? undefined : heldUntil(record, undefined, today);

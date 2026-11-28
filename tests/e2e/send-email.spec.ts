@@ -177,6 +177,16 @@ test("compose: a proposal shows what sending does, names the running hold, and c
     ),
   ).toBeVisible();
 
+  // Nothing goes while anything is left in brackets: the template's prompts
+  // (and any token the project has no value for) are named.
+  await page.getByRole("button", { name: "Send to client" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Fill these in first: " })).toContainText(
+    "[One line calling back to something they said on the call.]",
+  );
+  const filled = (await body.inputValue()).replace(/\[[^\[\]\n]{1,200}\]/g, "filled in");
+  await body.fill(filled);
+  const subject = page.getByRole("textbox", { name: "Subject" });
+  await subject.fill((await subject.inputValue()).replace(/\[[^\[\]\n]{1,200}\]/g, "filled in"));
   await page.getByRole("button", { name: "Send to client" }).click();
   const confirmation = page.getByRole("status").filter({ hasText: "Sent to the client." });
   await expect(confirmation).toContainText("Now Proposal sent.");
@@ -189,4 +199,24 @@ test("compose: a proposal shows what sending does, names the running hold, and c
   await client.goto(`/portal/projects/${p.id}`);
   await expect(client.getByText("Date held until")).toBeVisible();
   await expect(client.getByText(formatHumanDate(hold), { exact: true })).toBeVisible();
+});
+
+// The site never mails its own reply addresses: a project whose email on file
+// is one would send the email straight back in, and round again.
+test("send-email: a project whose email is one of the site's own reply addresses isn't mailed", async ({
+  adminRequest: request,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const own = `reply+e2e${Date.now()}@in.example.test`;
+  const created = await request.post("/api/admin/create-project", {
+    data: { email: own, clientName: "E2E Own Address", serviceType: "weddings", force: true },
+  });
+  const { id } = await created.json();
+  const res = await request.post("/api/admin/send-email", {
+    data: { projectId: id, subject: "Hello", body: "A note." },
+  });
+  expect(res.status()).toBe(502);
+  expect((await res.json()).error).toBe("Not sent: it was addressed to one of the site's own reply addresses.");
+  expect((await fakes.calls("resend")).filter((c) => c.path === "/emails" && [c.body?.to].flat().includes(own))).toEqual([]);
 });

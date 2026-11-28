@@ -69,7 +69,7 @@ export const POST = defineRoute({
         to: email,
         subject: "Your sign-in link | Julian Perez Photography",
         html,
-        text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes and can only be used once. If you didn't request it, ignore this email.`,
+        text: `Your secure sign-in link for the Julian Perez Photography client portal:\n\n${link}\n\nThis link expires in 20 minutes. If you didn't ask for it, you can ignore this email.`,
       });
     } catch (err) {
       Sentry.captureException(err, { tags: { route: "portal/request-link", stage: "send" } });

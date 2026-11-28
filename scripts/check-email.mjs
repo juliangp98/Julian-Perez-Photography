@@ -16,7 +16,7 @@ if (!key) {
   process.exit(1);
 }
 const resend = new Resend(key);
-const from = process.env.RESEND_FROM || "Julian Perez Photography <noreply@julianperezphotography.com>";
+const from = process.env.RESEND_FROM || "Julian Perez <julian@julianperezphotography.com>";
 const sendingDomain = (from.match(/@([^>\s]+)/)?.[1] ?? "").toLowerCase();
 const inboundDomain = process.env.RESEND_INBOUND_DOMAIN?.toLowerCase();
 let failures = 0;

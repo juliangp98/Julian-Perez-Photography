@@ -163,8 +163,8 @@ export const SITE_SERVICES: { title: string; links: ServiceLink[] }[] = [
       {
         label: "Resend",
         href: "https://resend.com/overview",
-        desc: "Every email the site sends: domains, API keys and delivery activity.",
-        settings: ["RESEND_API_KEY"],
+        desc: "Every email the site sends: domains, API keys and delivery activity, and the receiving domain and webhook that put replies on each project's thread.",
+        settings: ["RESEND_API_KEY", "RESEND_INBOUND_DOMAIN", "RESEND_WEBHOOK_SECRET"],
       },
       {
         label: "Twilio console",

@@ -49,6 +49,7 @@ export async function emailOwner(email: {
     `${email.cta.label.replace(/\s*→$/, "")}: ${email.cta.href}`,
   ].join("\n\n");
   await sendEmail({
+    sender: "site",
     to: ownerAddress(settings),
     subject: email.subject,
     html,
@@ -86,16 +87,18 @@ export async function sendCollaboratorInviteEmail(opts: {
   inviteLink: string;
 }): Promise<void> {
   const settings = await getSiteSettings();
+  const signIn = `${new URL(opts.inviteLink).origin}/portal`;
   const lines = [
-    `Julian has shared the project "${opts.projectName}" with you for second-photographer access.`,
-    "Sign in to view the shoot details, key dates, documents, and the couple's planning notes: everything you need to show up prepared. The button below signs you straight in.",
+    `I've shared the project "${opts.projectName}" with you for second-photographer access.`,
+    "Sign in to see the shoot details, key dates, documents and the client's planning notes: everything you need to show up prepared. The button below signs you straight in.",
   ];
+  const expiry = `This sign-in link expires in 20 minutes. For a fresh one, sign in at ${signIn}.`;
   const html = await render(
     BrandedEmailLayout({
       preview: `${settings.siteName} shared a project with you`,
       children: NotificationEmailTemplate({
         heading: "You've been added to a shoot",
-        lines,
+        lines: [...lines, expiry],
         cta: { label: "Open the project →", href: opts.inviteLink },
       }),
     }),
@@ -105,6 +108,6 @@ export async function sendCollaboratorInviteEmail(opts: {
     to: opts.to,
     subject: `${settings.siteName} shared "${opts.projectName}" with you`,
     html,
-    text: `${lines.join("\n\n")}\n\nOpen the project: ${opts.inviteLink}\n\nThis sign-in link expires in 20 minutes; you can always request a fresh one at the portal sign-in page.`,
+    text: `${lines.join("\n\n")}\n\nOpen the project: ${opts.inviteLink}\n\n${expiry}`,
   });
 }
