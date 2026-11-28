@@ -106,6 +106,6 @@ export function withoutContacts(text: string): string {
 // of the conversation (see isConversation) and the questionnaire. Any of them
 // changing makes it out of date.
 export function callGuideBasisText(record: ClientRecordFull, messages: ClientMessage[]): string {
-  const newest = messages.filter(isConversation).at(-1)?.id;
+  const newest = messages.filter((m) => isConversation(m, record.email)).at(-1)?.id;
   return [record.inquiryMessage ?? "", newest ?? "", record.questionnaireSnapshot ?? ""].join("\u0000");
 }

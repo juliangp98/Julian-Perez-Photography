@@ -118,7 +118,7 @@ function Emails() {
     <div className="mt-8 space-y-10">
       <p className="text-sm text-muted">
         {
-          "Every email template, grouped by stage, as Compose starts it. Tokens like {{firstName}} fill in from the project, and the [brackets] are yours to finish. To send one, open the project and use Compose on its Messages tab."
+          "Every email template, grouped by stage, as Compose starts it. Tokens like {{firstName}} fill in from the project, and the [brackets] are yours to finish before it sends. A line holding only {{questionnaireNudge}} or {{paymentInstructions}} is left out when there's nothing for it: the questionnaire once it's back, how to pay while no invoice is open. To send one, open the project and use Compose on its Messages tab."
         }
       </p>
       {GROUPED_TEMPLATES.map((g, i) => (

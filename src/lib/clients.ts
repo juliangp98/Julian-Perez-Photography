@@ -540,6 +540,28 @@ export async function listStageFacts(
 // fill blank fields + bump the timestamp (never clobber a curated field or an
 // advanced status). New projects start at `new-inquiry`. Says which project,
 // and whether it now holds this message.
+// The project a form from this email belongs to, for this service (or with
+// none): one still open, the newest first, a lost lead's after any other (the
+// check-in worked). Archived, declined and completed projects are left out, so
+// a client coming back starts a new one rather than writing over the last.
+// `select` must name the status.
+async function openProjectFor<T extends { status?: string }>(
+  select: string,
+  email: string,
+  service?: string,
+): Promise<T | undefined> {
+  let match = db()
+    .from(TABLE)
+    .select(select)
+    .eq("email", email)
+    .or("status.is.null,status.not.in.(archived,declined,complete)");
+  match = service ? match.eq("service_type", service) : match.is("service_type", null);
+  const { data, error } = await match.order("updated_at", { ascending: false }).limit(10);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as T[];
+  return rows.find((r) => r.status !== "lost") ?? rows[0];
+}
+
 export async function upsertClientFromInquiry(input: {
   name: string;
   email: string;
@@ -553,15 +575,16 @@ export async function upsertClientFromInquiry(input: {
   // When set (a manually-created project's completion link), attach to that
   // exact project rather than matching by email+service.
   projectId?: string;
-}): Promise<{ id: string; messageStored: boolean } | null> {
+}): Promise<{ id: string; messageStored: boolean; existed: boolean } | null> {
   if (!isClientsStoreConfigured()) return null;
   const email = normalizeEmail(input.email);
   const ts = nowIso();
 
   const FILL =
-    "id, email, client_name, phone, service_type, event_date, budget, referral, inquiry_message";
+    "id, email, client_name, phone, service_type, event_date, budget, referral, inquiry_message, status";
   type FillRow = {
     id: string;
+    status?: string;
     email?: string;
     client_name?: string;
     phone?: string;
@@ -585,16 +608,8 @@ export async function upsertClientFromInquiry(input: {
     if (row && (!row.email || normalizeEmail(row.email) === email)) existing = row;
   }
 
-  // Otherwise dedup by email + service, as before.
-  if (!existing) {
-    let match = db().from(TABLE).select(FILL).eq("email", email);
-    match = input.service
-      ? match.eq("service_type", input.service)
-      : match.is("service_type", null);
-    const { data: existingRows, error: selErr } = await match.limit(1);
-    if (selErr) throw selErr;
-    existing = existingRows?.[0] as FillRow | undefined;
-  }
+  // Otherwise dedup by email + service, on a project still open.
+  if (!existing) existing = await openProjectFor<FillRow>(FILL, email, input.service);
 
   if (existing?.id) {
     const patch: Record<string, unknown> = { updated_at: ts };
@@ -615,7 +630,7 @@ export async function upsertClientFromInquiry(input: {
         existing.inquiry_message.trim() === input.message.trim());
     const { error } = await db().from(TABLE).update(patch).eq("id", existing.id);
     if (error) throw error;
-    return { id: existing.id as string, messageStored };
+    return { id: existing.id as string, messageStored, existed: true };
   }
 
   const locations = input.location
@@ -644,7 +659,7 @@ export async function upsertClientFromInquiry(input: {
     .select("id")
     .single();
   if (error) throw error;
-  return { id: data.id as string, messageStored: !!input.message };
+  return { id: data.id as string, messageStored: !!input.message, existed: false };
 }
 
 // Manually create a project stub (admin or client portal). No dedup here — the
@@ -747,17 +762,9 @@ export async function attachQuestionnaire(input: {
     if (row && (!row.email || normalizeEmail(row.email) === email)) existing = row;
   }
 
-  // Otherwise match the project for this service (so an engagement questionnaire
-  // attaches to the engagement project, not a wedding one).
-  if (!existing) {
-    let match = db().from(TABLE).select(SEL).eq("email", email);
-    match = input.service
-      ? match.eq("service_type", input.service)
-      : match.is("service_type", null);
-    const { data: existingRows, error: selErr } = await match.limit(1);
-    if (selErr) throw selErr;
-    existing = existingRows?.[0] as QRow | undefined;
-  }
+  // Otherwise match the open project for this service (so an engagement
+  // questionnaire attaches to the engagement project, not a wedding one).
+  if (!existing) existing = await openProjectFor<QRow>(SEL, email, input.service);
 
   // Sync the structured answers the client gave back onto the record so the
   // portal + admin reflect them without re-entry — one canonical value per

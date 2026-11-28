@@ -84,3 +84,27 @@ test("admin collaborators: granting access on a project confirms and lists them"
   // The list comes from the server: it shows the new address without a reload.
   await expect(adminPage.getByRole("listitem").filter({ hasText: second })).toBeVisible();
 });
+
+test("admin collaborators: the invite is in Julian's voice and says where to get a fresh link", async ({
+  adminRequest,
+  fakes,
+}) => {
+  test.skip(!hasTestStore, "needs the test Supabase project in .env.test");
+  const stamp = Date.now();
+  const created = await adminRequest.post("/api/admin/create-project", {
+    data: { email: `e2e-invite-${stamp}@example.com`, clientName: "E2E Invite", serviceType: "newborn", force: true },
+  });
+  const { id } = await created.json();
+  const second = `e2e-invited-${stamp}@example.com`;
+  const res = await adminRequest.post("/api/admin/collaborators", {
+    data: { action: "add", projectId: id, email: second, sendInvite: true },
+  });
+  expect(res.status()).toBe(200);
+  const invite = (await fakes.calls("resend")).find((c) => c.path === "/emails" && [c.body?.to].flat().includes(second));
+  const text = String(invite?.body?.text);
+  expect(text).toContain("I've shared the project");
+  expect(text).toContain("the client's planning notes");
+  expect(text).not.toContain("couple");
+  expect(text).toMatch(/This sign-in link expires in 20 minutes\. For a fresh one, sign in at https?:\/\/[^\s]+\/portal\./);
+  expect(String(invite?.body?.html)).toContain("expires in 20 minutes");
+});

@@ -7,6 +7,7 @@ import {
 import { getService, getSiteSettings } from "@/lib/content";
 import { aiEnabled } from "@/lib/ai/ai";
 import QuestionnaireForm from "@/components/forms/QuestionnaireForm";
+import { knownDetails } from "@/lib/form-key";
 import { SITE_URL } from "@/lib/site-settings-data";
 import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 
@@ -53,16 +54,18 @@ export default async function QuestionnairePage({
     getSiteSettings(),
   ]);
 
-  // Carry query params into prefill, preserving arrays (repeated keys) so
-  // multi-select / checkbox answers round-trip through cross-prefill — not just
-  // single-value fields.
-  const prefill: Record<string, string | string[]> = {};
+  // A project's link (?project=&key=) opens with what the project knows about
+  // the client, read here (src/lib/form-key.ts). Query params prefill too, so
+  // an older link and a bundle's cross-prefill still work; arrays (repeated
+  // keys) carry multi-select answers.
+  const projectId = typeof sp.project === "string" ? sp.project : undefined;
+  const key = typeof sp.key === "string" ? sp.key : undefined;
+  const prefill: Record<string, string | string[]> = { ...(await knownDetails(projectId, key, "questionnaire")) };
   for (const [k, v] of Object.entries(sp)) {
-    if (k === "project") continue; // threaded separately as projectId
+    if (k === "project" || k === "key") continue; // threaded separately
     if (typeof v === "string") prefill[k] = v;
     else if (Array.isArray(v)) prefill[k] = v;
   }
-  const projectId = typeof sp.project === "string" ? sp.project : undefined;
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">

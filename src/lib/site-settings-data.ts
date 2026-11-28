@@ -15,6 +15,10 @@ import type { SiteSettings } from "./types";
 // email footer, the global error page, and this fallback.
 export const CONTACT_EMAIL = "julian@julianperezphotography.com";
 
+// How soon Julian answers a new inquiry or questionnaire, as every page,
+// email and text promises it.
+export const REPLY_WITHIN = "within 48 hours";
+
 // The site's own address, with no trailing slash: canonical URLs, the sitemap,
 // structured data, and links in emails sent outside a request (the morning
 // email), where the address the request reached isn't the site's.

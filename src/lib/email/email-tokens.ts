@@ -1,8 +1,11 @@
 import { eventMonthYear, formatEventDate, formatHumanDate, studioToday } from "@/lib/field-format";
 import { projectDisplayName, serviceNoun } from "@/lib/project-name";
-import { openInvoice, projectLinks } from "@/lib/project-links";
+import { openInvoice, planningCallFor, projectLinks } from "@/lib/project-links";
+import { formKey } from "@/lib/form-key";
 import { paymentMethodLabel, type PaymentMethod } from "@/lib/labels";
-import { getAnyService, getSiteSettings } from "@/lib/content";
+import { getAnyService, getSiteSettings, getVisiblePortfolios } from "@/lib/content";
+import { questionnaireOutstanding } from "@/lib/next-step";
+import { sampleGalleryFor } from "@/lib/services-data";
 import { heldUntil } from "@/lib/email/send-effects";
 import type { ClientRecordFull } from "@/lib/clients";
 import type { EmailToken } from "@/lib/email/email-pipeline";
@@ -16,15 +19,18 @@ export async function emailTokens(
   record: ClientRecordFull,
   origin: string,
 ): Promise<Record<EmailToken, string | undefined>> {
-  const [settings, service] = await Promise.all([
+  const [settings, service, portfolios] = await Promise.all([
     getSiteSettings(),
     record.serviceType ? getAnyService(record.serviceType) : undefined,
+    getVisiblePortfolios(),
   ]);
-  const links = projectLinks(record, origin);
+  const today = studioToday();
+  const links = projectLinks(record, origin, { formKey: formKey(record.id) });
+  const invoice = openInvoice(record, today);
   const pkg = service?.packages.find((p) => p.name === record.package);
   // Only a hold that's running: the one a template would start depends on the
   // template (holdUntilFor in send-effects.ts), so Compose and the drafter add it.
-  const hold = heldUntil(record, undefined, studioToday());
+  const hold = heldUntil(record, undefined, today);
   return {
     firstName: record.clientName?.trim().split(/\s+/)[0],
     clientName: record.clientName,
@@ -42,7 +48,7 @@ export async function emailTokens(
     proposalUrl: links.proposalUrl,
     contractUrl: links.contractUrl,
     invoiceUrl: links.invoiceUrl,
-    invoiceDueDate: formatHumanDate(openInvoice(record, studioToday())?.dueAt) || undefined,
+    invoiceDueDate: formatHumanDate(invoice?.dueAt) || undefined,
     highlightsUrl: links.highlightsUrl,
     galleryUrl: links.galleryUrl,
     timelineUrl: links.timelineUrl,
@@ -56,16 +62,28 @@ export async function emailTokens(
           .join(", ")
       : undefined,
     packageInclusions: pkg?.inclusions.map((i) => `- ${i}`).join("\n"),
-    // Booking terms: the service's sample gallery and retainer, and the date
-    // hold that's running.
-    sampleGalleryUrl: service?.sampleGalleryUrl,
+    // Booking terms: a gallery of the work (Studio's sample gallery, else the
+    // service's portfolio page), the retainer, and the date hold that's running.
+    sampleGalleryUrl: sampleGalleryFor(service, portfolios),
     retainerPercent:
       service?.retainerPercent != null ? String(service.retainerPercent) : undefined,
     holdUntil: hold ? formatHumanDate(hold.until) : undefined,
-    // How this client is paying, and the how-to-pay line for that method.
+    // How this client is paying, and the how-to-pay line for that method
+    // while an invoice of Julian's is open (an optional line otherwise left out).
     paymentMethod: paymentMethodLabel(record.paymentMethod) || undefined,
-    paymentInstructions: record.paymentMethod
-      ? settings.paymentInstructions[record.paymentMethod as PaymentMethod]
-      : undefined,
+    paymentInstructions:
+      invoice && record.paymentMethod
+        ? settings.paymentInstructions[record.paymentMethod as PaymentMethod]
+        : undefined,
+    // Every client email before the shoot asks for the questionnaire while it
+    // isn't back (an optional line, left out once it is).
+    questionnaireNudge:
+      links.questionnaireUrl &&
+      questionnaireOutstanding(record, { today, hasQuestionnaire: true })
+        ? `When you have a few minutes, the planning questionnaire helps me prepare, and it's already filled in with what I have: ${links.questionnaireUrl}`
+        : undefined,
+    // The call that plans the shoot: the timeline call for a wedding or its
+    // film, the planning call otherwise.
+    planningCallUrl: planningCallFor(record.serviceType, settings.calls).url || undefined,
   };
 }

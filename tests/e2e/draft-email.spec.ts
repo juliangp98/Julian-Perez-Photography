@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+import { AUTH_SECRET } from "./support/auth-secret";
 import { test, expect, hasTestStore } from "./support/fixtures";
 
 // AI email drafting (/api/admin/draft-email). The owner picks a pipeline
@@ -53,7 +55,7 @@ test("draft-email: accepts a well-formed request, no-ops without an AI key", asy
 });
 
 
-test("draft-email: the model never gets the client's email or phone, and the draft keeps the prefilled link", async ({
+test("draft-email: the model never gets the client's email, phone or the link's key, and the draft keeps the keyed link", async ({
   adminRequest: request,
   fakes,
   baseURL,
@@ -75,14 +77,32 @@ test("draft-email: the model never gets the client's email or phone, and the dra
   const draft = await res.json();
   expect(draft.drafted).toBe(true);
 
-  // What went to the provider: the form's address, none of the contact details.
+  // What went to the provider: the form's address, without its key or any of
+  // the contact details (the questionnaire line carries the link too).
   const sent = JSON.stringify((await fakes.calls("ai")).map((c) => c.body));
   expect(sent).toContain(bare);
+  expect(sent).not.toContain("key=");
   expect(sent).not.toContain(email);
   expect(sent).not.toContain(encodeURIComponent(email));
   expect(sent).not.toContain("555-0142");
   expect(sent).not.toContain("5550142");
 
-  // What comes back to Compose: the link a client can open already filled in.
-  expect(draft.body).toContain(`${bare}&fullName=E2E+Draft&email=${encodeURIComponent(email)}`);
+  // What comes back to Compose: the keyed link, which opens the form with
+  // their details, and still carries none of them.
+  const key = createHmac("sha256", AUTH_SECRET).update(`form:${id}`).digest("hex").slice(0, 16);
+  expect(draft.body).toContain(`${bare}&key=${key}`);
+  expect(draft.body).not.toContain(encodeURIComponent(email));
+
+  // The questionnaire line in a template the client gets before the shoot
+  // carries the link too, without its key on the way to the model.
+  await fakes.script({
+    replies: [`Subject: Your wedding inquiry\n\nHi,\n\nThe planning questionnaire helps me prepare: ${bare}\n\nJulian`],
+  });
+  const before = (await fakes.calls("ai")).length;
+  const reply = await request.post("/api/admin/draft-email", { data: { projectId: id, templateId: "inquiry-reply" } });
+  const replied = await reply.json();
+  const asked = JSON.stringify((await fakes.calls("ai")).slice(before).map((c) => c.body));
+  expect(asked).toContain(`already filled in with what I have: ${bare}`);
+  expect(asked).not.toContain("key=");
+  expect(replied.body).toContain(`${bare}&key=${key}`);
 });

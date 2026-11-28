@@ -3,6 +3,7 @@ import { getSiteSettings } from "@/lib/content";
 import CalloutCard from "@/components/ui/CalloutCard";
 import Button from "@/components/ui/Button";
 import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
 
 export const metadata: Metadata = {
   title: "Book a Session",
@@ -50,8 +51,8 @@ export default async function BookPage() {
               date.
             </li>
             <li>
-              <strong>3.</strong> I&rsquo;ll follow up within 24 hours with a
-              short questionnaire and next steps.
+              <strong>3.</strong> I&rsquo;ll be in touch {REPLY_WITHIN} with
+              the next steps.
             </li>
           </ul>
         </div>

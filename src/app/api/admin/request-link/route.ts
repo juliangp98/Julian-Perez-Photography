@@ -62,10 +62,11 @@ export const POST = defineRoute({
         }),
       );
       await sendEmail({
+        sender: "site",
         to: email,
         subject: "Admin sign-in link | Julian Perez Photography",
         html,
-        text: `Your admin sign-in link:\n\n${link}\n\nExpires in 20 minutes. If you didn't request it, ignore this email.`,
+        text: `Your admin sign-in link:\n\n${link}\n\nThis link expires in 20 minutes. If you didn't ask for it, you can ignore this email.`,
       });
     } catch (err) {
       Sentry.captureException(err, { tags: { route: "admin/request-link", stage: "send" } });

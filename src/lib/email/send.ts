@@ -1,14 +1,17 @@
 // The one way the site sends email. Every send goes through sendEmail(), which
 // reads Resend's result (the SDK returns errors instead of throwing), retries
 // transient failures, keeps the subject on one line, always carries a plain-
-// text part, and keeps non-production builds away from real recipients. A send
-// on a project's thread also gets the project's reply address and is recorded
-// in client_messages, failures included.
+// text part, and keeps non-production builds away from real recipients. Mail
+// to clients comes from Julian (resendFrom); the site's alerts to him from
+// noreply@ (alertsFrom). Every send carries the site's marker header, so one
+// that comes back in is never sent on, and none goes to the site's own reply
+// addresses. A send on a project's thread also gets the project's reply
+// address and is recorded in client_messages, failures included.
 
 import { Resend, type CreateEmailOptions } from "resend";
 import * as Sentry from "@sentry/nextjs";
-import { resendFrom } from "./email-helpers";
-import { replyAddress } from "./inbound";
+import { alertsFrom, resendFrom } from "./email-helpers";
+import { addressOf, inboundDomain, replyAddress, SITE_MAIL_HEADER } from "./inbound";
 import { TransientError, withRetry } from "@/lib/retry";
 import {
   ensureReplyToken,
@@ -17,7 +20,7 @@ import {
   type MessageKind,
 } from "@/lib/messages";
 
-export type EmailFailure = "not-configured" | "rejected" | "network";
+export type EmailFailure = "not-configured" | "rejected" | "network" | "own-address";
 
 export class EmailError extends Error {
   name = "EmailError";
@@ -34,6 +37,7 @@ export function describeEmailFailure(err: unknown): string {
   if (!(err instanceof EmailError)) return "something unexpected went wrong";
   if (err.reason === "not-configured") return "email isn't set up on this site yet";
   if (err.reason === "rejected") return `Resend refused it (${err.message})`;
+  if (err.reason === "own-address") return "it was addressed to one of the site's own reply addresses";
   return "Resend couldn't be reached, so try again in a minute";
 }
 
@@ -47,6 +51,9 @@ export type OutgoingEmail = {
   headers?: Record<string, string>;
   attachments?: CreateEmailOptions["attachments"];
   idempotencyKey?: string;
+  // Who it's from: Julian, for mail to clients (the default), or the site,
+  // for its alerts to him.
+  sender?: "client" | "site";
   // A client-facing email that belongs on a project's thread.
   // `template` is the pipeline template a composed email started from.
   thread?: { projectId: string; kind: MessageKind; template?: string };
@@ -103,10 +110,10 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
 
   const envelope = email.thread ? await threadEnvelope(email.thread.projectId) : {};
   const replyTo = envelope.replyTo ?? email.replyTo;
-  const headers = { ...email.headers, ...envelope.headers };
+  const headers: Record<string, string> = { ...email.headers, ...envelope.headers, [SITE_MAIL_HEADER]: "site" };
   const redirect = safetyRecipient();
   const payload: CreateEmailOptions = {
-    from: resendFrom(),
+    from: email.sender === "site" ? alertsFrom() : resendFrom(),
     to: redirect ?? email.to,
     subject: redirect ? `[preview → ${[email.to].flat().join(", ")}] ${subject}` : subject,
     text: email.text,
@@ -141,6 +148,10 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
     );
 
   try {
+    // A send to the site's own reply address would come straight back in.
+    if (toOwnAddress([email.to, email.bcc ?? []].flat())) {
+      throw new EmailError("own-address", "addressed to the site's own reply address");
+    }
     const sent = await deliver(apiKey, payload, email.idempotencyKey);
     await record({ resendId: sent.id, status: "sent" });
     return sent;
@@ -148,6 +159,11 @@ export async function sendEmail(email: OutgoingEmail): Promise<{ id: string | nu
     if (err instanceof EmailError) await record({ status: "failed", statusDetail: err.message });
     throw err;
   }
+}
+
+function toOwnAddress(recipients: string[]): boolean {
+  const domain = inboundDomain()?.toLowerCase();
+  return !!domain && recipients.some((r) => addressOf(r).endsWith(`@${domain}`));
 }
 
 // The reply address and reply headers for a project's next email. Best effort:

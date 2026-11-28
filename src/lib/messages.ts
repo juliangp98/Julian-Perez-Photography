@@ -6,6 +6,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { db, isClientsStoreConfigured, isRecordId } from "@/lib/clients";
 import type { SentEmail } from "@/lib/next-step";
+import { CLIENT_VISIBLE, fromClient, visibleToClient } from "@/lib/message-visibility";
 
 const TABLE = "client_messages";
 
@@ -17,7 +18,9 @@ export type MessageKind =
   | "relay"
   | "reply"
   | "portal"
-  | "imported";
+  | "imported"
+  // A repeat inquiry from the site's form, on a project that already existed.
+  | "inquiry";
 export type MessageStatus =
   | "sent"
   | "delivered"
@@ -72,20 +75,22 @@ function templateMissing(error: { code?: string; message?: string } | null): boo
   return true;
 }
 
-// What the client may see of their own thread: nothing held back for review.
-const CLIENT_VISIBLE: MessageStatus[] = ["sent", "delivered", "delayed", "received"];
-
-// Whether a message is part of the conversation with the client: a reply or
-// portal message that was received, or something Julian wrote that went out,
-// by email or in the portal. Leaves out bounces, out-of-office replies held
-// back, relays never sent, and the site's automatic emails. Matches the
-// client_last_contact view.
+// Whether a message is part of the conversation with the client: the
+// client's own writing that was received (a reply from their address, a portal
+// post, a repeat inquiry; see fromClient), or something Julian wrote that went
+// out, by email or in the portal. Leaves out mail from anyone else on the
+// thread, bounces, out-of-office replies held back, relays never sent, and the
+// site's automatic emails. Matches the client_last_contact view.
 const WRITTEN_KINDS: MessageKind[] = ["compose", "relay", "imported", "portal"];
 const WENT_OUT: MessageStatus[] = ["sent", "delivered", "delayed"];
-export function isConversation(m: Pick<ClientMessage, "direction" | "kind" | "status">): boolean {
-  return m.direction === "in"
-    ? m.status === "received"
-    : WRITTEN_KINDS.includes(m.kind) && WENT_OUT.includes(m.status);
+function wentOutWritten(m: Pick<ClientMessage, "direction" | "kind" | "status">): boolean {
+  return m.direction === "out" && WRITTEN_KINDS.includes(m.kind) && WENT_OUT.includes(m.status);
+}
+export function isConversation(
+  m: Pick<ClientMessage, "direction" | "channel" | "kind" | "status" | "fromAddr">,
+  clientEmail?: string,
+): boolean {
+  return m.direction === "in" ? m.status === "received" && fromClient(m, clientEmail) : wentOutWritten(m);
 }
 
 // An email as the next-step rules count it (sentTemplates): one that went
@@ -98,7 +103,7 @@ export function sentEmail(
     template: m.template,
     subject: m.subject,
     sentAt: m.sentAt,
-    wentOut: isConversation(m) || (m.direction === "out" && m.status === "complained"),
+    wentOut: wentOutWritten(m) || (m.direction === "out" && m.status === "complained"),
   };
 }
 
@@ -182,9 +187,12 @@ function insertMessage(m: NewMessage) {
   });
 }
 
+// A project's thread, oldest first. The client's view (`clientView`, with
+// the address on the project) holds only what passed between them and Julian
+// (src/lib/message-visibility.ts).
 export async function listProjectMessages(
   projectId: string,
-  opts: { clientView?: boolean } = {},
+  opts: { clientView?: { email?: string } } = {},
 ): Promise<ClientMessage[]> {
   if (!isClientsStoreConfigured() || !isRecordId(projectId)) return [];
   const read = () => {
@@ -195,7 +203,9 @@ export async function listProjectMessages(
   let { data, error } = await read();
   if (templateMissing(error)) ({ data, error } = await read());
   if (error) throw error;
-  return (data as unknown as ClientMessage[] | null) ?? [];
+  const messages = (data as unknown as ClientMessage[] | null) ?? [];
+  const view = opts.clientView;
+  return view ? messages.filter((m) => visibleToClient(m, view.email)) : messages;
 }
 
 export async function getMessage(id: string): Promise<ClientMessage | null> {
@@ -226,6 +236,19 @@ export async function updateMessageStatus(
   const { data, error } = await q.select("projectId:project_id, toAddr:to_addr");
   if (error) throw error;
   return (data?.[0] as { projectId: string; toAddr?: string } | undefined) ?? null;
+}
+
+// Records the Message-ID Resend gave a send, once: the next email on the
+// thread then names it in In-Reply-To, and replies thread under it. An id
+// already recorded is never replaced.
+export async function noteMessageId(resendId: string, messageId: string): Promise<void> {
+  if (!isClientsStoreConfigured() || !resendId || !messageId.trim()) return;
+  const { error } = await db()
+    .from(TABLE)
+    .update({ message_id: messageId.trim() })
+    .eq("resend_id", resendId)
+    .is("message_id", null);
+  if (error) throw error;
 }
 
 export async function setMessageStatus(id: string, status: MessageStatus, detail?: string) {

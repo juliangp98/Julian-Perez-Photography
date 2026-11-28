@@ -9,7 +9,7 @@ The site checks itself: missing settings that production needs are logged once w
 | Setting | Production | What it's for | Without it |
 |---|---|---|---|
 | `RESEND_API_KEY` | needed | Sends every email (inquiries, confirmations, sign-in links, client messages). Example: `re_...`. | No email goes out; in production, forms report an error instead of pretending to send. |
-| `RESEND_FROM` | optional | The verified sender address. Example: `Julian Perez Photography <noreply@julianperezphotography.com>`. | Nothing breaks. |
+| `RESEND_FROM` | optional | The sender of mail to clients, on the domain verified in Resend. The site's alerts to you come from noreply@ on the same domain. Example: `Julian Perez <julian@julianperezphotography.com>`. | Client mail comes from Julian Perez <julian@julianperezphotography.com>. |
 | `INQUIRY_TO` | optional | Where owner alerts go (new inquiries, forwarded client replies, the morning email). | Owner alerts go to the contact email in Sanity site settings. |
 | `RESEND_INBOUND_DOMAIN` | optional | The receiving subdomain for client replies (reply+<token>@ and log+<token>@). Example: `in.julianperezphotography.com`. | Replies go straight to your inbox and don't appear on the project thread. |
 | `RESEND_WEBHOOK_SECRET` | optional | Verifies Resend's delivery and inbound events at /api/email/webhook. Example: `whsec_...`. | No delivery status or replies on project threads (the webhook refuses everything). |
@@ -22,7 +22,7 @@ The site checks itself: missing settings that production needs are logged once w
 |---|---|---|---|
 | `SUPABASE_URL` | needed | The private client store (projects, messages, settings). Example: `https://<ref>.supabase.co`. | No client records, portal, admin projects or message threads. |
 | `SUPABASE_SERVICE_ROLE_KEY` | needed | Server-only key for the client store. | Same as SUPABASE_URL. |
-| `AUTH_SECRET` | needed | Signs portal and admin sign-in links and sessions. Example: `openssl rand -hex 32`. | Nobody can sign in to the portal or admin. |
+| `AUTH_SECRET` | needed | Signs portal and admin sign-in links and sessions, and the key on a project's form links that opens them with the client's details filled in. Example: `openssl rand -hex 32`. | Nobody can sign in to the portal or admin, and form links open empty. |
 | `ADMIN_EMAIL` | needed | The owner addresses allowed into /admin, comma-separated. List both the studio address and the inbox it forwards to, so a reply from either counts as yours. Example: `julian@julianperezphotography.com,you@gmail.com`. | Nobody can sign in to /admin. |
 | `BLOB_READ_WRITE_TOKEN` | needed | Vercel Blob, for questionnaire uploads, portal documents and plan PDFs. | Uploads and stored plan PDFs fail. |
 
@@ -79,5 +79,6 @@ Client replies come back to the site through Resend's receiving domains, so they
 2. In Resend → Webhooks, add `https://julianperezphotography.com/api/email/webhook` for the `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed` and `email.received` events. Copy its signing secret.
 3. Set `RESEND_INBOUND_DOMAIN` and `RESEND_WEBHOOK_SECRET` in Vercel and redeploy.
 4. Run `npm run email:check`: it confirms SPF, DKIM and DMARC, the domain's status, the receiving MX records and the webhook.
+5. Client mail comes from `Julian Perez <julian@julianperezphotography.com>` and the site's alerts to you from noreply@ on the same domain. If `RESEND_FROM` is set in Vercel to another address, change it or delete it so this default applies.
 
-Until step 3, sends are still recorded on each thread, and replies go to your inbox as before.
+Until step 3, sends are still recorded on each thread, and replies reach julian@ (your inbox) rather than the thread.

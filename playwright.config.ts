@@ -79,6 +79,9 @@ export default defineConfig({
         // Empty so the owner's portal alerts stay on (the default), whatever a
         // local .env.local holds.
         NOTIFY_CLIENT_EDITS: "",
+        // Empty so client mail comes from the default sender (julian@) and
+        // alerts from noreply@, whatever a local .env.local holds.
+        RESEND_FROM: "",
       },
     },
   ],

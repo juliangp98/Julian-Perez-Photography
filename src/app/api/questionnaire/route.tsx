@@ -23,6 +23,8 @@ import { formatHumanDate } from "@/lib/field-format";
 import { attachQuestionnaire } from "@/lib/clients";
 import { storePdf } from "@/lib/blob";
 import * as Sentry from "@sentry/nextjs";
+import { REPLY_WITHIN } from "@/lib/site-settings-data";
+import { serviceNoun } from "@/lib/project-name";
 
 type Answers = Record<string, string | string[]>;
 
@@ -279,54 +281,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // ── Send Julian's email ──
-
-  const html = await render(
-    <BrandedEmailLayout
-      preview={`New ${q.title.toLowerCase()} from ${clientName}`}
-    >
-      <QuestionnaireEmailTemplate
-        questionnaireTitle={q.title}
-        serviceTitle={serviceTitle}
-        submittedAt={submittedAt}
-        sections={emailSections}
-        hasPdf={!!pdfBuffer}
-      />
-    </BrandedEmailLayout>,
-  );
-
-  const attachments: { filename: string; content: Buffer }[] = [];
-  if (pdfBuffer) {
-    attachments.push({
-      filename: "Wedding-Day-Plan.pdf",
-      content: pdfBuffer,
-    });
-  }
-
-  try {
-    await sendEmail({
-      to: toAddress,
-      replyTo: clientEmail,
-      subject,
-      html,
-      text,
-      ...(attachments.length > 0 ? { attachments } : {}),
-    });
-  } catch (err: unknown) {
-    console.error("[questionnaire] Resend error:", err);
-    Sentry.captureException(err, {
-      tags: { route: "questionnaire", stage: "owner-email" },
-    });
-    const msg =
-      err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
-    const userMessage = msg.includes("valid")
-      ? "The email address doesn't appear to be valid. Please double-check and try again."
-      : msg.includes("rate")
-        ? "Too many submissions. Wait a moment and try again."
-        : `Could not send right now. Email ${settings.contactEmail} directly.`;
-    return NextResponse.json({ error: userMessage }, { status: 500 });
-  }
-
   // Persist the generated plan PDF to Blob (when one exists) so it can be
   // linked from the client record + portal, then capture the submission.
   let planPdfUrl: string | undefined;
@@ -345,8 +299,72 @@ export async function POST(req: Request) {
       });
     }
   }
-  // Captured before the confirmation so that email starts the project thread.
+  // Captured before both emails: the owner's links to the project, and the
+  // confirmation starts the project's thread. Answers saved here stay saved
+  // even if the owner email then fails.
   const projectId = await captureRecord(planPdfUrl);
+  const origin = new URL(req.url).origin;
+  const projectUrl = projectId ? `${origin}/admin/projects/${projectId}` : undefined;
+  // The link named one project, but the answers landed on another (its email
+  // didn't match, so they were matched by email and service instead).
+  const otherProject = !!body.project && !!projectId && projectId !== body.project;
+
+  // ── Send Julian's email ──
+
+  const html = await render(
+    <BrandedEmailLayout
+      preview={`New ${q.title.toLowerCase()} from ${clientName}`}
+    >
+      <QuestionnaireEmailTemplate
+        questionnaireTitle={q.title}
+        serviceTitle={serviceTitle}
+        submittedAt={submittedAt}
+        sections={emailSections}
+        hasPdf={!!pdfBuffer}
+        projectUrl={projectUrl}
+        otherProject={otherProject}
+      />
+    </BrandedEmailLayout>,
+  );
+
+  const attachments: { filename: string; content: Buffer }[] = [];
+  if (pdfBuffer) {
+    attachments.push({
+      filename: "Wedding-Day-Plan.pdf",
+      content: pdfBuffer,
+    });
+  }
+
+  try {
+    await sendEmail({
+      sender: "site",
+      to: toAddress,
+      replyTo: clientEmail,
+      subject,
+      html,
+      text: [
+        ...(otherProject ? ["Its link named another project, so the answers were saved on this one.", ""] : []),
+        ...(projectUrl ? [`Open the project: ${projectUrl}`, ""] : []),
+        text,
+      ].join("\n"),
+      ...(attachments.length > 0 ? { attachments } : {}),
+    });
+  } catch (err: unknown) {
+    console.error("[questionnaire] Resend error:", err);
+    Sentry.captureException(err, {
+      tags: { route: "questionnaire", stage: "owner-email" },
+    });
+    const msg =
+      err instanceof Error ? err.message?.toLowerCase() ?? "" : "";
+    const userMessage = msg.includes("valid")
+      ? "The email address doesn't appear to be valid. Please double-check and try again."
+      : msg.includes("rate")
+        ? "Too many submissions. Wait a moment and try again."
+        : `Could not send right now. Email ${settings.contactEmail} directly.`;
+    return NextResponse.json({ error: userMessage }, { status: 500 });
+  }
+
+
 
   // ── Client confirmation email — fire and forget ──
 
@@ -379,7 +397,7 @@ export async function POST(req: Request) {
         ...(projectId ? { thread: { projectId, kind: "confirmation" as const } } : {}),
         subject: `Thanks for your ${q.title.toLowerCase()} | Julian Perez Photography`,
         html: confirmHtml,
-        text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out within 48 hours.\n\nJulian Perez Photography\njulianperezphotography.com`,
+        text: `Thank you, ${clientName.split(" ")[0]}. Your planning questionnaire is in my inbox. I'll review everything and reach out ${REPLY_WITHIN}.${confirmAttachments.length > 0 ? " A PDF copy of your Wedding Day Plan is attached; save or print it if you like." : ""}\n\nJulian Perez Photography\njulianperezphotography.com`,
         ...(confirmAttachments.length > 0
           ? { attachments: confirmAttachments }
           : {}),
@@ -403,7 +421,7 @@ export async function POST(req: Request) {
       const firstName = clientName.split(" ")[0];
       await sendSms(
         clientPhone,
-        `Thanks, ${firstName}! Your ${serviceTitle} questionnaire is received. Julian will review and reply within 48h.`,
+        `Thanks, ${firstName}. Your ${serviceNoun(slug)?.toLowerCase() ?? "planning"} questionnaire is in my inbox. I'll read it and reply ${REPLY_WITHIN}. Julian`,
       );
     } catch (err) {
       console.error("[questionnaire] SMS error:", err);

@@ -40,7 +40,7 @@ export async function noteOwnerOnChange(
     await setSetting(settingKey, state);
     if (!previous && state.ok) return;
     const settings = await getSiteSettings();
-    await sendEmail({ to: ownerAddress(settings), ...message });
+    await sendEmail({ to: ownerAddress(settings), ...message, sender: "site" });
   } catch (err) {
     Sentry.captureException(err, { tags: { route: "owner-notice", stage: key }, level: "warning" });
   }

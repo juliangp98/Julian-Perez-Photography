@@ -48,8 +48,9 @@ function renderConfigDoc(settings = SETTINGS) {
     "2. In Resend → Webhooks, add `https://julianperezphotography.com/api/email/webhook` for the `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed` and `email.received` events. Copy its signing secret.",
     "3. Set `RESEND_INBOUND_DOMAIN` and `RESEND_WEBHOOK_SECRET` in Vercel and redeploy.",
     "4. Run `npm run email:check`: it confirms SPF, DKIM and DMARC, the domain's status, the receiving MX records and the webhook.",
+    "5. Client mail comes from `Julian Perez <julian@julianperezphotography.com>` and the site's alerts to you from noreply@ on the same domain. If `RESEND_FROM` is set in Vercel to another address, change it or delete it so this default applies.",
     "",
-    "Until step 3, sends are still recorded on each thread, and replies go to your inbox as before.",
+    "Until step 3, sends are still recorded on each thread, and replies reach julian@ (your inbox) rather than the thread.",
   );
   return out.join("\n") + "\n";
 }

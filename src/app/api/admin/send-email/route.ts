@@ -14,7 +14,7 @@ import * as Sentry from "@sentry/nextjs";
 import { apiError, defineRoute } from "@/lib/api-route";
 import { getClientFull } from "@/lib/clients";
 import { getSiteSettings } from "@/lib/content";
-import { EMAIL_TEMPLATES } from "@/lib/email/email-pipeline";
+import { EMAIL_TEMPLATES, unfilledParts } from "@/lib/email/email-pipeline";
 import { applySendEffects } from "@/lib/email/apply-send";
 import { sendEmail, EmailError, describeEmailFailure } from "@/lib/email/send";
 import {
@@ -41,6 +41,10 @@ export const POST = defineRoute({
   schema,
   rateLimit: { max: 20, windowMs: 10 * 60 * 1000 },
   run: async ({ projectId, templateId, subject, body, idempotencyKey }) => {
+    // Nothing goes out with brackets left to fill (Compose checks too; this
+    // catches a page left open on an older version).
+    const unfilled = unfilledParts(`${subject}\n${body}`);
+    if (unfilled.length) return apiError(422, `Fill these in first: ${unfilled.join(", ")}.`);
     const record = await getClientFull(projectId);
     if (!record) return apiError(404, "That project wasn't found.");
     if (!record.email) return apiError(409, "No email on file for this client.");

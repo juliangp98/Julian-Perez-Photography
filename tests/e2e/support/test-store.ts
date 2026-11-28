@@ -68,21 +68,45 @@ export async function clearSetting(key: string) {
 }
 
 // Add a message to a project's thread directly: a client's reply ("in") or
-// the owner's ("out"), sent at a given time.
+// the owner's ("out"), sent at a given time. An incoming message comes from
+// the project's own email unless `fromAddr` names someone else (a vendor, a
+// second photographer), as only the client's writing counts as them writing.
 export async function addMessage(
   projectId: string,
-  message: { direction: "in" | "out"; kind?: string; status?: string; sentAt?: string; body?: string },
+  message: {
+    direction: "in" | "out";
+    kind?: string;
+    status?: string;
+    sentAt?: string;
+    body?: string;
+    fromAddr?: string;
+    toAddr?: string;
+    subject?: string;
+    channel?: "email" | "portal";
+    resendId?: string;
+    messageId?: string;
+  },
 ) {
   const db = testStore();
   if (!db) throw new Error("The test store isn't configured (.env.test).");
+  let fromAddr = message.fromAddr;
+  if (!fromAddr && message.direction === "in") {
+    const { data } = await db.from("client_records").select("email").eq("id", projectId).single();
+    fromAddr = (data?.email as string | undefined) ?? undefined;
+  }
   const { error } = await db.from("client_messages").insert({
     project_id: projectId,
     direction: message.direction,
-    channel: "email",
+    channel: message.channel ?? "email",
     kind: message.kind ?? (message.direction === "in" ? "reply" : "compose"),
     status: message.status ?? (message.direction === "in" ? "received" : "sent"),
     body_text: message.body ?? "A message from the test suite.",
     sent_at: message.sentAt ?? new Date().toISOString(),
+    from_addr: fromAddr ?? null,
+    to_addr: message.toAddr ?? null,
+    subject: message.subject ?? null,
+    resend_id: message.resendId ?? null,
+    message_id: message.messageId ?? null,
   });
   if (error) throw new Error(`Adding the test message failed: ${error.message}`);
 }

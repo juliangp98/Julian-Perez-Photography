@@ -44,6 +44,30 @@ export function header(headers: Record<string, string> | null | undefined, name:
   return key ? String(headers[key]) : "";
 }
 
+// Every email the site sends carries this header, so one that comes back in
+// (a loop through a forwarding rule, or an alert answered by an auto-reply)
+// is recognised and never sent on.
+export const SITE_MAIL_HEADER = "X-JPP-Sent-By";
+
+export function isSiteMail(headers: Record<string, string> | null | undefined): boolean {
+  return header(headers, SITE_MAIL_HEADER.toLowerCase()).trim().toLowerCase() === "site";
+}
+
+// The subject a client sees on Julian's answer from Gmail. Answering one of
+// the site's own alerts ("New message on …", "[Held for review] …") would
+// otherwise show them the alert's wording; the thread's own subject is used
+// instead.
+const PREFIXES = /^((re|fwd?):\s*)+/i;
+export function answersAlert(subject?: string): boolean {
+  return /^(new message on |\[held for review\])/i.test((subject ?? "").trim().replace(PREFIXES, ""));
+}
+export function clientSubject(ownerSubject: string | undefined, threadSubject?: string, projectName?: string): string {
+  const subject = (ownerSubject ?? "").trim();
+  if (subject && !answersAlert(subject)) return subject;
+  const base = (threadSubject ?? "").trim().replace(PREFIXES, "") || projectName?.trim() || "Your project";
+  return `Re: ${base}`;
+}
+
 // Out-of-office replies, bounces and list mail: recorded, never forwarded.
 export function isAutomated(headers: Record<string, string> | null | undefined): boolean {
   const auto = header(headers, "auto-submitted").toLowerCase();
@@ -84,7 +108,7 @@ export function stripQuoted(text: string): string {
   return kept.join("\n").trim();
 }
 
-export type ForwardedMessage = { from: string; date?: string; subject?: string; body: string };
+export type ForwardedMessage = { from: string; to?: string; date?: string; subject?: string; body: string };
 
 // Gmail's forward format, one block per forwarded message:
 //   ---------- Forwarded message ---------
@@ -105,6 +129,7 @@ export function parseForwarded(text: string): ForwardedMessage[] {
     return [
       {
         from,
+        to: field("To"),
         date: parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : undefined,
         subject: field("Subject"),
         body: stripQuoted(rest.join("\n\n")),

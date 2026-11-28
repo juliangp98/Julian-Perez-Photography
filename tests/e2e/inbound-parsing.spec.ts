@@ -80,6 +80,8 @@ test("reads Gmail's forwarded-message blocks", () => {
   const [m] = parseForwarded(text);
   expect(m.from).toBe("Avery Example <avery@example.com>");
   expect(m.subject).toBe("Re: Your wedding");
+  // Who it was to, so the portal shows the client only what was theirs.
+  expect(m.to).toBe("<julian@example.com>");
   expect(m.body).toBe("Can we move the call to Thursday?");
   expect(m.date && new Date(m.date).getUTCDate()).toBe(17);
   expect(parseForwarded("Just a note, nothing forwarded.")).toEqual([]);

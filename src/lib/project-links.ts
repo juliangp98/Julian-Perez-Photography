@@ -79,12 +79,13 @@ export function thankYouCalls<C extends { label: string; url: string }>(
 
 export type ProjectLinks = {
   portalUrl: string;
-  // Set when the service has a planning questionnaire. Prefilled with what's
-  // known about the client, so it carries their name, email and phone.
+  // Set when the service has a planning questionnaire. With the project's
+  // form key (src/lib/form-key.ts), the form opens with what's known about the
+  // client filled in, read on the server; the address carries only the
+  // project and the key.
   questionnaireUrl?: string;
-  // The same form, attached to the project but without those details in the
-  // address: for anything that leaves the site other than to the client (the
-  // AI drafter's prompt).
+  // The same form without the key, which opens it empty: for anything that
+  // leaves the site other than to the client (the AI drafter's prompt).
   questionnaireBareUrl?: string;
   // Set while the project has no service yet: the inquiry sets it on submit.
   inquireUrl?: string;
@@ -97,25 +98,22 @@ export type ProjectLinks = {
 };
 
 // `origin` is the site's address for links that leave the app (emails, a link
-// Julian copies); pass "" for links followed inside it.
-export function projectLinks(record: ClientRecordSafe, origin: string): ProjectLinks {
+// Julian copies); pass "" for links followed inside it. `formKey` is the
+// project's form key (server callers pass formKey(record.id)), so the forms
+// open with what's known; without it they open empty.
+export function projectLinks(record: ClientRecordSafe, origin: string, opts: { formKey?: string } = {}): ProjectLinks {
   // The form attaches its submission to THIS project (not a fresh email and
-  // service match) and opens with what's already known filled in.
-  const known = new URLSearchParams({ project: record.id });
-  if (record.clientName) known.set("fullName", record.clientName);
-  if (record.email) known.set("email", record.email);
-  if (record.phone) known.set("phone", record.phone);
+  // service match); the key lets it open with what's already known.
+  const bare = new URLSearchParams({ project: record.id });
+  const keyed = new URLSearchParams(bare);
+  if (opts.formKey) keyed.set("key", opts.formKey);
 
   let questionnaireUrl: string | undefined;
   let questionnaireBareUrl: string | undefined;
   if (record.serviceType && getQuestionnaire(record.serviceType)) {
     const form = `${origin}/questionnaire/${record.serviceType}`;
-    const q = new URLSearchParams(known);
-    if (record.partnerName) q.set("partnerFullName", record.partnerName);
-    if (record.eventDate) q.set("eventDate", record.eventDate);
-    if (record.guestCount != null) q.set("guestCount", String(record.guestCount));
-    questionnaireUrl = `${form}?${q.toString()}`;
-    questionnaireBareUrl = `${form}?${new URLSearchParams({ project: record.id }).toString()}`;
+    questionnaireUrl = `${form}?${keyed.toString()}`;
+    questionnaireBareUrl = `${form}?${bare.toString()}`;
   }
 
   return {
@@ -124,7 +122,7 @@ export function projectLinks(record: ClientRecordSafe, origin: string): ProjectL
     questionnaireBareUrl,
     inquireUrl: record.serviceType
       ? undefined
-      : `${origin}/inquire?${known.toString()}`,
+      : `${origin}/inquire?${keyed.toString()}`,
     proposalUrl: projectLink(record, "proposal")?.url,
     contractUrl: projectLink(record, "contract")?.url,
     invoiceUrl: openInvoice(record, studioToday())?.url,

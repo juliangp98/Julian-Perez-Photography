@@ -4,7 +4,9 @@
 // @react-email/components and passed to Resend as HTML. A plain-text fallback
 // is always included alongside the HTML for email clients that don't render it.
 
-import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-settings-data";
+import { CONTACT_EMAIL, REPLY_WITHIN, SITE_URL } from "@/lib/site-settings-data";
+import { linkParts } from "@/lib/linkify";
+import { formatEventDate } from "@/lib/field-format";
 import {
   Html,
   Head,
@@ -182,11 +184,14 @@ export function InquiryEmailTemplate({
   triage,
   draftReplyUrl,
   callPrepUrl,
+  projectUrl,
 }: {
   data: InquiryData;
   serviceName: string;
   // The AI assessment, when one came back in time. Owner-only.
   triage?: InquiryTriage | null;
+  // The project page, when the inquiry was filed.
+  projectUrl?: string;
   // The project page with Compose open on a reply, when the inquiry was filed.
   draftReplyUrl?: string;
   // The project's discovery-call guide, when the inquiry was filed.
@@ -197,7 +202,7 @@ export function InquiryEmailTemplate({
     ["Email", data.email],
     ["Phone", data.phone],
     ["Service", serviceName],
-    ["Date", data.eventDate],
+    ["Date", formatEventDate(data.eventDate) || data.eventDate],
     ["Location", data.location],
     ["Budget", data.budget],
     ["Referral", data.referral],
@@ -271,6 +276,13 @@ export function InquiryEmailTemplate({
       </Section>
 
       {draftReplyUrl ? <PillButton href={draftReplyUrl} label="Draft a reply" /> : null}
+      {projectUrl ? (
+        <Text style={{ fontSize: "14px", margin: "0 0 8px 0" }}>
+          <Link href={projectUrl} style={{ color: ACCENT }}>
+            Open the project
+          </Link>
+        </Text>
+      ) : null}
       {callPrepUrl ? (
         <Text style={{ fontSize: "14px", margin: "0 0 8px 0" }}>
           <Link href={callPrepUrl} style={{ color: ACCENT }}>
@@ -280,7 +292,8 @@ export function InquiryEmailTemplate({
       ) : null}
 
       <Text style={{ fontSize: "12px", color: MUTED, margin: "16px 0 0 0" }}>
-        Reply directly to this email to respond to {data.name}.
+        Replying here goes from your Gmail and isn&rsquo;t on the project&rsquo;s thread. Draft a reply keeps it
+        there.
       </Text>
     </>
   );
@@ -310,12 +323,18 @@ export function QuestionnaireEmailTemplate({
   submittedAt,
   sections,
   hasPdf,
+  projectUrl,
+  otherProject,
 }: {
   questionnaireTitle: string;
   serviceTitle: string;
   submittedAt: string;
   sections: SectionBlock[];
   hasPdf?: boolean;
+  // The project the answers were saved on, when they were.
+  projectUrl?: string;
+  // The link named another project, but the answers were saved on this one.
+  otherProject?: boolean;
 }) {
   return (
     <>
@@ -332,6 +351,12 @@ export function QuestionnaireEmailTemplate({
       <Text style={{ fontSize: "13px", color: MUTED, margin: "0 0 24px 0" }}>
         {serviceTitle} · {submittedAt}
       </Text>
+      {otherProject ? (
+        <Text style={{ fontSize: "14px", color: FOREGROUND, margin: "0 0 12px 0" }}>
+          Its link named another project, so the answers were saved on this one.
+        </Text>
+      ) : null}
+      {projectUrl ? <PillButton href={projectUrl} label="Open the project" /> : null}
 
       {hasPdf && (
         <Section
@@ -466,8 +491,8 @@ export function ClientConfirmationTemplate({
         }}
       >
         {isQuestionnaire
-          ? `Your ${questionnaireTitle?.toLowerCase().replace(" questionnaire", "")} questionnaire is in my inbox. I'll review everything and reach out with next steps within 48 hours.`
-          : "Your inquiry is in my inbox. I'll review it and get back to you within 48 hours."}
+          ? `Your ${questionnaireTitle?.toLowerCase().replace(" questionnaire", "")} questionnaire is in my inbox. I'll review everything and reach out with next steps ${REPLY_WITHIN}.`
+          : `Your inquiry is in my inbox. I'll review it and get back to you ${REPLY_WITHIN}.`}
       </Text>
 
       {isWedding && hasPdf && (
@@ -579,8 +604,8 @@ export function MagicLinkEmailTemplate({
       <Text
         style={{ fontSize: "13px", color: MUTED, lineHeight: "20px", margin: 0 }}
       >
-        This link expires in 20 minutes and can only be used once. If you
-        didn&rsquo;t request it, you can safely ignore this email.
+        This link expires in 20 minutes. If you didn&rsquo;t ask for it, you
+        can ignore this email.
       </Text>
     </>
   );
@@ -656,19 +681,16 @@ export function NotificationEmailTemplate({
 // Pipeline email (a freeform, Julian-edited body — see email-pipeline.ts)
 // ---------------------------------------------------------------------------
 
-// Turn bare URLs in a paragraph into branded accent links.
+// Turn bare URLs in a paragraph into branded accent links, with the
+// sentence's own punctuation left outside them (src/lib/linkify.ts).
 function linkify(text: string): ReactNode[] {
-  return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
-    /^https?:\/\//.test(part) ? (
-      <Link
-        key={i}
-        href={part}
-        style={{ color: ACCENT, textDecoration: "underline" }}
-      >
-        {part}
+  return linkParts(text).map((part, i) =>
+    part.href ? (
+      <Link key={i} href={part.href} style={{ color: ACCENT, textDecoration: "underline" }}>
+        {part.text}
       </Link>
     ) : (
-      part
+      part.text
     ),
   );
 }

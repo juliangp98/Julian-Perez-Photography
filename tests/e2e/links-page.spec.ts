@@ -106,6 +106,13 @@ test("each site service reads as set up from its settings, by name only", () => 
     "TWILIO_PHONE_FROM",
   ]);
   expect(twilio({ TWILIO_ACCOUNT_SID: "a", TWILIO_AUTH_TOKEN: "b", TWILIO_PHONE_FROM: "c" })).toEqual([]);
+  // Resend names what puts replies on each project's thread too.
+  const resend = (env: Record<string, string>) =>
+    siteServices(env).flatMap((g) => g.links).find((l) => l.label === "Resend")!.missing;
+  expect(resend({ RESEND_API_KEY: "a", RESEND_INBOUND_DOMAIN: "in.x.com", RESEND_WEBHOOK_SECRET: " " })).toEqual([
+    "RESEND_WEBHOOK_SECRET",
+  ]);
+  expect(resend({ RESEND_API_KEY: "a", RESEND_INBOUND_DOMAIN: "in.x.com", RESEND_WEBHOOK_SECRET: "w" })).toEqual([]);
   // A service with no setting to check reads as nothing missing (no badge).
   expect(siteServices({}).flatMap((g) => g.links).find((l) => l.label === "Sentry")!.missing).toEqual([]);
 });

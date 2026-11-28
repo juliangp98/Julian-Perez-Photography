@@ -830,8 +830,15 @@ test("the owner is emailed when a client starts a project or uploads a file", as
   const edited = await client.post("/api/portal/update", { data: { projectId: p.id, phone: "(703) 555-0100" } });
   expect(edited.status()).toBe(200);
   const editAlert = sentTo(await fakes.calls("resend"), OWNER).at(-1);
-  expect(editAlert?.body?.subject).toBe(`Client updated their details: ${p.email}`);
+  expect(editAlert?.body?.subject).toBe("Client updated their details: E2E Path");
   expect(String(editAlert?.body?.text)).toContain(`/admin/projects/${p.id}?tab=details`);
+  // It says what changed, field by field.
+  expect(String(editAlert?.body?.text)).toContain("Phone: none → (703) 555-0100");
+  // Saving again without a change emails no one.
+  const before = sentTo(await fakes.calls("resend"), OWNER).length;
+  const again = await client.post("/api/portal/update", { data: { projectId: p.id, phone: "(703) 555-0100" } });
+  expect(again.status()).toBe(200);
+  expect(sentTo(await fakes.calls("resend"), OWNER)).toHaveLength(before);
 });
 
 test("the questionnaire's thank-you page leads back to the project the answers went to", async ({ page }) => {

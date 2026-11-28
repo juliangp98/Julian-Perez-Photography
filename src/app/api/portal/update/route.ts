@@ -19,6 +19,14 @@ const schema = z.object({
   projectName: z.string().max(200).optional(),
 });
 
+// The fields a client can change here, as the owner's notice names them.
+const FIELD_LABELS = {
+  phone: "Phone",
+  partnerName: "Partner's name",
+  guestCount: "Guest count",
+  projectName: "Project name",
+} as const;
+
 export const POST = defineRoute({
   route: "portal/update",
   auth: "portal",
@@ -33,12 +41,23 @@ export const POST = defineRoute({
 
     await updateClientFields(projectId, fields);
 
+    // What changed, one line each ("Phone: (703) 555-0100 → (703) 555-0199").
+    // Saving without a change emails no one.
+    const shown = (v: unknown) => (v == null || String(v).trim() === "" ? "none" : String(v).trim());
+    const changes = (Object.keys(FIELD_LABELS) as (keyof typeof FIELD_LABELS)[])
+      .filter((k) => fields[k] !== undefined && shown(fields[k]) !== shown(owned[k]))
+      .map((k) => `${FIELD_LABELS[k]}: ${shown(owned[k])} → ${shown(fields[k])}`);
+    if (!changes.length) return { ok: true };
+
     // Tell the owner (fire-and-forget) so the change gets reviewed.
     try {
       await notifyOwnerOfPortal({
-        subject: `Client updated their details: ${session.email}`,
+        subject: `Client updated their details: ${owned.clientName || session.email}`,
         heading: "Client details updated",
-        lines: [`${session.email} updated their details on ${projectDisplayName(owned)} in the client portal.`],
+        lines: [
+          `${owned.clientName || session.email} updated their details on ${projectDisplayName(owned)} in the client portal:`,
+          ...changes,
+        ],
         cta: { label: "Open its details →", href: `${originOf(req)}/admin/projects/${projectId}?tab=details` },
       });
     } catch (err) {

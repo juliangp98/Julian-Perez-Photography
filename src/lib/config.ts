@@ -18,7 +18,7 @@ export type Setting = {
 export const SETTINGS: Setting[] = [
   // Email
   { area: "Email", name: "RESEND_API_KEY", purpose: "Sends every email (inquiries, confirmations, sign-in links, client messages).", without: "No email goes out; in production, forms report an error instead of pretending to send.", neededInProd: true, example: "re_..." },
-  { area: "Email", name: "RESEND_FROM", purpose: "The verified sender address.", without: "", example: "Julian Perez Photography <noreply@julianperezphotography.com>" },
+  { area: "Email", name: "RESEND_FROM", purpose: "The sender of mail to clients, on the domain verified in Resend. The site's alerts to you come from noreply@ on the same domain.", without: "Client mail comes from Julian Perez <julian@julianperezphotography.com>.", example: "Julian Perez <julian@julianperezphotography.com>" },
   { area: "Email", name: "INQUIRY_TO", purpose: "Where owner alerts go (new inquiries, forwarded client replies, the morning email).", without: "Owner alerts go to the contact email in Sanity site settings." },
   { area: "Email", name: "RESEND_INBOUND_DOMAIN", purpose: "The receiving subdomain for client replies (reply+<token>@ and log+<token>@).", without: "Replies go straight to your inbox and don't appear on the project thread.", example: "in.julianperezphotography.com" },
   { area: "Email", name: "RESEND_WEBHOOK_SECRET", purpose: "Verifies Resend's delivery and inbound events at /api/email/webhook.", without: "No delivery status or replies on project threads (the webhook refuses everything).", example: "whsec_..." },
@@ -27,7 +27,7 @@ export const SETTINGS: Setting[] = [
   // Client store and sign-in
   { area: "Clients and sign-in", name: "SUPABASE_URL", purpose: "The private client store (projects, messages, settings).", without: "No client records, portal, admin projects or message threads.", neededInProd: true, example: "https://<ref>.supabase.co" },
   { area: "Clients and sign-in", name: "SUPABASE_SERVICE_ROLE_KEY", purpose: "Server-only key for the client store.", without: "Same as SUPABASE_URL.", neededInProd: true },
-  { area: "Clients and sign-in", name: "AUTH_SECRET", purpose: "Signs portal and admin sign-in links and sessions.", without: "Nobody can sign in to the portal or admin.", neededInProd: true, example: "openssl rand -hex 32" },
+  { area: "Clients and sign-in", name: "AUTH_SECRET", purpose: "Signs portal and admin sign-in links and sessions, and the key on a project's form links that opens them with the client's details filled in.", without: "Nobody can sign in to the portal or admin, and form links open empty.", neededInProd: true, example: "openssl rand -hex 32" },
   { area: "Clients and sign-in", name: "ADMIN_EMAIL", purpose: "The owner addresses allowed into /admin, comma-separated. List both the studio address and the inbox it forwards to, so a reply from either counts as yours.", without: "Nobody can sign in to /admin.", neededInProd: true, example: "julian@julianperezphotography.com,you@gmail.com" },
   { area: "Clients and sign-in", name: "BLOB_READ_WRITE_TOKEN", purpose: "Vercel Blob, for questionnaire uploads, portal documents and plan PDFs.", without: "Uploads and stored plan PDFs fail.", neededInProd: true },
   // Content

@@ -1,5 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { EMAIL_TEMPLATES, EMAIL_TOKENS, type EmailTemplate } from "../../src/lib/email/email-pipeline";
+import {
+  EMAIL_TEMPLATES,
+  EMAIL_TOKENS,
+  OPTIONAL_TOKENS,
+  fillTemplate,
+  unfilledParts,
+  type EmailTemplate,
+} from "../../src/lib/email/email-pipeline";
+import { CLIENT_STATUS_FLOW, statusRank } from "../../src/lib/client-status";
+import { preparingForShoot, questionnaireOutstanding } from "../../src/lib/next-step";
+import { sampleGalleryFor } from "../../src/lib/services-data";
+import { SITE_URL } from "../../src/lib/site-settings-data";
 import {
   planSendEffects,
   heldUntil,
@@ -201,4 +212,104 @@ test("a send's plan reads as Compose says it before sending", () => {
   expect(planEffectsLine({ hold: "2026-12-05", clearFollowUp: true })).toBe(
     "Sending this holds the date until December 5, 2026 and clears the follow-up it settles.",
   );
+});
+
+// A line holding only an optional token is left out when the project has
+// nothing for it, with the blank line around it; any other empty token stays
+// visible to fill in.
+test("an optional line with no value is left out, and any other empty token stays to fill in", () => {
+  const body = "Hi {{firstName}},\n\nThe proposal: {{proposalUrl}}\n\n{{questionnaireNudge}}\n\nJulian";
+  expect(fillTemplate(body, { firstName: "Avery" })).toBe("Hi Avery,\n\nThe proposal: [proposalUrl]\n\nJulian");
+  expect(fillTemplate(body, { firstName: "Avery", questionnaireNudge: "Fill it in: https://x.com/q" })).toBe(
+    "Hi Avery,\n\nThe proposal: [proposalUrl]\n\nFill it in: https://x.com/q\n\nJulian",
+  );
+  // How to pay sits right under the invoice line, with no blank line around it.
+  const pay = "2. Pay: {{invoiceUrl}}\n{{paymentInstructions}}\n\nThanks";
+  expect(fillTemplate(pay, { invoiceUrl: "https://pay" })).toBe("2. Pay: https://pay\n\nThanks");
+  expect(fillTemplate(pay, { invoiceUrl: "https://pay", paymentInstructions: "Zelle to me." })).toBe(
+    "2. Pay: https://pay\nZelle to me.\n\nThanks",
+  );
+  // A blank value counts as none.
+  expect(fillTemplate("{{questionnaireNudge}}", { questionnaireNudge: "  " })).toBe("");
+});
+
+test("every email before the shoot asks for the questionnaire while it isn't back, on a line of its own", () => {
+  const optional = new Set<string>(OPTIONAL_TOKENS);
+  for (const t of EMAIL_TEMPLATES) {
+    // Optional tokens only ever stand alone on a line.
+    for (const line of t.body.split("\n")) {
+      for (const [, name] of line.matchAll(/\{\{(\w+)\}\}/g)) {
+        if (optional.has(name)) expect(line.trim(), `${t.id}: {{${name}}} alone on its line`).toBe(`{{${name}}}`);
+      }
+    }
+    const beforeShoot = CLIENT_STATUS_FLOW.includes(t.stage as never) && statusRank(t.stage) < statusRank("shot");
+    const carriesLink = t.body.includes("{{questionnaireUrl}}");
+    const nudges = t.body.includes("{{questionnaireNudge}}");
+    if (beforeShoot && !t.closesAs && !carriesLink) expect(nudges, `${t.id} asks for the questionnaire`).toBe(true);
+    else expect(nudges, `${t.id} has no questionnaire line`).toBe(false);
+  }
+  expect(template("booking-welcome").body).not.toMatch(/Closer to the date/);
+});
+
+test("the calls, the review and the gallery are links where an email offers them", () => {
+  for (const id of ["discovery-recap", "proposal-follow-up", "re-engagement"]) {
+    expect(template(id).body, id).toContain("{{discoveryCallUrl}}");
+  }
+  for (const id of ["planning-kickoff", "questionnaire-reminder", "timeline-details"]) {
+    expect(template(id).body, id).toContain("{{planningCallUrl}}");
+  }
+  expect(template("gallery-delivery").body).toContain("{{reviewUrl}}");
+  expect(template("re-engagement").body).not.toContain("{{bookingUrl}}");
+  // Sent for every service: no congratulations.
+  expect(template("inquiry-reply").body).not.toMatch(/congratulations/i);
+  expect(template("booked-elsewhere").body).not.toMatch(/congratulations/i);
+});
+
+test("anything in brackets is named before an email can go", () => {
+  expect(unfilledParts("Hi [firstName], your [2 or 3 of their priorities]. See [here](https://x.com).")).toEqual([
+    "[firstName]",
+    "[2 or 3 of their priorities]",
+    "[here]",
+  ]);
+  expect(unfilledParts("Same [venue] twice: [venue].")).toEqual(["[venue]"]);
+  expect(unfilledParts("Nothing to fill in.")).toEqual([]);
+  // A bracket split across lines isn't a placeholder.
+  expect(unfilledParts("[not\nthis]")).toEqual([]);
+});
+
+test("the questionnaire is asked for before the shoot, while it isn't back", () => {
+  const today = TODAY;
+  const ask = (p: Parameters<typeof questionnaireOutstanding>[0], hasQuestionnaire = true) =>
+    questionnaireOutstanding(p, { today, hasQuestionnaire });
+  expect(ask({ status: "new-inquiry" })).toBe(true);
+  expect(ask({ status: "booked", eventDate: "2027-06-05" })).toBe(true);
+  // A date written as text with no single day still asks.
+  expect(ask({ status: "planning", eventDate: "Fall 2027" })).toBe(true);
+  expect(ask({ status: "planning", questionnaireSnapshot: '{"a":1}' })).toBe(false);
+  expect(ask({ status: "planning" }, false)).toBe(false);
+  expect(ask({ status: "lost" })).toBe(false);
+  expect(ask({ status: "archived" })).toBe(false);
+  expect(ask({ status: "editing" })).toBe(false);
+  // The shoot day passed, whatever the status says.
+  expect(ask({ status: "scheduled", eventDate: "2026-11-20" })).toBe(false);
+  expect(ask({ status: "scheduled", eventDate: TODAY })).toBe(true);
+  expect(preparingForShoot({ status: "planning", reserving: false, shot: true }, today)).toBe(false);
+});
+
+test("a proposal links Studio's sample gallery, else the service's portfolio page when it shows work", () => {
+  // Only whether a page has images or videos matters here.
+  const withImages = { slug: "weddings" as const, images: [{ src: "/a.jpg", alt: "" }] as never[] };
+  expect(sampleGalleryFor({ slug: "weddings", sampleGalleryUrl: " https://pic.example.com/w " }, [withImages])).toBe(
+    "https://pic.example.com/w",
+  );
+  expect(sampleGalleryFor({ slug: "weddings" }, [withImages])).toBe(`${SITE_URL}/portfolio/weddings`);
+  // A page of placeholders, a hidden portfolio, another service's: none.
+  expect(sampleGalleryFor({ slug: "weddings" }, [{ slug: "weddings", images: [] }])).toBeUndefined();
+  expect(sampleGalleryFor({ slug: "weddings" }, [{ ...withImages, hidden: true }])).toBeUndefined();
+  expect(sampleGalleryFor({ slug: "newborn" }, [withImages])).toBeUndefined();
+  // A portfolio that names its service, and a film archive.
+  expect(
+    sampleGalleryFor({ slug: "wedding-films" }, [{ slug: "films", serviceSlug: "wedding-films", images: [], videos: [{}] } as never]),
+  ).toBe(`${SITE_URL}/portfolio/films`);
+  expect(sampleGalleryFor(undefined, [withImages])).toBeUndefined();
 });

@@ -8,13 +8,16 @@
 
 import { Resend, type WebhookEventPayload } from "resend";
 import { render } from "@react-email/components";
+import * as Sentry from "@sentry/nextjs";
 import { getSiteSettings } from "@/lib/content";
 import { isAdminEmail } from "@/lib/auth";
 import { TransientError, withRetry } from "@/lib/retry";
 import {
   ensureReplyToken,
   findProjectByReplyToken,
+  listProjectMessages,
   listUnsettledSends,
+  noteMessageId,
   recordMessage,
   updateMessageStatus,
   type MessageAttachment,
@@ -23,13 +26,17 @@ import {
 } from "@/lib/messages";
 import { sendEmail } from "./send";
 import { ownerAddress } from "./notify";
-import { resendFrom } from "./email-helpers";
+import { alertsFrom, resendFrom } from "./email-helpers";
 import { BrandedEmailLayout, PipelineEmailTemplate } from "./email-templates";
 import {
   addressOf,
+  answersAlert,
+  clientSubject,
   findThreadAddress,
   header,
+  inboundDomain,
   isAutomated,
+  isSiteMail,
   parseForwarded,
   replyAddress,
   senderAuthenticated,
@@ -47,8 +54,24 @@ const DELIVERY_STATUS: Partial<Record<WebhookEventPayload["type"], MessageStatus
   "email.suppressed": "failed",
 };
 
+// Records the Message-ID Resend reports for a send, so the next email on the
+// thread names it in In-Reply-To. Never fails what called it.
+async function recordMessageId(resendId: string, messageId: unknown) {
+  if (typeof messageId !== "string" || !messageId.trim()) return;
+  try {
+    await noteMessageId(resendId, messageId);
+  } catch (err) {
+    Sentry.captureException(err, { tags: { route: "email/webhook", stage: "message-id" }, level: "warning" });
+  }
+}
+
 export async function handleWebhookEvent(event: WebhookEventPayload, origin: string) {
   if (event.type === "email.received") return handleReceived(event.data, origin);
+  // Every sending event carries the send's Message-ID (the SDK's types don't
+  // name it yet), email.sent included.
+  if ("email_id" in event.data) {
+    await recordMessageId(event.data.email_id, (event.data as { message_id?: unknown }).message_id);
+  }
   const status = DELIVERY_STATUS[event.type];
   if (!status || !("email_id" in event.data)) return;
 
@@ -94,6 +117,7 @@ export async function reconcileUnsettledSends(): Promise<number> {
   let settled = 0;
   for (const id of ids) {
     const { data } = await resend.emails.get(id);
+    if (data) await recordMessageId(id, (data as { message_id?: unknown }).message_id);
     const status = data && LAST_EVENT_STATUS[data.last_event];
     if (status && (await updateMessageStatus(id, status))) settled++;
   }
@@ -129,9 +153,15 @@ async function handleReceived(data: ReceivedData, origin: string) {
   };
   const text = full.text ?? "";
 
-  // Out-of-office notices, bounces and anything from the site's own sending
-  // address (a loop) are kept on the record but go nowhere.
-  if (isAutomated(full.headers) || from === addressOf(resendFrom())) {
+  // Out-of-office notices and bounces, and mail the site sent itself (its
+  // marker header, or a site sending address that isn't Julian's) are kept on
+  // the record but go nowhere: sending them on could loop. Julian's own
+  // julian@ mail goes on to the owner branches below.
+  const fromSite =
+    isSiteMail(full.headers) ||
+    from === addressOf(alertsFrom()) ||
+    (from === addressOf(resendFrom()) && !isOwner);
+  if (isAutomated(full.headers) || fromSite) {
     await recordMessage({
       ...base,
       direction: "in",
@@ -139,7 +169,9 @@ async function handleReceived(data: ReceivedData, origin: string) {
       bodyText: stripQuoted(text) || text,
       resendId: data.email_id,
       status: "dropped",
-      statusDetail: "An automatic reply, so it wasn't forwarded.",
+      statusDetail: fromSite
+        ? "Sent by the site itself, so it wasn't forwarded."
+        : "An automatic reply, so it wasn't forwarded.",
     });
     return;
   }
@@ -209,6 +241,7 @@ async function fileFromGmail(
       direction: "in",
       kind: "imported",
       fromAddr: data.from,
+      toAddr: data.to.join(", "),
       subject: data.subject,
       bodyText: text,
       resendId: data.email_id,
@@ -219,9 +252,13 @@ async function fileFromGmail(
   }
   const settings = await getSiteSettings();
   const forwarded = parseForwarded(text);
+  // Who each message was to: a forward's own To line, or for mail sent
+  // straight to the filing address, its recipients other than the site's own.
+  const domain = inboundDomain()?.toLowerCase();
+  const directTo = data.to.filter((r) => !domain || !addressOf(r).endsWith(`@${domain}`)).join(", ");
   const items = forwarded.length
     ? forwarded
-    : [{ from: data.from, subject: data.subject, body: stripQuoted(text) || text, date: data.created_at }];
+    : [{ from: data.from, to: directTo, subject: data.subject, body: stripQuoted(text) || text, date: data.created_at }];
   for (const [i, m] of items.entries()) {
     const sender = addressOf(m.from);
     const fromOwner = isAdminEmail(sender) || sender === addressOf(settings.contactEmail);
@@ -230,6 +267,7 @@ async function fileFromGmail(
       direction: fromOwner ? "out" : "in",
       kind: "imported",
       fromAddr: m.from,
+      toAddr: m.to || undefined,
       subject: m.subject,
       bodyText: m.body,
       idempotencyKey: `import-${data.email_id}-${i}`,
@@ -241,14 +279,20 @@ async function fileFromGmail(
 
 // Sends the owner's words to the project's client on the thread, in the same
 // branded layout as a composed email. Used for replies from Gmail and for
-// held messages the owner releases from the admin thread.
+// held messages the owner releases from the admin thread. An answer to one of
+// the site's alerts goes out under the thread's own subject, not the alert's.
 export async function relayToClient(
-  project: { id: string; email?: string },
-  subject: string,
+  project: { id: string; email?: string; projectName?: string; clientName?: string },
+  ownerSubject: string,
   body: string,
   idempotencyKey: string,
 ) {
   if (!project.email) throw new Error("No client email on file");
+  const email = project.email;
+  const threadSubject = answersAlert(ownerSubject)
+    ? (await listProjectMessages(project.id, { clientView: { email } })).filter((m) => m.subject?.trim()).at(-1)?.subject
+    : undefined;
+  const subject = clientSubject(ownerSubject, threadSubject, project.projectName || project.clientName);
   const html = await render(
     BrandedEmailLayout({ preview: subject, children: PipelineEmailTemplate({ body }) }),
   );
@@ -307,7 +351,7 @@ async function alertOwner(email: {
   headers?: Record<string, string>;
 }) {
   const settings = await getSiteSettings();
-  await sendEmail({ to: ownerAddress(settings), ...email });
+  await sendEmail({ to: ownerAddress(settings), ...email, sender: "site" });
 }
 
 async function fetchReceived(id: string) {
