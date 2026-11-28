@@ -16,14 +16,20 @@ export function logAddress(token: string): string | undefined {
   return domain ? `log+${token}@${domain}` : undefined;
 }
 
-// "Avery <Avery@Example.com>" → "avery@example.com"
+// "Avery <Avery@Example.com>" → "avery@example.com". The address is the
+// angle-bracketed one the line ends with, the one mail servers check, never
+// one written into the display name ('"<julian@…>" <x@evil.test>').
 export function addressOf(value: string): string {
-  const inBrackets = value.match(/<([^>]+)>/)?.[1];
+  const inBrackets = value.match(/<([^<>]+)>\s*$/)?.[1];
   return (inBrackets ?? value).trim().toLowerCase();
 }
 
-function domainOf(address: string): string {
-  return addressOf(address).split("@")[1] ?? "";
+// Whether a From line names a single mailbox: one "@" in all. A line with
+// more (a second address, or one tucked into the display name or a comment)
+// can make the address read here differ from the one the sender's domain was
+// checked for, so it never counts as proof that mail is the owner's.
+export function oneAddress(value: string): boolean {
+  return (value.match(/@/g) ?? []).length === 1;
 }
 
 export function findThreadAddress(
@@ -76,19 +82,19 @@ export function isAutomated(headers: Record<string, string> | null | undefined):
   return !!(header(headers, "x-autoreply") || header(headers, "x-autorespond"));
 }
 
-// Whether the receiving server saw a DKIM signature from the sender's own
-// domain pass. Required before a message claiming to be from the owner is
-// relayed to a client, so the owner's address can't be spoofed into a thread.
-export function senderAuthenticated(
-  headers: Record<string, string> | null | undefined,
-  from: string,
-): boolean {
-  const results = header(headers, "authentication-results").toLowerCase();
-  const domain = domainOf(from);
-  if (!results || !domain) return false;
-  return results
-    .split(";")
-    .some((part) => /\bdkim=pass\b/.test(part) && new RegExp(`header\\.[di]=@?${domain.replace(/\./g, "\\.")}\\b`).test(part));
+// Resend's own check of a received email, made when it arrived rather than
+// read from the message's headers (which the sender writes), so it can't be
+// forged: https://resend.com/docs/api-reference/emails/retrieve-received-email.
+// Its DKIM result is "gray" when the mail is unsigned or signed by a domain
+// other than the From domain.
+export type ReceivedAuthentication = { spf?: string | null; dkim?: string | null; dmarc?: string | null };
+
+// Whether that check says the mail really came from its From domain: DKIM
+// signed by it, or DMARC passed. Required before a message claiming to be
+// from the owner is relayed to a client, so the owner's address can't be
+// spoofed into a thread. No result counts as not verified.
+export function ownerVerified(auth: ReceivedAuthentication | null | undefined): boolean {
+  return auth?.dkim === "pass" || auth?.dmarc === "pass";
 }
 
 // The new part of a reply, without the quoted history mail apps append.

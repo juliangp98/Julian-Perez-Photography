@@ -2,9 +2,10 @@
 // message they belong to. Mail received at a project's address is filed on its
 // thread, then: a client's reply is forwarded to the owner's inbox (with the
 // reply address as Reply-To, so answering from Gmail goes back through the
-// site); the owner's reply is relayed to the client once DKIM shows it really
-// came from the owner; anything else is held for review and never reaches the
-// client.
+// site); the owner's reply is relayed to the client once Resend's own check
+// (its DKIM or DMARC result, not the message's headers) shows it really came
+// from the owner's domain; anything else is held for review and never reaches
+// the client.
 
 import { Resend, type WebhookEventPayload } from "resend";
 import { render } from "@react-email/components";
@@ -39,7 +40,9 @@ import {
   isSiteMail,
   parseForwarded,
   replyAddress,
-  senderAuthenticated,
+  oneAddress,
+  ownerVerified,
+  type ReceivedAuthentication,
   stripQuoted,
 } from "./inbound";
 
@@ -134,7 +137,6 @@ async function handleReceived(data: ReceivedData, origin: string) {
   const from = addressOf(data.from);
   const settings = await getSiteSettings();
   const isOwner = isAdminEmail(from) || from === addressOf(settings.contactEmail);
-  const verified = senderAuthenticated(full.headers, from);
   const attachments: MessageAttachment[] = (full.attachments ?? []).map((a) => ({
     id: a.id,
     filename: a.filename ?? "attachment",
@@ -176,7 +178,12 @@ async function handleReceived(data: ReceivedData, origin: string) {
     return;
   }
 
-  if (address.mode === "log") return fileFromGmail(project, data, text, isOwner && verified);
+  // Whether mail claiming to be Julian's really is, asked only of his. A
+  // From line naming more than one mailbox is never proof: the address read
+  // here could differ from the one Resend checked, so it's held for him.
+  const verified = isOwner && oneAddress(data.from) && ownerMailVerified(full);
+
+  if (address.mode === "log") return fileFromGmail(project, data, text, verified);
 
   if (isOwner) {
     const body = stripQuoted(text);
@@ -225,6 +232,20 @@ async function handleReceived(data: ReceivedData, origin: string) {
     flagged: !knownSender,
     origin,
   });
+}
+
+// Resend's own verdict on a received email's sender (ownerVerified). The
+// SDK's types don't name the field yet. A result missing altogether is
+// reported, since every owner reply is then held for him to release.
+function ownerMailVerified(full: unknown): boolean {
+  const auth = (full as { authentication?: ReceivedAuthentication | null }).authentication;
+  if (auth == null) {
+    Sentry.captureMessage("A received email has no authentication result", {
+      level: "warning",
+      tags: { route: "email/webhook", stage: "owner-auth" },
+    });
+  }
+  return ownerVerified(auth);
 }
 
 // The owner forwarded mail from Gmail to log+<token>@: file each forwarded

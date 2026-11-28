@@ -3,7 +3,9 @@ import {
   findThreadAddress,
   isAutomated,
   parseForwarded,
-  senderAuthenticated,
+  ownerVerified,
+  addressOf,
+  oneAddress,
   stripQuoted,
 } from "../../src/lib/email/inbound";
 
@@ -50,16 +52,30 @@ test("recognizes automatic replies", () => {
   expect(isAutomated(null)).toBe(false);
 });
 
-test("trusts a sender only on a passing DKIM signature from their own domain", () => {
-  const pass = {
-    "Authentication-Results": "mx.resend.com; dkim=pass header.i=@gmail.com header.s=20230601; spf=pass",
-  };
-  expect(senderAuthenticated(pass, "Julian <julian@gmail.com>")).toBe(true);
-  expect(senderAuthenticated(pass, "julian@example.com")).toBe(false);
-  expect(
-    senderAuthenticated({ "authentication-results": "mx; dkim=fail header.d=gmail.com" }, "julian@gmail.com"),
-  ).toBe(false);
-  expect(senderAuthenticated(null, "julian@gmail.com")).toBe(false);
+test("trusts a sender only on Resend's own DKIM or DMARC pass, never on the message's headers", () => {
+  expect(ownerVerified({ dkim: "pass", spf: "pass", dmarc: "pass" })).toBe(true);
+  expect(ownerVerified({ dkim: "gray", dmarc: "pass" })).toBe(true);
+  // Unsigned, or signed by another domain (Gmail's own signature on julian@ mail).
+  expect(ownerVerified({ dkim: "gray", spf: "pass", dmarc: "fail" })).toBe(false);
+  expect(ownerVerified({ dkim: "fail", dmarc: "fail" })).toBe(false);
+  // No result at all (older mail, or a field the API dropped).
+  expect(ownerVerified(null)).toBe(false);
+  expect(ownerVerified(undefined)).toBe(false);
+  expect(ownerVerified({})).toBe(false);
+});
+
+test("reads the address a From line ends with, and knows a line with more than one", () => {
+  expect(addressOf("Avery <Avery@Example.com>")).toBe("avery@example.com");
+  expect(addressOf("avery@example.com")).toBe("avery@example.com");
+  // An address written into the display name isn't the sender's.
+  expect(addressOf('"<julian@julianperezphotography.com>" <x@evil.test>')).toBe("x@evil.test");
+  expect(oneAddress("Julian Perez <julian@julianperezphotography.com>")).toBe(true);
+  expect(oneAddress('"<julian@julianperezphotography.com>" <x@evil.test>')).toBe(false);
+  expect(oneAddress("x@evil.test (<julian@julianperezphotography.com>)")).toBe(false);
+  expect(oneAddress("julian@julianperezphotography.com, x@evil.test")).toBe(false);
+  // Read as Julian's, but with a second address in the line it isn't proof.
+  expect(addressOf('"x@evil.test" <julian@julianperezphotography.com>')).toBe("julian@julianperezphotography.com");
+  expect(oneAddress('"x@evil.test" <julian@julianperezphotography.com>')).toBe(false);
 });
 
 test("reads Gmail's forwarded-message blocks", () => {
