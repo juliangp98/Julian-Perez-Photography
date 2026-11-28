@@ -81,7 +81,11 @@ test("the owner email links to Compose on the filed project, with no client deta
   await adminPage.goto(url.pathname + url.search + url.hash);
   await expect(adminPage.getByText("Good fit", { exact: true })).toBeVisible();
   await expect(adminPage.getByText("A fall wedding at a Leesburg vineyard for about 120 guests.")).toBeVisible();
-  await expect(adminPage.getByLabel("Extra instructions for the AI draft")).toHaveValue(/Leesburg vineyard/);
+  // The steer is the assessment's summary alone: its key details can carry
+  // the budget, and the draft reads the inquiry itself.
+  await expect(adminPage.getByLabel("Extra instructions for the AI draft")).toHaveValue(
+    "A fall wedding at a Leesburg vineyard for about 120 guests.",
+  );
   expect((await fakes.calls("ai")).length).toBe(before);
 });
 

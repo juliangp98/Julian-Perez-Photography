@@ -134,13 +134,28 @@ test("ai: the plan summary is a draft for the form, built without private detail
     referral: "venue",
     // A private note in the activity log.
     status_history: [{ kind: "note", status: "new-inquiry", note: "Prefers texts", changedAt: new Date().toISOString() }],
-    // The questionnaire opens with the client's contact details.
+    // The questionnaire opens with the client's contact details, and asks
+    // how they found Julian.
     questionnaire_snapshot: JSON.stringify({
       fullName: "E2E AI",
       email: "e2e-ai-contact@example.com",
       phone: "(703) 555-0164",
       gettingReady: "Yes",
+      referral: "REFERRAL-SENTINEL",
     }),
+    // What the client said on the call, and Julian's own parts of the summary.
+    calls: {
+      discovery: {
+        notes: "NOTES-SENTINEL",
+        summary: {
+          background: "Met at a friend's garden wedding.",
+          event: "A spring day at the arboretum.",
+          priorities: "Candid family moments.",
+          logistics: "LOGISTICS-SENTINEL",
+          actions: "ACTIONS-SENTINEL",
+        },
+      },
+    },
   });
   await fakes.script({ replies: ['"A relaxed spring day, planned around golden hour."'] });
 
@@ -154,10 +169,32 @@ test("ai: the plan summary is a draft for the form, built without private detail
   expect(prompt).toContain("Event date: May 2, 2027");
   // The answers are there, without the contact details.
   expect(prompt).toContain("Would you like getting-ready coverage?: Yes");
-  // No budget, referral, internal note or contact detail.
-  for (const hidden of ["$4,500", "Budget", "found Julian", "Prefers texts", "example.com", "555-0164"]) {
+  // What the client said on the call.
+  for (const said of ["Met at a friend's garden wedding.", "A spring day at the arboretum.", "Candid family moments."]) {
+    expect(prompt, said).toContain(said);
+  }
+  // No budget, referral, internal note, contact detail, or Julian's own call
+  // notes and to-dos.
+  for (const hidden of [
+    "$4,500",
+    "Budget",
+    "found Julian",
+    "Prefers texts",
+    "example.com",
+    "555-0164",
+    "REFERRAL-SENTINEL",
+    "LOGISTICS-SENTINEL",
+    "ACTIONS-SENTINEL",
+    "NOTES-SENTINEL",
+  ]) {
     expect(prompt, hidden).not.toContain(hidden);
   }
+  // The writing rules, and room to reason on a model that reasons apart.
+  const asked = (await fakes.calls("ai")).at(-1)?.body;
+  const system = String(((asked?.messages ?? []) as { content: string }[])[0]?.content);
+  expect(system).toContain("No em dashes");
+  expect(system).toContain("Never use these words or phrases");
+  expect(asked?.max_tokens).toBe(/gpt-oss/.test(String(asked?.model)) ? 2100 : 600);
 });
 
 test("ai: an answer the model garbled says so, and saves nothing", async ({

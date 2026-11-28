@@ -3,6 +3,10 @@
 // Compose a pipeline email on a project: pick a template, it prefills from the
 // project's info (with `[brackets]` for the bits to complete), edit freely, then
 // Send (branded, via /api/admin/send-email) or Copy (paste into your own mail).
+// With AI, "Draft with AI" writes the template, or with none a reply to the
+// client's newest message, from the whole project (/api/admin/draft-email);
+// a send says when the text began as an AI draft, so it never becomes a
+// sample of Julian's own writing.
 // The panel says up front what sending the template does to the project (its
 // status, follow-up, date hold) and confirms what moved once it has gone.
 
@@ -12,6 +16,7 @@ import { useRouter } from "next/navigation";
 import {
   EMAIL_TEMPLATES,
   GROUPED_TEMPLATES,
+  STEER_MAX,
   fillTemplate,
   unfilledParts,
   type EmailTemplate,
@@ -26,6 +31,13 @@ import CopyButton from "@/components/ui/CopyButton";
 import FormStatus from "@/components/ui/FormStatus";
 
 type Status = "idle" | "drafting" | "drafted" | "sending" | "sent" | "error";
+
+// Why a reply with no template wasn't drafted, by the route's reason.
+const NOTHING_TO_ANSWER: Record<string, string> = {
+  "nothing-to-answer": "There's no message from the client to answer yet. Pick a template, or add a steer.",
+  answered: "You've answered their last message. Pick a template, or add a steer.",
+  inquiry: "Their inquiry is answered with the Inquiry reply template, which also moves the project on. Pick it, or add a steer.",
+};
 
 const input = `${inputClass} text-sm`;
 
@@ -112,6 +124,9 @@ export default function ComposeEmail({
   // text sends once, and any edit makes it a new message.
   const [sendKey, setSendKey] = useState(() => kept?.sendKey ?? crypto.randomUUID());
   const newVersion = () => setSendKey(crypto.randomUUID());
+  // Whether the text began as an AI draft: the send records it, so the
+  // drafter never takes it for Julian's own writing.
+  const [aiDrafted, setAiDrafted] = useState(kept?.aiDrafted ?? false);
   // A hand-off (#compose) can come from another tab of the page, where the
   // panel wasn't on screen to scroll to, so it brings itself into view.
   useEffect(() => {
@@ -119,8 +134,8 @@ export default function ComposeEmail({
   }, []);
   // Keep what's been changed for coming back to; a send clears it.
   useEffect(() => {
-    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions, sendKey });
-  }, [touched, projectId, keepAs, templateId, subject, body, instructions, sendKey]);
+    if (touched) composeDraft.set(projectId, keepAs, { templateId, subject, body, instructions, sendKey, aiDrafted });
+  }, [touched, projectId, keepAs, templateId, subject, body, instructions, sendKey, aiDrafted]);
 
   // Picking a template shows the email left unsent on it, if there is one;
   // otherwise its fresh fill, which is kept only once it's changed, so
@@ -134,6 +149,7 @@ export default function ComposeEmail({
       setBody(left.draft.body);
       setInstructions(left.draft.instructions);
       setSendKey(left.draft.sendKey);
+      setAiDrafted(left.draft.aiDrafted ?? false);
       setKeepAs(left.handoff);
       setTouched(true);
       return;
@@ -141,13 +157,14 @@ export default function ComposeEmail({
     setTouched(false);
     setKeepAs(handoff);
     newVersion();
+    setAiDrafted(false);
     const t = EMAIL_TEMPLATES.find((x) => x.id === id);
     setSubject(t ? fillTemplate(t.subject, tokensFor(t)) : "");
     setBody(t ? fillTemplate(t.body, tokensFor(t)) : "");
   }
 
   async function draft() {
-    if (!templateId || status === "drafting") return;
+    if (status === "drafting") return;
     setStatus("drafting");
     setMessage("");
     try {
@@ -156,7 +173,7 @@ export default function ComposeEmail({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
-          templateId,
+          templateId: templateId || undefined,
           instructions: instructions.trim() || undefined,
         }),
       });
@@ -167,7 +184,11 @@ export default function ComposeEmail({
         setSubject(data.subject);
         setBody(data.body);
         newVersion();
+        setAiDrafted(true);
         setStatus("drafted");
+      } else if (data.reason && NOTHING_TO_ANSWER[data.reason as string]) {
+        setMessage(NOTHING_TO_ANSWER[data.reason as string]);
+        setStatus("error");
       } else {
         // AI not configured or no record resolved — keep the static fill.
         setStatus("idle");
@@ -201,6 +222,7 @@ export default function ComposeEmail({
           subject,
           body,
           idempotencyKey: sendKey,
+          aiDrafted: aiDrafted || undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -224,6 +246,7 @@ export default function ComposeEmail({
       setTouched(false);
       setStatus("sent");
       newVersion();
+      setAiDrafted(false);
       router.refresh();
     } catch {
       setMessage("Couldn't reach the site. Check your connection and try again.");
@@ -255,11 +278,11 @@ export default function ComposeEmail({
 
       {/* With no template, a plain email: a reply in the conversation. */}
       <>
-        {templateId && aiEnabled && (
+        {aiEnabled && (
           <div className="rounded-lg border border-border bg-white p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-medium">
-                Personalize this with AI
+                {templateId ? "Personalize this with AI" : "Draft a reply with AI"}
               </p>
               <Button
                 variant="secondary"
@@ -279,11 +302,14 @@ export default function ComposeEmail({
               }}
               placeholder="Optional steer, e.g. “mention the rain backup plan”, “warmer tone”"
               aria-label="Extra instructions for the AI draft"
+              maxLength={STEER_MAX}
               className={input}
             />
             <p className="text-xs text-muted">
-              Rewrites the template from this project&rsquo;s details in your
-              voice. It never sends. You always review and edit first.
+              {templateId
+                ? "Rewrites the template from this project’s details in your voice."
+                : "Answers the client’s latest message, or writes what your steer asks, from this project’s details, in your voice."}{" "}
+              It never sends. You always review and edit first.
             </p>
           </div>
         )}

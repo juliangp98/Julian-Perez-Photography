@@ -15,6 +15,8 @@ export type ComposeDraftState = {
   // The send's idempotency key for this text, so a send retried after the
   // panel was reopened (its first reply lost, or still on the way) goes once.
   sendKey: string;
+  // The text began as an AI draft (edited since or not).
+  aiDrafted?: boolean;
 };
 
 // The Messages tab's own address names no hand-off.

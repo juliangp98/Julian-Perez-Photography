@@ -2,7 +2,8 @@
 // "Label: value" digest, grouped under the questionnaire's own sections so order
 // and grouping carry meaning for whatever reads it next. The digest is what the
 // project AI tools read (`projectAnswers` in src/lib/ai/project-context.ts),
-// so it leaves out the client's contact details. The same file builds the
+// so it leaves out the client's contact details, and for words a client reads
+// (`forClient`) how they found Julian too. The same file builds the
 // grouped read-out for the admin and portal pages (`buildAnswerGroups`) and a
 // second photographer's answers (`shootAnswers`). Server-safe — pulls the
 // schema from `questionnaires.ts` to resolve field ids back to human labels.
@@ -27,14 +28,20 @@ function formatVal(v: unknown): string {
 const CONTACT_IDS = new Set(["fullName", "email", "phone", "instagram"]);
 const isContact = (id: string, type?: string) =>
   CONTACT_IDS.has(id) || type === "email" || type === "tel";
+// How they found Julian: his to know, so a digest for words a client reads
+// (`forClient`) leaves it out too.
+const REFERRAL_IDS = new Set(["referral"]);
 
-// Returns the grouped digest, without contact details, or null when the
-// snapshot can't be parsed into a non-empty set of answers (so callers can
-// no-op cleanly).
+// Returns the grouped digest, without contact details (and, `forClient`,
+// without how they found Julian), or null when the snapshot can't be parsed
+// into a non-empty set of answers (so callers can no-op cleanly).
 export function buildAnswerDigest(
   serviceType: string | undefined,
   snapshot: string,
+  { forClient = false }: { forClient?: boolean } = {},
 ): string | null {
+  const leftOut = (id: string, type?: string) =>
+    isContact(id, type) || (forClient && REFERRAL_IDS.has(id));
   let answers: Record<string, unknown>;
   try {
     const parsed: unknown = JSON.parse(snapshot);
@@ -54,7 +61,7 @@ export function buildAnswerDigest(
     for (const section of q.sections) {
       const sectionLines: string[] = [];
       for (const field of section.fields) {
-        if (isContact(field.id, field.type)) {
+        if (leftOut(field.id, field.type)) {
           used.add(field.id);
           continue;
         }
@@ -72,7 +79,7 @@ export function buildAnswerDigest(
   // Answers not covered by the schema (e.g. schema drift) — keep them by key.
   const extras: string[] = [];
   for (const [key, raw] of Object.entries(answers)) {
-    if (used.has(key) || isContact(key)) continue;
+    if (used.has(key) || leftOut(key)) continue;
     const val = formatVal(raw);
     if (!val) continue;
     extras.push(`- ${key}: ${val}`);

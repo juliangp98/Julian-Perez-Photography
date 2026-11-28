@@ -113,10 +113,7 @@ function rowsFor(
     const day = dayOf(p.lastInAt);
     // Answered outside the site (the inquiry or an earlier message marked
     // handled): a plain reply, as on the project page.
-    const byHand = Object.entries(p.todayDismissed ?? {}).some(
-      ([k, v]) => (k === "inquiry" || k.startsWith("reply:")) && v === "handled",
-    );
-    const lead = (!p.status || p.status === "new-inquiry") && !p.lastOutAt && !byHand && !booked;
+    const lead = inquiryWaiting(p);
     add("reply", replyKey(p.lastInAt ?? ""), `${first} wrote ${dayAgo(day, today)}, not answered yet`, day, {
       label: "Reply",
       href: lead ? draftReplyHref(page) : `${page}?tab=messages#compose`,
@@ -211,6 +208,32 @@ export function hiddenByMark(mark: string | undefined, today: string): boolean {
 // project page's next step reads it the same way).
 export function hasOwnContract(docs?: { type?: string; uploadedBy?: string }[]): boolean {
   return !!docs?.some((d) => d.type === "contract" && d.uploadedBy !== "client");
+}
+
+// A lead answered outside the site: its inquiry, or a message of theirs,
+// marked handled on Today.
+export function answeredByHand(todayDismissed?: Record<string, string>): boolean {
+  return Object.entries(todayDismissed ?? {}).some(
+    ([k, v]) => (k === "inquiry" || k.startsWith("reply:")) && v === "handled",
+  );
+}
+
+// A lead whose first inquiry still waits for its reply: a new inquiry (or one
+// with no status yet) that nothing has gone out to, with nothing of theirs
+// marked handled on Today and no contract of Julian's. The inquiry reply
+// template answers it, and moves it on.
+export function inquiryWaiting(p: {
+  status?: string;
+  lastOutAt?: string;
+  todayDismissed?: Record<string, string>;
+  documents?: { type?: string; uploadedBy?: string }[];
+}): boolean {
+  return (
+    (!p.status || p.status === "new-inquiry") &&
+    !p.lastOutAt &&
+    !answeredByHand(p.todayDismissed) &&
+    !hasOwnContract(p.documents)
+  );
 }
 
 // The key of the row for a client's message that hasn't had an answer.

@@ -36,7 +36,7 @@ const specSchema = z.object({
 type Spec = z.infer<typeof specSchema>;
 
 const SYSTEM_PROMPT = [
-  "You convert a photographer's natural-language search over his client projects into a structured filter. Output ONLY JSON — no prose, no code fence.",
+  "You convert a photographer's natural-language search over his client projects into a structured filter. Output ONLY JSON: no prose, no code fence.",
   "",
   "Use only the fields the query implies; set the rest to null:",
   "- statuses: array of pipeline status slugs to include. Map phrases like 'not booked yet' / 'no contract yet' / 'still a lead' to the appropriate set of EARLIER pipeline statuses (everything before that milestone).",

@@ -489,6 +489,10 @@ test("a summary sent as lists, with parts left empty, still reads, and a long ca
   await expect(page.getByLabel(/^Photography priorities/)).toHaveValue("- Candid coverage\n- An album");
   await expect(page.getByLabel(/^My action items/)).toHaveValue("- Send the proposal\n- Book the venue walkthrough");
   await expect(page.getByLabel(/^Budget and logistics/)).toHaveValue("");
+  // Each part says how far it travels.
+  await expect(page.getByLabel("Background (can shape client emails)")).toBeVisible();
+  await expect(page.getByLabel("My action items (guides the drafts, never quoted)")).toBeVisible();
+  await expect(page.getByLabel("Budget and logistics (yours only)")).toBeVisible();
   // Room for five parts, and on a model that reasons apart from its answer,
   // room for that too, with its reasoning kept short.
   const asked = (await fakes.calls("ai")).filter((c) => c.path === "/chat/completions").at(-1);
@@ -533,7 +537,7 @@ test("Summarize with nothing typed says so, without asking the AI", async ({
   expect(await fakes.calls("ai")).toEqual([]);
 });
 
-test("the recap draft reads the summary's client parts, never the budget or to-dos", async ({
+test("the recap draft reads the summary's client parts and acts on the to-dos, never the budget", async ({
   adminRequest,
   fakes,
 }) => {
@@ -560,7 +564,16 @@ test("the recap draft reads the summary's client parts, never the budget or to-d
   expect(prompt).toContain("Met at a friend's wedding.");
   expect(prompt).toContain("Candid coverage, an album.");
   expect(prompt).not.toContain("$4k");
-  expect(prompt).not.toContain("Chase the venue contract");
+  // The to-do list guides the draft, under its own heading, never quoted.
+  const user = String(
+    (((await fakes.calls("ai")).at(-1)?.body?.messages ?? []) as { role: string; content: string }[]).find(
+      (m) => m.role === "user",
+    )?.content,
+  );
+  const guidance = user.indexOf("Julian's own to-do list from the call");
+  expect(guidance).toBeGreaterThan(-1);
+  expect(user.indexOf("Chase the venue contract")).toBeGreaterThan(guidance);
+  expect(user).toContain("never quote the list");
 });
 
 test("the date check names a project already booked on the date", async ({

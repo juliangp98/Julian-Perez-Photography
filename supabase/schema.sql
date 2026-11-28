@@ -371,6 +371,11 @@ notify pgrst, 'reload schema';
 -- project page knows which steps are done (the week-of email, the sneak peek).
 alter table client_messages add column if not exists template text;
 
+-- Whether an email Julian sent started as an AI draft. The drafter learns his
+-- voice from his own sent mail, and leaves these out, so it never learns from
+-- itself.
+alter table client_messages add column if not exists ai_drafted boolean not null default false;
+
 -- The project's activity log (status_history): each move in the pipeline and
 -- each note the owner adds, dated. Appends one entry in a single statement, so
 -- a note added while something else writes the log isn't lost. Says whether

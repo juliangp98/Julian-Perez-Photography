@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 // Public booking concierge (/api/concierge) — content-grounded, rate-limited,
 // honeypot-protected, grounded only in public catalog content. Malformed,
@@ -70,4 +70,22 @@ test("concierge: accepts a well-formed question (past validation)", async ({
     expect(typeof json.reply).toBe("string");
     expect(json.reply.length).toBeGreaterThan(0);
   }
+});
+
+test("concierge: the prompt carries the site's writing rules and no promised delivery time", async ({ request, fakes }) => {
+  const res = await request.post("/api/concierge", {
+    headers: { "x-forwarded-for": "10.99.20.9" },
+    data: { messages: [{ role: "user", content: "How soon will I get my photos?" }] },
+  });
+  expect(res.status()).toBe(200);
+  const asked = (await fakes.calls("ai")).filter((c) => c.path === "/chat/completions").at(-1);
+  const system = String(((asked?.body?.messages ?? []) as { role: string; content: string }[])[0]?.content);
+  expect(system).toContain("Never use these words or phrases");
+  expect(system).toContain("No em dashes");
+  expect(system).toContain("Delivery time depends on the service");
+  expect(system).not.toContain("most galleries within a few weeks");
+  expect(system).not.toContain("Most galleries are ready within a few weeks");
+  // The general FAQ's delivery answer says the same.
+  expect(system).toContain("When it's ready depends on the service");
+  expect(system).not.toContain("\u2014");
 });

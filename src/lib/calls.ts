@@ -2,8 +2,9 @@
 // admin's call panel can use the types.
 
 // The summary written after a discovery call, in five parts. The first three
-// are what the client told Julian, and may shape the recap email; the last two
-// are his own and never reach a client.
+// are what the client told Julian, and may shape any email drafted to them;
+// his action items guide those drafts without being quoted; budget and
+// logistics are his alone and never reach a client.
 export type CallSummary = {
   background: string;
   event: string;
@@ -12,13 +13,25 @@ export type CallSummary = {
   actions: string;
 };
 
-export const SUMMARY_PARTS: { key: keyof CallSummary; label: string; clientSafe: boolean }[] = [
-  { key: "background", label: "Background", clientSafe: true },
-  { key: "event", label: "Event details", clientSafe: true },
-  { key: "priorities", label: "Photography priorities", clientSafe: true },
-  { key: "logistics", label: "Budget and logistics", clientSafe: false },
-  { key: "actions", label: "My action items", clientSafe: false },
+// How far a part may travel: "client" may shape the words of a client email,
+// "guide" tells a draft what to act on and is never quoted, "never" stays
+// with Julian.
+export type SummaryPartUse = "client" | "guide" | "never";
+
+export const SUMMARY_PARTS: { key: keyof CallSummary; label: string; use: SummaryPartUse }[] = [
+  { key: "background", label: "Background", use: "client" },
+  { key: "event", label: "Event details", use: "client" },
+  { key: "priorities", label: "Photography priorities", use: "client" },
+  { key: "logistics", label: "Budget and logistics", use: "never" },
+  { key: "actions", label: "My action items", use: "guide" },
 ];
+
+// What the Call tab says beside each part.
+export const SUMMARY_USE_NOTE: Record<SummaryPartUse, string> = {
+  client: "(can shape client emails)",
+  guide: "(guides the drafts, never quoted)",
+  never: "(yours only)",
+};
 
 export const EMPTY_SUMMARY: CallSummary = {
   background: "",

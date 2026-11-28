@@ -33,6 +33,9 @@ const schema = z.object({
   body: z.string().min(1).max(20000),
   // One per composed message, so a retried or double-clicked send goes once.
   idempotencyKey: z.string().uuid().optional(),
+  // It began as an AI draft, so it's never taken as a sample of Julian's
+  // own writing.
+  aiDrafted: z.boolean().optional(),
 });
 
 export const POST = defineRoute({
@@ -40,7 +43,7 @@ export const POST = defineRoute({
   auth: "admin",
   schema,
   rateLimit: { max: 20, windowMs: 10 * 60 * 1000 },
-  run: async ({ projectId, templateId, subject, body, idempotencyKey }) => {
+  run: async ({ projectId, templateId, subject, body, idempotencyKey, aiDrafted }) => {
     // Nothing goes out with brackets left to fill (Compose checks too; this
     // catches a page left open on an older version).
     const unfilled = unfilledParts(`${subject}\n${body}`);
@@ -66,7 +69,7 @@ export const POST = defineRoute({
         html,
         text: body,
         idempotencyKey,
-        thread: { projectId, kind: "compose", template: templateId },
+        thread: { projectId, kind: "compose", template: templateId, aiDrafted },
       }));
     } catch (err) {
       Sentry.captureException(err, { tags: { route: "admin/send-email", stage: "send" } });

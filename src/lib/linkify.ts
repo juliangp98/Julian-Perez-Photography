@@ -29,3 +29,13 @@ export function linkParts(text: string): LinkPart[] {
   if (last < text.length) parts.push({ text: text.slice(last) });
   return parts;
 }
+
+// Text with every web address that isn't one of `allowed` replaced by
+// "[link]", so a drafted email carries only addresses it was given, and an
+// invented one is left for Julian to fill in (Compose won't send brackets).
+export function neutraliseLinks(text: string, allowed: Iterable<string>): string {
+  const keep = new Set(allowed);
+  return linkParts(text)
+    .map((p) => (p.href && !keep.has(p.href) ? "[link]" : p.text))
+    .join("");
+}

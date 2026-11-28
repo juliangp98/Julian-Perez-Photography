@@ -9,6 +9,7 @@ import { apiError, defineRoute } from "@/lib/api-route";
 import { isHoneypotTriggered } from "@/lib/request-guard";
 import { generateText, aiEnabled, aiModel } from "@/lib/ai/ai";
 import { buildConciergeContext } from "@/lib/ai/concierge-kb";
+import { AVOID_LINE, NO_EM_DASHES } from "@/lib/ai/ai-voice";
 import { getSiteSettings } from "@/lib/content";
 
 const schema = z.object({
@@ -21,7 +22,7 @@ const schema = z.object({
     )
     .min(1)
     .max(12),
-  // Honeypot — real visitors leave it empty; bots fill it. Allowed through
+  // Honeypot: real visitors leave it empty; bots fill it. Allowed through
   // the schema so the route can silently fake success rather than 400.
   hp_company: z.string().max(200).optional(),
 });
@@ -40,6 +41,7 @@ function buildSystemPrompt(studioName: string, context: string): string {
     "- Answer ONLY using the CONTEXT below. If something isn't covered there, say you're not certain and point them to the inquiry form (/inquire) or email. Never guess.",
     "- Never invent or estimate prices, dates, availability, turnaround times, or policies. Use only figures that appear in the context. For an exact quote or to check a specific date, send them to /inquire or a discovery call.",
     "- Be warm, concise, and genuinely helpful: a few sentences, not an essay.",
+    `- ${AVOID_LINE} ${NO_EM_DASHES}`,
     '- Formatting: reply in short, conversational text. You may use **bold** sparingly (e.g. a price) and simple bullet lines starting with "- ", but do NOT use Markdown tables, headings (#), or numbered outlines; they render poorly in the chat. Write site links as plain paths like /inquire or /services/weddings; the chat turns them into clickable links, so never wrap them in markdown link syntax or asterisks.',
     "- You're here to help people book: when it fits, suggest the service or package that matches their need and point them to /inquire to start.",
     `- Only discuss ${studioName}'s photography services, pricing, process, and booking. If asked about anything else, politely steer back.`,

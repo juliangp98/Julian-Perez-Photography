@@ -33,7 +33,7 @@ test("keeps up to three substantial samples, trimmed", () => {
   ];
   const samples = pickVoiceSamples(rows);
   expect(samples).toHaveLength(3);
-  for (const s of samples) expect(s.length).toBeLessThanOrEqual(900);
+  for (const s of samples) expect(s.length).toBeLessThanOrEqual(400);
 });
 
 test("adds no prompt section before there's any history", () => {
