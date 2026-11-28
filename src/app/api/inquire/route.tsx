@@ -16,6 +16,7 @@ import {
 import { apiError, defineRoute, originOf } from "@/lib/api-route";
 import { formatSubjectDate } from "@/lib/email/email-helpers";
 import { sendEmail } from "@/lib/email/send";
+import { ownerAddress } from "@/lib/email/notify";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import * as Sentry from "@sentry/nextjs";
 import { sendSms } from "@/lib/sms";
@@ -96,7 +97,7 @@ export const POST = defineRoute({
     ]);
     const serviceName = svc?.title || data.service;
 
-    const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
+    const toAddress = ownerAddress(settings);
 
     // Durable capture: upsert a client record so the inquiry isn't lost to the
     // inbox, even if the owner email then fails. It comes first so the owner

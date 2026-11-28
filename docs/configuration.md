@@ -10,7 +10,7 @@ The site checks itself: missing settings that production needs are logged once w
 |---|---|---|---|
 | `RESEND_API_KEY` | needed | Sends every email (inquiries, confirmations, sign-in links, client messages). Example: `re_...`. | No email goes out; in production, forms report an error instead of pretending to send. |
 | `RESEND_FROM` | optional | The verified sender address. Example: `Julian Perez Photography <noreply@julianperezphotography.com>`. | Nothing breaks. |
-| `INQUIRY_TO` | optional | Where owner alerts go (new inquiries, forwarded client replies). | Owner alerts go to the contact email in Sanity site settings. |
+| `INQUIRY_TO` | optional | Where owner alerts go (new inquiries, forwarded client replies, the morning email). | Owner alerts go to the contact email in Sanity site settings. |
 | `RESEND_INBOUND_DOMAIN` | optional | The receiving subdomain for client replies (reply+<token>@ and log+<token>@). Example: `in.julianperezphotography.com`. | Replies go straight to your inbox and don't appear on the project thread. |
 | `RESEND_WEBHOOK_SECRET` | optional | Verifies Resend's delivery and inbound events at /api/email/webhook. Example: `whsec_...`. | No delivery status or replies on project threads (the webhook refuses everything). |
 | `DEV_EMAIL_TO` | optional | Where preview and local builds send email instead of the real recipient. | Those builds send to the first ADMIN_EMAIL. |
@@ -59,7 +59,7 @@ The site checks itself: missing settings that production needs are logged once w
 |---|---|---|---|
 | `GOOGLE_PLACES_API_KEY` | optional | Live Google reviews and address autocomplete. | Reviews fall back to the ones in site settings; address fields are plain text. |
 | `GOOGLE_PLACE_ID` | optional | The Google Business listing for reviews. | No live reviews. |
-| `CRON_SECRET` | needed | Authorizes the daily cron (keep-alive, delivery check, AI model check). | In production the cron refuses to run. |
+| `CRON_SECRET` | needed | Authorizes the daily cron (keep-alive, delivery check, morning email, AI model check). | In production the cron refuses to run. |
 | `NEXT_PUBLIC_SENTRY_DSN` | optional | Error reporting. | Errors aren't reported anywhere. |
 | `SENTRY_DEV` | optional | Set to 1 to report errors from a local dev server. | Nothing breaks. |
 | `NEXT_PUBLIC_SENTRY_DEV` | optional | Set to 1 to report browser errors from a local dev server. | Nothing breaks. |

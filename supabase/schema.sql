@@ -111,7 +111,7 @@ create unique index if not exists client_records_reply_token_idx
   on client_records (reply_token);
 
 -- Small key/value settings the site keeps for itself (the AI model choice,
--- the last known state of each automation).
+-- the last known state of each automation, the day a daily email went).
 create table if not exists app_settings (
   key text primary key,
   value jsonb not null,

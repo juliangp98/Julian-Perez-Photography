@@ -2,9 +2,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { test, expect } from "@playwright/test";
 
-// Keeps the UI kit the only source of its pieces. A file scan, no browser:
-// one dropdown control, colors only from the theme tokens, and the retired
-// patterns stay gone.
+// Keeps the UI kit the only source of its pieces, and other things written
+// once. A file scan, no browser: one dropdown control, colors only from the
+// theme tokens, the retired patterns stay gone, and the site's address lives
+// in one place.
 
 const ROOT = join(__dirname, "..", "..");
 const walk = (dir: string): string[] =>
@@ -25,6 +26,17 @@ function offenders(pattern: RegExp, allowed: string[] = []) {
     .filter((f) => !allowed.includes(f.path) && pattern.test(f.code))
     .map((f) => f.path);
 }
+
+test("the site's address is written once, as SITE_URL", () => {
+  // The upload allowlist names it with and without www, on purpose. Text
+  // without the scheme (the footer's label, signatures, addresses) is fine.
+  expect(
+    offenders(/https?:\/\/(www\.)?julianperezphotography\.com/, [
+      "src/lib/site-settings-data.ts",
+      "src/app/api/questionnaire-upload/route.ts",
+    ]),
+  ).toEqual([]);
+});
 
 test("one dropdown: <select> only inside ui/fields/Select", () => {
   expect(offenders(/<select\b/, ["src/components/ui/fields/Select.tsx"])).toEqual([]);

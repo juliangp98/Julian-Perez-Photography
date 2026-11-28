@@ -20,8 +20,7 @@ import NewProjectForm from "@/components/forms/NewProjectForm";
 import Badge from "@/components/ui/Badge";
 import { aiEnabled } from "@/lib/ai/ai";
 import { getServices } from "@/lib/content";
-import { QUESTIONNAIRES } from "@/lib/questionnaires";
-import { todayRows } from "@/lib/today";
+import { todayListFor } from "@/lib/today-list";
 import { heldUntil } from "@/lib/email/send-effects";
 import Panel from "@/components/ui/Panel";
 import { unfinishedSetup } from "@/lib/config";
@@ -99,17 +98,7 @@ export default async function AdminProjectsPage({
   const today = studioToday();
 
   // Today: what needs the owner now, from every project, whatever the filters.
-  const terms = new Map(
-    catalog.map((svc) => [
-      svc.slug as string,
-      { turnaroundDays: svc.turnaroundDays, questionnaire: svc.slug in QUESTIONNAIRES },
-    ]),
-  );
-  const rows = todayRows(
-    all.map((r) => ({ ...r, name: projectDisplayName(r) })),
-    today,
-    (slug) => (slug ? terms.get(slug) : undefined),
-  );
+  const rows = todayListFor(all, catalog, today);
 
   // Service options for the dropdown — the distinct service types in play.
   const services = [

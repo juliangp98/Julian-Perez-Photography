@@ -1,3 +1,4 @@
+import type { APIRequestContext } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Direct access to the test store (the separate Supabase project in .env.test),
@@ -26,6 +27,44 @@ export async function readProject(id: string, columns: string): Promise<Record<s
   const { data, error } = await db.from("client_records").select(columns).eq("id", id).single();
   if (error) throw new Error(`Reading the test project failed: ${error.message}`);
   return data as unknown as Record<string, unknown>;
+}
+
+// Create a project through the site's own route, as the owner (`request` is
+// the signed-in adminRequest): a new inquiry from "E2E <tag>" with a unique
+// example.com address.
+export async function newProject(request: APIRequestContext, tag: string, serviceType = "weddings") {
+  const slug = tag.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const email = `e2e-${slug}-${Date.now()}@example.com`;
+  const name = `E2E ${tag}`;
+  const res = await request.post("/api/admin/create-project", {
+    data: { email, clientName: name, serviceType, force: true },
+  });
+  const { id } = (await res.json()) as { id?: string };
+  if (!id) throw new Error(`Creating the test project failed (${res.status()}).`);
+  return { id, email, name };
+}
+
+// Read, write and clear one of the site's own app_settings values directly.
+export async function readSetting(key: string): Promise<unknown> {
+  const db = testStore();
+  if (!db) throw new Error("The test store isn't configured (.env.test).");
+  const { data, error } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
+  if (error) throw new Error(`Reading the test setting failed: ${error.message}`);
+  return data?.value ?? null;
+}
+
+export async function putSetting(key: string, value: unknown) {
+  const db = testStore();
+  if (!db) throw new Error("The test store isn't configured (.env.test).");
+  const { error } = await db.from("app_settings").upsert({ key, value, updated_at: new Date().toISOString() });
+  if (error) throw new Error(`Writing the test setting failed: ${error.message}`);
+}
+
+export async function clearSetting(key: string) {
+  const db = testStore();
+  if (!db) throw new Error("The test store isn't configured (.env.test).");
+  const { error } = await db.from("app_settings").delete().eq("key", key);
+  if (error) throw new Error(`Clearing the test setting failed: ${error.message}`);
 }
 
 // Add a message to a project's thread directly: a client's reply ("in") or

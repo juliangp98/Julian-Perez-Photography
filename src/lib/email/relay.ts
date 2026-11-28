@@ -22,6 +22,7 @@ import {
   type ThreadProject,
 } from "@/lib/messages";
 import { sendEmail } from "./send";
+import { ownerAddress } from "./notify";
 import { resendFrom } from "./email-helpers";
 import { BrandedEmailLayout, PipelineEmailTemplate } from "./email-templates";
 import {
@@ -306,7 +307,7 @@ async function alertOwner(email: {
   headers?: Record<string, string>;
 }) {
   const settings = await getSiteSettings();
-  await sendEmail({ to: process.env.INQUIRY_TO || settings.contactEmail, ...email });
+  await sendEmail({ to: ownerAddress(settings), ...email });
 }
 
 async function fetchReceived(id: string) {

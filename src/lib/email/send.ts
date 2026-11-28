@@ -71,6 +71,13 @@ function safetyRecipient(): string | null {
   );
 }
 
+// Whether a send actually reaches the address it names: Resend is set up and
+// the mail isn't redirected to the safety recipient. Something done once a day
+// claims the day only then, so a preview run can't use it up.
+export function deliversAsAddressed(): boolean {
+  return !!process.env.RESEND_API_KEY && safetyRecipient() === null;
+}
+
 function oneLine(subject: string): string {
   return subject.replace(/\s+/g, " ").trim();
 }

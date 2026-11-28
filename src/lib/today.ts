@@ -3,10 +3,11 @@
 // offers one thing to do. Rows can be marked handled or snoozed; a row's key
 // names the rule and what set it off, so the same rule firing for something
 // new (a later message, a new hold, an invoice gone overdue) shows again.
-// Pure, so the board and the specs share it.
+// Pure, so the board, the morning email and the specs share it.
 
 import { CLIENT_STATUS_TERMINAL, statusMoves, statusRank, type ClientStatus } from "./client-status";
-import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf } from "./field-format";
+import { dayAgo, daysBetween, eventDay, formatHumanDate, shiftDay, studioDayOf, weekdayOf } from "./field-format";
+import { SITE_URL } from "./site-settings-data";
 import { draftReplyHref } from "./triage";
 
 // The parts of a project the rules read.
@@ -238,4 +239,38 @@ export function todayRows(
   return projects
     .flatMap((p) => rowsFor(p, today, terms(p.serviceType)).filter((r) => !dismissed(r, p, today)))
     .sort((a, b) => a.due.localeCompare(b.due) || a.projectName.localeCompare(b.projectName));
+}
+
+// The morning email: the day's rows, in the board's order, each with its one
+// thing to do. Links are on the site's own address, since the daily job may
+// reach the site at another. Only each row's project name, reason and action
+// go in; the subject and preview carry no names, as they can show on a lock
+// screen. Null on a day with no rows: nothing is sent.
+export type MorningEmail = {
+  subject: string;
+  preview: string;
+  heading: string;
+  lines: string[];
+  items: { title: string; text: string; link: { label: string; href: string } }[];
+  cta: { label: string; href: string };
+};
+
+export function morningEmail(rows: TodayRow[], today: string): MorningEmail | null {
+  if (!rows.length) return null;
+  const day = formatHumanDate(today, { withYear: false });
+  const weekday = weekdayOf(today);
+  const count = rows.length === 1 ? "1 thing needs" : `${rows.length} things need`;
+  return {
+    // Dated, so a mail app doesn't thread one day's email into the last.
+    subject: `Today, ${day}: ${count} you`,
+    preview: `${weekday}'s list, longest waiting first.`,
+    heading: `${weekday}, ${day}`,
+    lines: ["Longest waiting first. Mark each one handled, or snooze it, on the board."],
+    items: rows.map((r) => ({
+      title: r.projectName,
+      text: r.reason,
+      link: { label: r.action.label, href: `${SITE_URL}${r.action.href}` },
+    })),
+    cta: { label: "Open the board →", href: `${SITE_URL}/admin/projects` },
+  };
 }

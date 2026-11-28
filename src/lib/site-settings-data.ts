@@ -5,8 +5,8 @@
 // which `src/lib/content.ts` transitively pulls in via `getSiteSettings`.
 //
 // Everyday call sites keep importing `siteSettingsFallback` from
-// `@/lib/content` (it re-exports from here); only the seed script reaches
-// into this file directly.
+// `@/lib/content` (it re-exports from here). `CONTACT_EMAIL` and `SITE_URL`
+// are imported from here directly, since they're needed where Sanity isn't.
 
 import type { SiteSettings } from "./types";
 
@@ -14,6 +14,11 @@ import type { SiteSettings } from "./types";
 // owner's inbox). Used where Sanity's site settings aren't available: the
 // email footer, the global error page, and this fallback.
 export const CONTACT_EMAIL = "julian@julianperezphotography.com";
+
+// The site's own address, with no trailing slash: canonical URLs, the sitemap,
+// structured data, and links in emails sent outside a request (the morning
+// email), where the address the request reached isn't the site's.
+export const SITE_URL = "https://julianperezphotography.com";
 
 export const siteSettingsFallback: SiteSettings = {
   siteName: "Julian Perez Photography",

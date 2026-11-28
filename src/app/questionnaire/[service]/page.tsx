@@ -7,6 +7,7 @@ import {
 import { getService, getSiteSettings } from "@/lib/content";
 import { aiEnabled } from "@/lib/ai/ai";
 import QuestionnaireForm from "@/components/forms/QuestionnaireForm";
+import { SITE_URL } from "@/lib/site-settings-data";
 import SubNav, { FUNNEL_TABS } from "@/components/ui/SubNav";
 
 export function generateStaticParams() {
@@ -21,7 +22,7 @@ export async function generateMetadata({
   const { service } = await params;
   const q = getQuestionnaire(service);
   if (!q) return {};
-  const url = `https://julianperezphotography.com/questionnaire/${service}`;
+  const url = `${SITE_URL}/questionnaire/${service}`;
   return {
     title: q.title,
     description: q.intro,
