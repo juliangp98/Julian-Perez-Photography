@@ -4,7 +4,7 @@ The house rules for this site, and what enforces each one. `AGENTS.md` covers th
 
 ## One definition per thing
 
-Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writing a helper, a label map, a formatter or a component, look for the one that exists. Labels come from `src/lib/labels.ts` and `src/lib/client-status.ts`, dates and phone numbers from `src/lib/field-format.ts`, service names and nouns from `src/lib/services-data.ts`.
+Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writing a helper, a label map, a formatter or a component, look for the one that exists. Labels come from `src/lib/labels.ts` and `src/lib/client-status.ts`, dates and phone numbers from `src/lib/field-format.ts`, service names and nouns from `src/lib/services-data.ts`, and the site's own address (`SITE_URL`) from `src/lib/site-settings-data.ts`.
 
 ## The UI kit first
 
@@ -14,7 +14,7 @@ Shared logic lives in `src/lib`, shared UI in `src/components/ui`. Before writin
 - Form controls: the `fields/` components; every dropdown is `Select` or `SelectField`.
 - Colors come from the theme tokens (`text-muted`, `border-border`, `text-accent`, `text-danger`, ...), never hex values or `[var(--...)]` classes.
 
-`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, retired pieces, and any route `loading.tsx` (on this Next version a loading boundary makes `router.refresh()` drop updates after an action).
+`tests/e2e/style-system.spec.ts` fails on a raw `<select>`, hard-coded colors, `[var(--...)]` color classes, retired pieces, the site's address written outside `site-settings-data.ts` and the upload allowlist, and any route `loading.tsx` (on this Next version a loading boundary makes `router.refresh()` drop updates after an action).
 
 ## One feature, one job
 

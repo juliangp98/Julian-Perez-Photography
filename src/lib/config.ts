@@ -19,7 +19,7 @@ export const SETTINGS: Setting[] = [
   // Email
   { area: "Email", name: "RESEND_API_KEY", purpose: "Sends every email (inquiries, confirmations, sign-in links, client messages).", without: "No email goes out; in production, forms report an error instead of pretending to send.", neededInProd: true, example: "re_..." },
   { area: "Email", name: "RESEND_FROM", purpose: "The verified sender address.", without: "", example: "Julian Perez Photography <noreply@julianperezphotography.com>" },
-  { area: "Email", name: "INQUIRY_TO", purpose: "Where owner alerts go (new inquiries, forwarded client replies).", without: "Owner alerts go to the contact email in Sanity site settings." },
+  { area: "Email", name: "INQUIRY_TO", purpose: "Where owner alerts go (new inquiries, forwarded client replies, the morning email).", without: "Owner alerts go to the contact email in Sanity site settings." },
   { area: "Email", name: "RESEND_INBOUND_DOMAIN", purpose: "The receiving subdomain for client replies (reply+<token>@ and log+<token>@).", without: "Replies go straight to your inbox and don't appear on the project thread.", example: "in.julianperezphotography.com" },
   { area: "Email", name: "RESEND_WEBHOOK_SECRET", purpose: "Verifies Resend's delivery and inbound events at /api/email/webhook.", without: "No delivery status or replies on project threads (the webhook refuses everything).", example: "whsec_..." },
   { area: "Email", name: "DEV_EMAIL_TO", purpose: "Where preview and local builds send email instead of the real recipient.", without: "Those builds send to the first ADMIN_EMAIL." },
@@ -48,7 +48,7 @@ export const SETTINGS: Setting[] = [
   // Other services
   { area: "Other services", name: "GOOGLE_PLACES_API_KEY", purpose: "Live Google reviews and address autocomplete.", without: "Reviews fall back to the ones in site settings; address fields are plain text." },
   { area: "Other services", name: "GOOGLE_PLACE_ID", purpose: "The Google Business listing for reviews.", without: "No live reviews." },
-  { area: "Other services", name: "CRON_SECRET", purpose: "Authorizes the daily cron (keep-alive, delivery check, AI model check).", without: "In production the cron refuses to run.", neededInProd: true },
+  { area: "Other services", name: "CRON_SECRET", purpose: "Authorizes the daily cron (keep-alive, delivery check, morning email, AI model check).", without: "In production the cron refuses to run.", neededInProd: true },
   { area: "Other services", name: "NEXT_PUBLIC_SENTRY_DSN", purpose: "Error reporting.", without: "Errors aren't reported anywhere." },
   { area: "Other services", name: "SENTRY_DEV", purpose: "Set to 1 to report errors from a local dev server.", without: "" },
   { area: "Other services", name: "NEXT_PUBLIC_SENTRY_DEV", purpose: "Set to 1 to report browser errors from a local dev server.", without: "" },

@@ -27,8 +27,7 @@ import {
   getRelatedPosts,
 } from "@/sanity/queries";
 import SubNav, { ABOUT_TABS } from "@/components/ui/SubNav";
-
-const SITE_URL = "https://julianperezphotography.com";
+import { SITE_URL } from "@/lib/site-settings-data";
 
 type Params = { slug: string };
 

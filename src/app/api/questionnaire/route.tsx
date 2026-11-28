@@ -16,6 +16,7 @@ import {
 import { rateLimitResponse, isHoneypotTriggered } from "@/lib/request-guard";
 import { formatSubjectDate } from "@/lib/email/email-helpers";
 import { sendEmail } from "@/lib/email/send";
+import { ownerAddress } from "@/lib/email/notify";
 import { REFERRAL_LABELS, formatReferral } from "@/lib/referral";
 import { sendSms } from "@/lib/sms";
 import { formatHumanDate } from "@/lib/field-format";
@@ -254,7 +255,7 @@ export async function POST(req: Request) {
   const subject = `New questionnaire: ${serviceTitle}, ${clientName}${formatSubjectDate(eventDateForSubject)}${referralLabel ? ` [via: ${referralLabel}]` : ""}`;
 
   const settings = await getSiteSettings();
-  const toAddress = process.env.INQUIRY_TO || settings.contactEmail;
+  const toAddress = ownerAddress(settings);
 
   // ── Wedding-specific: generate PDF ──
 

@@ -1,15 +1,23 @@
 import type { APIRequestContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, hasTestStore } from "./support/fixtures";
-import { addMessage, patchProject, readProject } from "./support/test-store";
-import { todayRows, type TodayProject, type TodayServiceTerms } from "../../src/lib/today";
-import { eventDay, eventMonthYear, formatEventDate, shiftDay, studioToday } from "../../src/lib/field-format";
+import { addMessage, newProject as createProject, patchProject, readProject } from "./support/test-store";
+import { morningEmail, todayRows, type TodayProject, type TodayServiceTerms } from "../../src/lib/today";
+import {
+  eventDay,
+  eventMonthYear,
+  formatEventDate,
+  formatHumanDate,
+  shiftDay,
+  studioToday,
+} from "../../src/lib/field-format";
 import { autoProjectName } from "../../src/lib/project-name";
+import { SITE_URL } from "../../src/lib/site-settings-data";
 
 // The Today list on the projects board (src/lib/today.ts): what needs the
-// owner now, worked out from the projects with rules. The rules are checked
-// directly; the board against the test store, where each row can be marked
-// handled or snoozed.
+// owner now, worked out from the projects with rules, and the morning email
+// built from the same rows. The rules are checked directly; the board against
+// the test store, where each row can be marked handled or snoozed.
 
 const TODAY = "2026-11-25";
 const terms = (questionnaire = true, turnaroundDays?: number) => (): TodayServiceTerms => ({
@@ -205,15 +213,51 @@ test("a closed project keeps only its follow-up, and a lost lead writing back af
   expect(back[0].action.href).toBe("/admin/projects/p?tab=messages#compose");
 });
 
-async function newProject(request: APIRequestContext, tag: string) {
-  const email = `e2e-today-${tag}-${Date.now()}@example.com`;
-  const res = await request.post("/api/admin/create-project", {
-    data: { email, clientName: `E2E Today ${tag}`, serviceType: "weddings", force: true },
+// The morning email lists the day's rows, in the board's order, on the
+// site's own address, with no names in the subject or preview.
+test("the morning email lists the day's rows in order, with links on the site's address", () => {
+  const rows = todayRows(
+    [
+      { id: "a", name: "Avery's Wedding", followUpAt: "2026-11-24", followUpNote: "Check the agreement came in" },
+      { id: "b", name: "Blair's Portraits", status: "new-inquiry", createdAt: "2026-11-01T15:00:00Z" },
+    ],
+    TODAY,
+    terms(),
+  );
+  expect(morningEmail(rows, TODAY)).toEqual({
+    subject: "Today, November 25: 2 things need you",
+    preview: "Wednesday's list, longest waiting first.",
+    heading: "Wednesday, November 25",
+    lines: ["Longest waiting first. Mark each one handled, or snooze it, on the board."],
+    items: [
+      {
+        title: "Blair's Portraits",
+        text: "New inquiry 3 weeks ago, not answered yet",
+        link: { label: "Draft a reply", href: `${SITE_URL}/admin/projects/b?compose=inquiry-reply#compose` },
+      },
+      {
+        title: "Avery's Wedding",
+        text: "Check the agreement came in (due November 24, 2026)",
+        link: { label: "Open", href: `${SITE_URL}/admin/projects/a` },
+      },
+    ],
+    cta: { label: "Open the board →", href: `${SITE_URL}/admin/projects` },
   });
-  const { id } = await res.json();
-  expect(id, "the project was created").toBeTruthy();
-  return id as string;
-}
+});
+
+test("one row reads in the singular, and a day with none sends nothing", () => {
+  expect(morningEmail(one({ followUpAt: TODAY }), TODAY)?.subject).toBe("Today, November 25: 1 thing needs you");
+  expect(morningEmail([], TODAY)).toBeNull();
+  // A row marked handled, or snoozed past today, leaves nothing to send.
+  const hold = { status: "proposal-sent", holdUntil: "2026-11-20" };
+  expect(morningEmail(one({ ...hold, todayDismissed: { "hold:2026-11-20": "handled" } }), TODAY)).toBeNull();
+  expect(morningEmail(one({ ...hold, todayDismissed: { "hold:2026-11-20": "2026-11-28" } }), TODAY)).toBeNull();
+  // The month and day alone, for the subject and heading.
+  expect(formatHumanDate("2026-11-25", { withYear: false })).toBe("November 25");
+  expect(formatHumanDate("2026-11-25")).toBe("November 25, 2026");
+});
+
+const newProject = async (request: APIRequestContext, tag: string) => (await createProject(request, `Today ${tag}`)).id;
 
 test("the board shows each rule's row, and a reply can be marked handled", async ({
   adminRequest,

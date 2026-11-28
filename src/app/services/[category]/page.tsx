@@ -13,6 +13,7 @@ import PackageCard from "@/components/marketing/PackageCard";
 import FeaturedReel from "@/components/marketing/FeaturedReel";
 import { renderInline } from "@/lib/inline";
 import { getQuestionnaire } from "@/lib/questionnaires";
+import { SITE_URL } from "@/lib/site-settings-data";
 
 import Button from "@/components/ui/Button";
 // Slugs come from Sanity when configured and fall back to the
@@ -35,7 +36,7 @@ export async function generateMetadata({
   const { category } = await params;
   const s = await getService(category);
   if (!s) return {};
-  const url = `https://julianperezphotography.com/services/${s.slug}`;
+  const url = `${SITE_URL}/services/${s.slug}`;
   return {
     title: `${s.title} · Pricing`,
     description: s.description,
@@ -72,10 +73,10 @@ export default async function ServiceCategoryPage({
     name: `${s.title} Photography`,
     serviceType: `${s.title} Photography`,
     description: s.description,
-    url: `https://julianperezphotography.com/services/${s.slug}`,
+    url: `${SITE_URL}/services/${s.slug}`,
     provider: {
       "@type": "LocalBusiness",
-      "@id": "https://julianperezphotography.com#business",
+      "@id": `${SITE_URL}#business`,
     },
     areaServed: [
       { "@type": "AdministrativeArea", name: "Northern Virginia" },

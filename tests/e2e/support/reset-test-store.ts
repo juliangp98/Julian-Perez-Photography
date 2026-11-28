@@ -10,7 +10,8 @@ import { testStore } from "./test-store";
 //   and a local run, say) keeps its own;
 // - alt-text overrides saved for the e2e-only image path (/portfolio/e2e/).
 // Specs don't depend on an empty store: each creates the records it asserts on,
-// and the cron spec settles the stored AI model choice itself.
+// and the cron spec settles the stored AI model choice and clears the day's
+// morning-email claim itself.
 export default async function resetTestStore() {
   const db = testStore();
   if (!db) return;

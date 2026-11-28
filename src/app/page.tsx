@@ -13,13 +13,14 @@ import PressStrip from "@/components/marketing/PressStrip";
 import ImageScrim, { overlayTextClass } from "@/components/ui/ImageScrim";
 
 import Button from "@/components/ui/Button";
+import { SITE_URL } from "@/lib/site-settings-data";
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   return {
     title: `${settings.siteName} · DMV Wedding, Portrait & Event Photographer`,
     description:
       "DMV-based photographer covering weddings, engagements, graduations, portraits, family events, maternity, headshots, and corporate events across Northern Virginia, Washington DC, and Maryland.",
-    alternates: { canonical: "https://julianperezphotography.com" },
+    alternates: { canonical: SITE_URL },
   };
 }
 

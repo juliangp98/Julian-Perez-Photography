@@ -9,6 +9,7 @@ import Footer from "@/components/marketing/Footer";
 import ConciergeWidget from "@/components/marketing/ConciergeWidget";
 import { getSiteSettings } from "@/lib/content";
 import { aiEnabled } from "@/lib/ai/ai";
+import { SITE_URL } from "@/lib/site-settings-data";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,7 +23,6 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const SITE_URL = "https://julianperezphotography.com";
 const DEFAULT_DESCRIPTION =
   "Julian Perez Photography: DMV-based wedding, engagement, graduation, portrait, family, maternity, headshot, concert, and event photographer serving Northern Virginia, Washington DC, and Maryland.";
 

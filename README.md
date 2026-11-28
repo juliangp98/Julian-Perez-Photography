@@ -340,18 +340,25 @@ The site runs on Vercel. The domain's DNS is on Cloudflare.
 
 The studio address, `julian@julianperezphotography.com` (`CONTACT_EMAIL` in `src/lib/site-settings-data.ts`), is not a mailbox. Cloudflare Email Routing forwards it to the owner's Gmail, so the root domain's MX records belong to Email Routing. Resend sends from the records on the `send.` subdomain plus `resend._domainkey`, and the inbound relay uses its own `in.` subdomain. The three never share records, so each can change without touching the others. [`docs/configuration.md`](docs/configuration.md) → "Email relay setup" has the relay steps.
 
-### Supabase keep-alive
+### The daily cron
 
-Supabase's free tier auto-pauses a project after ~7 days without database
-activity. Because the public site reads almost entirely from Sanity, Postgres
-can sit idle between admin/portal sessions and drift toward a pause. A daily
-Vercel Cron (`vercel.json`) hits `/api/cron/keepalive`, which runs one trivial
-count against `client_records` — enough to reset the idle timer. Set
-`CRON_SECRET` in the project's environment variables; Vercel sends it as a
-bearer token on scheduled runs, and the route rejects anything else. On the
-Hobby plan crons run once per day, which is ample margin for a 7-day window.
-(Upgrading to Supabase Pro removes auto-pausing entirely and makes this
-unnecessary.)
+A Vercel Cron (`vercel.json`) hits `/api/cron/keepalive` at 11:00 UTC, which is
+6 am Eastern in winter and 7 am in summer (on the Hobby plan it may fire any
+time in that hour). It does four things, in order:
+
+1. **Keep-alive.** Supabase's free tier pauses a project after about 7 days
+   without database activity, and the public site reads almost entirely from
+   Sanity, so one trivial count against `client_records` resets the idle
+   timer. (Supabase Pro doesn't pause, which would make this part unnecessary.)
+2. **Delivery check.** Thread messages whose delivery event never arrived are
+   settled from Resend.
+3. **Morning email.** The board's Today list goes to the owner, once a studio
+   day and only on days with something on it.
+4. **AI model check.** The models are re-chosen from the provider's catalogue,
+   and the owner hears when they change.
+
+Set `CRON_SECRET` in the project's environment variables. Vercel sends it as a
+bearer token on scheduled runs, and the route rejects anything else.
 
 ### Pre-launch checklist
 
@@ -368,7 +375,7 @@ Inquiries and questionnaire submissions are captured as **client records** in a
 free, **private Supabase Postgres** table (`client_records`) — not Sanity,
 because client PII needs a private store and Sanity's private datasets are a
 paid feature. Julian manages records in the **owner dashboard at `/admin`** (a
-board of projects with a Today list of what needs doing, a page per project
+board of projects with a Today list of what needs doing, emailed each morning it has something on it, a page per project
 that follows its stage, a Content page with the call guides, email templates and collections, and a Links page with the links Julian shares with clients, the tools he works in and the services the site runs on) — the Supabase Table Editor stays available as a fallback
 for complex JSONB edits.
 

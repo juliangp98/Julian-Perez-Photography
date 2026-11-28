@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getVisiblePortfolios, getVisibleServices } from "@/lib/content";
 import { QUESTIONNAIRES } from "@/lib/questionnaires";
-
-const BASE = "https://julianperezphotography.com";
+import { SITE_URL } from "@/lib/site-settings-data";
 
 // Services and portfolios both come from Sanity at request time (60s
 // revalidate). The two fetches run in parallel under React's `cache()`
@@ -19,7 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/book",
     "/questionnaire",
   ].map((path) => ({
-    url: `${BASE}${path}`,
+    url: `${SITE_URL}${path}`,
     lastModified: now,
   }));
   const [portfolios, services] = await Promise.all([
@@ -27,15 +26,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getVisibleServices(),
   ]);
   const portfolioRoutes = portfolios.map((p) => ({
-    url: `${BASE}/portfolio/${p.slug}`,
+    url: `${SITE_URL}/portfolio/${p.slug}`,
     lastModified: now,
   }));
   const serviceRoutes = services.map((s) => ({
-    url: `${BASE}/services/${s.slug}`,
+    url: `${SITE_URL}/services/${s.slug}`,
     lastModified: now,
   }));
   const questionnaireRoutes = Object.keys(QUESTIONNAIRES).map((slug) => ({
-    url: `${BASE}/questionnaire/${slug}`,
+    url: `${SITE_URL}/questionnaire/${slug}`,
     lastModified: now,
   }));
   return [

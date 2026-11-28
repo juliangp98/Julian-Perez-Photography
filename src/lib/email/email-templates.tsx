@@ -4,7 +4,7 @@
 // @react-email/components and passed to Resend as HTML. A plain-text fallback
 // is always included alongside the HTML for email clients that don't render it.
 
-import { CONTACT_EMAIL } from "@/lib/site-settings-data";
+import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-settings-data";
 import {
   Html,
   Head,
@@ -108,7 +108,7 @@ export function BrandedEmailLayout({
             Based in NOVA · Serving the DMV
             <br />
             <Link
-              href="https://julianperezphotography.com"
+              href={SITE_URL}
               style={{ color: ACCENT }}
             >
               julianperezphotography.com
@@ -590,13 +590,19 @@ export function MagicLinkEmailTemplate({
 // Generic notification email (sign-in-free updates to a client or to Julian)
 // ---------------------------------------------------------------------------
 
+// One thing in a notification's list: a title, a line about it, and a link
+// to act on it.
+export type NotificationItem = { title: string; text: string; link: { label: string; href: string } };
+
 export function NotificationEmailTemplate({
   heading,
   lines,
+  items,
   cta,
 }: {
   heading: string;
   lines: string[];
+  items?: NotificationItem[];
   cta?: { label: string; href: string };
 }) {
   return (
@@ -624,6 +630,23 @@ export function NotificationEmailTemplate({
           {line}
         </Text>
       ))}
+      {items?.length ? (
+        <Section style={{ margin: "4px 0 20px 0" }}>
+          {items.map((item, i) => (
+            <Section key={i} style={{ borderTop: `1px solid ${BORDER}`, padding: "12px 0" }}>
+              <Text style={{ fontSize: "15px", fontWeight: 600, color: FOREGROUND, margin: "0 0 4px 0" }}>
+                {item.title}
+              </Text>
+              <Text style={{ fontSize: "14px", color: FOREGROUND, lineHeight: "20px", margin: "0 0 6px 0" }}>
+                {item.text}
+              </Text>
+              <Link href={item.link.href} style={{ fontSize: "14px", color: ACCENT, textDecoration: "underline" }}>
+                {item.link.label}
+              </Link>
+            </Section>
+          ))}
+        </Section>
+      ) : null}
       {cta && <PillButton href={cta.href} label={cta.label} />}
     </>
   );

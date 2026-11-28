@@ -1,6 +1,8 @@
 // The daily job (vercel.json): one query against the client store so the
 // Supabase free tier never pauses, settle thread messages whose delivery event
-// never arrived, and re-check the AI models against the provider's catalogue.
+// never arrived, email the owner the day's Today list (once a studio day, on
+// days with something on it), and re-check the AI models against the
+// provider's catalogue.
 
 export const runtime = "nodejs";
 // Every run must reach Postgres to count as activity.
@@ -10,6 +12,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { pingClientsStore, isClientsStoreConfigured } from "@/lib/clients";
 import { reconcileUnsettledSends } from "@/lib/email/relay";
+import { sendMorningEmail } from "@/lib/morning-email";
 import { aiEnabled, refreshAiModels } from "@/lib/ai/ai";
 
 export async function GET(req: Request) {
@@ -49,6 +52,20 @@ export async function GET(req: Request) {
       level: "warning",
     });
   }
+  // The morning email, after the delivery check: a send it settles as bounced
+  // puts a reply or inquiry row back on the list. Before the model check,
+  // which can email the owner too.
+  let morning: string;
+  try {
+    morning = await sendMorningEmail();
+  } catch (err) {
+    // Reported once, here; a failed send has given the day back already.
+    Sentry.captureException(err, {
+      tags: { route: "cron/keepalive", stage: "morning-email" },
+      level: "warning",
+    });
+    morning = "failed";
+  }
   // Re-choose the AI models from the live catalogue (the owner hears if they change).
   let models: string | undefined;
   if (aiEnabled()) {
@@ -61,5 +78,5 @@ export async function GET(req: Request) {
       });
     }
   }
-  return NextResponse.json({ ok: true, count, settled, models });
+  return NextResponse.json({ ok: true, count, settled, morning, models });
 }

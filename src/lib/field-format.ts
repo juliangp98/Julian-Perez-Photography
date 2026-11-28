@@ -322,11 +322,12 @@ export function weekdayOf(iso: string): string {
 // it never shifts a day in a negative-offset locale) or any Date-parseable
 // string/Date; returns "" for empty or unparseable input so callers fall back
 // cleanly. Pass `timeZone` (e.g. STUDIO_TIME_ZONE) when the input is a full
-// timestamp rather than a calendar date, and `withTime` to append the clock
-// time ("June 7, 2026 at 3:04 PM").
+// timestamp rather than a calendar date, `withTime` to append the clock
+// time ("June 7, 2026 at 3:04 PM"), and `withYear: false` for the month and
+// day alone ("June 7").
 export function formatHumanDate(
   input?: string | Date | null,
-  opts: { month?: "long" | "short"; timeZone?: string; withTime?: boolean } = {},
+  opts: { month?: "long" | "short"; timeZone?: string; withTime?: boolean; withYear?: boolean } = {},
 ): string {
   if (!input) return "";
   let date: Date;
@@ -342,7 +343,7 @@ export function formatHumanDate(
   }
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("en-US", {
-    year: "numeric",
+    ...(opts.withYear === false ? {} : { year: "numeric" as const }),
     month: opts.month ?? "long",
     day: "numeric",
     ...(opts.withTime ? { hour: "numeric", minute: "2-digit" } : {}),
